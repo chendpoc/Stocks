@@ -4,6 +4,7 @@ import os
 import subprocess
 from loguru import logger
 from utils import history_list_to_text, summary_prompt, get_response, get_history_posts, save_to_md, get_summary_config, hours_from_open, hours_from_close
+from utils._secrets import model_key as _model_key_list
 
 def build_search_index():
     """构建搜索索引"""
@@ -35,9 +36,7 @@ def summary_run():
     history_items, username_dict = get_history_posts(limit, is_whole_day=is_whole_day)
     big_text = history_list_to_text(history_items, username_dict)
     to_summary_text = summary_prompt + big_text
-    # model = "gemini-2.5-pro"
-    # model = "gemini-3-flash-preview"
-    model = "Pro/deepseek-ai/DeepSeek-V3.2"
+    model = _model_key_list[0]["model"]
     summary = get_response(to_summary_text, model=model)
 
     save_to_md(
@@ -52,8 +51,9 @@ def summary_run():
     build_search_index()
     
     now_pst = datetime.datetime.now(pytz.UTC).astimezone(pytz.timezone('America/Los_Angeles'))
-    # Git 推送
-    os.system(f'cd . && git add docs/ && git commit -m "Auto update: ' + now_pst.strftime("%Y-%m-%d %H:%M:%S PST") + '" && git push origin master')
+    # Git 推送（本地调试设 SKIP_GIT_PUSH=1 可跳过）
+    if os.environ.get("SKIP_GIT_PUSH") != "1":
+        os.system(f'cd . && git add docs/ && git commit -m "Auto update: ' + now_pst.strftime("%Y-%m-%d %H:%M:%S PST") + '" && git push origin master')
     # os.system(
     #     '''
     #     BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -74,10 +74,14 @@ def summary_run():
     # )
 
 if __name__ == "__main__":
-    
+    # 本地手动跑一次：FORCE_SUMMARY=1 python whop_summary.py
+    if os.environ.get("FORCE_SUMMARY") == "1":
+        summary_run()
+        raise SystemExit(0)
+
     hours_open = hours_from_open()
     hours_close = hours_from_close()
-    
+
     # 判断是否应该执行
     if 4 <= hours_close < 5:
         # 盘后总结  

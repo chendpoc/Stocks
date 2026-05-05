@@ -9,6 +9,14 @@
 import os
 import sys
 import json
+
+# Windows GBK 控制台打印 Unicode 可能报错，尽量使用 UTF-8 输出
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 import re
 import hashlib
 from pathlib import Path
@@ -144,7 +152,7 @@ def build_search_index():
         
         print(f"  - 内容类型分布:")
         for ct, count in sorted(content_types.items(), key=lambda x: -x[1]):
-            print(f"    • {ct}: {count} 条")
+            print(f"    - {ct}: {count} 条")
         
         # 日期范围
         dates = [datetime.fromisoformat(doc["created_at"]) for doc in index]
@@ -155,7 +163,7 @@ def build_search_index():
         print(f"  - 索引文件: {index_path.absolute()}")
         print(f"  - 文件大小: {index_path.stat().st_size / 1024:.1f} KB")
     
-    print("\n✓ 索引构建成功")
+    print("\n[OK] 索引构建成功")
     return len(index)
 
 
@@ -190,7 +198,7 @@ def test_search():
         for r in results[:2]:
             print(f"    - {r['title'][:50]}... (相关度: {r['score']})")
     
-    print("\n✓ 搜索测试通过")
+    print("\n[OK] 搜索测试通过")
 
 
 if __name__ == "__main__":
@@ -204,7 +212,7 @@ if __name__ == "__main__":
         
         sys.exit(0)
     except Exception as e:
-        print(f"\n✗ 错误: {e}")
+        print(f"\n[ERR] 错误: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

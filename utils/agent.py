@@ -9,7 +9,7 @@ from google import genai
 
 from loguru import logger
 import pytz
-from .local_secrets import model_key
+from ._secrets import model_key
 # client = OpenAI(
 #     api_key=openai_api_key,
 #     base_url=openai_base_url
@@ -72,6 +72,12 @@ def get_response(to_summary_text: str, model: str = "gemini-2.5-pro") -> str:
     raise last_err
 
 
+def _safe_filename_part(text: str) -> str:
+    """Windows 等系统文件名不可用 \\ / : * ? \" < > |"""
+    out = "".join("_" if c in '\\/:*?"<>|' else c for c in (text or "").strip())
+    return out or "untitled"
+
+
 def _sanitize_summary_markdown(summary: str) -> str:
     if not summary:
         return summary
@@ -129,10 +135,17 @@ def save_to_md(
     with open(f'{output_dir}/index.md', 'w', encoding='utf-8') as f:
         f.write(readme_content)
 
-    datetime_str = now_cst.strftime("%Y-%m-%d %H:%M:%S")
+    heading_time = now_cst.strftime("%Y-%m-%d %H:%M:%S CST")
+    file_ts = now_cst.strftime("%Y-%m-%d_%H-%M-%S")
+    body = (
+        f"# {heading_time} 总结 - {description}\n\n"
+        f"> 美西时间：{now_pst.strftime('%Y-%m-%d %H:%M:%S PST')}\n\n"
+        f"> 美东时间：{now_est.strftime('%Y-%m-%d %H:%M:%S EST')}\n\n"
+        f"{summary}"
+    )
     if title is None:
-        with open(f'{summary_dir}/{datetime_str}.md', 'w', encoding='utf-8') as f:
-            f.write(f"# {now_cst.strftime('%Y-%m-%d %H:%M:%S CST')} 总结 - {description}\n\n> 美西时间：{now_pst.strftime('%Y-%m-%d %H:%M:%S PST')}\n\n> 美东时间：{now_est.strftime('%Y-%m-%d %H:%M:%S EST')}\n\n{summary}")
+        fname = f"{file_ts}.md"
     else:
-        with open(f'{summary_dir}/{datetime_str}-{title}.md', 'w', encoding='utf-8') as f:
-            f.write(f"# {now_cst.strftime('%Y-%m-%d %H:%M:%S CST')} 总结 - {description}\n\n> 美西时间：{now_pst.strftime('%Y-%m-%d %H:%M:%S PST')}\n\n> 美东时间：{now_est.strftime('%Y-%m-%d %H:%M:%S EST')}\n\n{summary}")
+        fname = f"{file_ts}-{_safe_filename_part(title)}.md"
+    with open(os.path.join(summary_dir, fname), "w", encoding="utf-8") as f:
+        f.write(body)

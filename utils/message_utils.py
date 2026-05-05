@@ -4,7 +4,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 import requests
 from loguru import logger
-from .local_secrets import whom_headers as headers
+from ._secrets import whom_headers as headers
 
 url = "https://whop.com/api/graphql/MessagesFetchFeedPosts/"
 
@@ -114,12 +114,22 @@ def get_history_posts(limit: int, before: Optional[int] = None, is_whole_day: bo
 
         # --- 构造请求 ---
         try:
-            payload = get_payload(page_limit, next_before) 
+            payload = get_payload(page_limit, next_before)
             resp = requests.request("POST", url, headers=headers, data=payload)
             resp.raise_for_status()
-            data = resp.json()['data']['feedPosts']
-            user_json = data['users']
-            posts_page = data['posts']
+            body = resp.json()
+            if body.get("errors"):
+                logger.error(f"Whop GraphQL 错误: {body['errors']}")
+                break
+            fp = (body.get("data") or {}).get("feedPosts")
+            if not fp:
+                logger.error(
+                    f"Whop 响应异常（请检查 whom_headers/Cookie 是否过期）: "
+                    f"HTTP {resp.status_code} body[:800]={resp.text[:800]!r}"
+                )
+                break
+            user_json = fp["users"]
+            posts_page = fp["posts"]
         except Exception as e:
             logger.error(f"API请求失败: {e}")
             break
