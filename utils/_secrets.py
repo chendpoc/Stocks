@@ -20,11 +20,13 @@ def _load_user_secrets():
             continue
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        return mod.whom_headers, mod.model_key
+        hook = getattr(mod, "wework_webhook_url", None)
+        hook_norm = (hook or "").strip() or None
+        return mod.whom_headers, mod.model_key, hook_norm
     raise ImportError(
         "请在 utils 目录创建 .local_secrets.py（推荐）或 local_secrets.py，"
         "并定义 whom_headers 与 model_key（参见 README）。"
     )
 
 
-whom_headers, model_key = _load_user_secrets()
+whom_headers, model_key, wework_webhook_url = _load_user_secrets()

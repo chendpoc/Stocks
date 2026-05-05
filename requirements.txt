@@ -1,9 +1,12 @@
-openai>=1.0.0
-requests
-loguru
-pytz
-pandas
-pandas_market_calendars
-# 国内镜像若缺包，请使用：pip install -r requirements.txt -i https://pypi.org/simple
-# 若导入 pandas/pyarrow 报 NumPy 版本冲突，可在干净 venv 中安装，或临时约束：numpy>=1.26,<2
-google-genai
+# Pinned ranges for reproducible installs. numpy<2 avoids Windows binary ABI issues with some wheels (e.g. older pyarrow) against NumPy 2.x.
+numpy>=1.26.4,<2.0
+openai>=1.40.0,<2
+requests>=2.31.0,<3
+loguru>=0.7.2
+pytz>=2024.1
+pandas>=2.2.3,<3
+pandas-market-calendars>=4.4.0,<6
+google-genai>=1.0.0,<2
+websockets>=12.0,<16
+
+# If mirror lacks packages: pip install -r requirements.txt -i https://pypi.org/simple

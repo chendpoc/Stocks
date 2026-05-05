@@ -147,5 +147,7 @@ def save_to_md(
         fname = f"{file_ts}.md"
     else:
         fname = f"{file_ts}-{_safe_filename_part(title)}.md"
-    with open(os.path.join(summary_dir, fname), "w", encoding="utf-8") as f:
+    archive_path = os.path.join(summary_dir, fname)
+    with open(archive_path, "w", encoding="utf-8") as f:
         f.write(body)
+    return archive_path
