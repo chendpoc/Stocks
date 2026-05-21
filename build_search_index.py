@@ -39,7 +39,7 @@ class SimpleContentIndexer:
         if not self.summaries_dir.exists():
             return self.index
             
-        for md_file in sorted(self.summaries_dir.glob("*.md")):
+        for md_file in sorted(self.summaries_dir.rglob("*.md")):
             try:
                 doc = self._parse_markdown_file(md_file)
                 if doc:
@@ -70,31 +70,55 @@ class SimpleContentIndexer:
         
         # 生成唯一ID
         doc_id = hashlib.md5(str(file_path).encode()).hexdigest()[:12]
+        is_built_page = self._is_built_page(file_path)
+        url = self._build_public_url(file_path)
         
         return {
             "id": doc_id,
             "title": title,
             "content": clean_content,
             "file_path": str(file_path).replace("\\", "/"),
+            "url": url if is_built_page else None,
+            "is_built_page": is_built_page,
             "created_at": created_at.isoformat(),
             "content_type": content_type,
             "word_count": len(clean_content)
         }
+
+    def _summary_relative_path(self, file_path: Path) -> str:
+        try:
+            return file_path.relative_to(self.summaries_dir).as_posix()
+        except ValueError:
+            return file_path.name
+
+    def _is_built_page(self, file_path: Path) -> bool:
+        summary_rel = self._summary_relative_path(file_path)
+        return not ("/" not in summary_rel and summary_rel.startswith("20"))
+
+    def _build_public_url(self, file_path: Path) -> str:
+        summary_rel = self._summary_relative_path(file_path)
+        return f"/summaries/{Path(summary_rel).with_suffix('').as_posix()}"
     
     def _extract_metadata_from_filename(self, filename: str) -> Tuple[datetime, str]:
         """从文件名提取时间和类型"""
         content_type = "总结"
         
+        daily_match = re.match(r"^(\d{4}-\d{2}-\d{2})-(.+)$", filename)
+        if daily_match:
+            return datetime.strptime(daily_match.group(1), "%Y-%m-%d"), daily_match.group(2).strip()
+
         if "-" in filename:
             parts = filename.rsplit("-", 1)
             if len(parts) == 2:
                 content_type = parts[1].strip()
         
-        try:
-            time_str = filename[:19].replace("_", ":")
-            created_at = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-        except:
-            created_at = datetime.now()
+        created_at = datetime.now()
+        for pattern in ("%Y-%m-%d_%H-%M-%S", "%Y-%m-%d %H_%M_%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                created_at = datetime.strptime(filename[:19], pattern)
+                break
+            except ValueError:
+                continue
         
         return created_at, content_type
     

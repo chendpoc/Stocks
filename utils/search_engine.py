@@ -35,6 +35,8 @@ class SearchResult:
     title: str
     content: str
     file_path: str
+    url: Optional[str]
+    is_built_page: bool
     created_at: datetime
     content_type: str
     relevance_score: float = 0.0
@@ -46,6 +48,8 @@ class SearchResult:
             "title": self.title,
             "content": self.content[:500] + "..." if len(self.content) > 500 else self.content,
             "file_path": self.file_path,
+            "url": self.url,
+            "is_built_page": self.is_built_page,
             "created_at": self.created_at.isoformat(),
             "content_type": self.content_type,
             "relevance_score": self.relevance_score,
@@ -93,7 +97,7 @@ class ContentIndexer:
             cache_mtime = self.index_cache_path.stat().st_mtime
             # 检查是否有文件更新
             needs_rebuild = False
-            for md_file in self.summaries_dir.glob("*.md"):
+            for md_file in self.summaries_dir.rglob("*.md"):
                 if md_file.stat().st_mtime > cache_mtime:
                     needs_rebuild = True
                     break
@@ -107,7 +111,7 @@ class ContentIndexer:
         if not self.summaries_dir.exists():
             return self.index
             
-        for md_file in sorted(self.summaries_dir.glob("*.md")):
+        for md_file in sorted(self.summaries_dir.rglob("*.md")):
             try:
                 doc = self._parse_markdown_file(md_file)
                 if doc:
@@ -138,17 +142,35 @@ class ContentIndexer:
         
         # 生成唯一ID
         doc_id = hashlib.md5(str(file_path).encode()).hexdigest()[:12]
+        is_built_page = self._is_built_page(file_path)
+        url = self._build_public_url(file_path)
         
         return {
             "id": doc_id,
             "title": title,
             "content": clean_content,
             "file_path": str(file_path).replace("\\", "/"),
+            "url": url if is_built_page else None,
+            "is_built_page": is_built_page,
             "created_at": created_at.isoformat(),
             "content_type": content_type,
             "word_count": len(clean_content),
             "raw_content": content  # 保留原始内容用于高亮
         }
+
+    def _summary_relative_path(self, file_path: Path) -> str:
+        try:
+            return file_path.relative_to(self.summaries_dir).as_posix()
+        except ValueError:
+            return file_path.name
+
+    def _is_built_page(self, file_path: Path) -> bool:
+        summary_rel = self._summary_relative_path(file_path)
+        return not ("/" not in summary_rel and summary_rel.startswith("20"))
+
+    def _build_public_url(self, file_path: Path) -> str:
+        summary_rel = self._summary_relative_path(file_path)
+        return f"/summaries/{Path(summary_rel).with_suffix('').as_posix()}"
     
     def _extract_metadata_from_filename(self, filename: str) -> Tuple[datetime, str]:
         """从文件名提取时间和类型"""
@@ -156,18 +178,23 @@ class ContentIndexer:
         content_type = "总结"
         
         # 尝试提取类型
+        daily_match = re.match(r"^(\d{4}-\d{2}-\d{2})-(.+)$", filename)
+        if daily_match:
+            return datetime.strptime(daily_match.group(1), "%Y-%m-%d"), daily_match.group(2).strip()
+
         if "-" in filename:
             parts = filename.rsplit("-", 1)
             if len(parts) == 2:
                 content_type = parts[1].strip()
         
-        # 解析时间
-        try:
-            # 替换下划线为冒号，空格保持不变
-            time_str = filename[:19].replace("_", ":")
-            created_at = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-        except:
-            created_at = datetime.now()
+        # 解析时间，兼容新旧归档文件名
+        created_at = datetime.now()
+        for pattern in ("%Y-%m-%d_%H-%M-%S", "%Y-%m-%d %H_%M_%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                created_at = datetime.strptime(filename[:19], pattern)
+                break
+            except ValueError:
+                continue
         
         return created_at, content_type
     
@@ -339,6 +366,8 @@ class SearchEngine:
                     title=doc["title"],
                     content=doc["content"],
                     file_path=doc["file_path"],
+                    url=doc.get("url"),
+                    is_built_page=doc.get("is_built_page", True),
                     created_at=doc_date,
                     content_type=doc["content_type"],
                     relevance_score=score,

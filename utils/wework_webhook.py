@@ -1,17 +1,57 @@
-"""企业微信群机器人 Webhook（text 类型）推送。"""
+"""企业微信群机器人 Webhook 推送。
+
+新流水线默认使用 image 类型推送日报图；text 函数仅作为历史兼容工具保留。
+"""
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import re
 import time
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import requests
 from loguru import logger
 
 # 企业微信 text 消息 content 上限（UTF-8 字节），留出余量
 WEWORK_TEXT_MAX_BYTES = 2040
+WEWORK_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+
+
+def build_wework_image_payload(image_bytes: bytes) -> Dict[str, Dict[str, str] | str]:
+    """
+    构造企业微信群机器人 image 消息 payload。
+
+    企业微信 image 消息需要原始图片的 base64 与 md5，图片本体不能超过 2MB。
+    """
+    if len(image_bytes) > WEWORK_IMAGE_MAX_BYTES:
+        raise ValueError(f"企业微信 image 图片超过 2MB 限制: {len(image_bytes)} bytes")
+    return {
+        "msgtype": "image",
+        "image": {
+            "base64": base64.b64encode(image_bytes).decode("ascii"),
+            "md5": hashlib.md5(image_bytes).hexdigest(),
+        },
+    }
+
+
+def build_wework_image_payload_from_file(path: str | Path) -> Dict[str, Dict[str, str] | str]:
+    return build_wework_image_payload(Path(path).read_bytes())
+
+
+def _raise_for_wework_error(body: Dict[str, Any]) -> None:
+    if body.get("errcode", 0) != 0:
+        raise RuntimeError(f"企业微信返回错误: {body}")
+
+
+def send_wework_image(webhook_url: str, image_path: str | Path, timeout: float = 30.0) -> None:
+    """发送企业微信 image 消息。"""
+    payload = build_wework_image_payload_from_file(image_path)
+    resp = requests.post(webhook_url, json=payload, timeout=timeout)
+    resp.raise_for_status()
+    _raise_for_wework_error(resp.json())
 
 
 def markdown_to_plain_article(md: str) -> str:
@@ -103,9 +143,7 @@ def send_wework_text(webhook_url: str, content: str, timeout: float = 30.0) -> N
     payload = {"msgtype": "text", "text": {"content": content}}
     resp = requests.post(webhook_url, json=payload, timeout=timeout)
     resp.raise_for_status()
-    body = resp.json()
-    if body.get("errcode", 0) != 0:
-        raise RuntimeError(f"企业微信返回错误: {body}")
+    _raise_for_wework_error(resp.json())
 
 
 def send_wework_text_article(webhook_url: str, plain_article: str) -> int:

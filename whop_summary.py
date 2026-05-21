@@ -37,15 +37,8 @@ def build_search_index():
 
 
 def _maybe_git_push():
-    now_pst = datetime.datetime.now(pytz.UTC).astimezone(
-        pytz.timezone("America/Los_Angeles")
-    )
     if os.environ.get("SKIP_GIT_PUSH") != "1":
-        os.system(
-            "cd . && git add docs/ && git commit -m \"Auto update: "
-            + now_pst.strftime("%Y-%m-%d %H:%M:%S PST")
-            + '" && git push origin master'
-        )
+        logger.warning("Python 内部 git push 已停用；请使用 npm run daily:sync 统一发布。")
 
 
 def summary_run_core(limit: int, is_whole_day: bool, title: str, description: str) -> str:

@@ -58,8 +58,34 @@
       ]
    ```
 
-2. 设置程序，每1小时运行仓库中的脚本``sh/run.sh``
-3. 运行whop_summary.py即可进行总结
+2. 安装依赖
+
+   ```bash
+   npm install
+   .venv\Scripts\pip.exe install -r requirements.txt
+   ```
+
+3. 本地自检（不拉 Whop、不调用模型、不推送企业微信）
+
+   ```bash
+   npm run daily:sync:dry
+   ```
+
+4. 手动执行一次每日同步
+
+   ```bash
+   npm run daily:sync
+   ```
+
+   该入口会执行：拉取最近 24 小时群聊、归档原始数据到 `data/raw/YYYY-MM-DD/`、生成结构化总结、更新 `docs/index.md` 与搜索索引、渲染单张总结图并推送企业微信群机器人。
+
+5. 安装 Windows 每日 08:30 定时任务
+
+   ```bash
+   npm run daily:install-task
+   ```
+
+   自动化入口统一使用 Node.js，不再依赖 `ps1` 或 `sh` 脚本。
 
 ### btc预警
 

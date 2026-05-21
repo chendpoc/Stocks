@@ -3,19 +3,62 @@ import fs from 'fs'
 import path from 'path'
 
 // 自动生成 summaries 列表
+function getSummaryMonthDirs() {
+  const summariesDir = path.resolve(__dirname, '../summaries')
+
+  if (!fs.existsSync(summariesDir)) {
+    return []
+  }
+
+  return fs
+    .readdirSync(summariesDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && /^\d{4}-\d{2}$/.test(entry.name))
+    .map(entry => entry.name)
+    .sort((a, b) => b.localeCompare(a))
+}
+
+function getLatestSummaryMonth() {
+  return getSummaryMonthDirs()[0] ?? null
+}
+
+const latestSummaryMonth = getLatestSummaryMonth()
+
+function getSummarySrcExclude() {
+  return [
+    'summaries/20*.md',
+    ...getSummaryMonthDirs()
+      .filter(month => month !== latestSummaryMonth)
+      .map(month => `summaries/${month}/**/*.md`),
+  ]
+}
+
 function getSummariesSidebar() {
   const summariesDir = path.resolve(__dirname, '../summaries')
-  const files = fs.readdirSync(summariesDir)
 
-  // 过滤并按时间倒序排序
-  const mdFiles = files
-    .filter(f => f.endsWith('.md') && f !== '_sidebar.md')
-    .sort((a, b) => b.localeCompare(a))  // 日期倒序
+  if (!latestSummaryMonth || !fs.existsSync(summariesDir)) {
+    return []
+  }
 
-  return mdFiles.map(file => ({
-    text: file.replace('.md', ''),
-    link: `/summaries/${file}`,
-  }))
+  return getSummaryMonthDirs()
+    .filter(month => month === latestSummaryMonth)
+    .map(month => {
+      const monthDir = path.join(summariesDir, month)
+      const items = fs
+        .readdirSync(monthDir)
+        .filter(file => file.endsWith('.md') && file !== '_sidebar.md')
+        .sort((a, b) => b.localeCompare(a))
+        .map(file => ({
+          text: file.replace('.md', ''),
+          link: `/summaries/${month}/${file.replace('.md', '')}`,
+        }))
+
+      return {
+        text: month,
+        collapsed: false,
+        items,
+      }
+    })
+    .filter(group => group.items.length > 0)
 }
 
 export default defineConfig({
@@ -23,6 +66,8 @@ export default defineConfig({
   description: "A VitePress Site for Stocks Summaries.",
 
   base: '/',
+
+  srcExclude: getSummarySrcExclude(),
 
 
   themeConfig: {

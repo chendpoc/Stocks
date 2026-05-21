@@ -1,10 +1,7 @@
 # 全文搜索
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import SearchResults from './components/SearchResults.vue'
-import SearchFilters from './components/SearchFilters.vue'
-import SearchSuggestions from './components/SearchSuggestions.vue'
+import { ref, onMounted, watch } from 'vue'
 
 const query = ref('')
 const results = ref([])
@@ -29,8 +26,6 @@ const contentTypes = ref(['全天回顾', '盘中总结', '盘中小时总结', 
 
 // 加载搜索索引
 let searchIndex = []
-let searchEngine = null
-
 onMounted(async () => {
   try {
     const response = await fetch('/search_index.json')
@@ -321,11 +316,15 @@ function clearHistory() {
     </div>
     
     <div v-for="r in results" :key="r.id" class="result-item">
-      <a :href="'/' + r.file_path.replace('.md', '')" class="result-title">
+      <a v-if="r.is_built_page !== false && r.url" :href="r.url" class="result-title">
         <span v-html="highlightText(r.title, query)"></span>
       </a>
+      <div v-else class="result-title result-title-static">
+        <span v-html="highlightText(r.title, query)"></span>
+      </div>
       <div class="result-meta">
         <span class="result-type">{{ r.content_type }}</span>
+        <span v-if="r.is_built_page === false" class="result-archive">历史索引</span>
         <span class="result-date">{{ new Date(r.created_at).toLocaleString('zh-CN') }}</span>
         <span class="result-score">相关度: {{ r.score.toFixed(2) }}</span>
       </div>
@@ -531,6 +530,14 @@ function clearHistory() {
   text-decoration: underline;
 }
 
+.result-title-static {
+  color: #444;
+}
+
+.result-title-static:hover {
+  text-decoration: none;
+}
+
 .result-meta {
   display: flex;
   gap: 15px;
@@ -542,6 +549,13 @@ function clearHistory() {
 .result-type {
   background: #e3f2fd;
   color: #1976d2;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.result-archive {
+  background: #f5f5f5;
+  color: #666;
   padding: 2px 8px;
   border-radius: 4px;
 }

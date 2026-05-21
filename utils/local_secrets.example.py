@@ -21,5 +21,5 @@ model_key = [
     },
 ]
 
-# 企业微信群机器人 Webhook 完整 URL（daily_summary_notify.py 使用，可选）
+# 企业微信群机器人 Webhook 完整 URL（npm run daily:sync 使用，可选）
 # wework_webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
