@@ -327,6 +327,23 @@ test("package exposes Cloudflare Pages build and deploy commands", async () => {
   assert.match(wranglerConfig, /pages_build_output_dir\s*=\s*"\.\/docs\/\.vitepress\/dist"/);
 });
 
+test("cloudflare deploy dry run prints configured site base url for card notify", () => {
+  const result = spawnSync(process.execPath, [
+    "scripts/deploy-cloudflare-pages.mjs",
+    "--dry-run",
+    "--skip-build",
+    "--site-base-url=https://f79a4b5f.stocks-emw.pages.dev/",
+  ], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /project_name: stocks-emw/);
+  assert.match(result.stdout, /site_url: https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\//);
+  assert.match(result.stdout, /notify_card_env: SUMMARY_SITE_BASE_URL=https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\//);
+});
+
 test("summaries landing page describes current-month public history scope", async () => {
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
   const summariesIndex = await readFile("docs/summaries/index.md", "utf8");
@@ -350,7 +367,11 @@ test("notify:text dry run validates text notification path without network", () 
 });
 
 test("notify:card dry run validates card notification path without network", () => {
-  const result = spawnSync(process.execPath, ["scripts/notify-card.mjs", "--dry-run"], {
+  const result = spawnSync(process.execPath, [
+    "scripts/notify-card.mjs",
+    "--dry-run",
+    "--site-base-url=https://f79a4b5f.stocks-emw.pages.dev/",
+  ], {
     cwd: process.cwd(),
     encoding: "utf8",
   });
@@ -359,6 +380,8 @@ test("notify:card dry run validates card notification path without network", () 
   assert.match(result.stdout, /notify:card dry run ok/);
   assert.match(result.stdout, /msgtype: template_card/);
   assert.match(result.stdout, /card_type: news_notice/);
+  assert.match(result.stdout, /report_url: https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\//);
+  assert.match(result.stdout, /cover_url: https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\/assets\/summary-cards\/2026-05-20\.png/);
 });
 
 test("notify:brief dry run validates no-url markdown notification path without network", () => {

@@ -155,15 +155,18 @@ async function buildCardArtifacts(summary, artifacts, options = {}) {
 }
 
 async function runDry() {
+  const dryRunReportUrl = siteBaseUrl.replace(/\/+$/, "/");
+  const dryRunCoverImageUrl = buildPublicAssetUrl("docs/assets/summary-cards/2026-05-20.png", siteBaseUrl);
   const artifacts = await buildCardArtifacts(sampleSummary(), { day: "2026-05-20" }, {
     coverPath: path.join(root, "data", "generated", "dry-run-summary-card-cover.png"),
-    reportUrl: "https://stock.example.com/",
-    coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png",
+    reportUrl: dryRunReportUrl,
+    coverImageUrl: dryRunCoverImageUrl,
   });
   console.log("notify:card dry run ok");
   console.log(`msgtype: ${artifacts.payload.msgtype}`);
   console.log(`card_type: ${artifacts.payload.template_card.card_type}`);
   console.log(`report_url: ${artifacts.reportUrl}`);
+  console.log(`cover_url: ${artifacts.coverImageUrl}`);
   console.log(`cover_image: ${artifacts.coverPath}`);
   console.log(`cover_bytes: ${artifacts.coverSizeBytes}`);
 }

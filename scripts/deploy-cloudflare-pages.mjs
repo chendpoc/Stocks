@@ -14,8 +14,9 @@ function parseArgs(argv) {
     projectName:
       process.env.CLOUDFLARE_PAGES_PROJECT ||
       process.env.CF_PAGES_PROJECT ||
-      "stock-community-summary",
+      "stocks-emw",
     branch: process.env.CLOUDFLARE_PAGES_BRANCH || process.env.CF_PAGES_BRANCH || "",
+    siteBaseUrl: process.env.SUMMARY_SITE_BASE_URL || process.env.SITE_BASE_URL || process.env.CF_PAGES_URL || "",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -32,6 +33,10 @@ function parseArgs(argv) {
       options.branch = argv[++index];
     } else if (arg.startsWith("--branch=")) {
       options.branch = arg.slice("--branch=".length);
+    } else if (arg === "--site-base-url") {
+      options.siteBaseUrl = argv[++index];
+    } else if (arg.startsWith("--site-base-url=")) {
+      options.siteBaseUrl = arg.slice("--site-base-url=".length);
     } else if (arg === "--output-dir") {
       options.outputDir = argv[++index];
     } else if (arg.startsWith("--output-dir=")) {
@@ -50,8 +55,25 @@ function parseArgs(argv) {
   if (options.branch && !/^[A-Za-z0-9._/-]+$/.test(options.branch)) {
     throw new Error("Branch name contains unsupported characters for this deploy script.");
   }
+  options.siteBaseUrl = normalizeSiteBaseUrl(options.siteBaseUrl || `https://${options.projectName}.pages.dev`);
 
   return options;
+}
+
+function normalizeSiteBaseUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(String(value ?? "").trim());
+  } catch {
+    throw new Error("Site base URL must be a valid http(s) URL.");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Site base URL must use http or https.");
+  }
+  parsed.search = "";
+  parsed.hash = "";
+  if (!parsed.pathname.endsWith("/")) parsed.pathname = `${parsed.pathname}/`;
+  return parsed.toString();
 }
 
 function commandName(name) {
@@ -110,9 +132,9 @@ function printPlan(options, outputDirAbs) {
   console.log(`project_name: ${options.projectName}`);
   console.log(`branch: ${branch}`);
   console.log(`output_dir: ${outputDirForDisplay}`);
-  console.log(`site_url_default: https://${options.projectName}.pages.dev`);
+  console.log(`site_url: ${options.siteBaseUrl}`);
   console.log(`deploy_command: npx ${deployArgs.join(" ")}`);
-  console.log(`notify_card_env: SUMMARY_SITE_BASE_URL=https://${options.projectName}.pages.dev`);
+  console.log(`notify_card_env: SUMMARY_SITE_BASE_URL=${options.siteBaseUrl}`);
 }
 
 async function main() {
@@ -149,7 +171,7 @@ async function main() {
     `--branch=${branch}`,
   ]);
 
-  console.log(`deployed_url: https://${options.projectName}.pages.dev`);
+  console.log(`configured_site_url: ${options.siteBaseUrl}`);
 }
 
 main().catch((error) => {
