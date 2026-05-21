@@ -591,8 +591,6 @@ def render_public_index_markdown(
 
 > 模型：{model}
 
-代码仓库：[GitHub - finance-community-summary](https://github.com/andychenggg/Stocks) 可以 star 一下，方便后续获取更新内容。有问题欢迎提 issue。
-
 {public_body}
 """
 

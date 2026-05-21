@@ -696,9 +696,13 @@ class StructuredSummaryTests(unittest.TestCase):
                 generated_at=datetime(2026, 5, 20, 8, 30, tzinfo=timezone.utc),
             )
             index_path = Path(first["index_path"])
+            homepage_content = index_path.read_text(encoding="utf-8")
             self.assertTrue(first["index_updated"])
-            self.assertIn("LATEST_HOME_SUMMARY", index_path.read_text(encoding="utf-8"))
-            self.assertNotIn("/summaries/", index_path.read_text(encoding="utf-8"))
+            self.assertIn("LATEST_HOME_SUMMARY", homepage_content)
+            self.assertNotIn("/summaries/", homepage_content)
+            self.assertNotIn("finance-community-summary", homepage_content)
+            self.assertNotIn("可以 star", homepage_content)
+            self.assertNotIn("欢迎提 issue", homepage_content)
 
             old_mtime = 1_700_000_000
             os.utime(index_path, (old_mtime, old_mtime))
