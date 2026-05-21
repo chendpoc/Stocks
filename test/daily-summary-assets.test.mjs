@@ -275,6 +275,16 @@ test("package exposes Cloudflare Pages build and deploy commands", async () => {
   assert.match(wranglerConfig, /pages_build_output_dir\s*=\s*"\.\/docs\/\.vitepress\/dist"/);
 });
 
+test("summaries landing page is not ignored for Cloudflare clean builds", async () => {
+  const gitignore = await readFile(".gitignore", "utf8");
+  const summariesIndex = await readFile("docs/summaries/index.md", "utf8");
+
+  assert.match(gitignore, /docs\/summaries\/\*/);
+  assert.match(gitignore, /!docs\/summaries\/index\.md/);
+  assert.match(gitignore, /docs\/summaries\/\*\/\*/);
+  assert.match(summariesIndex, /# 历史总结/);
+});
+
 test("notify:text dry run validates text notification path without network", () => {
   const result = spawnSync(process.execPath, ["scripts/notify-text.mjs", "--dry-run"], {
     cwd: process.cwd(),

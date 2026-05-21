@@ -3,7 +3,10 @@ node_modules
 .wrangler/
 docs/.vitepress/cache
 docs/.vitepress/dist
-docs/summaries/
+docs/summaries/*
+!docs/summaries/index.md
+!docs/summaries/*/
+docs/summaries/*/*
 __pycache__/
 utils/local_secrets.py
 utils/.local_secrets.py
