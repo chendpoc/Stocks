@@ -22,14 +22,50 @@ function getOldMonthlySrcExclude(section: string) {
     .map(month => `${section}/${month}/**/*.md`)
 }
 
+function getLatestMonth(section: string) {
+  return getMonthlyDirs(section)[0] ?? null
+}
+
 function getSummarySrcExclude() {
   return [
-    'summaries/index.md',
     'summaries/20*.md',
-    'summaries/**/*.md',
     'search.md',
+    ...getOldMonthlySrcExclude('summaries'),
     ...getOldMonthlySrcExclude('trading-experiences'),
   ]
+}
+
+function getSummariesSidebar() {
+  const month = getLatestMonth('summaries')
+  const summariesDir = path.resolve(__dirname, '../summaries')
+
+  if (!month || !fs.existsSync(summariesDir)) {
+    return []
+  }
+
+  const monthDir = path.join(summariesDir, month)
+  if (!fs.existsSync(monthDir)) {
+    return []
+  }
+
+  const items = fs
+    .readdirSync(monthDir)
+    .filter(file => file.endsWith('.md') && file !== '_sidebar.md')
+    .sort((a, b) => b.localeCompare(a))
+    .map(file => ({
+      text: file.replace('.md', ''),
+      link: `/summaries/${month}/${file.replace('.md', '')}`,
+    }))
+
+  return items.length
+    ? [
+        {
+          text: `${month} 历史总结`,
+          collapsed: false,
+          items,
+        },
+      ]
+    : []
 }
 
 export default defineConfig({
@@ -44,6 +80,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
+      { text: '历史总结', link: '/summaries/' },
       { text: '经验总结', link: '/trading-experiences/' },
       { text: '币预警（Beta）', link: '/alerts/' }
     ],
@@ -55,7 +92,9 @@ export default defineConfig({
       }
     },
 
-    sidebar: {},
+    sidebar: {
+      '/summaries/': getSummariesSidebar(),
+    },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/andychenggg/Stocks' }
     ]

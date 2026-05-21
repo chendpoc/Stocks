@@ -76,6 +76,21 @@ const legacyDictSummary = {
   ],
 };
 
+const asciiCardSummary = {
+  day: "2026-05-20",
+  event_summary: ["CORE_CONCLUSION: index rhythm first, no chase."],
+  admin_deep_reading: ["ADMIN_MAINLINE: Zhao mainline focuses on SPX rhythm and position control."],
+  admin_symbols: [
+    { symbol: "ADMIN_TICKER", summary: "ADMIN_SYMBOL_REASON: wait for confirmation before action." },
+  ],
+  user_symbols: [
+    { symbol: "USER_TICKER", summary: "USER_SYMBOL_REASON: should not appear in card." },
+  ],
+  user_core: ["USER_SUPPLEMENT: should not appear in card."],
+  disagreements: ["USER_DISAGREEMENT: should not appear in card."],
+  risks: ["ADMIN_RISK: chasing highs and oversized positions are the main risk."],
+};
+
 function compactText(svg) {
   return svg.replace(/<[^>]+>/g, "").replace(/\s+/g, "");
 }
@@ -171,7 +186,7 @@ test("sendWeWorkImage rejects non-zero wework errcode", async () => {
 test("buildDailySummaryCard creates one clickable mobile report card", () => {
   const digest = buildSummaryCardDigest(detailedSummary, {
     day: "2026-05-20",
-    reportUrl: "https://stock.example.com/summaries/2026-05/2026-05-20-每日总结",
+    reportUrl: "https://stock.example.com/",
   });
   const payload = buildDailySummaryCard(digest, {
     coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png",
@@ -187,6 +202,38 @@ test("buildDailySummaryCard creates one clickable mobile report card", () => {
   assert.ok(payload.template_card.vertical_content_list.length <= 4);
   assert.ok(payload.template_card.horizontal_content_list.length <= 6);
   assert.doesNotMatch(JSON.stringify(payload), /不应该进入图片的原始发言/);
+});
+
+test("buildDailySummaryCard keeps card body admin-only and uses public homepage by default", () => {
+  const digest = buildSummaryCardDigest(asciiCardSummary, {
+    day: "2026-05-20",
+    archivePath: "docs/summaries/2026-05/2026-05-20-daily-summary.md",
+    siteBaseUrl: "https://stock.example.com/private-docs",
+  });
+  const payload = buildDailySummaryCard(digest, {
+    coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png",
+  });
+  const raw = JSON.stringify(payload);
+
+  assert.equal(digest.reportUrl, "https://stock.example.com/");
+  assert.equal(payload.template_card.card_action.url, "https://stock.example.com/");
+  assert.ok(payload.template_card.jump_list.every((item) => item.url === "https://stock.example.com/"));
+  assert.match(raw, /ADMIN_MAINLINE/);
+  assert.match(raw, /CORE_CONCLUSION/);
+  assert.match(raw, /ADMIN_TICKER/);
+  assert.match(raw, /ADMIN_RISK/);
+  assert.doesNotMatch(raw, /USER_TICKER|USER_SYMBOL_REASON|USER_SUPPLEMENT|USER_DISAGREEMENT/);
+  assert.doesNotMatch(raw, /\/summaries\/|docs\/|private-docs|daily-summary\.md|(^|["'\s])[A-Za-z]:[\\/]/);
+});
+
+test("buildSummaryCardDigest honors an explicit public report url", () => {
+  const digest = buildSummaryCardDigest(asciiCardSummary, {
+    day: "2026-05-20",
+    reportUrl: "https://stock.example.com/custom-entry",
+    archivePath: "docs/summaries/2026-05/2026-05-20-daily-summary.md",
+  });
+
+  assert.equal(digest.reportUrl, "https://stock.example.com/custom-entry");
 });
 
 test("sendWeWorkTemplateCard rejects non-zero wework errcode", async () => {
@@ -255,18 +302,19 @@ test("package keeps image notify and exposes notify:text compatibility command",
   assert.equal(pkg.scripts["notify:brief:dry"], "node scripts/notify-brief.mjs --dry-run");
 });
 
-test("vitepress excludes summaries and old trading-experience months from the public Cloudflare build", async () => {
+test("vitepress exposes current-month summaries and excludes older history from public build", async () => {
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
 
   assert.match(config, /srcExclude:\s*getSummarySrcExclude\(\)/);
-  assert.match(config, /summaries\/index\.md/);
-  assert.match(config, /summaries\/\*\*\/\*\.md/);
   assert.match(config, /search\.md/);
+  assert.match(config, /getOldMonthlySrcExclude\('summaries'\)/);
   assert.match(config, /getOldMonthlySrcExclude\('trading-experiences'\)/);
   assert.match(config, /slice\(1\)/);
   assert.match(config, /isDirectory\(\) && \/\^\\d\{4\}-\\d\{2\}\$\/\.test\(entry\.name\)/);
-  assert.doesNotMatch(config, /link:\s*[`'"]\/summaries\//);
-  assert.doesNotMatch(config, /\{\s*text:\s*[`'"][^`'"]*[`'"],\s*link:\s*[`'"]\/summaries\/[`'"]\s*\}/);
+  assert.match(config, /\{\s*text:\s*[`'"]历史总结[`'"],\s*link:\s*[`'"]\/summaries\/[`'"]\s*\}/);
+  assert.match(config, /\/summaries\/\$\{month\}\/\$\{file\.replace\('\.md', ''\)\}/);
+  assert.doesNotMatch(config, /summaries\/index\.md/);
+  assert.doesNotMatch(config, /summaries\/\*\*\/\*\.md/);
 });
 
 test("package exposes Cloudflare Pages build and deploy commands", async () => {
@@ -279,14 +327,14 @@ test("package exposes Cloudflare Pages build and deploy commands", async () => {
   assert.match(wranglerConfig, /pages_build_output_dir\s*=\s*"\.\/docs\/\.vitepress\/dist"/);
 });
 
-test("summaries landing page is local-only to avoid an empty public history shell", async () => {
+test("summaries landing page describes current-month public history scope", async () => {
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
   const summariesIndex = await readFile("docs/summaries/index.md", "utf8");
 
-  assert.match(config, /summaries\/index\.md/);
+  assert.doesNotMatch(config, /summaries\/index\.md/);
   assert.match(summariesIndex, /# 历史总结/);
-  assert.match(summariesIndex, /公开站暂不展示历史总结/);
-  assert.doesNotMatch(summariesIndex, /左侧目录/);
+  assert.match(summariesIndex, /公开站只展示当前月份/);
+  assert.match(summariesIndex, /左侧目录/);
 });
 
 test("notify:text dry run validates text notification path without network", () => {

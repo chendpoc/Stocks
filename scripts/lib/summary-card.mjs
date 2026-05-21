@@ -54,17 +54,18 @@ function firstNonEmpty(...groups) {
   return [];
 }
 
-function routeFromArchivePath(archivePath) {
-  const normalized = String(archivePath ?? "").replaceAll("\\", "/");
-  const docsIndex = normalized.indexOf("docs/");
-  const rel = docsIndex >= 0 ? normalized.slice(docsIndex + "docs/".length) : normalized;
-  return `/${rel.replace(/\.md$/i, "")}`;
-}
-
 function joinUrl(baseUrl, route) {
   const base = String(baseUrl || "https://stock.autoin.me").replace(/\/+$/, "");
   const pathPart = String(route || "/").startsWith("/") ? route : `/${route}`;
   return encodeURI(`${base}${pathPart}`);
+}
+
+function publicHomeUrl(siteBaseUrl) {
+  const parsed = new URL(String(siteBaseUrl || "https://stock.autoin.me"));
+  parsed.pathname = "/";
+  parsed.search = "";
+  parsed.hash = "";
+  return parsed.toString();
 }
 
 export function buildSummaryCardDigest(summary, options = {}) {
@@ -74,16 +75,12 @@ export function buildSummaryCardDigest(summary, options = {}) {
   const adminSymbols = asArray(summary?.admin_symbols).length
     ? asArray(summary.admin_symbols)
     : keySymbols.filter((item) => isAdminSource(item?.source));
-  const userSymbols = asArray(summary?.user_symbols).length
-    ? asArray(summary.user_symbols)
-    : keySymbols.filter((item) => !isAdminSource(item?.source));
 
   const adminMainline = firstNonEmpty(summary?.admin_deep_reading, summary?.admin_core, digest.admin).slice(0, 3);
   const overview = firstNonEmpty(summary?.event_summary, summary?.overview, digest.core).slice(0, 3);
   const risks = firstNonEmpty(summary?.risks, digest.risks).slice(0, 3);
   const symbols = (adminSymbols.length ? adminSymbols : keySymbols).slice(0, 5).map(formatItem);
-  const userLine = firstNonEmpty(summary?.user_core, summary?.disagreements).slice(0, 2);
-  const reportUrl = options.reportUrl || joinUrl(options.siteBaseUrl, routeFromArchivePath(options.archivePath));
+  const reportUrl = options.reportUrl || publicHomeUrl(options.siteBaseUrl);
   const title = `${compactDate(day)} 每日财经总结`;
   const mainline = adminMainline[0] || overview[0] || "今日暂无明确管理员主线。";
   const symbolText = symbols
@@ -101,24 +98,26 @@ export function buildSummaryCardDigest(summary, options = {}) {
     overview,
     adminMainline,
     symbols,
-    userSymbols: userSymbols.slice(0, 4).map(formatItem),
-    userLine,
     risks,
   };
 }
 
 export function buildDailySummaryCard(digest, options = {}) {
   const coverImageUrl = options.coverImageUrl || "https://stock.autoin.me/assets/summary-cards/default.png";
+  const actionUrl = options.reportUrl || digest.reportUrl || publicHomeUrl(options.siteBaseUrl);
+  const mainline = digest.adminMainline?.[0] || digest.mainline;
+  const conclusion = digest.overview?.[0] || digest.description;
+  const symbols = (digest.symbols || []).slice(0, 3).join("；");
+  const risks = (digest.risks || []).slice(0, 2).join("；");
   const verticalContent = [
-    { title: "赵哥主线", desc: byteTrim(digest.adminMainline?.[0] || digest.mainline, 112) },
-    { title: "核心结论", desc: byteTrim(digest.overview?.[0] || digest.description, 112) },
-    { title: "重点标的", desc: byteTrim((digest.symbols || []).slice(0, 4).join("；"), 112) },
-    { title: "风险观察", desc: byteTrim((digest.risks || []).slice(0, 2).join("；"), 112) },
+    { title: "赵哥主线", desc: byteTrim(mainline, 96) },
+    { title: "核心结论", desc: byteTrim(conclusion, 96) },
+    { title: "管理员重点", desc: byteTrim(symbols, 110) },
+    { title: "风险", desc: byteTrim(risks, 96) },
   ].filter((item) => item.desc);
   const horizontalContent = [
     { keyname: "日期", value: digest.day || "" },
-    { keyname: "来源", value: "群聊日报" },
-    { keyname: "详情", value: "阅读全文", type: 1, url: digest.reportUrl },
+    { keyname: "入口", value: "公开站首页", type: 1, url: actionUrl },
   ];
 
   return {
@@ -131,7 +130,7 @@ export function buildDailySummaryCard(digest, options = {}) {
       },
       main_title: {
         title: byteTrim(digest.title, 72),
-        desc: byteTrim(digest.description, 90),
+        desc: byteTrim(digest.description, 88),
       },
       card_image: {
         url: coverImageUrl,
@@ -139,9 +138,9 @@ export function buildDailySummaryCard(digest, options = {}) {
       },
       image_text_area: {
         type: 1,
-        url: digest.reportUrl,
-        title: "完整 Markdown 与图片记录",
-        desc: "点击查看网页全文",
+        url: actionUrl,
+        title: byteTrim(mainline, 44),
+        desc: "点击进入公开站首页",
         image_url: coverImageUrl,
       },
       vertical_content_list: verticalContent.slice(0, 4),
@@ -149,13 +148,13 @@ export function buildDailySummaryCard(digest, options = {}) {
       jump_list: [
         {
           type: 1,
-          url: digest.reportUrl,
-          title: "阅读全文",
+          url: actionUrl,
+          title: "打开公开站",
         },
       ],
       card_action: {
         type: 1,
-        url: digest.reportUrl,
+        url: actionUrl,
       },
     },
   };
@@ -249,7 +248,7 @@ export async function sendWeWorkTemplateCard(webhookUrl, payload, fetchImpl = fe
 }
 
 export function buildPublicReportUrl(archivePath, siteBaseUrl) {
-  return joinUrl(siteBaseUrl, routeFromArchivePath(archivePath));
+  return publicHomeUrl(siteBaseUrl);
 }
 
 export function buildPublicAssetUrl(assetPath, siteBaseUrl) {
