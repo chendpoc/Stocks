@@ -24,8 +24,10 @@ function getOldMonthlySrcExclude(section: string) {
 
 function getSummarySrcExclude() {
   return [
+    'summaries/index.md',
     'summaries/20*.md',
     'summaries/**/*.md',
+    'search.md',
     ...getOldMonthlySrcExclude('trading-experiences'),
   ]
 }

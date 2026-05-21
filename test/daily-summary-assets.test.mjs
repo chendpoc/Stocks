@@ -259,7 +259,9 @@ test("vitepress excludes summaries and old trading-experience months from the pu
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
 
   assert.match(config, /srcExclude:\s*getSummarySrcExclude\(\)/);
+  assert.match(config, /summaries\/index\.md/);
   assert.match(config, /summaries\/\*\*\/\*\.md/);
+  assert.match(config, /search\.md/);
   assert.match(config, /getOldMonthlySrcExclude\('trading-experiences'\)/);
   assert.match(config, /slice\(1\)/);
   assert.match(config, /isDirectory\(\) && \/\^\\d\{4\}-\\d\{2\}\$\/\.test\(entry\.name\)/);
@@ -277,14 +279,14 @@ test("package exposes Cloudflare Pages build and deploy commands", async () => {
   assert.match(wranglerConfig, /pages_build_output_dir\s*=\s*"\.\/docs\/\.vitepress\/dist"/);
 });
 
-test("summaries landing page is not ignored for Cloudflare clean builds", async () => {
-  const gitignore = await readFile(".gitignore", "utf8");
+test("summaries landing page is local-only to avoid an empty public history shell", async () => {
+  const config = await readFile("docs/.vitepress/config.mts", "utf8");
   const summariesIndex = await readFile("docs/summaries/index.md", "utf8");
 
-  assert.match(gitignore, /docs\/summaries\/\*/);
-  assert.match(gitignore, /!docs\/summaries\/index\.md/);
-  assert.match(gitignore, /docs\/summaries\/\*\/\*/);
+  assert.match(config, /summaries\/index\.md/);
   assert.match(summariesIndex, /# 历史总结/);
+  assert.match(summariesIndex, /公开站暂不展示历史总结/);
+  assert.doesNotMatch(summariesIndex, /左侧目录/);
 });
 
 test("notify:text dry run validates text notification path without network", () => {
