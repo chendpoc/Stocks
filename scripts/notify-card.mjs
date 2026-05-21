@@ -11,9 +11,11 @@ import {
   renderSummaryCardCoverPng,
   sendWeWorkTemplateCard,
 } from "./lib/summary-card.mjs";
+import { loadLocalEnv } from "./lib/local-env.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
+loadLocalEnv(root);
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
 
@@ -87,6 +89,21 @@ function parseArtifacts(stdout) {
     throw new Error("Python summary runner did not emit ARTIFACTS_JSON.");
   }
   return JSON.parse(line.slice("ARTIFACTS_JSON=".length));
+}
+
+function currentGitBranch() {
+  const result = spawnSync("git", ["branch", "--show-current"], {
+    cwd: root,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    throw new Error(`git branch --show-current failed: ${result.stderr ?? ""}`.trim());
+  }
+  const branch = result.stdout.trim();
+  if (!branch) throw new Error("Cannot push from detached HEAD.");
+  return branch;
 }
 
 function loadWebhookUrl(py) {
@@ -184,7 +201,7 @@ function publishWithGit(artifacts, coverPath) {
 
   const message = `Auto update card: ${artifacts.generated_at_cst ?? new Date().toISOString()}`;
   run("git", ["commit", "-m", message]);
-  run("git", ["push", "origin", "master"]);
+  run("git", ["push", "origin", currentGitBranch()]);
 }
 
 async function runActual() {

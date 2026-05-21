@@ -1,6 +1,8 @@
 import { strict as assert } from "node:assert";
 import { spawnSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
@@ -19,6 +21,7 @@ import {
   buildWeWorkMarkdownPayload,
   sendWeWorkMarkdown,
 } from "../scripts/lib/summary-brief.mjs";
+import { loadLocalEnv } from "../scripts/lib/local-env.mjs";
 
 const summary = {
   image_digest: {
@@ -302,12 +305,41 @@ test("package keeps image notify and exposes notify:text compatibility command",
   assert.equal(pkg.scripts["notify:brief:dry"], "node scripts/notify-brief.mjs --dry-run");
 });
 
+test("local env loader reads SUMMARY_SITE_BASE_URL from project .env", async () => {
+  const tmp = await mkdtemp(path.join(os.tmpdir(), "summary-env-"));
+  const previous = process.env.SUMMARY_SITE_BASE_URL;
+  try {
+    delete process.env.SUMMARY_SITE_BASE_URL;
+    await writeFile(path.join(tmp, ".env"), "SUMMARY_SITE_BASE_URL=https://stocks-emw.pages.dev/\n", "utf8");
+    loadLocalEnv(tmp);
+
+    assert.equal(process.env.SUMMARY_SITE_BASE_URL, "https://stocks-emw.pages.dev/");
+  } finally {
+    if (previous === undefined) {
+      delete process.env.SUMMARY_SITE_BASE_URL;
+    } else {
+      process.env.SUMMARY_SITE_BASE_URL = previous;
+    }
+    await rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test("public publish scripts do not stage chat image audit assets", async () => {
   const dailyScript = await readFile("scripts/daily-summary.mjs", "utf8");
   const cardScript = await readFile("scripts/notify-card.mjs", "utf8");
 
   assert.doesNotMatch(dailyScript, /chat_image_dir|chat_image_paths/);
   assert.doesNotMatch(cardScript, /chat_image_dir|chat_image_paths/);
+});
+
+test("publish scripts push the current git branch instead of hardcoded master", async () => {
+  const dailyScript = await readFile("scripts/daily-summary.mjs", "utf8");
+  const cardScript = await readFile("scripts/notify-card.mjs", "utf8");
+
+  for (const script of [dailyScript, cardScript]) {
+    assert.match(script, /branch.*--show-current/);
+    assert.doesNotMatch(script, /push["'],\s*\["origin",\s*"master"\]/);
+  }
 });
 
 test("vitepress exposes current-month summaries and excludes older history from public build", async () => {

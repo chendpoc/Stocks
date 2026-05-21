@@ -148,6 +148,20 @@ function parseArtifacts(stdout) {
   return JSON.parse(line.slice("ARTIFACTS_JSON=".length));
 }
 
+function currentGitBranch() {
+  const result = spawnSync("git", ["branch", "--show-current"], {
+    cwd: root,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0) {
+    throw new Error(`git branch --show-current failed: ${result.stderr ?? ""}`.trim());
+  }
+  const branch = result.stdout.trim();
+  if (!branch) throw new Error("Cannot push from detached HEAD.");
+  return branch;
+}
+
 async function publishWithGit(artifacts, imagePath) {
   const addPaths = ["docs/index.md", "docs/search_index.json", imagePath];
   run("git", ["add", ...addPaths]);
@@ -161,7 +175,7 @@ async function publishWithGit(artifacts, imagePath) {
 
   const message = `Auto update: ${artifacts.generated_at_cst ?? new Date().toISOString()}`;
   run("git", ["commit", "-m", message]);
-  run("git", ["push", "origin", "master"]);
+  run("git", ["push", "origin", currentGitBranch()]);
 }
 
 async function runActual() {

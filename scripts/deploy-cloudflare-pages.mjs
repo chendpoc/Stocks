@@ -2,9 +2,11 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadLocalEnv } from "./lib/local-env.mjs";
 
 const rootDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const defaultOutputDir = "docs/.vitepress/dist";
+loadLocalEnv(rootDir);
 
 function parseArgs(argv) {
   const options = {
