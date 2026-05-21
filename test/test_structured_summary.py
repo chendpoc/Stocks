@@ -647,6 +647,42 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertIn("SECOND_DAILY_SUMMARY", content)
         self.assertNotIn("FIRST_DAILY_SUMMARY", content)
 
+    def test_save_structured_summary_writes_public_daily_archive_without_audit_records(self):
+        from utils.structured_summary import save_structured_summary
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = save_structured_summary(
+                summary={"overview": ["PUBLIC_DAILY_SUMMARY"], "admin_core": ["admin"]},
+                description="daily",
+                model="test-model",
+                title="\u6bcf\u65e5\u603b\u7ed3",
+                output_dir=tmp,
+                generated_at=datetime(2026, 5, 20, 8, 30, tzinfo=timezone.utc),
+                chat_text="2026-05-20 09:00:00 xiaozhaolucky \u8bf4: PRIVATE_RAW_ADMIN_QUOTE",
+                images=[
+                    {
+                        "id": "file_img_1",
+                        "post_id": "post_img_1",
+                        "filename": "image.png",
+                        "markdown_path": "/assets/chat-images/2026-05-20/file_img_1.png",
+                        "local_path": "docs/assets/chat-images/2026-05-20/file_img_1.png",
+                        "original_url": "https://img-v2-prod.whop.com/private/image.png",
+                        "download_status": "downloaded",
+                        "is_admin": True,
+                        "username": "xiaozhaolucky",
+                    }
+                ],
+            )
+            archive_content = Path(result["archive_path"]).read_text(encoding="utf-8")
+
+        self.assertIn("PUBLIC_DAILY_SUMMARY", archive_content)
+        self.assertNotIn("PRIVATE_RAW_ADMIN_QUOTE", archive_content)
+        self.assertNotIn("\u539f\u59cb\u53d1\u8a00\u8bb0\u5f55", archive_content)
+        self.assertNotIn("\u7fa4\u804a\u56fe\u7247\u8bb0\u5f55", archive_content)
+        self.assertNotIn("\u7fa4\u804a\u5185\u5bb9\u8bb0\u5f55", archive_content)
+        self.assertNotIn("img-v2-prod.whop.com", archive_content)
+        self.assertNotIn("/assets/chat-images/", archive_content)
+
     def test_save_structured_summary_updates_homepage_once_and_skips_identical_content(self):
         from utils.structured_summary import save_structured_summary
 

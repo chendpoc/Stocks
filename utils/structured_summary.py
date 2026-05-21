@@ -710,7 +710,12 @@ def save_structured_summary(
     now_utc = generated_cst.astimezone(pytz.UTC)
     now_pst = now_utc.astimezone(pytz.timezone("America/Los_Angeles"))
     now_est = now_utc.astimezone(pytz.timezone("America/New_York"))
-    body = render_summary_markdown(summary, images=images_list, chat_text=chat_text)
+    public_body = render_summary_markdown(
+        summary,
+        images=images_list,
+        chat_text=chat_text,
+        include_audit_records=False,
+    )
 
     output = Path(output_dir)
     summary_dir = output / "summaries"
@@ -738,7 +743,7 @@ def save_structured_summary(
         f"> 美西时间：{now_pst.strftime('%Y-%m-%d %H:%M:%S PST')}\n\n"
         f"> 美东时间：{now_est.strftime('%Y-%m-%d %H:%M:%S EST')}\n\n"
         f"> 模型：{model}\n\n"
-        f"{body}"
+        f"{public_body}"
     )
     safe_title = _safe_filename_part(title or "")
     if title is None:

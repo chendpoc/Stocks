@@ -26,9 +26,13 @@ function getLatestMonth(section: string) {
   return getMonthlyDirs(section)[0] ?? null
 }
 
+const publicDailySummaryPattern = /^\d{4}-\d{2}-\d{2}-每日总结\.md$/
+
 function getSummarySrcExclude() {
   return [
     'summaries/20*.md',
+    'summaries/*/*_*.md',
+    'summaries/*/*-休市总结.md',
     'search.md',
     ...getOldMonthlySrcExclude('summaries'),
     ...getOldMonthlySrcExclude('trading-experiences'),
@@ -50,7 +54,7 @@ function getSummariesSidebar() {
 
   const items = fs
     .readdirSync(monthDir)
-    .filter(file => file.endsWith('.md') && file !== '_sidebar.md')
+    .filter(file => publicDailySummaryPattern.test(file))
     .sort((a, b) => b.localeCompare(a))
     .map(file => ({
       text: file.replace('.md', ''),

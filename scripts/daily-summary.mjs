@@ -150,11 +150,6 @@ function parseArtifacts(stdout) {
 
 async function publishWithGit(artifacts, imagePath) {
   const addPaths = ["docs/index.md", "docs/search_index.json", imagePath];
-  if (artifacts.chat_image_dir) {
-    addPaths.push(artifacts.chat_image_dir);
-  } else if (Array.isArray(artifacts.chat_image_paths)) {
-    addPaths.push(...artifacts.chat_image_paths);
-  }
   run("git", ["add", ...addPaths]);
   if (artifacts.archive_path) run("git", ["add", "-f", artifacts.archive_path]);
 

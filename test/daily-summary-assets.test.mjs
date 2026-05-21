@@ -302,13 +302,23 @@ test("package keeps image notify and exposes notify:text compatibility command",
   assert.equal(pkg.scripts["notify:brief:dry"], "node scripts/notify-brief.mjs --dry-run");
 });
 
+test("public publish scripts do not stage chat image audit assets", async () => {
+  const dailyScript = await readFile("scripts/daily-summary.mjs", "utf8");
+  const cardScript = await readFile("scripts/notify-card.mjs", "utf8");
+
+  assert.doesNotMatch(dailyScript, /chat_image_dir|chat_image_paths/);
+  assert.doesNotMatch(cardScript, /chat_image_dir|chat_image_paths/);
+});
+
 test("vitepress exposes current-month summaries and excludes older history from public build", async () => {
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
 
   assert.match(config, /srcExclude:\s*getSummarySrcExclude\(\)/);
   assert.match(config, /search\.md/);
+  assert.match(config, /summaries\/\*\/\*_\*\.md/);
   assert.match(config, /getOldMonthlySrcExclude\('summaries'\)/);
   assert.match(config, /getOldMonthlySrcExclude\('trading-experiences'\)/);
+  assert.match(config, /\^\\d\{4\}-\\d\{2\}-\\d\{2\}-每日总结\\.md\$/);
   assert.match(config, /slice\(1\)/);
   assert.match(config, /isDirectory\(\) && \/\^\\d\{4\}-\\d\{2\}\$\/\.test\(entry\.name\)/);
   assert.match(config, /\{\s*text:\s*[`'"]历史总结[`'"],\s*link:\s*[`'"]\/summaries\/[`'"]\s*\}/);
@@ -346,9 +356,11 @@ test("cloudflare deploy dry run prints configured site base url for card notify"
 
 test("summaries landing page describes current-month public history scope", async () => {
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
+  const gitignore = await readFile(".gitignore", "utf8");
   const summariesIndex = await readFile("docs/summaries/index.md", "utf8");
 
   assert.doesNotMatch(config, /summaries\/index\.md/);
+  assert.match(gitignore, /!docs\/summaries\/\*\/\?\?\?\?-\?\?-\?\?-每日总结\.md/);
   assert.match(summariesIndex, /# 历史总结/);
   assert.match(summariesIndex, /公开站只展示当前月份/);
   assert.match(summariesIndex, /左侧目录/);
