@@ -78,6 +78,13 @@ def _sanitize_markdown(text: str) -> str:
     return text.strip()
 
 
+def _write_text_if_changed(path: Path, content: str) -> bool:
+    if path.exists() and path.read_text(encoding="utf-8") == content:
+        return False
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
 def _html_attr(text: Any) -> str:
     value = str(text or "")
     return (
@@ -468,6 +475,7 @@ def render_summary_markdown(
     images: Optional[Iterable[Dict[str, Any]]] = None,
     image_display: str = "details",
     chat_text: Optional[str] = None,
+    include_audit_records: bool = True,
 ) -> str:
     summary = normalize_summary_payload(summary)
     admin_lines = _extract_admin_lines(chat_text) or summary["admin_quotes"]
@@ -482,8 +490,9 @@ def render_summary_markdown(
     parts.append(_bullet_list(summary["admin_deep_reading"], empty="未发现可解读的管理员意图。"))
     parts.append("\n### 管理员重点标的\n")
     parts.append(_render_symbol_list(summary["admin_symbols"], empty="管理员未明确提到重点标的。"))
-    parts.append("\n### 原始发言记录\n")
-    parts.append(_render_collapsed_text(f"查看 xiaozhaolucky 原始发言 {len(admin_lines)} 条", admin_lines, "未发现管理员发言。"))
+    if include_audit_records:
+        parts.append("\n### 原始发言记录\n")
+        parts.append(_render_collapsed_text(f"查看 xiaozhaolucky 原始发言 {len(admin_lines)} 条", admin_lines, "未发现管理员发言。"))
     parts.append("\n## 其他用户\n")
     parts.append("### 用户观点提炼\n")
     parts.append(_bullet_list(summary["user_core"], empty="暂无用户补充讨论。"))
@@ -497,8 +506,9 @@ def render_summary_markdown(
     parts.append(_bullet_list(summary["events"]))
     parts.append("\n## 风险与观察点\n")
     parts.append(_bullet_list(summary["risks"]))
-    parts.append(_render_image_gallery(admin_images, image_display=image_display))
-    parts.append(_render_chat_transcript(chat_text))
+    if include_audit_records:
+        parts.append(_render_image_gallery(admin_images, image_display=image_display))
+        parts.append(_render_chat_transcript(chat_text))
     return _sanitize_markdown("".join(parts)) + "\n"
 
 
@@ -550,6 +560,41 @@ def render_summary_text(
     lines.extend(_render_text_section("事件与关键日期", summary["events"]))
     lines.extend(_render_text_section("风险与观察点", summary["risks"]))
     return "\n".join(lines).strip()
+
+
+def render_public_index_markdown(
+    summary: Dict[str, Any],
+    description: str,
+    model: str,
+    generated_at: Optional[dt.datetime] = None,
+    images: Optional[Iterable[Dict[str, Any]]] = None,
+    chat_text: Optional[str] = None,
+) -> str:
+    summary = normalize_summary_payload(summary)
+    generated_cst = _now_cst(generated_at)
+    now_utc = generated_cst.astimezone(pytz.UTC)
+    now_pst = now_utc.astimezone(pytz.timezone("America/Los_Angeles"))
+    now_est = now_utc.astimezone(pytz.timezone("America/New_York"))
+    public_body = render_summary_markdown(
+        summary,
+        images=list(images or []),
+        chat_text=chat_text,
+        include_audit_records=False,
+    )
+    return f"""# 财经聊天总结 - {description}
+
+> 北京时间：{generated_cst.strftime("%Y-%m-%d %H:%M:%S CST")}
+
+> 美西时间：{now_pst.strftime("%Y-%m-%d %H:%M:%S PST")}
+
+> 美东时间：{now_est.strftime("%Y-%m-%d %H:%M:%S EST")}
+
+> 模型：{model}
+
+代码仓库：[GitHub - finance-community-summary](https://github.com/andychenggg/Stocks) 可以 star 一下，方便后续获取更新内容。有问题欢迎提 issue。
+
+{public_body}
+"""
 
 
 def build_structured_summary_prompt(chat_text: str) -> str:
@@ -674,24 +719,16 @@ def save_structured_summary(
     summary_month_dir = summary_dir / month_slug
     summary_month_dir.mkdir(parents=True, exist_ok=True)
 
-    readme_content = f"""# 财经聊天总结 - {description}
-
-> 北京时间：{generated_cst.strftime("%Y-%m-%d %H:%M:%S CST")}
-
-> 美西时间：{now_pst.strftime("%Y-%m-%d %H:%M:%S PST")}
-
-> 美东时间：{now_est.strftime("%Y-%m-%d %H:%M:%S EST")}
-
-> 模型：{model}
-
-代码仓库：[GitHub - finance-community-summary](https://github.com/andychenggg/Stocks) 可以 star 一下，方便后续获取更新内容。有问题欢迎提 issue。
-
-{body}
-
-[查看历史总结](/summaries/)
-"""
+    readme_content = render_public_index_markdown(
+        summary,
+        description=description,
+        model=model,
+        generated_at=generated_cst,
+        images=images_list,
+        chat_text=chat_text,
+    )
     index_path = output / "index.md"
-    index_path.write_text(readme_content, encoding="utf-8")
+    index_updated = _write_text_if_changed(index_path, readme_content)
 
     heading_time = generated_cst.strftime("%Y-%m-%d %H:%M:%S CST")
     day_slug = generated_cst.strftime("%Y-%m-%d")
@@ -730,6 +767,7 @@ def save_structured_summary(
         "day": generated_cst.strftime("%Y-%m-%d"),
         "generated_at_cst": generated_cst.strftime("%Y-%m-%d %H:%M:%S CST"),
         "index_path": str(index_path).replace("\\", "/"),
+        "index_updated": index_updated,
         "archive_path": str(archive_path).replace("\\", "/"),
         "summary_json_path": str(summary_json_path).replace("\\", "/"),
         "chat_image_dir": chat_image_dir,

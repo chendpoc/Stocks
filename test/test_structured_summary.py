@@ -1,5 +1,6 @@
 import json
 import hashlib
+import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -506,6 +507,44 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertNotIn("/assets/chat-images/2026-05-20/user.png", markdown)
         self.assertNotIn("/assets/chat-images/2026-05-20/link.jpg", markdown)
 
+    def test_render_summary_markdown_public_mode_excludes_audit_records(self):
+        from utils.structured_summary import normalize_summary_payload, render_summary_markdown
+
+        summary = normalize_summary_payload(
+            {
+                "overview": ["PUBLIC_SUMMARY"],
+                "admin_core": ["ADMIN_SUMMARY"],
+                "admin_quotes": ["RAW_ADMIN_QUOTE_SHOULD_NOT_PUBLISH"],
+                "user_core": ["USER_SUMMARY_SHOULD_STAY"],
+            }
+        )
+        markdown = render_summary_markdown(
+            summary,
+            images=[
+                {
+                    "id": "file_public",
+                    "post_id": "post_public",
+                    "filename": "image.png",
+                    "username": "xiaozhaolucky",
+                    "is_admin": True,
+                    "markdown_path": "/assets/chat-images/2026-05-20/image.png",
+                    "local_path": "docs/assets/chat-images/2026-05-20/image.png",
+                    "original_url": "https://img-v2-prod.whop.com/example/image.png",
+                    "download_status": "downloaded",
+                }
+            ],
+            chat_text="2026-05-20 08:30:00 alice 说: CHAT_RECORD_SHOULD_NOT_PUBLISH",
+            include_audit_records=False,
+        )
+
+        self.assertIn("PUBLIC_SUMMARY", markdown)
+        self.assertIn("USER_SUMMARY_SHOULD_STAY", markdown)
+        self.assertNotIn("RAW_ADMIN_QUOTE_SHOULD_NOT_PUBLISH", markdown)
+        self.assertNotIn("CHAT_RECORD_SHOULD_NOT_PUBLISH", markdown)
+        self.assertNotIn("群聊图片记录", markdown)
+        self.assertNotIn("群聊内容记录", markdown)
+        self.assertNotIn("/assets/chat-images/2026-05-20/image.png", markdown)
+
     def test_render_summary_text_excludes_audit_records(self):
         from utils.structured_summary import normalize_summary_payload, render_summary_text
 
@@ -607,6 +646,37 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertTrue(second["archive_path"].endswith("2026-05-20-\u6bcf\u65e5\u603b\u7ed3.md"))
         self.assertIn("SECOND_DAILY_SUMMARY", content)
         self.assertNotIn("FIRST_DAILY_SUMMARY", content)
+
+    def test_save_structured_summary_updates_homepage_once_and_skips_identical_content(self):
+        from utils.structured_summary import save_structured_summary
+
+        with tempfile.TemporaryDirectory() as tmp:
+            first = save_structured_summary(
+                summary={"overview": ["LATEST_HOME_SUMMARY"], "admin_core": ["admin"]},
+                description="daily",
+                model="test-model",
+                title="\u6bcf\u65e5\u603b\u7ed3",
+                output_dir=tmp,
+                generated_at=datetime(2026, 5, 20, 8, 30, tzinfo=timezone.utc),
+            )
+            index_path = Path(first["index_path"])
+            self.assertTrue(first["index_updated"])
+            self.assertIn("LATEST_HOME_SUMMARY", index_path.read_text(encoding="utf-8"))
+            self.assertNotIn("/summaries/", index_path.read_text(encoding="utf-8"))
+
+            old_mtime = 1_700_000_000
+            os.utime(index_path, (old_mtime, old_mtime))
+            second = save_structured_summary(
+                summary={"overview": ["LATEST_HOME_SUMMARY"], "admin_core": ["admin"]},
+                description="daily",
+                model="test-model",
+                title="\u6bcf\u65e5\u603b\u7ed3",
+                output_dir=tmp,
+                generated_at=datetime(2026, 5, 20, 8, 30, tzinfo=timezone.utc),
+            )
+
+            self.assertFalse(second["index_updated"])
+            self.assertEqual(int(index_path.stat().st_mtime), old_mtime)
 
     def test_search_index_parses_new_archive_filename_format(self):
         from build_search_index import SimpleContentIndexer

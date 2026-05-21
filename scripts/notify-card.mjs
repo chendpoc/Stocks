@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import {
   buildDailySummaryCard,
   buildPublicAssetUrl,
-  buildPublicReportUrl,
   buildSummaryCardDigest,
   renderSummaryCardCoverPng,
   sendWeWorkTemplateCard,
@@ -133,8 +132,7 @@ function sampleSummary() {
 
 async function buildCardArtifacts(summary, artifacts, options = {}) {
   const day = options.day || artifacts?.day || summary?.day || new Date().toISOString().slice(0, 10);
-  const archivePath = artifacts?.archive_path || `docs/summaries/${day.slice(0, 7)}/${day}-每日总结.md`;
-  const reportUrl = options.reportUrl || buildPublicReportUrl(archivePath, siteBaseUrl);
+  const reportUrl = options.reportUrl || siteBaseUrl.replace(/\/+$/, "/");
   const digest = buildSummaryCardDigest(summary, { day, reportUrl });
   const coverPath = options.coverPath || path.join(root, "docs", "assets", "summary-cards", `${day}.png`);
   await mkdir(path.dirname(coverPath), { recursive: true });
@@ -159,7 +157,7 @@ async function buildCardArtifacts(summary, artifacts, options = {}) {
 async function runDry() {
   const artifacts = await buildCardArtifacts(sampleSummary(), { day: "2026-05-20" }, {
     coverPath: path.join(root, "data", "generated", "dry-run-summary-card-cover.png"),
-    reportUrl: "https://stock.example.com/summaries/2026-05/2026-05-20-每日总结",
+    reportUrl: "https://stock.example.com/",
     coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png",
   });
   console.log("notify:card dry run ok");

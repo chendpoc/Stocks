@@ -71,7 +71,7 @@ const detailedSummary = {
 const legacyDictSummary = {
   image_digest: { title: "每日财经群总结" },
   overview: ["市场震荡"],
-  disagreements: [
+  market_context: [
     "{'user': '部分用户', 'point': '盘前上涨担心踏空', 'resolution': '管理员坚持等回调'}",
   ],
 };
@@ -100,7 +100,7 @@ test("renderSummarySvg emits a readable single-image card", () => {
   assert.doesNotMatch(svg, /固定宽度长图/);
 });
 
-test("renderSummarySvg includes all structured summary sections as long-form text", () => {
+test("renderSummarySvg includes core report sections and excludes user-only sections", () => {
   const svg = renderSummarySvg(detailedSummary, { themeName: "light_report" });
   const text = compactText(svg);
 
@@ -110,15 +110,15 @@ test("renderSummarySvg includes all structured summary sections as long-form tex
   assert.match(text, /赵哥理论提炼：核心不是预测涨跌/);
   assert.match(text, /管理员重点标的/);
   assert.match(text, /管理员观点：财报前不追高，等缺口。/);
-  assert.match(text, /其他用户补充/);
-  assert.match(text, /用户补充：普通用户主要讨论是否会踏空/);
-  assert.match(text, /普通用户提到的标的/);
-  assert.match(text, /PLTR/);
+  assert.doesNotMatch(text, /其他用户补充/);
+  assert.doesNotMatch(text, /用户补充：普通用户主要讨论是否会踏空/);
+  assert.doesNotMatch(text, /普通用户提到的标的/);
+  assert.doesNotMatch(text, /PLTR/);
   assert.match(text, /核心结论一：指数仍处于被动减持压力中。/);
   assert.match(text, /市场主线：SPX急跌急涨由机构减持驱动。/);
   assert.match(text, /期权策略：期权磨损大，优先杠杆ETF。/);
   assert.match(text, /关键事件：英伟达财报窗口临近。/);
-  assert.match(text, /分歧：部分用户担心踏空，管理员坚持等回调。/);
+  assert.doesNotMatch(text, /分歧：部分用户担心踏空，管理员坚持等回调。/);
   assert.match(text, /风险：追高、超仓、赌财报是主要亏损来源。/);
   assert.doesNotMatch(text, /不应该进入图片的原始发言/);
 });
@@ -132,7 +132,7 @@ test("renderSummarySvg grows taller when summary has more text", () => {
   assert.ok(longHeight > shortHeight + 400);
 });
 
-test("renderSummarySvg formats legacy dict-like disagreement strings", () => {
+test("renderSummarySvg formats legacy dict-like strings in included sections", () => {
   const svg = renderSummarySvg(legacyDictSummary, { themeName: "light_report" });
   const text = compactText(svg);
 
@@ -255,14 +255,16 @@ test("package keeps image notify and exposes notify:text compatibility command",
   assert.equal(pkg.scripts["notify:brief:dry"], "node scripts/notify-brief.mjs --dry-run");
 });
 
-test("vitepress excludes legacy flat summaries but keeps monthly daily pages", async () => {
+test("vitepress excludes summaries and old trading-experience months from the public Cloudflare build", async () => {
   const config = await readFile("docs/.vitepress/config.mts", "utf8");
 
   assert.match(config, /srcExclude:\s*getSummarySrcExclude\(\)/);
-  assert.match(config, /map\(month => `summaries\/\$\{month\}\/\*\*\/\*\.md`\)/);
-  assert.match(config, /filter\(month => month === latestSummaryMonth\)/);
+  assert.match(config, /summaries\/\*\*\/\*\.md/);
+  assert.match(config, /getOldMonthlySrcExclude\('trading-experiences'\)/);
+  assert.match(config, /slice\(1\)/);
   assert.match(config, /isDirectory\(\) && \/\^\\d\{4\}-\\d\{2\}\$\/\.test\(entry\.name\)/);
-  assert.match(config, /\/summaries\/\$\{month\}\/\$\{file\.replace\('\.md', ''\)\}/);
+  assert.doesNotMatch(config, /link:\s*[`'"]\/summaries\//);
+  assert.doesNotMatch(config, /\{\s*text:\s*[`'"][^`'"]*[`'"],\s*link:\s*[`'"]\/summaries\/[`'"]\s*\}/);
 });
 
 test("package exposes Cloudflare Pages build and deploy commands", async () => {

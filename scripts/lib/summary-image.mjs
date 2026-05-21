@@ -389,16 +389,9 @@ function normalizeReport(summary) {
   const adminSymbols = asArray(summary?.admin_symbols).length
     ? asArray(summary.admin_symbols)
     : keySymbols.filter((item) => isAdminSource(item?.source));
-  const userSymbols = asArray(summary?.user_symbols).length
-    ? asArray(summary.user_symbols)
-    : keySymbols.filter((item) => !isAdminSource(item?.source));
-  const fallbackSymbols = keySymbols.length ? keySymbols : digestSymbols;
+  const digestAdminSymbols = digestSymbols.filter((item) => isAdminSource(item?.source));
+  const fallbackSymbols = adminSymbols.length ? adminSymbols : digestAdminSymbols;
   const adminSymbolLines = (adminSymbols.length ? adminSymbols : fallbackSymbols).slice(0, 9).map(formatSymbolLine);
-  const userSymbolLines = userSymbols.slice(0, 6).map(formatSymbolLine);
-  const userItems = [
-    ...fromSummary("user_core"),
-    ...fromSummary("disagreements"),
-  ];
 
   return {
     title: digest.title,
@@ -412,8 +405,6 @@ function normalizeReport(summary) {
       { title: "市场主线", items: fromSummary("market_context", digest.market) },
       { title: "期权与交易策略", items: fromSummary("options") },
       { title: "事件与关键日期", items: fromSummary("events") },
-      { title: "其他用户补充", items: userItems.slice(0, 7) },
-      { title: "普通用户提到的标的", items: userSymbolLines },
       { title: "风险与观察点", items: fromSummary("risks", digest.risks), tone: "risk" },
     ].filter((section) => section.items.length),
   };
