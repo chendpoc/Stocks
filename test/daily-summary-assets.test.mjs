@@ -305,6 +305,50 @@ test("package keeps image notify and exposes notify:text compatibility command",
   assert.equal(pkg.scripts["notify:brief:dry"], "node scripts/notify-brief.mjs --dry-run");
 });
 
+test("package exposes one-command daily publish for card and image", async () => {
+  const pkg = JSON.parse(await readFile("package.json", "utf8"));
+
+  assert.equal(pkg.scripts["daily:publish"], "node scripts/daily-publish.mjs");
+  assert.equal(pkg.scripts["daily:publish:dry"], "node scripts/daily-publish.mjs --dry-run");
+});
+
+test("daily publish script generates one summary then publishes card and image", async () => {
+  const script = await readFile("scripts/daily-publish.mjs", "utf8");
+  const summaryRuns = [...script.matchAll(/daily_summary_structured\.py/g)];
+
+  assert.equal(summaryRuns.length, 1);
+  assert.match(script, /sendWeWorkTemplateCard/);
+  assert.match(script, /sendWeWorkImage/);
+  assert.match(script, /summary-cards/);
+  assert.match(script, /summary-images/);
+  assert.match(script, /git",\s*\["push",\s*"origin",\s*currentGitBranch\(\)\]/);
+});
+
+test("GitHub Actions schedules daily publish at Beijing 08:30", async () => {
+  const workflow = await readFile(".github/workflows/daily-publish.yml", "utf8");
+
+  assert.match(workflow, /cron:\s*["']30 0 \* \* \*["']/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /contents:\s*write/);
+  assert.match(workflow, /actions\/setup-node@v4/);
+  assert.match(workflow, /actions\/setup-python@v5/);
+  assert.match(workflow, /python -m pip install -r requirements\.txt/);
+  assert.match(workflow, /npm run daily:publish/);
+  assert.match(workflow, /SUMMARY_SITE_BASE_URL:\s*https:\/\/stocks-emw\.pages\.dev\//);
+  assert.match(workflow, /WHOP_HEADERS_JSON:\s*\$\{\{\s*secrets\.WHOP_HEADERS_JSON\s*\}\}/);
+  assert.match(workflow, /MODEL_KEY_JSON:\s*\$\{\{\s*secrets\.MODEL_KEY_JSON\s*\}\}/);
+  assert.match(workflow, /WEWORK_WEBHOOK_URL:\s*\$\{\{\s*secrets\.WEWORK_WEBHOOK_URL\s*\}\}/);
+});
+
+test("python secrets loader supports GitHub Actions JSON secrets", async () => {
+  const source = await readFile("utils/_secrets.py", "utf8");
+
+  assert.match(source, /WHOP_HEADERS_JSON/);
+  assert.match(source, /MODEL_KEY_JSON/);
+  assert.match(source, /WEWORK_WEBHOOK_URL/);
+  assert.match(source, /json\.loads/);
+});
+
 test("local env loader reads SUMMARY_SITE_BASE_URL from project .env", async () => {
   const tmp = await mkdtemp(path.join(os.tmpdir(), "summary-env-"));
   const previous = process.env.SUMMARY_SITE_BASE_URL;

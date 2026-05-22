@@ -6,10 +6,35 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 from pathlib import Path
 
 
+def _load_env_secrets():
+    headers_raw = (os.environ.get("WHOP_HEADERS_JSON") or "").strip()
+    model_raw = (os.environ.get("MODEL_KEY_JSON") or "").strip()
+    if not headers_raw and not model_raw:
+        return None
+    if not headers_raw or not model_raw:
+        raise ImportError("WHOP_HEADERS_JSON and MODEL_KEY_JSON must be provided together.")
+
+    headers = json.loads(headers_raw)
+    model = json.loads(model_raw)
+    if isinstance(model, dict):
+        model = [model]
+    if not isinstance(headers, dict) or not isinstance(model, list) or not model:
+        raise ImportError("WHOP_HEADERS_JSON must be an object and MODEL_KEY_JSON must be a non-empty array.")
+
+    hook = (os.environ.get("WEWORK_WEBHOOK_URL") or "").strip() or None
+    return headers, model, hook
+
+
 def _load_user_secrets():
+    env_secrets = _load_env_secrets()
+    if env_secrets is not None:
+        return env_secrets
+
     base = Path(__file__).resolve().parent
     for name in (".local_secrets.py", "local_secrets.py"):
         path = base / name

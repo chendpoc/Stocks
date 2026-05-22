@@ -1,0 +1,62 @@
+name: Daily Summary Publish
+
+on:
+  schedule:
+    # 00:30 UTC = 08:30 Asia/Shanghai.
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional Beijing date to regenerate, formatted as YYYY-MM-DD"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-summary-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Shanghai
+      SUMMARY_SITE_BASE_URL: https://stocks-emw.pages.dev/
+      SUMMARY_TARGET_DATE: ${{ github.event.inputs.date }}
+      WHOP_HEADERS_JSON: ${{ secrets.WHOP_HEADERS_JSON }}
+      MODEL_KEY_JSON: ${{ secrets.MODEL_KEY_JSON }}
+      WEWORK_WEBHOOK_URL: ${{ secrets.WEWORK_WEBHOOK_URL }}
+      GIT_AUTHOR_NAME: github-actions[bot]
+      GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Publish daily card and image
+        run: npm run daily:publish

@@ -11,6 +11,8 @@
     "pages:deploy:dry": "node scripts/deploy-cloudflare-pages.mjs --dry-run",
     "daily:sync": "node scripts/daily-summary.mjs",
     "daily:sync:dry": "node scripts/daily-summary.mjs --dry-run",
+    "daily:publish": "node scripts/daily-publish.mjs",
+    "daily:publish:dry": "node scripts/daily-publish.mjs --dry-run",
     "daily:install-task": "node scripts/install-daily-task.mjs",
     "daily:notify": "node scripts/daily-summary.mjs",
     "daily:notify:dry": "node scripts/daily-summary.mjs --dry-run",
