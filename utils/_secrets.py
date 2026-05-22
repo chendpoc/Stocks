@@ -5,10 +5,39 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
 from pathlib import Path
+
+
+def _parse_secret_value(env_name: str, raw: str, assignment_names: tuple[str, ...]):
+    value = raw.strip()
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as json_error:
+        pass
+
+    try:
+        module = ast.parse(value, mode="exec")
+        for node in module.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in assignment_names:
+                    return ast.literal_eval(node.value)
+
+        if len(module.body) == 1 and isinstance(module.body[0], ast.Expr):
+            return ast.literal_eval(module.body[0].value)
+    except (SyntaxError, ValueError) as literal_error:
+        raise ImportError(
+            f"{env_name} must be valid JSON, a Python literal, or a copied assignment from utils/.local_secrets.py."
+        ) from literal_error
+
+    raise ImportError(
+        f"{env_name} must contain one of these assignments: {', '.join(assignment_names)}."
+    )
 
 
 def _load_env_secrets():
@@ -19,8 +48,8 @@ def _load_env_secrets():
     if not headers_raw or not model_raw:
         raise ImportError("WHOP_HEADERS_JSON and MODEL_KEY_JSON must be provided together.")
 
-    headers = json.loads(headers_raw)
-    model = json.loads(model_raw)
+    headers = _parse_secret_value("WHOP_HEADERS_JSON", headers_raw, ("whom_headers", "WHOP_HEADERS_JSON"))
+    model = _parse_secret_value("MODEL_KEY_JSON", model_raw, ("model_key", "MODEL_KEY_JSON"))
     if isinstance(model, dict):
         model = [model]
     if not isinstance(headers, dict) or not isinstance(model, list) or not model:

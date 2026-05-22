@@ -332,6 +332,7 @@ test("GitHub Actions schedules daily publish at Beijing 08:30", async () => {
   assert.match(workflow, /contents:\s*write/);
   assert.match(workflow, /actions\/setup-node@v4/);
   assert.match(workflow, /actions\/setup-python@v5/);
+  assert.match(workflow, /fonts-noto-cjk/);
   assert.match(workflow, /python -m pip install -r requirements\.txt/);
   assert.match(workflow, /npm run daily:publish/);
   assert.match(workflow, /SUMMARY_SITE_BASE_URL:\s*https:\/\/stocks-emw\.pages\.dev\//);
@@ -347,6 +348,16 @@ test("python secrets loader supports GitHub Actions JSON secrets", async () => {
   assert.match(source, /MODEL_KEY_JSON/);
   assert.match(source, /WEWORK_WEBHOOK_URL/);
   assert.match(source, /json\.loads/);
+});
+
+test("summary image renderers prefer CJK fonts on Ubuntu runners", async () => {
+  const imageRenderer = await readFile("scripts/lib/summary-image.mjs", "utf8");
+  const cardRenderer = await readFile("scripts/lib/summary-card.mjs", "utf8");
+
+  assert.match(imageRenderer, /font-family:\s*"Noto Sans CJK SC"/);
+  assert.match(cardRenderer, /font-family:\s*"Noto Sans CJK SC"/);
+  assert.doesNotMatch(imageRenderer, /font-family:\s*"Microsoft YaHei",\s*"PingFang SC",\s*"Noto Sans CJK SC"/);
+  assert.doesNotMatch(cardRenderer, /font-family:\s*"Microsoft YaHei",\s*"PingFang SC",\s*"Noto Sans CJK SC"/);
 });
 
 test("local env loader reads SUMMARY_SITE_BASE_URL from project .env", async () => {

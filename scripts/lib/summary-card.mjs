@@ -206,7 +206,7 @@ export function renderSummaryCardCoverSvg(digest, options = {}) {
     .join("\n");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <style>text{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif;letter-spacing:0}</style>
+  <style>text{font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC",Arial,sans-serif;letter-spacing:0}</style>
   <rect width="${width}" height="${height}" fill="#f4f6f8"/>
   <rect x="24" y="24" width="${width - 48}" height="${height - 48}" rx="18" fill="#ffffff"/>
   <rect x="24" y="24" width="${width - 48}" height="82" rx="18" fill="#111827"/>

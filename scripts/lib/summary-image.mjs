@@ -482,7 +482,7 @@ export function renderSummarySvg(summary, options = {}) {
   const height = Math.max(options.height ?? 0, y + 6);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <style>
-    text { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif; dominant-baseline: alphabetic; letter-spacing: 0; }
+    text { font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif; dominant-baseline: alphabetic; letter-spacing: 0; }
   </style>
   <rect width="${width}" height="${height}" fill="${theme.bg}"/>
   <rect x="26" y="26" width="${width - 52}" height="${height - 52}" rx="8" fill="${theme.paper}"/>

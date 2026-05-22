@@ -1,6 +1,8 @@
 import json
 import hashlib
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -788,6 +790,42 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertEqual(payload["image"]["base64"], "ZmFrZS1wbmctYnl0ZXM=")
         self.assertEqual(payload["image"]["md5"], hashlib.md5(image_bytes).hexdigest())
         self.assertNotIn("text", payload)
+
+    def test_env_secret_loader_accepts_python_literal_assignments(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        env = os.environ.copy()
+        env["WHOP_HEADERS_JSON"] = "whom_headers = {'Cookie': 'abc', 'content-type': 'application/json'}"
+        env["MODEL_KEY_JSON"] = (
+            "model_key = [{'model': 'test-model', 'key': 'test-key', "
+            "'base_url': 'https://api.example.com/v1', 'app': 'openai'}]"
+        )
+        env["WEWORK_WEBHOOK_URL"] = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test"
+        code = (
+            "import json\n"
+            "import utils._secrets as secrets\n"
+            "print(json.dumps({"
+            "'cookie': secrets.whom_headers['Cookie'], "
+            "'model': secrets.model_key[0]['model'], "
+            "'hook': secrets.wework_webhook_url"
+            "}))\n"
+        )
+
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=repo_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        parsed = json.loads(result.stdout)
+        self.assertEqual(parsed["cookie"], "abc")
+        self.assertEqual(parsed["model"], "test-model")
+        self.assertEqual(parsed["hook"], env["WEWORK_WEBHOOK_URL"])
 
     def test_send_wework_image_posts_image_payload(self):
         from utils.wework_webhook import send_wework_image
