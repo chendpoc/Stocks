@@ -1,4 +1,4 @@
-name: Deploy VitePress site to Pages
+name: Verify VitePress site
 
 on:
   push:
@@ -19,11 +19,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: vitepress-verify
   cancel-in-progress: false
 
 jobs:
@@ -50,9 +48,6 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Write frontend .env
         run: |
           if [ -n "${VITE_ALERT_WS_URL}" ]; then
@@ -67,21 +62,3 @@ jobs:
 
       - name: Build with VitePress
         run: pnpm run docs:build
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/.vitepress/dist
-
-  deploy:
-    if: github.event_name == 'push'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

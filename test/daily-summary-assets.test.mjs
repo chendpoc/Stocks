@@ -3429,6 +3429,20 @@ test("package exposes Cloudflare Pages build and deploy commands", async () => {
   assert.match(wranglerConfig, /pages_build_output_dir\s*=\s*"\.\/docs\/\.vitepress\/dist"/);
 });
 
+test("push workflow verifies VitePress without GitHub Pages deployment actions", async () => {
+  const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
+
+  assert.match(workflow, /name:\s*Verify VitePress site/);
+  assert.match(workflow, /pnpm run docs:build/);
+  assert.match(workflow, /contents:\s*read/);
+  assert.doesNotMatch(workflow, /actions\/configure-pages/);
+  assert.doesNotMatch(workflow, /actions\/upload-pages-artifact/);
+  assert.doesNotMatch(workflow, /actions\/deploy-pages/);
+  assert.doesNotMatch(workflow, /pages:\s*write/);
+  assert.doesNotMatch(workflow, /id-token:\s*write/);
+  assert.doesNotMatch(workflow, /environment:\s*\n\s*name:\s*github-pages/);
+});
+
 test("cloudflare deploy dry run prints configured site base url for card notify", () => {
   const result = spawnSync(process.execPath, [
     "scripts/deploy-cloudflare-pages.mjs",
