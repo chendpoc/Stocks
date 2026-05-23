@@ -1,4 +1,9 @@
 {
+  "private": true,
+  "packageManager": "pnpm@9.15.5",
+  "engines": {
+    "node": ">=20 <23"
+  },
   "devDependencies": {
     "vitepress": "^1.6.4"
   },
@@ -6,9 +11,10 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "pages:build": "npm run docs:build",
+    "pages:build": "node scripts/pnpm-workspace.mjs run docs:build",
     "pages:deploy": "node scripts/deploy-cloudflare-pages.mjs",
     "pages:deploy:dry": "node scripts/deploy-cloudflare-pages.mjs --dry-run",
+    "public:build:audit": "node scripts/audit-public-build.mjs",
     "daily:sync": "node scripts/daily-summary.mjs",
     "daily:sync:dry": "node scripts/daily-summary.mjs --dry-run",
     "daily:publish": "node scripts/daily-publish.mjs",
@@ -22,6 +28,13 @@
     "notify:card:dry": "node scripts/notify-card.mjs --dry-run",
     "notify:brief": "node scripts/notify-brief.mjs",
     "notify:brief:dry": "node scripts/notify-brief.mjs --dry-run",
+    "opportunities:generate": "node scripts/generate-opportunities.mjs",
+    "console:dev": "node scripts/pnpm-workspace.mjs --filter research-console dev",
+    "console:build": "node scripts/pnpm-workspace.mjs --filter research-console build",
+    "console:lint": "node scripts/pnpm-workspace.mjs --filter research-console lint",
+    "release:check": "node scripts/release-check.mjs",
+    "release:verify": "node scripts/verify-production-release.mjs",
+    "integration:status": "node scripts/integration-status.mjs",
     "test:summary": "node --test test/daily-summary-assets.test.mjs && .venv\\Scripts\\python.exe -m unittest test.test_structured_summary -v"
   },
   "dependencies": {

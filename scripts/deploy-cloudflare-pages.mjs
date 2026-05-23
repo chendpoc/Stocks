@@ -144,7 +144,7 @@ async function main() {
   const outputDirAbs = resolve(rootDir, options.outputDir);
 
   if (!options.skipBuild) {
-    run(commandName("npm"), ["run", "docs:build"]);
+    run(process.execPath, ["scripts/pnpm-workspace.mjs", "run", "docs:build"]);
   }
 
   const indexPath = resolve(outputDirAbs, "index.html");

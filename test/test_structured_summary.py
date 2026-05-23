@@ -222,6 +222,84 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertEqual([item["symbol"] for item in normalized["admin_symbols"]], ["NVDA"])
         self.assertEqual([item["symbol"] for item in normalized["user_symbols"]], ["TSLA"])
 
+    def test_normalize_summary_payload_preserves_professional_brief(self):
+        from utils.structured_summary import normalize_summary_payload
+
+        normalized = normalize_summary_payload(
+            {
+                "overview": ["市场震荡，先看管理员框架。"],
+                "admin_core": ["等待缺口确认。"],
+                "professional_brief": {
+                    "market_regime": "财报窗口叠加节前流动性收缩，高波动但不适合追高。",
+                    "core_theory": "核心理论是用缺口和时间窗口过滤噪音。",
+                    "evidence_chain": ["英伟达财报前 AI 线分歧扩大。"],
+                    "trade_framework": {
+                        "entry_conditions": ["缺口回补且盘中缩量企稳。"],
+                        "holding_logic": ["小仓位做T，等待节前资金回补。"],
+                        "exit_conditions": ["反弹到节前高点或量能衰竭。"],
+                        "position_control": ["单标的不超过 0.3 成。"],
+                        "risk_control": ["不赌财报，不追盘前急拉。"],
+                    },
+                    "watch_points": ["10:30 到 11:30 的盘中承接。"],
+                    "invalidation": ["关键缺口跌破后不能快速收回。"],
+                },
+            }
+        )
+
+        brief = normalized["professional_brief"]
+        self.assertEqual(brief["market_regime"], ["财报窗口叠加节前流动性收缩，高波动但不适合追高。"])
+        self.assertEqual(brief["core_theory"], ["核心理论是用缺口和时间窗口过滤噪音。"])
+        self.assertEqual(brief["trade_framework"]["entry_conditions"], ["缺口回补且盘中缩量企稳。"])
+        self.assertEqual(brief["trade_framework"]["position_control"], ["单标的不超过 0.3 成。"])
+        self.assertEqual(brief["invalidation"], ["关键缺口跌破后不能快速收回。"])
+
+    def test_normalize_summary_payload_preserves_arbitrage_opportunities(self):
+        from utils.structured_summary import normalize_summary_payload
+
+        normalized = normalize_summary_payload(
+            {
+                "overview": ["等待缺口确认。"],
+                "admin_core": ["赵哥强调不追高，只做确认后的节奏机会。"],
+                "arbitrage_opportunities": [
+                    {
+                        "title": "AI 光模块财报错位价差",
+                        "symbols": ["LITE", "COHR"],
+                        "setup": "管理员提到 AI 线先杀估值，群聊同时讨论光模块补涨。",
+                        "trigger": "NVDA 财报后 AI 线不再扩散下跌，LITE 先回补缺口。",
+                        "data_points": ["LITE 缺口", "NVDA 财报窗口", "盘前急拉不追"],
+                        "action_bias": "只观察低吸和价差收敛，不追盘前急拉。",
+                        "risk": "财报后资金继续撤离 AI 线。",
+                        "confidence": "medium",
+                        "source_basis": "基于 xiaozhaolucky 缺口纪律和群聊 AI 线索。",
+                    }
+                ],
+            }
+        )
+
+        opportunity = normalized["arbitrage_opportunities"][0]
+        self.assertEqual(opportunity["title"], "AI 光模块财报错位价差")
+        self.assertEqual(opportunity["symbols"], ["LITE", "COHR"])
+        self.assertEqual(opportunity["setup"], "管理员提到 AI 线先杀估值，群聊同时讨论光模块补涨。")
+        self.assertEqual(opportunity["trigger"], "NVDA 财报后 AI 线不再扩散下跌，LITE 先回补缺口。")
+        self.assertEqual(opportunity["data_points"], ["LITE 缺口", "NVDA 财报窗口", "盘前急拉不追"])
+        self.assertEqual(opportunity["action_bias"], "只观察低吸和价差收敛，不追盘前急拉。")
+        self.assertEqual(opportunity["risk"], "财报后资金继续撤离 AI 线。")
+        self.assertEqual(opportunity["confidence"], "medium")
+        self.assertEqual(opportunity["source_basis"], "基于 xiaozhaolucky 缺口纪律和群聊 AI 线索。")
+
+    def test_normalize_summary_payload_ignores_empty_arbitrage_opportunities(self):
+        from utils.structured_summary import normalize_summary_payload
+
+        normalized = normalize_summary_payload(
+            {
+                "overview": ["等待缺口确认。"],
+                "admin_core": ["控制仓位。"],
+                "arbitrage_opportunities": [{}, None, ""],
+            }
+        )
+
+        self.assertEqual(normalized["arbitrage_opportunities"], [])
+
     def test_normalize_summary_payload_fallback_event_summary_is_beginner_friendly(self):
         from utils.structured_summary import normalize_summary_payload
 
@@ -254,6 +332,17 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertIn("小白友好", prompt)
         self.assertIn("专业术语", prompt)
         self.assertIn("SPX=标普500指数", prompt)
+        self.assertIn("专业报告", prompt)
+        self.assertIn("professional_brief", prompt)
+        self.assertIn("market_regime", prompt)
+        self.assertIn("core_theory", prompt)
+        self.assertIn("trade_framework", prompt)
+        self.assertIn("arbitrage_opportunities", prompt)
+        self.assertIn("机会观察/推测，不是确定性交易建议", prompt)
+        self.assertIn("必须基于 xiaozhaolucky / 核心理论和群聊内容线索", prompt)
+        self.assertIn("title", prompt)
+        self.assertIn("source_basis", prompt)
+        self.assertIn("不要把套利机会写成确定性买卖指令", prompt)
 
     def test_render_summary_markdown_uses_structured_sections(self):
         from utils.structured_summary import normalize_summary_payload, render_summary_markdown
@@ -262,7 +351,7 @@ class StructuredSummaryTests(unittest.TestCase):
             {
                 "overview": ["资金高低切换，指数震荡。"],
                 "event_summary": [
-                    "赵哥的核心理论是先识别被动减仓节奏，再用仓位和缺口纪律等待确定性。",
+                    "核心理论是先识别被动减仓节奏，再用仓位和缺口纪律等待确定性。",
                     "市场实际表现为高位回落和缺口回补，短线只适合小仓位做T。",
                     "普通用户讨论提供情绪和个股线索，但不改变管理员框架。",
                 ],
@@ -294,10 +383,10 @@ class StructuredSummaryTests(unittest.TestCase):
         )
 
         self.assertLess(markdown.index("## 三句话总结"), markdown.index("## 核心结论"))
-        self.assertIn("- 赵哥的核心理论是先识别被动减仓节奏", markdown)
+        self.assertIn("- 核心理论是先识别被动减仓节奏", markdown)
         self.assertIn("## 核心结论", markdown)
         self.assertIn("## xiaozhaolucky", markdown)
-        self.assertIn("### 赵哥理论提炼", markdown)
+        self.assertIn("### 深度解读", markdown)
         self.assertIn("- 管理员在强调交易频率控制", markdown)
         self.assertIn("### 管理员重点标的", markdown)
         self.assertIn("- **TSLA（特斯拉）**: 观察 385 支撑。", markdown)
@@ -312,6 +401,100 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertIn("## 其他用户", markdown)
         self.assertIn("### 用户观点提炼", markdown)
         self.assertIn("- 用户主要关注是否追高。", markdown)
+
+    def test_render_summary_markdown_includes_professional_report_sections(self):
+        from utils.structured_summary import normalize_summary_payload, render_summary_markdown
+
+        summary = normalize_summary_payload(
+            {
+                "overview": ["不追高，等待缺口确认。"],
+                "event_summary": [
+                    "赵哥的理论是用缺口和节奏判断资金意图。",
+                    "市场在财报窗口里高波动。",
+                    "操作上以小仓位等待确认。",
+                ],
+                "admin_core": ["等待缺口确认。"],
+                "admin_deep_reading": ["管理员强调用时间窗口和价格缺口过滤噪音。"],
+                "professional_brief": {
+                    "market_regime": ["财报窗口叠加节前流动性收缩，盘中容易急拉急跌。"],
+                    "core_theory": ["核心理论是等待缺口回补后再判断资金是否重新承接。"],
+                    "evidence_chain": ["AI 线在财报前已经出现分歧，说明资金不愿继续追高。"],
+                    "trade_framework": {
+                        "entry_conditions": ["缺口回补，且 10:30-11:30 出现承接。"],
+                        "holding_logic": ["小仓位做T，等待节前资金回补。"],
+                        "exit_conditions": ["到达节前反弹高点或量能衰竭。"],
+                        "position_control": ["单标的不超过 0.3 成。"],
+                        "risk_control": ["不赌财报，不追盘前急拉。"],
+                    },
+                    "watch_points": ["10:30-11:30 是否有真实买盘承接。"],
+                    "invalidation": ["关键缺口跌破后不能快速收回。"],
+                },
+                "admin_symbols": [
+                    {
+                        "symbol": "LITE",
+                        "name": "Lumentum",
+                        "thesis": "AI 光通信弹性标的。",
+                        "trigger": "缺口回补后放量企稳。",
+                        "action": "等待低吸，不追高。",
+                        "risk": "财报窗口波动放大。",
+                        "evidence": "来自管理员对 AI 线节奏的判断。",
+                    }
+                ],
+            }
+        )
+
+        markdown = render_summary_markdown(summary, include_audit_records=False)
+
+        self.assertIn("## 市场状态判断", markdown)
+        self.assertIn("### 核心理论", markdown)
+        self.assertIn("### 交易框架拆解", markdown)
+        self.assertIn("**入场条件**", markdown)
+        self.assertIn("**失效条件**", markdown)
+        self.assertIn("### 管理员重点标的", markdown)
+        self.assertIn("| 标的 | 逻辑 | 触发条件 | 动作 | 风险 |", markdown)
+        self.assertIn("| LITE（Lumentum） | AI 光通信弹性标的。 | 缺口回补后放量企稳。 | 等待低吸，不追高。 | 财报窗口波动放大。 |", markdown)
+        self.assertLess(markdown.index("## 市场状态判断"), markdown.index("## xiaozhaolucky"))
+
+    def test_render_summary_markdown_includes_arbitrage_opportunities_after_admin_symbols(self):
+        from utils.structured_summary import normalize_summary_payload, render_summary_markdown
+
+        summary = normalize_summary_payload(
+            {
+                "overview": ["不追高，等待缺口确认。"],
+                "admin_core": ["只在缺口回补和仓位纪律内观察。"],
+                "admin_deep_reading": ["赵哥框架强调节奏、缺口和风控，不是预测确定方向。"],
+                "admin_symbols": [
+                    {"symbol": "NVDA", "summary": "财报后观察 AI 线是否扩散。"},
+                ],
+                "user_core": ["用户讨论 LITE 和 COHR 的补涨可能。"],
+                "arbitrage_opportunities": [
+                    {
+                        "title": "AI 光模块补涨价差",
+                        "symbols": ["LITE", "COHR"],
+                        "setup": "AI 主线情绪退潮后，群聊提到光模块分支仍有补涨讨论。",
+                        "trigger": "NVDA 财报后 AI 线止跌，LITE/COHR 出现放量承接。",
+                        "data_points": ["NVDA 财报", "LITE 缺口", "COHR 补涨讨论"],
+                        "action_bias": "观察价差收敛，只考虑小仓位试错。",
+                        "risk": "AI 主线继续杀估值会让补涨逻辑失效。",
+                        "confidence": "medium",
+                        "source_basis": "赵哥缺口纪律 + 群聊光模块线索。",
+                    }
+                ],
+            }
+        )
+
+        markdown = render_summary_markdown(summary, include_audit_records=False)
+
+        self.assertIn("## 套利机会推测", markdown)
+        self.assertIn("免责声明：以下内容是基于聊天信息和管理员框架的机会观察，不是确定性交易建议。", markdown)
+        self.assertIn("### AI 光模块补涨价差", markdown)
+        self.assertIn("- **标的**：LITE, COHR", markdown)
+        self.assertIn("- **触发条件**：NVDA 财报后 AI 线止跌，LITE/COHR 出现放量承接。", markdown)
+        self.assertIn("- **数据点**：NVDA 财报；LITE 缺口；COHR 补涨讨论", markdown)
+        self.assertIn("- **动作倾向**：观察价差收敛，只考虑小仓位试错。", markdown)
+        self.assertIn("- **置信度**：medium", markdown)
+        self.assertLess(markdown.index("### 管理员重点标的"), markdown.index("## 套利机会推测"))
+        self.assertLess(markdown.index("## 套利机会推测"), markdown.index("## 其他用户"))
 
     def test_render_summary_markdown_appends_collapsed_image_gallery(self):
         from utils.structured_summary import normalize_summary_payload, render_summary_markdown
@@ -649,7 +832,7 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertIn("SECOND_DAILY_SUMMARY", content)
         self.assertNotIn("FIRST_DAILY_SUMMARY", content)
 
-    def test_save_structured_summary_writes_public_daily_archive_without_audit_records(self):
+    def test_save_structured_summary_writes_public_daily_archive_and_local_audit_archive(self):
         from utils.structured_summary import save_structured_summary
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -676,6 +859,8 @@ class StructuredSummaryTests(unittest.TestCase):
                 ],
             )
             archive_content = Path(result["archive_path"]).read_text(encoding="utf-8")
+            local_archive_path = Path(result["local_archive_path"])
+            local_archive_content = local_archive_path.read_text(encoding="utf-8")
 
         self.assertIn("PUBLIC_DAILY_SUMMARY", archive_content)
         self.assertNotIn("PRIVATE_RAW_ADMIN_QUOTE", archive_content)
@@ -684,6 +869,13 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertNotIn("\u7fa4\u804a\u5185\u5bb9\u8bb0\u5f55", archive_content)
         self.assertNotIn("img-v2-prod.whop.com", archive_content)
         self.assertNotIn("/assets/chat-images/", archive_content)
+        self.assertTrue(str(local_archive_path).replace("\\", "/").endswith("2026-05-20-\u6bcf\u65e5\u603b\u7ed3-local.md"))
+        self.assertIn("PUBLIC_DAILY_SUMMARY", local_archive_content)
+        self.assertIn("PRIVATE_RAW_ADMIN_QUOTE", local_archive_content)
+        self.assertIn("\u539f\u59cb\u53d1\u8a00\u8bb0\u5f55", local_archive_content)
+        self.assertIn("\u7fa4\u804a\u56fe\u7247\u8bb0\u5f55", local_archive_content)
+        self.assertIn("\u7fa4\u804a\u5185\u5bb9\u8bb0\u5f55", local_archive_content)
+        self.assertIn("/assets/chat-images/2026-05-20/file_img_1.png", local_archive_content)
 
     def test_save_structured_summary_updates_homepage_once_and_skips_identical_content(self):
         from utils.structured_summary import save_structured_summary
@@ -761,6 +953,48 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertTrue(index[0]["is_built_page"])
         self.assertEqual(index[0]["url"], "/summaries/2026-05/2026-05-20-\u6bcf\u65e5\u603b\u7ed3")
 
+    def test_search_index_public_mode_indexes_only_latest_month_public_daily_files(self):
+        from build_search_index import SimpleContentIndexer
+
+        with tempfile.TemporaryDirectory() as tmp:
+            summaries_dir = Path(tmp) / "summaries"
+            latest_dir = summaries_dir / "2026-05"
+            older_dir = summaries_dir / "2026-04"
+            latest_dir.mkdir(parents=True)
+            older_dir.mkdir(parents=True)
+            (latest_dir / "2026-05-20-\u6bcf\u65e5\u603b\u7ed3.md").write_text(
+                "# Public Daily\n\nPUBLIC_CURRENT_MONTH",
+                encoding="utf-8",
+            )
+            (latest_dir / "2026-05-20-\u6bcf\u65e5\u603b\u7ed3-local.md").write_text(
+                "# Local Daily\n\nPRIVATE_LOCAL_AUDIT",
+                encoding="utf-8",
+            )
+            (latest_dir / "2026-05-20_18-21-57-\u6bcf\u65e5\u603b\u7ed3.md").write_text(
+                "# Legacy Timed\n\nPRIVATE_TIMED_HISTORY",
+                encoding="utf-8",
+            )
+            (older_dir / "2026-04-20-\u6bcf\u65e5\u603b\u7ed3.md").write_text(
+                "# Older Daily\n\nPUBLIC_OLDER_MONTH",
+                encoding="utf-8",
+            )
+            (summaries_dir / "2025-11-28 12_22_35.md").write_text(
+                "# Legacy Flat\n\nPRIVATE_LEGACY_FLAT",
+                encoding="utf-8",
+            )
+            indexer = SimpleContentIndexer(str(summaries_dir))
+            indexer.index_cache_path = Path(tmp) / "search_index.json"
+            index = indexer.build_index(force_rebuild=True)
+
+        self.assertEqual(len(index), 1)
+        self.assertEqual(index[0]["title"], "Public Daily")
+        self.assertIn("PUBLICCURRENTMONTH", index[0]["content"])
+        serialized = json.dumps(index, ensure_ascii=False)
+        self.assertNotIn("PRIVATE_LOCAL_AUDIT", serialized)
+        self.assertNotIn("PRIVATE_TIMED_HISTORY", serialized)
+        self.assertNotIn("PUBLIC_OLDER_MONTH", serialized)
+        self.assertNotIn("PRIVATE_LEGACY_FLAT", serialized)
+
     def test_search_index_keeps_legacy_flat_summary_without_public_page_url(self):
         from build_search_index import SimpleContentIndexer
 
@@ -771,7 +1005,7 @@ class StructuredSummaryTests(unittest.TestCase):
                 "# Legacy\n\nNVDA legacy content",
                 encoding="utf-8",
             )
-            indexer = SimpleContentIndexer(str(summaries_dir))
+            indexer = SimpleContentIndexer(str(summaries_dir), public_only=False)
             indexer.index_cache_path = Path(tmp) / "search_index.json"
             index = indexer.build_index(force_rebuild=True)
 

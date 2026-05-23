@@ -1,4 +1,9 @@
 node_modules
+.cache/
+.corepack/
+.next
+apps/*/.next
+apps/*/out
 .env
 .obsidian/workspace.json
 .wrangler/

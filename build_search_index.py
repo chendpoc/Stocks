@@ -27,8 +27,9 @@ from typing import List, Dict, Any, Optional, Tuple
 class SimpleContentIndexer:
     """简化的内容索引器（独立实现，避免导入依赖）"""
     
-    def __init__(self, summaries_dir: str = "docs/summaries"):
+    def __init__(self, summaries_dir: str = "docs/summaries", public_only: bool = True):
         self.summaries_dir = Path(summaries_dir)
+        self.public_only = public_only
         self.index: List[Dict[str, Any]] = []
         self.index_cache_path = Path("docs/search_index.json")
         
@@ -40,6 +41,8 @@ class SimpleContentIndexer:
             return self.index
             
         for md_file in sorted(self.summaries_dir.rglob("*.md")):
+            if not self._should_index_file(md_file):
+                continue
             try:
                 doc = self._parse_markdown_file(md_file)
                 if doc:
@@ -90,6 +93,41 @@ class SimpleContentIndexer:
             return file_path.relative_to(self.summaries_dir).as_posix()
         except ValueError:
             return file_path.name
+
+    def _monthly_dirs(self) -> List[str]:
+        if not self.summaries_dir.exists():
+            return []
+
+        return sorted(
+            [
+                item.name
+                for item in self.summaries_dir.iterdir()
+                if item.is_dir() and re.match(r"^\d{4}-\d{2}$", item.name)
+            ],
+            reverse=True,
+        )
+
+    def _latest_month(self) -> Optional[str]:
+        months = self._monthly_dirs()
+        return months[0] if months else None
+
+    def _is_public_daily_summary(self, file_path: Path) -> bool:
+        summary_rel = self._summary_relative_path(file_path)
+        parts = Path(summary_rel).parts
+        if len(parts) != 2:
+            return False
+
+        month, filename = parts
+        if month != self._latest_month():
+            return False
+
+        return re.match(r"^\d{4}-\d{2}-\d{2}-每日总结\.md$", filename) is not None
+
+    def _should_index_file(self, file_path: Path) -> bool:
+        if not self.public_only:
+            return True
+
+        return self._is_public_daily_summary(file_path)
 
     def _is_built_page(self, file_path: Path) -> bool:
         summary_rel = self._summary_relative_path(file_path)

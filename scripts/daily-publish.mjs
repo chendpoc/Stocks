@@ -30,6 +30,9 @@ const skipGitPush = dryRun || args.has("--skip-git-push") || process.env.SKIP_GI
 const skipCard = args.has("--skip-card");
 const skipImage = args.has("--skip-image");
 const themeName = process.env.SUMMARY_IMAGE_THEME || "light_report";
+const cardUrlWaitTimeoutMs = readPositiveIntEnv("SUMMARY_CARD_URL_WAIT_TIMEOUT_MS", 300000);
+const cardUrlWaitIntervalMs = readPositiveIntEnv("SUMMARY_CARD_URL_WAIT_INTERVAL_MS", 10000);
+const deployHookUrl = readOptionalEnv("SUMMARY_DEPLOY_HOOK_URL");
 
 function readArgValue(name) {
   const eqArg = rawArgs.find((arg) => arg.startsWith(`${name}=`));
@@ -44,6 +47,11 @@ function readArgValue(name) {
 function readOptionalEnv(name) {
   const value = (process.env[name] || "").trim();
   return value === "null" || value === "undefined" ? "" : value;
+}
+
+function readPositiveIntEnv(name, fallback) {
+  const value = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 const targetDate = readArgValue("--date") || readOptionalEnv("SUMMARY_TARGET_DATE");
@@ -138,6 +146,76 @@ print("")
 `;
   const result = run(py, ["-c", code], { capture: true });
   return (result.stdout ?? "").trim();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function publicUrlAvailable(url) {
+  for (const method of ["HEAD", "GET"]) {
+    try {
+      const response = await fetch(url, {
+        method,
+        redirect: "follow",
+        cache: "no-store",
+      });
+      if (response.ok) return true;
+    } catch {
+      // Retry with the next method or poll iteration.
+    }
+  }
+  return false;
+}
+
+async function waitForPublicUrl(url, options = {}) {
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new Error(`Public URL is required before sending template card: ${url || "(empty)"}`);
+  }
+
+  const timeoutMs = options.timeoutMs ?? cardUrlWaitTimeoutMs;
+  const intervalMs = options.intervalMs ?? cardUrlWaitIntervalMs;
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
+  let attempt = 0;
+
+  while (Date.now() <= deadline) {
+    attempt += 1;
+    if (await publicUrlAvailable(url)) {
+      console.log(`public card cover available after ${attempt} check(s): ${url}`);
+      return;
+    }
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await sleep(Math.min(intervalMs, remainingMs));
+  }
+
+  throw new Error(`Timed out waiting for public card cover URL after ${timeoutMs}ms: ${url}`);
+}
+
+function maskUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.search) parsed.search = "?[redacted]";
+    if (parsed.hash) parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return "[invalid-url]";
+  }
+}
+
+async function triggerDeployHook() {
+  if (!deployHookUrl) return false;
+  if (!/^https?:\/\//i.test(deployHookUrl)) {
+    throw new Error("SUMMARY_DEPLOY_HOOK_URL must be a valid http(s) URL.");
+  }
+
+  const response = await fetch(deployHookUrl, { method: "POST" });
+  console.log(`deploy hook response: ${response.status} ${maskUrl(deployHookUrl)}`);
+  if (!response.ok) {
+    throw new Error(`Deploy hook failed with status ${response.status}.`);
+  }
+  return true;
 }
 
 function sampleSummary() {
@@ -281,8 +359,12 @@ async function runActual() {
     console.log(`summary image: ${image.imagePath} (${image.imageSizeBytes} bytes)`);
   }
 
+  let published = false;
   if (!skipGitPush) {
-    publishWithGit(artifacts, [card?.coverPath, image?.imagePath]);
+    published = publishWithGit(artifacts, [card?.coverPath, image?.imagePath]);
+    if (published) {
+      await triggerDeployHook();
+    }
   } else {
     console.log("skip git push");
   }
@@ -294,6 +376,7 @@ async function runActual() {
     const webhookUrl = loadWebhookUrl(py);
     if (!webhookUrl) throw new Error("WEWORK_WEBHOOK_URL or utils/.local_secrets.py wework_webhook_url is required.");
     if (card) {
+      await waitForPublicUrl(card.coverImageUrl);
       await sendWeWorkTemplateCard(webhookUrl, card.payload);
       console.log("wework template_card sent");
     }
