@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import type { AgentRunEvidenceList, AgentRunEvidenceSummary } from "@stock-summary/summary-core";
+import { parseAgentAnswerSections } from "../lib/agent-answer-sections";
 import { ScoreRows } from "./ScoreRows";
 
 type AgentReply = {
@@ -202,6 +203,24 @@ function parseYfinanceHistoryTrace(summary: string): YfinanceHistoryTrace | null
 
 function extractTickerSymbol(value: string | undefined) {
   return value?.match(/\b[A-Z][A-Z0-9.-]{0,9}\b/)?.[0] ?? "";
+}
+
+function AgentAnswerBody({ answer }: { answer: string }) {
+  const sections = parseAgentAnswerSections(answer);
+  if (!sections.length) {
+    return <p className="agent-answer-text">{answer}</p>;
+  }
+
+  return (
+    <div className="agent-answer-sections">
+      {sections.map((section, index) => (
+        <article className="agent-answer-section-card" key={`${section.title}-${index}`}>
+          <h4>{section.title}</h4>
+          <p>{section.body}</p>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 function ToolTraceResult({ tool }: { tool: ToolTrace }) {
@@ -595,7 +614,7 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
       {reply ? (
         <section className="agent-reply">
           <h3>回答</h3>
-          <p className="agent-answer-text">{reply.answer}</p>
+          <AgentAnswerBody answer={reply.answer} />
           <p className="agent-run-meta">
             run: <strong>{reply.run_id}</strong>
             <span>{reply.evidence_log_path}</span>

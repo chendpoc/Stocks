@@ -143,10 +143,10 @@ const DEFAULT_LOCAL_TOOL_PLAN: ResearchToolName[] = [
 ];
 
 const MARKET_VALIDATION_PATTERN =
-  /\b(market validation|quote|quotes|price|prices|volume|volumes|latest price|latest quote)\b|行情|报价|最新价|价格|成交量|验证/i;
+  /\b(market validation|quote|quotes|price|prices|volume|volumes|latest price|latest quote)\b|行情|报价|最新价|价格|成交量/i;
 
 const HISTORY_VALIDATION_PATTERN =
-  /\b(history|historical|trend|trends|drawdown|drawdowns|volatility|volatile|volume expansion|momentum history)\b|鍘嗗彶|瓒嬪娍|鍥炴挙|娉㈠姩|閲忚兘|鏀鹃噺|鎵挎帴/i;
+  /\b(history|historical|trend|trends|drawdown|drawdowns|volatility|volatile|volume expansion|momentum history)\b|历史|趋势|回撤|波动|量能|放量|(?:量能|成交量|价格|买盘|资金).{0,6}承接|承接.{0,6}(?:量能|成交量|价格|买盘|资金)/i;
 
 const BROAD_EVIDENCE_REFRESH_PATTERN =
   /\b(all missing evidence|missing evidence|evidence refresh|refresh evidence|refresh all|evidence needs)\b|补齐.*证据|刷新.*证据|证据.*补齐/i;

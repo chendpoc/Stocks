@@ -47,3 +47,24 @@ git diff --check
 - Over-triggering external tools from generic words like "机会" would make the console slower and less auditable.
 - Under-triggering leaves the history tool available only to model-backed mode, weakening the local-first fallback.
 - Quote and history are different evidence types; the provider should add history only when the request actually asks for historical structure.
+
+## Follow-up Fix 2026-05-23
+
+Found a Chinese-intent regression in `apps/research-console/lib/agent-provider.ts`:
+
+- The Chinese history keywords in `HISTORY_VALIDATION_PATTERN` were mojibake, so requests such as "趋势、回撤、波动、量能" did not plan `yfinance_history`.
+- The Chinese market validation pattern included a broad standalone "验证", causing historical-validation questions to plan `yfinance_quote` instead.
+
+Fix:
+
+- Restore the Chinese history keywords: `历史`、`趋势`、`回撤`、`波动`、`量能`、`放量`、`承接`.
+- Keep quote planning tied to quote/price/volume wording instead of generic "验证".
+- Add a regression case for Chinese historical validation.
+- Review fix: remove standalone `承接` as a trigger. Only market-specific phrases such as `量能承接`、`成交量承接`、`资金承接` should plan `yfinance_history`; connective wording such as "这个回答是否承接管理员意图" must stay local-only.
+
+Verification:
+
+```powershell
+node --test --test-name-pattern "mojibake|yfinance history for explicit historical validation" test\daily-summary-assets.test.mjs
+node --test --test-name-pattern "local provider plans yfinance only|local provider plans yfinance history" test\daily-summary-assets.test.mjs
+```

@@ -70,7 +70,9 @@ The document must define:
 
 Implementation should not begin until the module document exists. Small follow-up fixes may update the existing module document instead of creating a new one.
 
-Current module documents:
+Representative module documents:
+
+This list captures the main tracked module docs for orientation. The authoritative list is the directory `docs/research-agent/modules/`.
 
 - `docs/research-agent/modules/2026-05-22-yfinance-quote-tool.md`
 - `docs/research-agent/modules/2026-05-23-agent-reasoning-context.md`
@@ -95,6 +97,8 @@ Current module documents:
 - `docs/research-agent/modules/2026-05-23-opportunity-reasoning-professional-fallbacks.md`
 - `docs/research-agent/modules/2026-05-23-cloudflare-deploy-pnpm-build.md`
 - `docs/research-agent/modules/2026-05-23-research-console-standalone-boundary.md`
+- `docs/research-agent/modules/2026-05-23-agent-answer-section-cards.md`
+- `docs/research-agent/modules/2026-05-23-research-console-deployment-boundary.md`
 
 Agent lifecycle governance:
 
@@ -1639,6 +1643,58 @@ Implementation evidence:
 - RED verified with `node --test --test-name-pattern "research console.*separate|research console standalone" test\daily-summary-assets.test.mjs`.
 - GREEN verified with the same focused command after implementation.
 - Additional focused checks passed: `npm run console:lint`, `npm run console:build`.
+
+---
+
+## Task 41: Render Agent Answers As Section Cards
+
+Status: completed on 2026-05-23.
+
+**Files:**
+
+- Modified: `apps/research-console/components/AgentPanel.tsx`
+- Modified: `apps/research-console/app/globals.css`
+- Modified: `test/daily-summary-assets.test.mjs`
+- Added: `apps/research-console/lib/agent-answer-sections.ts`
+- Added: `docs/research-agent/modules/2026-05-23-agent-answer-section-cards.md`
+
+Goal:
+
+- Render the visible structured answer sections as compact cards in the React agent panel.
+- Keep parsing scoped to `结论 / 证据 / 反证 / 下一步观察 / 研究边界`.
+- Preserve a plain-text fallback for malformed or model-backed free-form answers.
+
+Implementation evidence:
+
+- RED verified with `node --test --test-name-pattern "structured agent answers as section cards" test\daily-summary-assets.test.mjs`.
+- GREEN verified with the same focused command after implementation.
+- Review fix: extracted `parseAgentAnswerSections(...)` into a pure module and added behavior coverage so free-form prefixes trigger full plain-text fallback instead of hiding text.
+- Additional focused checks passed: `node --test --test-name-pattern "parses structured agent answers|structured agent answers as section cards|local research agent answer uses stable research sections|research console agent contract" test\daily-summary-assets.test.mjs`, `npm run console:build`.
+
+---
+
+## Task 42: Document Research Console Deployment Boundary
+
+Status: completed on 2026-05-23.
+
+**Files:**
+
+- Modified: `test/daily-summary-assets.test.mjs`
+- Modified: `docs/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md`
+- Added: `docs/research-agent/research-console-deployment-boundary.md`
+- Added: `docs/research-agent/modules/2026-05-23-research-console-deployment-boundary.md`
+
+Goal:
+
+- Record that the trading research workbench is a separate deployment from the VitePress public report site.
+- Keep `stocks-emw.pages.dev` dedicated to static daily reports, current-month history, card covers, and WeCom public links.
+- Require a protected deployment, separate environment scope, and server-side-only research secrets before any remote research-console hosting.
+
+Implementation evidence:
+
+- RED verified with `node --test --test-name-pattern "deployment boundary document" test\daily-summary-assets.test.mjs`.
+- GREEN verified with the same focused command after implementation.
+- Scope deliberately avoided changing `daily:publish`, VitePress routing, WeCom delivery, or actual deployment settings.
 
 ---
 

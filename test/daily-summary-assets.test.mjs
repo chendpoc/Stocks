@@ -59,6 +59,22 @@ function loadResearchConsoleModule(relativePath) {
   return require(path.resolve(relativePath));
 }
 
+async function collectFiles(root, extensions) {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await collectFiles(fullPath, extensions));
+      continue;
+    }
+    if (entry.isFile() && extensions.some((extension) => entry.name.endsWith(extension))) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
 async function withEnv(updates, callback) {
   const previous = new Map();
   for (const [key, value] of Object.entries(updates)) {
@@ -875,6 +891,58 @@ test("research console agent contract supports multi-turn tool-calling traces", 
   assert.match(panel, /tool_trace/);
   assert.match(panel, /工具调用/);
   assert.match(panel, /className="agent-answer-text"/);
+});
+
+test("research console renders structured agent answers as section cards", async () => {
+  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const sectionLib = await readFile("apps/research-console/lib/agent-answer-sections.ts", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+  const moduleDoc = await readFile(
+    "docs/research-agent/modules/2026-05-23-agent-answer-section-cards.md",
+    "utf8",
+  );
+
+  assert.match(panel, /import\s+\{\s*parseAgentAnswerSections\s*\}\s+from\s+"..\/lib\/agent-answer-sections"/);
+  assert.match(sectionLib, /function\s+parseAgentAnswerSections\(/);
+  assert.match(sectionLib, /const\s+firstLine/);
+  assert.match(sectionLib, /return\s+\[\]/);
+  assert.match(panel, /function\s+AgentAnswerBody\(/);
+  assert.match(panel, /className="agent-answer-sections"/);
+  assert.match(panel, /className="agent-answer-section-card"/);
+  assert.match(panel, /key=\{`\$\{section\.title\}-\$\{index\}`\}/);
+  assert.match(panel, /className="agent-answer-text"/);
+  assert.match(styles, /\.agent-answer-sections/);
+  assert.match(styles, /\.agent-answer-section-card/);
+  assert.match(moduleDoc, /Agent Answer Section Cards/);
+  assert.match(moduleDoc, /plain-text fallback/);
+  assert.match(moduleDoc, /first line/);
+});
+
+test("research console parses structured agent answers without hiding free-form prefixes", async () => {
+  const { parseAgentAnswerSections } = loadResearchConsoleModule(
+    "apps/research-console/lib/agent-answer-sections.ts",
+  );
+
+  assert.deepEqual(parseAgentAnswerSections([
+    "结论：优先观察 LITE。",
+    "证据：管理员框架和历史波动都指向需要验证。",
+    "反证：如果量能不承接，观察降级。",
+    "下一步观察：先看回撤和成交量。",
+    "研究边界：不是交易指令。",
+  ].join("\n")), [
+    { title: "结论", body: "优先观察 LITE。" },
+    { title: "证据", body: "管理员框架和历史波动都指向需要验证。" },
+    { title: "反证", body: "如果量能不承接，观察降级。" },
+    { title: "下一步观察", body: "先看回撤和成交量。" },
+    { title: "研究边界", body: "不是交易指令。" },
+  ]);
+
+  assert.deepEqual(parseAgentAnswerSections("自由文本回答，没有固定标题。"), []);
+  assert.deepEqual(parseAgentAnswerSections([
+    "补充说明：模型先给了一句前言。",
+    "结论：这不应该卡片化。",
+    "证据：否则前言会被隐藏。",
+  ].join("\n")), []);
 });
 
 test("research console separates provider planning from tool execution policy", async () => {
@@ -2839,6 +2907,17 @@ test("research console local provider plans yfinance only for explicit market va
 
   await withEnv({
     AGENT_PROVIDER: undefined,
+    RESEARCH_ENABLE_EXTERNAL_TOOLS: undefined,
+  }, async () => {
+    const provider = createResearchAgentProvider();
+    const connectivePlan = await provider.selectToolPlan(researchProviderInput({
+      message: "这个回答是否承接管理员意图",
+    }));
+    assert.deepEqual(connectivePlan, expectedLocalPlan);
+  });
+
+  await withEnv({
+    AGENT_PROVIDER: undefined,
     RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
   }, async () => {
     const provider = createResearchAgentProvider();
@@ -2878,6 +2957,21 @@ test("research console local provider plans yfinance history for explicit histor
 
   await withEnv({
     AGENT_PROVIDER: undefined,
+    RESEARCH_ENABLE_EXTERNAL_TOOLS: undefined,
+  }, async () => {
+    const provider = createResearchAgentProvider();
+    const plan = await provider.selectToolPlan(researchProviderInput({
+      message: "请验证 LITE 的趋势、回撤、波动和量能，再比较这个机会",
+    }));
+
+    assert.deepEqual(plan, [
+      ...expectedLocalPlan,
+      { name: "yfinance_history", input: { symbol: "LITE", period: "30d" } },
+    ]);
+  });
+
+  await withEnv({
+    AGENT_PROVIDER: undefined,
     RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
   }, async () => {
     const provider = createResearchAgentProvider();
@@ -2900,6 +2994,84 @@ test("research console local provider plans yfinance history for explicit histor
     });
     assert.deepEqual(laterRoundPlan, []);
   });
+});
+
+test("research console source files do not contain common mojibake markers", async () => {
+  const sourceRoots = [
+    "apps/research-console/app",
+    "apps/research-console/components",
+    "apps/research-console/lib",
+    "packages/summary-core/src",
+  ];
+  const mojibakeMarkers = [
+    "\uFFFD",
+    "鍘嗗彶",
+    "瓒嬪娍",
+    "鍥炴挙",
+    "娉㈠姩",
+    "閲忚兘",
+    "鏀鹃噺",
+    "鎵挎帴",
+    "锛",
+    "鈥",
+    "Ã",
+    "Â",
+  ];
+  const files = (await Promise.all(
+    sourceRoots.map((root) => collectFiles(root, [".ts", ".tsx"])),
+  )).flat();
+  const offenders = [];
+
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    for (const marker of mojibakeMarkers) {
+      if (source.includes(marker)) {
+        offenders.push(`${file}: ${marker}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
+test("research agent documentation does not contain common mojibake markers", async () => {
+  const docRoots = [
+    "docs/research-agent",
+    "docs/superpowers/plans",
+  ];
+  const mojibakeMarkers = [
+    "\uFFFD",
+    "\u9429",
+    "\u5be4\u8679\u73db",
+    "\u6fc2\u6220\u5bb3",
+    "\u6748\u572d\u666b",
+    "\u5a34\u5b2d\u762f",
+    "\u6960\u5c83\u7609",
+    "\u93c8\u8f70\u7d30",
+    "\u7459\u509a\u7642",
+    "\u9365\u70b4\u6319",
+    "\u74d2\u5b2a\u5a0d",
+    "\u9359\u5d88\u7609",
+    "\u951b",
+    "\u9225",
+    "\u00C3",
+    "\u00C2",
+  ];
+  const files = (await Promise.all(
+    docRoots.map((root) => collectFiles(root, [".md"])),
+  )).flat();
+  const offenders = [];
+
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    for (const marker of mojibakeMarkers) {
+      if (source.includes(marker)) {
+        offenders.push(`${file}: ${marker}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, []);
 });
 
 test("research console local provider plans tools from structured evidence needs", async () => {
@@ -3486,6 +3658,44 @@ test("research console standalone architecture document records the site boundar
   assert.match(doc, /must not share the VitePress public deploy/i);
 });
 
+test("research console deployment boundary document keeps the workbench off the public report deploy", async () => {
+  const doc = await readFile("docs/research-agent/research-console-deployment-boundary.md", "utf8");
+  const pkg = JSON.parse(await readFile("package.json", "utf8"));
+  const publicWorkflow = await readFile(".github/workflows/deploy.yml", "utf8");
+  const researchWorkflow = await readFile(".github/workflows/research-console.yml", "utf8");
+  const deployHelper = await readFile("scripts/deploy-cloudflare-pages.mjs", "utf8");
+
+  assert.match(doc, /separate deployment/i);
+  assert.match(doc, /stocks-emw\.pages\.dev/);
+  assert.match(doc, /stocks-research\.pages\.dev|research console/i);
+  assert.match(doc, /Cloudflare Access|protected/i);
+  assert.match(doc, /RESEARCH_CONSOLE_ACCESS_TOKEN/);
+  assert.match(doc, /RESEARCH_ENABLE_EXTERNAL_TOOLS/);
+  assert.match(doc, /must not reuse/i);
+  assert.match(doc, /VitePress public deploy/i);
+  assert.match(doc, /daily:publish/);
+  assert.match(doc, /console:build/);
+  assert.doesNotMatch(pkg.scripts["pages:build"], /console:/);
+  assert.doesNotMatch(pkg.scripts["daily:publish"], /console:/);
+  assert.doesNotMatch(publicWorkflow, /apps\/research-console/);
+  assert.doesNotMatch(publicWorkflow, /console:build/);
+  assert.doesNotMatch(researchWorkflow, /stocks-emw/);
+  assert.doesNotMatch(researchWorkflow, /wrangler|pages deploy/i);
+  assert.match(deployHelper, /docs\/\.vitepress\/dist/);
+  assert.doesNotMatch(deployHelper, /apps\/research-console/);
+});
+
+test("research agent plan treats module document list as representative not exhaustive", async () => {
+  const plan = await readFile(
+    "docs/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md",
+    "utf8",
+  );
+
+  assert.match(plan, /Representative module documents/);
+  assert.match(plan, /authoritative list is the directory/i);
+  assert.match(plan, /docs\/research-agent\/modules\//);
+});
+
 test("cloudflare deploy dry run prints configured site base url for card notify", () => {
   const result = spawnSync(process.execPath, [
     "scripts/deploy-cloudflare-pages.mjs",
@@ -3530,6 +3740,7 @@ test("delivery readiness audit covers the five operational surfaces", async () =
   assert.match(audit, /npm run console:build/);
   assert.match(audit, /GitHub Actions/);
   assert.match(audit, /local-only/i);
+  assert.match(audit, /complete hosting, access control, secret rotation, and data retention/i);
   assert.match(audit, /RESEARCH_ENABLE_EXTERNAL_TOOLS/);
 });
 

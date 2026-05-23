@@ -752,6 +752,30 @@ h1 {
   white-space: pre-wrap;
 }
 
+.agent-answer-sections {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-answer-section-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.agent-answer-section-card h4 {
+  color: var(--accent-strong);
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+
+.agent-answer-section-card p {
+  color: var(--ink);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .agent-run-meta {
   background: rgba(18, 24, 38, 0.04);
   border: 1px solid var(--line);

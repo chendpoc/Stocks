@@ -121,7 +121,7 @@ Evidence:
 Remaining boundary:
 
 - This is not yet a deployed product surface.
-- It is intentionally local-only until hosting, authentication, secret handling, and data retention rules are explicitly designed.
+- It is intentionally local-only until complete hosting, access control, secret rotation, and data retention rules are explicitly designed.
 
 ## Agent Tooling And External Data
 
