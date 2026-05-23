@@ -3435,6 +3435,7 @@ test("push workflow verifies VitePress without GitHub Pages deployment actions",
   assert.match(workflow, /name:\s*Verify VitePress site/);
   assert.match(workflow, /pnpm run docs:build/);
   assert.match(workflow, /contents:\s*read/);
+  assert.match(workflow, /"\.github\/workflows\/deploy\.yml"/);
   assert.doesNotMatch(workflow, /actions\/configure-pages/);
   assert.doesNotMatch(workflow, /actions\/upload-pages-artifact/);
   assert.doesNotMatch(workflow, /actions\/deploy-pages/);
