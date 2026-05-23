@@ -103,18 +103,17 @@ export function buildSummaryCardDigest(summary, options = {}) {
 }
 
 export function buildDailySummaryCard(digest, options = {}) {
-  const coverImageUrl = options.coverImageUrl || "https://stock.autoin.me/assets/summary-cards/default.png";
   const actionUrl = options.reportUrl || digest.reportUrl || publicHomeUrl(options.siteBaseUrl);
   const mainline = digest.adminMainline?.[0] || digest.mainline;
   const conclusion = digest.overview?.[0] || digest.description;
   const symbols = (digest.symbols || []).slice(0, 3).join("；");
   const risks = (digest.risks || []).slice(0, 2).join("；");
-  const verticalContent = [
-    { title: "赵哥主线", desc: byteTrim(mainline, 96) },
-    { title: "核心结论", desc: byteTrim(conclusion, 96) },
-    { title: "管理员重点", desc: byteTrim(symbols, 110) },
-    { title: "风险", desc: byteTrim(risks, 96) },
-  ].filter((item) => item.desc);
+  const subTitleText = [
+    mainline ? `核心主线：${byteTrim(mainline, 120)}` : "",
+    conclusion ? `核心结论：${byteTrim(conclusion, 120)}` : "",
+    symbols ? `管理员重点：${byteTrim(symbols, 140)}` : "",
+    risks ? `风险：${byteTrim(risks, 120)}` : "",
+  ].filter(Boolean).join("\n");
   const horizontalContent = [
     { keyname: "日期", value: digest.day || "" },
     { keyname: "入口", value: "公开站首页", type: 1, url: actionUrl },
@@ -123,7 +122,7 @@ export function buildDailySummaryCard(digest, options = {}) {
   return {
     msgtype: "template_card",
     template_card: {
-      card_type: "news_notice",
+      card_type: "text_notice",
       source: {
         desc: "每日总结",
         desc_color: 0,
@@ -132,18 +131,13 @@ export function buildDailySummaryCard(digest, options = {}) {
         title: byteTrim(digest.title, 72),
         desc: byteTrim(digest.description, 88),
       },
-      card_image: {
-        url: coverImageUrl,
-        aspect_ratio: 2.25,
-      },
-      image_text_area: {
+      quote_area: {
         type: 1,
         url: actionUrl,
-        title: byteTrim(mainline, 44),
-        desc: "点击进入公开站首页",
-        image_url: coverImageUrl,
+        title: "核心主线",
+        quote_text: byteTrim(mainline, 160),
       },
-      vertical_content_list: verticalContent.slice(0, 4),
+      sub_title_text: byteTrim(subTitleText, 512),
       horizontal_content_list: horizontalContent.filter((item) => item.value).slice(0, 6),
       jump_list: [
         {

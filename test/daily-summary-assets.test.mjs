@@ -336,18 +336,17 @@ test("buildDailySummaryCard creates one clickable mobile report card", () => {
     day: "2026-05-20",
     reportUrl: "https://stock.example.com/",
   });
-  const payload = buildDailySummaryCard(digest, {
-    coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png",
-  });
+  const payload = buildDailySummaryCard(digest);
 
   assert.equal(payload.msgtype, "template_card");
-  assert.equal(payload.template_card.card_type, "news_notice");
+  assert.equal(payload.template_card.card_type, "text_notice");
   assert.equal(payload.template_card.card_action.type, 1);
   assert.equal(payload.template_card.card_action.url, digest.reportUrl);
-  assert.equal(payload.template_card.card_image.url, "https://stock.example.com/assets/summary-cards/2026-05-20.png");
+  assert.equal(payload.template_card.card_image, undefined);
+  assert.equal(payload.template_card.image_text_area, undefined);
   assert.match(payload.template_card.main_title.title, /5\/20/);
   assert.match(payload.template_card.main_title.desc, /SPX|NVDA|TSLA/);
-  assert.ok(payload.template_card.vertical_content_list.length <= 4);
+  assert.match(payload.template_card.sub_title_text, /核心主线|核心结论/);
   assert.ok(payload.template_card.horizontal_content_list.length <= 6);
   assert.doesNotMatch(JSON.stringify(payload), /不应该进入图片的原始发言/);
 });
@@ -358,9 +357,7 @@ test("buildDailySummaryCard keeps card body admin-only and uses public homepage 
     archivePath: "docs/summaries/2026-05/2026-05-20-daily-summary.md",
     siteBaseUrl: "https://stock.example.com/private-docs",
   });
-  const payload = buildDailySummaryCard(digest, {
-    coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png",
-  });
+  const payload = buildDailySummaryCard(digest);
   const raw = JSON.stringify(payload);
 
   assert.equal(digest.reportUrl, "https://stock.example.com/");
@@ -371,7 +368,7 @@ test("buildDailySummaryCard keeps card body admin-only and uses public homepage 
   assert.match(raw, /ADMIN_TICKER/);
   assert.match(raw, /ADMIN_RISK/);
   assert.doesNotMatch(raw, /USER_TICKER|USER_SYMBOL_REASON|USER_SUPPLEMENT|USER_DISAGREEMENT/);
-  assert.doesNotMatch(raw, /\/summaries\/|docs\/|private-docs|daily-summary\.md|(^|["'\s])[A-Za-z]:[\\/]/);
+  assert.doesNotMatch(raw, /summary-cards|\/summaries\/|docs\/|private-docs|daily-summary\.md|(^|["'\s])[A-Za-z]:[\\/]/);
 });
 
 test("buildSummaryCardDigest honors an explicit public report url", () => {
@@ -389,8 +386,7 @@ test("sendWeWorkTemplateCard rejects non-zero wework errcode", async () => {
     buildSummaryCardDigest(detailedSummary, {
       day: "2026-05-20",
       reportUrl: "https://stock.example.com/summaries/2026-05/2026-05-20-每日总结",
-    }),
-    { coverImageUrl: "https://stock.example.com/assets/summary-cards/2026-05-20.png" }
+    })
   );
 
   await assert.rejects(
@@ -464,23 +460,22 @@ test("daily publish script generates one summary then publishes card and image",
   assert.equal(summaryRuns.length, 1);
   assert.match(script, /sendWeWorkTemplateCard/);
   assert.match(script, /sendWeWorkImage/);
-  assert.match(script, /summary-cards/);
+  assert.doesNotMatch(script, /summary-cards/);
   assert.match(script, /summary-images/);
   assert.match(script, /const branch = currentGitBranch\(\)/);
   assert.match(script, /git",\s*\["push",\s*"origin",\s*branch\]/);
 });
 
-test("daily publish waits for public card cover before template card webhook", async () => {
+test("daily publish sends image without waiting for a public card cover", async () => {
   const script = await readFile("scripts/daily-publish.mjs", "utf8");
 
-  assert.match(script, /async function waitForPublicUrl/);
-  assert.match(script, /SUMMARY_CARD_URL_WAIT_TIMEOUT_MS/);
-  assert.match(script, /SUMMARY_CARD_URL_WAIT_INTERVAL_MS/);
-  assert.match(script, /await waitForPublicUrl\(card\.coverImageUrl/);
+  assert.doesNotMatch(script, /waitForPublicUrl/);
+  assert.doesNotMatch(script, /SUMMARY_CARD_URL_WAIT/);
+  assert.doesNotMatch(script, /card\.coverImageUrl/);
   assert.ok(
-    script.indexOf("await waitForPublicUrl(card.coverImageUrl") <
+    script.indexOf("await sendWeWorkImage(webhookUrl, image.imagePath)") <
       script.indexOf("await sendWeWorkTemplateCard(webhookUrl, card.payload)"),
-    "card cover URL should be checked before sending template card",
+    "image webhook should not be blocked by template card delivery",
   );
 });
 
@@ -491,12 +486,12 @@ test("daily publish optionally triggers deploy hook after git publish before web
   assert.match(script, /async function triggerDeployHook/);
   assert.match(script, /method:\s*"POST"/);
   assert.match(script, /deploy hook response/);
-  assert.match(script, /published = publishWithGit\(artifacts,\s*\[card\?\.coverPath,\s*image\?\.imagePath\]\)/);
+  assert.match(script, /published = publishWithGit\(artifacts,\s*\[image\?\.imagePath\]\)/);
   assert.match(script, /if \(published\) \{\s*await triggerDeployHook\(\);\s*\}/s);
   assert.ok(
     script.indexOf("await triggerDeployHook()") <
-      script.indexOf("await waitForPublicUrl(card.coverImageUrl)"),
-    "deploy hook should be triggered before waiting for the public cover URL",
+      script.indexOf("await sendWeWorkImage(webhookUrl, image.imagePath)"),
+    "deploy hook should be triggered before webhook delivery when it is configured",
   );
 });
 
@@ -4024,9 +4019,9 @@ test("notify:card dry run validates card notification path without network", () 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /notify:card dry run ok/);
   assert.match(result.stdout, /msgtype: template_card/);
-  assert.match(result.stdout, /card_type: news_notice/);
+  assert.match(result.stdout, /card_type: text_notice/);
   assert.match(result.stdout, /report_url: https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\//);
-  assert.match(result.stdout, /cover_url: https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\/assets\/summary-cards\/2026-05-20\.png/);
+  assert.doesNotMatch(result.stdout, /cover_url:/);
 });
 
 test("notify:brief dry run validates no-url markdown notification path without network", () => {

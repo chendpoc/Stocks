@@ -1,14 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   buildDailySummaryCard,
-  buildPublicAssetUrl,
   buildSummaryCardDigest,
-  renderSummaryCardCoverPng,
   sendWeWorkTemplateCard,
 } from "./lib/summary-card.mjs";
 import { loadLocalEnv } from "./lib/local-env.mjs";
@@ -151,45 +149,29 @@ async function buildCardArtifacts(summary, artifacts, options = {}) {
   const day = options.day || artifacts?.day || summary?.day || new Date().toISOString().slice(0, 10);
   const reportUrl = options.reportUrl || siteBaseUrl.replace(/\/+$/, "/");
   const digest = buildSummaryCardDigest(summary, { day, reportUrl });
-  const coverPath = options.coverPath || path.join(root, "docs", "assets", "summary-cards", `${day}.png`);
-  await mkdir(path.dirname(coverPath), { recursive: true });
-  const cover = await renderSummaryCardCoverPng(digest, { outputPath: coverPath });
-  const coverImageUrl =
-    process.env.SUMMARY_CARD_IMAGE_URL ||
-    options.coverImageUrl ||
-    buildPublicAssetUrl(path.relative(root, coverPath).replaceAll("\\", "/"), siteBaseUrl);
-  const payload = buildDailySummaryCard(digest, { coverImageUrl });
+  const payload = buildDailySummaryCard(digest);
 
   return {
     day,
     digest,
     payload,
-    coverPath,
-    coverImageUrl,
     reportUrl,
-    coverSizeBytes: cover.sizeBytes,
   };
 }
 
 async function runDry() {
   const dryRunReportUrl = siteBaseUrl.replace(/\/+$/, "/");
-  const dryRunCoverImageUrl = buildPublicAssetUrl("docs/assets/summary-cards/2026-05-20.png", siteBaseUrl);
   const artifacts = await buildCardArtifacts(sampleSummary(), { day: "2026-05-20" }, {
-    coverPath: path.join(root, "data", "generated", "dry-run-summary-card-cover.png"),
     reportUrl: dryRunReportUrl,
-    coverImageUrl: dryRunCoverImageUrl,
   });
   console.log("notify:card dry run ok");
   console.log(`msgtype: ${artifacts.payload.msgtype}`);
   console.log(`card_type: ${artifacts.payload.template_card.card_type}`);
   console.log(`report_url: ${artifacts.reportUrl}`);
-  console.log(`cover_url: ${artifacts.coverImageUrl}`);
-  console.log(`cover_image: ${artifacts.coverPath}`);
-  console.log(`cover_bytes: ${artifacts.coverSizeBytes}`);
 }
 
-function publishWithGit(artifacts, coverPath) {
-  const addPaths = ["docs/index.md", "docs/search_index.json", path.relative(root, coverPath).replaceAll("\\", "/")];
+function publishWithGit(artifacts) {
+  const addPaths = ["docs/index.md", "docs/search_index.json"];
   run("git", ["add", ...addPaths]);
   if (artifacts.archive_path) run("git", ["add", "-f", artifacts.archive_path]);
 
@@ -223,20 +205,15 @@ async function runActual() {
 
   console.log(`summary markdown: ${path.resolve(root, artifacts.archive_path)}`);
   console.log(`summary json: ${summaryJsonPath}`);
-  console.log(`card cover: ${card.coverPath} (${card.coverSizeBytes} bytes)`);
   console.log(`report url: ${card.reportUrl}`);
-  console.log(`cover url: ${card.coverImageUrl}`);
 
   if (!skipGitPush) {
-    publishWithGit(artifacts, card.coverPath);
+    publishWithGit(artifacts);
   } else {
     console.log("skip git push");
   }
 
   if (!skipWebhook) {
-    if (skipGitPush && !process.env.SUMMARY_CARD_IMAGE_URL) {
-      throw new Error("Cannot send template card with unpublished cover image. Remove --skip-git-push or set SUMMARY_CARD_IMAGE_URL.");
-    }
     const webhookUrl = loadWebhookUrl(py);
     if (!webhookUrl) throw new Error("WEWORK_WEBHOOK_URL or utils/.local_secrets.py wework_webhook_url is required.");
     await sendWeWorkTemplateCard(webhookUrl, card.payload);
