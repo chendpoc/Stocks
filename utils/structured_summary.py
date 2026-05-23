@@ -662,6 +662,7 @@ def render_summary_markdown(
     image_display: str = "details",
     chat_text: Optional[str] = None,
     include_audit_records: bool = True,
+    include_opportunities: bool = True,
 ) -> str:
     summary = normalize_summary_payload(summary)
     admin_lines = _extract_admin_lines(chat_text) or summary["admin_quotes"]
@@ -677,7 +678,8 @@ def render_summary_markdown(
     parts.append(_bullet_list(summary["admin_deep_reading"], empty="未发现可解读的管理员意图。"))
     parts.append("\n### 管理员重点标的\n")
     parts.append(_render_admin_symbol_section(summary["admin_symbols"], empty="管理员未明确提到重点标的。"))
-    parts.append(_render_arbitrage_opportunities(summary["arbitrage_opportunities"]))
+    if include_opportunities:
+        parts.append(_render_arbitrage_opportunities(summary["arbitrage_opportunities"]))
     if include_audit_records:
         parts.append("\n### 原始发言记录\n")
         parts.append(_render_collapsed_text(f"查看 xiaozhaolucky 原始发言 {len(admin_lines)} 条", admin_lines, "未发现管理员发言。"))
@@ -768,6 +770,7 @@ def render_public_index_markdown(
         images=list(images or []),
         chat_text=chat_text,
         include_audit_records=False,
+        include_opportunities=False,
     )
     return f"""# 财经聊天总结 - {description}
 
@@ -932,6 +935,7 @@ def save_structured_summary(
         images=images_list,
         chat_text=chat_text,
         include_audit_records=False,
+        include_opportunities=False,
     )
     local_body = render_summary_markdown(
         summary,

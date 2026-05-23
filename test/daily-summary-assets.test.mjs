@@ -450,7 +450,8 @@ test("daily publish script generates one summary then publishes card and image",
   assert.match(script, /sendWeWorkImage/);
   assert.match(script, /summary-cards/);
   assert.match(script, /summary-images/);
-  assert.match(script, /git",\s*\["push",\s*"origin",\s*currentGitBranch\(\)\]/);
+  assert.match(script, /const branch = currentGitBranch\(\)/);
+  assert.match(script, /git",\s*\["push",\s*"origin",\s*branch\]/);
 });
 
 test("daily publish waits for public card cover before template card webhook", async () => {
@@ -480,6 +481,19 @@ test("daily publish optionally triggers deploy hook after git publish before web
     script.indexOf("await triggerDeployHook()") <
       script.indexOf("await waitForPublicUrl(card.coverImageUrl)"),
     "deploy hook should be triggered before waiting for the public cover URL",
+  );
+});
+
+test("daily publish rebases onto current remote branch before pushing generated docs", async () => {
+  const script = await readFile("scripts/daily-publish.mjs", "utf8");
+
+  assert.match(script, /function syncCurrentBranchBeforePush/);
+  assert.match(script, /git",\s*\["fetch",\s*"origin",\s*branch\]/);
+  assert.match(script, /git",\s*\["rebase",\s*`origin\/\$\{branch\}`\]/);
+  assert.ok(
+    script.indexOf("syncCurrentBranchBeforePush(branch)") <
+      script.indexOf('run("git", ["push", "origin", branch])'),
+    "daily publish should update its checkout before pushing generated docs",
   );
 });
 
@@ -3442,6 +3456,34 @@ test("push workflow verifies VitePress without GitHub Pages deployment actions",
   assert.doesNotMatch(workflow, /pages:\s*write/);
   assert.doesNotMatch(workflow, /id-token:\s*write/);
   assert.doesNotMatch(workflow, /environment:\s*\n\s*name:\s*github-pages/);
+});
+
+test("research console has a separate verification workflow from the VitePress public site", async () => {
+  const publicWorkflow = await readFile(".github/workflows/deploy.yml", "utf8");
+  const researchWorkflow = await readFile(".github/workflows/research-console.yml", "utf8");
+
+  assert.match(researchWorkflow, /name:\s*Verify Research Console/);
+  assert.match(researchWorkflow, /"apps\/research-console\/\*\*"/);
+  assert.match(researchWorkflow, /"packages\/\*\*"/);
+  assert.match(researchWorkflow, /pnpm run console:lint/);
+  assert.match(researchWorkflow, /pnpm run console:build/);
+  assert.doesNotMatch(researchWorkflow, /docs:build/);
+  assert.doesNotMatch(researchWorkflow, /vitepress/i);
+  assert.doesNotMatch(researchWorkflow, /wrangler/i);
+  assert.doesNotMatch(researchWorkflow, /pages deploy/i);
+  assert.doesNotMatch(publicWorkflow, /console:build/);
+  assert.doesNotMatch(publicWorkflow, /apps\/research-console/);
+});
+
+test("research console standalone architecture document records the site boundary", async () => {
+  const doc = await readFile("docs/research-agent/standalone-site-architecture.md", "utf8");
+
+  assert.match(doc, /VitePress/);
+  assert.match(doc, /apps\/research-console/);
+  assert.match(doc, /separate site/i);
+  assert.match(doc, /RESEARCH_CONSOLE_ACCESS_TOKEN/);
+  assert.match(doc, /Cloudflare Access|protected deployment/);
+  assert.match(doc, /must not share the VitePress public deploy/i);
 });
 
 test("cloudflare deploy dry run prints configured site base url for card notify", () => {

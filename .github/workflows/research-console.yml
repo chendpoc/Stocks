@@ -1,0 +1,58 @@
+name: Verify Research Console
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/research-console.yml"
+      - "apps/research-console/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/research-console.yml"
+      - "apps/research-console/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-console-verify
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.5
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck research console
+        run: pnpm run console:lint
+
+      - name: Build research console
+        run: pnpm run console:build

@@ -94,6 +94,7 @@ Current module documents:
 - `docs/research-agent/modules/2026-05-23-optional-deploy-hook.md`
 - `docs/research-agent/modules/2026-05-23-opportunity-reasoning-professional-fallbacks.md`
 - `docs/research-agent/modules/2026-05-23-cloudflare-deploy-pnpm-build.md`
+- `docs/research-agent/modules/2026-05-23-research-console-standalone-boundary.md`
 
 Agent lifecycle governance:
 
@@ -1613,6 +1614,31 @@ Implementation evidence:
 - GREEN verified with `node --test --test-name-pattern "cloudflare deploy helper builds|cloudflare deploy dry run" test\daily-summary-assets.test.mjs`.
 - Real dry-run verified with `npm run pages:deploy:dry`.
 - Full relevant checks passed: `npm run test:summary`, `git diff --check`.
+
+---
+
+## Task 40: Lock Research Console Standalone Boundary
+
+Status: completed on 2026-05-23.
+
+**Files:**
+
+- Added: `.github/workflows/research-console.yml`
+- Added: `docs/research-agent/standalone-site-architecture.md`
+- Added: `docs/research-agent/modules/2026-05-23-research-console-standalone-boundary.md`
+- Modified: `test/daily-summary-assets.test.mjs`
+
+Goal:
+
+- Make the trading research workbench a separately verified application surface.
+- Keep the public VitePress workflow focused on the daily report site.
+- Record that future research-console hosting must be a separate protected deployment, not the existing public report deploy.
+
+Implementation evidence:
+
+- RED verified with `node --test --test-name-pattern "research console.*separate|research console standalone" test\daily-summary-assets.test.mjs`.
+- GREEN verified with the same focused command after implementation.
+- Additional focused checks passed: `npm run console:lint`, `npm run console:build`.
 
 ---
 

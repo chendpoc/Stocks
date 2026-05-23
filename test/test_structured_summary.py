@@ -877,6 +877,41 @@ class StructuredSummaryTests(unittest.TestCase):
         self.assertIn("\u7fa4\u804a\u5185\u5bb9\u8bb0\u5f55", local_archive_content)
         self.assertIn("/assets/chat-images/2026-05-20/file_img_1.png", local_archive_content)
 
+    def test_save_structured_summary_keeps_arbitrage_opportunities_local_only(self):
+        from utils.structured_summary import save_structured_summary
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = save_structured_summary(
+                summary={
+                    "overview": ["PUBLIC_DAILY_SUMMARY"],
+                    "admin_core": ["admin"],
+                    "arbitrage_opportunities": [
+                        {
+                            "title": "LOCAL_ONLY_OPPORTUNITY",
+                            "symbols": ["NVDA"],
+                            "setup": "机会结构只应出现在本地研究面。",
+                            "trigger": "等待确认。",
+                            "source_basis": "基于 xiaozhaolucky 和群聊线索。",
+                        }
+                    ],
+                },
+                description="daily",
+                model="test-model",
+                title="\u6bcf\u65e5\u603b\u7ed3",
+                output_dir=tmp,
+                generated_at=datetime(2026, 5, 20, 8, 30, tzinfo=timezone.utc),
+            )
+            archive_content = Path(result["archive_path"]).read_text(encoding="utf-8")
+            local_archive_content = Path(result["local_archive_path"]).read_text(encoding="utf-8")
+            index_content = (Path(tmp) / "index.md").read_text(encoding="utf-8")
+
+        self.assertNotIn("LOCAL_ONLY_OPPORTUNITY", archive_content)
+        self.assertNotIn("\u5957\u5229\u673a\u4f1a\u63a8\u6d4b", archive_content)
+        self.assertNotIn("\u673a\u4f1a\u89c2\u5bdf", archive_content)
+        self.assertNotIn("LOCAL_ONLY_OPPORTUNITY", index_content)
+        self.assertIn("LOCAL_ONLY_OPPORTUNITY", local_archive_content)
+        self.assertIn("\u5957\u5229\u673a\u4f1a\u63a8\u6d4b", local_archive_content)
+
     def test_save_structured_summary_updates_homepage_once_and_skips_identical_content(self):
         from utils.structured_summary import save_structured_summary
 

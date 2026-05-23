@@ -127,6 +127,11 @@ function currentGitBranch() {
   return branch;
 }
 
+function syncCurrentBranchBeforePush(branch) {
+  run("git", ["fetch", "origin", branch]);
+  run("git", ["rebase", `origin/${branch}`]);
+}
+
 function loadWebhookUrl(py) {
   if (process.env.WEWORK_WEBHOOK_URL?.trim()) return process.env.WEWORK_WEBHOOK_URL.trim();
   const code = String.raw`
@@ -298,7 +303,9 @@ function publishWithGit(artifacts, pathsToPublish) {
 
   const message = `Auto daily publish: ${artifacts.generated_at_cst ?? new Date().toISOString()}`;
   run("git", ["commit", "-m", message]);
-  run("git", ["push", "origin", currentGitBranch()]);
+  const branch = currentGitBranch();
+  syncCurrentBranchBeforePush(branch);
+  run("git", ["push", "origin", branch]);
   return true;
 }
 
