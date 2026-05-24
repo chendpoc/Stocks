@@ -15,12 +15,14 @@ import {
   opportunityConfidence,
   totalOpportunityScore,
 } from "./opportunity-scoring";
+import { authorizeResearchTool } from "./tool-policy";
 
 export type LocalResearchToolName =
   | "load_structured_summary"
   | "load_opportunity_observation"
   | "extract_watchlist"
-  | "score_opportunities";
+  | "score_opportunities"
+  | "cli_execute";
 export type ExternalResearchToolName =
   | "longbridge_quote"
   | "alpha_vantage_quote"
@@ -106,8 +108,7 @@ function isAllowedNewsUrl(url: string, allowedHosts: string[]) {
 }
 
 function redactNewsValue(value: string) {
-  const secret = process.env.NEWS_SEARCH_API_KEY;
-  return secret ? value.replaceAll(secret, "[redacted]") : value;
+  return sanitizeEvidenceText(value, 240);
 }
 
 function symbolFromContext(context: ResearchContextSummary) {
@@ -130,6 +131,16 @@ function formatOpportunityScores(scores: ReturnType<typeof buildOpportunityScore
   ].join("\n");
 }
 
+function blockedToolTrace(name: string, input: Record<string, string>, reason: string): AgentToolTrace {
+  return {
+    name,
+    reason,
+    input,
+    result_summary: `${name} blocked: ${reason}`,
+    execution_status: "blocked",
+  };
+}
+
 async function readJsonIfExists(filePath: string) {
   try {
     return JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
@@ -138,13 +149,6 @@ async function readJsonIfExists(filePath: string) {
     if (code === "ENOENT") return undefined;
     throw error;
   }
-}
-
-function longbridgeQuoteEndpoint() {
-  return (
-    process.env.LONGBRIDGE_QUOTE_ENDPOINT?.trim() ||
-    "https://openapi.longportapp.com/v1/quote/stock_quote"
-  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -174,6 +178,222 @@ function finiteNumber(value: unknown) {
 
 function boundedString(value: unknown, maxLength = 80) {
   return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function evidenceSecretValues() {
+  return [
+    process.env.AGENT_API_KEY,
+    process.env.ALPHA_VANTAGE_API_KEY,
+    process.env.LONGBRIDGE_APP_KEY,
+    process.env.LONGBRIDGE_APP_SECRET,
+    process.env.LONGBRIDGE_ACCESS_TOKEN,
+    process.env.NEWS_SEARCH_API_KEY,
+  ].filter((value): value is string => Boolean(value?.trim()));
+}
+
+function sanitizeEvidenceText(value: unknown, maxLength = 80) {
+  let text = String(value ?? "").trim();
+  if (!text) return "";
+
+  for (const secret of evidenceSecretValues()) {
+    text = text.replaceAll(secret, "[redacted]");
+  }
+
+  if (/authorization|bearer|api[_-]?key|access[_-]?token|provider_debug|request_meta|request_headers/i.test(text)) {
+    return "";
+  }
+
+  return text.slice(0, maxLength);
+}
+
+function safeCliText(value: unknown, maxLength = 360) {
+  let text = sanitizeEvidenceText(value, maxLength).replace(/\s+/g, " ").trim();
+  const root = workspaceRoot();
+  const code = codeRoot();
+  for (const filePath of [root, code]) {
+    if (!filePath) continue;
+    text = text.replaceAll(filePath, "[workspace]");
+    text = text.replaceAll(filePath.replace(/\//g, "\\"), "[workspace]");
+  }
+  text = text.replace(/[A-Za-z]:[\\/][^\s"]+/g, "[local-path]");
+  return text.slice(0, maxLength);
+}
+
+function parseCliArgs(value: unknown): string[] {
+  const raw = String(value ?? "").trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item) => item !== undefined && item !== null)
+        .map((item) => String(item))
+        .slice(0, 64);
+    }
+  } catch {
+    // Fall back to a simple whitespace split for quick personal commands.
+  }
+  return raw.split(/\s+/).filter(Boolean).slice(0, 64);
+}
+
+function parseCliTimeout(value: unknown) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) return 30_000;
+  return Math.min(Math.max(parsed, 1_000), 120_000);
+}
+
+function parseEnvKeys(value: unknown) {
+  return String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => /^[A-Z_][A-Z0-9_]*$/i.test(item))
+    .slice(0, 24);
+}
+
+function resolveCliCwd(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return codeRoot();
+  return path.resolve(raw);
+}
+
+function displayCwd(cwd: string) {
+  const root = workspaceRoot();
+  const code = codeRoot();
+  for (const base of [code, root]) {
+    const relative = path.relative(base, cwd);
+    if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) {
+      return relative.split(path.sep).join("/") || ".";
+    }
+    if (!relative) return ".";
+  }
+  return "[external-cwd]";
+}
+
+function normalizeCliInput(input: Record<string, string> = {}) {
+  const command = String(input.command ?? "").trim();
+  const args = parseCliArgs(input.args);
+  const cwd = resolveCliCwd(input.cwd);
+  const timeoutMs = parseCliTimeout(input.timeoutMs);
+  const envKeys = parseEnvKeys(input.envKeys);
+  return { command, args, cwd, timeoutMs, envKeys };
+}
+
+function cliInputForTrace(input: ReturnType<typeof normalizeCliInput>) {
+  return {
+    command: safeCliText(input.command, 160),
+    args: input.args.map((item) => safeCliText(item, 160)).join(" "),
+    cwd: displayCwd(input.cwd),
+    timeoutMs: String(input.timeoutMs),
+    envKeys: input.envKeys.join(","),
+  };
+}
+
+function commandPreview(input: ReturnType<typeof normalizeCliInput>) {
+  return [input.command, ...input.args].map((item) => safeCliText(item, 120)).join(" ");
+}
+
+function executionEnv(envKeys: string[]) {
+  const baseKeys = process.platform === "win32"
+    ? ["PATH", "Path", "PATHEXT", "SystemRoot", "ComSpec", "TEMP", "TMP"]
+    : ["PATH", "HOME", "TMPDIR", "LANG"];
+  const output: Record<string, string> = {};
+  for (const key of [...baseKeys, ...envKeys]) {
+    if (process.env[key] !== undefined) output[key] = process.env[key];
+  }
+  return output as NodeJS.ProcessEnv;
+}
+
+function buildCliTrace(
+  input: ReturnType<typeof normalizeCliInput>,
+  status: NonNullable<AgentToolTrace["execution_status"]>,
+  resultSummary: string,
+  approvalRequired: boolean,
+): AgentToolTrace {
+  return {
+    name: "cli_execute",
+    reason: "Local personal CLI tool; browser sees only command preview, selected env names, bounded output, and execution state.",
+    input: cliInputForTrace(input),
+    result_summary: resultSummary,
+    execution_status: status,
+    approval_required: approvalRequired,
+    command_preview: commandPreview(input),
+    cwd: displayCwd(input.cwd),
+    env_keys: input.envKeys,
+  };
+}
+
+function buildPendingCliTrace(input: Record<string, string>): AgentToolTrace {
+  const normalized = normalizeCliInput(input);
+  if (!normalized.command) {
+    return buildCliTrace(
+      normalized,
+      "failed",
+      "cli_execute failed: missing command",
+      false,
+    );
+  }
+  return buildCliTrace(
+    normalized,
+    "pending_approval",
+    `cli_execute pending approval: ${commandPreview(normalized)}`,
+    true,
+  );
+}
+
+export function buildRejectedCliTrace(input: Record<string, string>): AgentToolTrace {
+  const normalized = normalizeCliInput(input);
+  return buildCliTrace(
+    normalized,
+    "rejected",
+    `cli_execute rejected before running: ${commandPreview(normalized)}`,
+    false,
+  );
+}
+
+export async function executeApprovedCliTool(input: Record<string, string>): Promise<AgentToolTrace> {
+  const normalized = normalizeCliInput(input);
+  if (!normalized.command) {
+    return buildCliTrace(normalized, "failed", "cli_execute failed: missing command", false);
+  }
+
+  try {
+    const result = await execFileAsync(normalized.command, normalized.args, {
+      cwd: normalized.cwd,
+      env: executionEnv(normalized.envKeys),
+      timeout: normalized.timeoutMs,
+      windowsHide: true,
+      maxBuffer: 1024 * 512,
+    });
+    return buildCliTrace(
+      normalized,
+      "approved",
+      [
+        "cli_execute approved",
+        "exit 0",
+        result.stdout ? `stdout: ${safeCliText(result.stdout, 600)}` : "",
+        result.stderr ? `stderr: ${safeCliText(result.stderr, 400)}` : "",
+      ].filter(Boolean).join("; "),
+      false,
+    );
+  } catch (error) {
+    const record = error as NodeJS.ErrnoException & {
+      stdout?: string;
+      stderr?: string;
+      code?: number | string;
+    };
+    return buildCliTrace(
+      normalized,
+      "failed",
+      [
+        "cli_execute approved",
+        `exit ${record.code ?? "error"}`,
+        record.stdout ? `stdout: ${safeCliText(record.stdout, 600)}` : "",
+        record.stderr ? `stderr: ${safeCliText(record.stderr, 400)}` : "",
+        record.message ? `error: ${safeCliText(record.message, 240)}` : "",
+      ].filter(Boolean).join("; "),
+      false,
+    );
+  }
 }
 
 function longbridgeSecretValues() {
@@ -254,15 +474,29 @@ function formatLongbridgeQuote(payload: unknown, fromCache: boolean) {
   ].filter(Boolean).join("; ");
 }
 
-function formatAlphaVantageQuote(payload: unknown, fromCache: boolean) {
-  const quote = (payload as { "Global Quote"?: Record<string, string> })?.["Global Quote"];
-  if (!quote) return `Alpha Vantage${fromCache ? " cache" : ""}: quote unavailable`;
+async function loadLongbridgeQuoteViaSdk(symbol: string) {
+  const sdk = await import("longbridge");
+  const config = sdk.Config.fromApikey(
+    process.env.LONGBRIDGE_APP_KEY ?? "",
+    process.env.LONGBRIDGE_APP_SECRET ?? "",
+    process.env.LONGBRIDGE_ACCESS_TOKEN ?? "",
+  );
+  const ctx = sdk.QuoteContext.new(config);
+  const quotes = await ctx.quote([symbol]);
+  const first = quotes[0];
+  if (first && typeof first.toJSON === "function") return first.toJSON();
+  return first;
+}
 
-  const symbol = quote["01. symbol"] || "UNKNOWN";
-  const price = Number.parseFloat(quote["05. price"] || "");
-  const change = quote["09. change"];
-  const changePercent = quote["10. change percent"];
-  const tradingDay = quote["07. latest trading day"];
+function formatAlphaVantageQuote(payload: unknown, fromCache: boolean) {
+  const quote = sanitizeAlphaVantageQuotePayload(payload, "");
+  if (!quote.symbol) return `Alpha Vantage${fromCache ? " cache" : ""}: quote unavailable`;
+
+  const symbol = quote.symbol || "UNKNOWN";
+  const price = quote.price;
+  const change = quote.change;
+  const changePercent = quote.changePercent;
+  const tradingDay = quote.latestTradingDay;
   const priceText = Number.isFinite(price) ? price.toFixed(2) : "N/A";
   const parts = [
     `Alpha Vantage${fromCache ? " cache" : ""}`,
@@ -274,6 +508,28 @@ function formatAlphaVantageQuote(payload: unknown, fromCache: boolean) {
   ].filter(Boolean);
 
   return parts.join("; ");
+}
+
+function sanitizeAlphaVantageQuotePayload(payload: unknown, fallbackSymbol: string) {
+  const record = asRecord(payload);
+  const quote = asRecord(record["Global Quote"]);
+  if (!Object.keys(quote).length && ("symbol" in record || "price" in record)) {
+    return {
+      symbol: normalizeSymbol(String(record.symbol ?? fallbackSymbol)),
+      price: finiteNumber(record.price),
+      change: sanitizeEvidenceText(record.change, 32),
+      changePercent: sanitizeEvidenceText(record.changePercent, 32),
+      latestTradingDay: sanitizeEvidenceText(record.latestTradingDay, 24),
+    };
+  }
+
+  return {
+    symbol: normalizeSymbol(String(quote["01. symbol"] ?? fallbackSymbol)),
+    price: finiteNumber(quote["05. price"]),
+    change: sanitizeEvidenceText(quote["09. change"], 32),
+    changePercent: sanitizeEvidenceText(quote["10. change percent"], 32),
+    latestTradingDay: sanitizeEvidenceText(quote["07. latest trading day"], 24),
+  };
 }
 
 function yfinancePythonExecutable() {
@@ -293,9 +549,9 @@ function sanitizeYfinanceQuotePayload(payload: unknown, fallbackSymbol: string) 
     regularMarketChange: Number(record.regularMarketChange ?? record.change),
     regularMarketChangePercent: Number(record.regularMarketChangePercent ?? record.changePercent),
     regularMarketVolume: Number(record.regularMarketVolume ?? record.volume),
-    currency: String(record.currency ?? "").trim().slice(0, 12),
-    exchange: String(record.exchange ?? "").trim().slice(0, 24),
-    shortName: String(record.shortName ?? record.longName ?? "").trim().slice(0, 80),
+    currency: sanitizeEvidenceText(record.currency, 12),
+    exchange: sanitizeEvidenceText(record.exchange, 24),
+    shortName: sanitizeEvidenceText(record.shortName ?? record.longName, 80),
   };
 }
 
@@ -577,28 +833,16 @@ async function executeLongbridgeQuote(
   if (process.env.LONGBRIDGE_QUOTE_FIXTURE_JSON?.trim()) {
     payload = JSON.parse(process.env.LONGBRIDGE_QUOTE_FIXTURE_JSON);
   } else {
-
-    const url = new URL(longbridgeQuoteEndpoint());
-    url.searchParams.set("symbol", symbol);
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        "X-Longbridge-App-Key": appKey,
-        "X-Longbridge-App-Secret": appSecret,
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!response.ok) {
+    try {
+      payload = await loadLongbridgeQuoteViaSdk(symbol);
+    } catch (error) {
       return {
         name: "longbridge_quote",
-        reason: "Longbridge quote request failed; the trace keeps the failure visible for audit.",
+        reason: "Longbridge SDK quote request failed; the trace keeps the failure visible for audit.",
         input,
-        result_summary: `Longbridge quote failed for ${symbol}: HTTP ${response.status}`,
+        result_summary: `Longbridge quote failed for ${symbol}: ${error instanceof Error ? sanitizeEvidenceText(error.message, 160) : "unknown error"}`,
       };
     }
-    payload = await response.json();
   }
 
   const sanitized = sanitizeLongbridgeQuotePayload(payload, symbol);
@@ -672,7 +916,7 @@ async function executeAlphaVantageQuote(
     };
   }
 
-  const payload = await response.json();
+  const payload = sanitizeAlphaVantageQuotePayload(await response.json(), symbol);
   await fs.mkdir(path.dirname(cachePath), { recursive: true });
   await fs.writeFile(cachePath, JSON.stringify(payload, null, 2), "utf8");
 
@@ -897,6 +1141,11 @@ export async function executeResearchTool(
   context: ResearchContextSummary,
 ): Promise<AgentToolTrace> {
   const call = normalizeResearchToolCall(rawCall);
+  const policy = authorizeResearchTool(call.name);
+  if (policy.status !== "allowed") {
+    return blockedToolTrace(call.name, call.input ?? {}, policy.reason);
+  }
+
   const name = call.name as ResearchToolName;
 
   if (name === "load_structured_summary") {
@@ -933,6 +1182,21 @@ export async function executeResearchTool(
     };
   }
 
+  if (name === "extract_watchlist") {
+    return {
+      name,
+      reason: "抽取管理员重点标的，避免普通用户热度污染交易观察。",
+      input: { day: context.day },
+      result_summary: context.adminSymbols.length
+        ? context.adminSymbols.slice(0, 8).join(" | ")
+        : "暂无管理员重点标的",
+    };
+  }
+
+  if (name === "cli_execute") {
+    return buildPendingCliTrace(call.input ?? {});
+  }
+
   if (name === "longbridge_quote") {
     return executeLongbridgeQuote(call, context);
   }
@@ -953,12 +1217,5 @@ export async function executeResearchTool(
     return executeYfinanceQuote(call, context);
   }
 
-  return {
-    name: "extract_watchlist",
-    reason: "抽取管理员重点标的，避免普通用户热度污染交易观察。",
-    input: { day: context.day },
-    result_summary: context.adminSymbols.length
-      ? context.adminSymbols.slice(0, 8).join(" | ")
-      : "暂无管理员重点标的",
-  };
+  return blockedToolTrace(call.name, call.input ?? {}, "Unregistered research tool is not allowed.");
 }

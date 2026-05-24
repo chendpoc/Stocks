@@ -34,6 +34,21 @@ export const LOCAL_RESEARCH_TOOLS: AgentToolDefinition[] = [
     source: "local",
     enabled: true,
   },
+  {
+    name: "cli_execute",
+    description:
+      "Plan and execute a local CLI command for personal research automation. Execution is server-only and requires explicit approval before the command runs.",
+    input_schema: {
+      command: "executable path or command name",
+      args: "optional JSON array or whitespace-separated arguments",
+      cwd: "optional working directory under the local project root",
+      timeoutMs: "optional timeout in milliseconds",
+      envKeys: "optional comma-separated environment variable names to expose by name only",
+    },
+    source: "local",
+    enabled: true,
+    approvalRequired: true,
+  },
 ];
 
 export const DISABLED_EXTERNAL_MARKET_TOOLS: AgentToolDefinition[] = [
@@ -95,7 +110,9 @@ export function authorizeResearchTool(name: string): AgentToolPolicyDecision {
     return {
       name,
       status: "allowed",
-      reason: "本地只读工具已在当前阶段允许执行。",
+      reason: name === "cli_execute"
+        ? "Local CLI tool is available for personal research, but every command requires explicit approval before execution."
+        : "本地只读工具已在当前阶段允许执行。",
     };
   }
 

@@ -36,14 +36,14 @@ const PROVIDERS = [
     source: "external",
     envKeys: ["ALPHA_VANTAGE_API_KEY"],
     requiresSecret: true,
-    notes: "Alpha Vantage quote capability is available only when its server-side API key is configured.",
+    notes: "Alpha Vantage quote capability is available only when its server-side API key is configured and external tools are explicitly enabled.",
   },
   {
     name: "news-search",
     source: "external",
-    envKeys: ["NEWS_SEARCH_ENDPOINT"],
+    envKeys: ["NEWS_SEARCH_ENDPOINT", "NEWS_SEARCH_ALLOWED_HOSTS"],
     requiresSecret: false,
-    notes: "News/web search is a future evidence source; this registry checks configuration only.",
+    notes: "News/web search is available only with an endpoint, an allowed-host list, and explicit external-tool opt-in.",
   },
   {
     name: "yfinance",
@@ -72,7 +72,7 @@ function buildStatus(
     };
   }
 
-  if (provider.name === "longbridge") {
+  if (provider.source === "external") {
     const configured = provider.envKeys.filter((key) => hasConfiguredValue(env, key));
     const optInEnabled = env.RESEARCH_ENABLE_EXTERNAL_TOOLS === "1";
     const missingEnv = [
@@ -89,23 +89,9 @@ function buildStatus(
     };
   }
 
-  if (provider.source !== "external") {
-    return {
-      enabled: false,
-      reason: "planned",
-    };
-  }
-
-  const configured = provider.envKeys.filter((key) => hasConfiguredValue(env, key));
-
   return {
-    enabled: configured.length === provider.envKeys.length,
-    reason:
-      configured.length === provider.envKeys.length
-        ? "configured"
-        : "missing-required-env",
-    configuredEnv: configured,
-    missingEnv: provider.envKeys.filter((key) => !configured.includes(key)),
+    enabled: false,
+    reason: "planned",
   };
 }
 

@@ -1,131 +1,31 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { AgentRunEvidenceList, AgentRunEvidenceSummary } from "@stock-summary/summary-core";
 import { parseAgentAnswerSections } from "../lib/agent-answer-sections";
-import { ScoreRows } from "./ScoreRows";
+import { AgentContextStatus } from "./AgentContextStatus";
+import { AgentEvidenceDetail, AgentToolTraceSection } from "./AgentEvidenceDetail";
+import { AgentRunHistory } from "./AgentRunHistory";
+import { AgentToolPolicy } from "./AgentToolPolicy";
+import type {
+  AgentReply,
+  AgentRunHistory as AgentRunHistoryData,
+  ChatMessage,
+  ResearchContextStatus,
+  ResearchPlanStatus,
+  ResearchPlanStep,
+  ResearchToolReadiness,
+  ToolTrace,
+} from "./agent-panel-types";
+import {
+  formatBoundedPath,
+  providerStatusLabel,
+  researchPlanStatusLabel,
+} from "./agent-panel-types";
 
-type AgentReply = {
-  run_id: string;
-  evidence_log_path: string;
-  answer: string;
-  reasoning_summary: string[];
-  used_context: string[];
-  next_watch_plan: string[];
-  opportunity_reasoning: OpportunityReasoning;
-  conversation_summary?: string;
-  tool_trace: {
-    name: string;
-    input?: Record<string, string>;
-    reason: string;
-    result_summary: string;
-  }[];
-  policy_decisions: {
-    name: string;
-    status: "allowed" | "blocked";
-    reason: string;
-  }[];
-  provider: string;
-  provider_status: "ready" | "fallback" | "error";
-};
-
-type OpportunityReasoning = {
-  context: {
-    day: string;
-    sourceScope: string[];
-    observationOnly: true;
-  };
-  adminTheory: {
-    summary: string;
-    supportingPoints: string[];
-    openRisks: string[];
-  };
-  marketIntelNeeds: string[];
-  evidenceNeeds: {
-    kind: "quote" | "history" | "news" | "fundamental";
-    symbol: string;
-    question: string;
-    preferredTools: string[];
-    required: boolean;
-  }[];
-  candidateOpportunities: {
-    symbol: string;
-    thesis: string;
-    sourceBasis: string[];
-    invalidation: string[];
-    researchOnly: true;
-  }[];
-  invalidationPlan: string[];
-  nextChecks: string[];
-  researchPlan: {
-    stage: "hypothesis" | "evidence" | "falsification" | "data_plan" | "synthesis";
-    title: string;
-    question: string;
-    method: string;
-    expectedOutput: string;
-    toolHints: string[];
-  }[];
-  reasoningSummary: string[];
-};
-
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
-type AgentRunHistory = AgentRunEvidenceList;
-
-type ResearchContextStatus = {
+type AgentPanelProps = {
   day: string;
-  hasStructuredSummary: boolean;
-  hasOpportunityObservation: boolean;
-  hasSourceSummary: boolean;
-  structuredSummaryPath: string;
-  opportunityPath: string;
-  sourceSummaryPath: string;
-  eventSummaryCount: number;
-  overviewCount: number;
-  adminCoreCount: number;
-  adminSymbolCount: number;
-  riskCount: number;
-  adminSymbolsPreview: string[];
-  missing: string[];
+  onDayChange: (day: string) => void;
 };
-
-type ToolTrace = AgentReply["tool_trace"][number];
-
-type ResearchToolReadiness = {
-  name: string;
-  source: "local" | "external";
-  enabled: boolean;
-  policy: {
-    status: "allowed" | "blocked";
-    reason: string;
-  };
-};
-
-type ScoreTraceRow = {
-  rank: number;
-  label: string;
-  score: number;
-  confidence: string;
-  reason: string;
-};
-
-type YfinanceHistoryMetric = {
-  label: string;
-  value: string;
-};
-
-type YfinanceHistoryTrace = {
-  symbol: string;
-  period: string;
-  observations: string;
-  metrics: YfinanceHistoryMetric[];
-};
-
-type ResearchPlanStep = OpportunityReasoning["researchPlan"][number];
-type ResearchPlanStatus = "done" | "blocked" | "pending" | "process";
 
 function researchPlanStepStatus(
   step: ResearchPlanStep,
@@ -159,48 +59,6 @@ function researchPlanStepStatus(
   return { status: "process", tools: [] };
 }
 
-function parseScoreTraceRows(summary: string): ScoreTraceRow[] {
-  return summary.split(/\r?\n/).flatMap((line) => {
-    const parts = line.split("|").map((part) => part.trim());
-    if (parts.length < 5) return [];
-
-    const rank = Number.parseInt(parts[0], 10);
-    const score = Number.parseInt(parts[2], 10);
-    if (!Number.isFinite(rank) || !Number.isFinite(score)) return [];
-
-    return [{
-      rank,
-      label: parts[1],
-      score: Math.max(0, Math.min(100, score)),
-      confidence: parts[3],
-      reason: parts.slice(4).join(" | "),
-    }];
-  });
-}
-
-function historyPartValue(parts: string[], label: string) {
-  const prefix = `${label} `;
-  return parts.find((part) => part.startsWith(prefix))?.slice(prefix.length).trim() ?? "";
-}
-
-function parseYfinanceHistoryTrace(summary: string): YfinanceHistoryTrace | null {
-  if (!summary.startsWith("yfinance history")) return null;
-  const parts = summary.split(";").map((part) => part.trim()).filter(Boolean);
-  const symbol = parts[1] ?? "";
-  const period = historyPartValue(parts, "period");
-  const observations = historyPartValue(parts, "observations");
-  const metrics = [
-    { label: "Close change", value: historyPartValue(parts, "close change") },
-    { label: "Max drawdown", value: historyPartValue(parts, "max drawdown") },
-    { label: "Realized volatility", value: historyPartValue(parts, "realized volatility") },
-    { label: "Latest volume ratio", value: historyPartValue(parts, "latest volume ratio") },
-    { label: "Average volume", value: historyPartValue(parts, "average volume") },
-  ].filter((metric) => metric.value);
-
-  if (!symbol || !period || !metrics.length) return null;
-  return { symbol, period, observations, metrics };
-}
-
 function extractTickerSymbol(value: string | undefined) {
   return value?.match(/\b[A-Z][A-Z0-9.-]{0,9}\b/)?.[0] ?? "";
 }
@@ -223,122 +81,94 @@ function AgentAnswerBody({ answer }: { answer: string }) {
   );
 }
 
-function ToolTraceResult({ tool }: { tool: ToolTrace }) {
-  if (tool.name === "score_opportunities") {
-    const rows = parseScoreTraceRows(tool.result_summary);
-    if (rows.length) {
-      return (
-        <div className="score-trace">
-          <ScoreRows rows={rows} />
-          {tool.reason ? <p className="score-reason">{tool.reason}</p> : null}
-        </div>
-      );
-    }
-  }
+function LocalCliRunner() {
+  const [command, setCommand] = useState("");
+  const [args, setArgs] = useState("");
+  const [cwd, setCwd] = useState("");
+  const [timeoutMs, setTimeoutMs] = useState("30000");
+  const [envKeys, setEnvKeys] = useState("");
+  const [trace, setTrace] = useState<ToolTrace | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  if (tool.name === "yfinance_history") {
-    const history = parseYfinanceHistoryTrace(tool.result_summary);
-    if (history) {
-      return (
-        <div className="history-trace">
-          <div className="history-trace-head">
-            <strong>{history.symbol}</strong>
-            <span>{history.period}</span>
-            {history.observations ? <em>{history.observations} observations</em> : null}
-          </div>
-          <div className="history-metrics">
-            {history.metrics.map((metric) => (
-              <div className="history-metric" key={metric.label}>
-                <span>{metric.label}</span>
-                <strong>{metric.value}</strong>
-              </div>
-            ))}
-          </div>
-          {tool.reason ? <p>{tool.reason}</p> : null}
-        </div>
-      );
+  async function run(action: "preview" | "approve" | "reject") {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/research/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, command, args, cwd, timeoutMs, envKeys }),
+      });
+      const payload = (await response.json()) as { tool?: ToolTrace; error?: string };
+      if (!response.ok || !payload.tool) {
+        throw new Error(payload.error || `CLI request failed: ${response.status}`);
+      }
+      setTrace(payload.tool);
+    } catch (rawError) {
+      setError(rawError instanceof Error ? rawError.message : String(rawError));
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <>
-      {tool.result_summary}
-      {tool.reason ? <span>（{tool.reason}）</span> : null}
-    </>
-  );
-}
-
-function AgentEvidenceDetail({ reply }: { reply: AgentReply }) {
-  const blockedDecisions = reply.policy_decisions.filter((decision) => decision.status === "blocked");
-
-  return (
-    <section className="agent-evidence-detail" aria-label="本次回答证据详情">
+    <section className="local-cli-runner" aria-label="本地 CLI 执行器">
       <div className="context-status-head">
-        <h3>证据详情</h3>
-        <span>{reply.provider_status}</span>
+        <h3>本地 CLI</h3>
+        <span>{trace?.execution_status ?? "idle"}</span>
       </div>
-
-      <div className="agent-evidence-stats">
-        <article>
-          <span>executed</span>
-          <strong>{reply.tool_trace.length}</strong>
-        </article>
-        <article>
-          <span>blocked</span>
-          <strong>{blockedDecisions.length}</strong>
-        </article>
-        <article>
-          <span>provider</span>
-          <strong>{reply.provider}</strong>
-        </article>
+      <label>
+        命令
+        <input value={command} onChange={(event) => setCommand(event.target.value)} />
+      </label>
+      <label>
+        参数
+        <input value={args} onChange={(event) => setArgs(event.target.value)} />
+      </label>
+      <div className="cli-runner-row">
+        <label>
+          cwd
+          <input value={cwd} onChange={(event) => setCwd(event.target.value)} />
+        </label>
+        <label>
+          timeout
+          <input value={timeoutMs} onChange={(event) => setTimeoutMs(event.target.value)} />
+        </label>
       </div>
-
-      <p className="agent-evidence-log">
-        evidence log: <span>{reply.evidence_log_path}</span>
-      </p>
-
-      {reply.tool_trace.length ? (
-        <div className="agent-evidence-list">
-          {reply.tool_trace.map((tool, index) => (
-            <article className="agent-evidence-row" key={`${tool.name}-evidence-${index}`}>
-              <strong>{tool.name}</strong>
-              <p>{tool.result_summary}</p>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="agent-evidence-empty">本次没有执行额外工具，仅依据本地上下文回答。</p>
-      )}
-
-      {blockedDecisions.length ? (
-        <div className="agent-evidence-list">
-          {blockedDecisions.map((decision, index) => (
-            <article className="agent-evidence-row agent-evidence-blocked" key={`${decision.name}-blocked-${index}`}>
-              <strong>{decision.name}</strong>
-              <p>{decision.reason}</p>
-            </article>
-          ))}
-        </div>
+      <label>
+        env keys
+        <input value={envKeys} onChange={(event) => setEnvKeys(event.target.value)} />
+      </label>
+      <div className="agent-quick-actions">
+        <button disabled={loading || !command.trim()} type="button" onClick={() => void run("preview")}>
+          预览
+        </button>
+        <button disabled={loading || !trace?.approval_required} type="button" onClick={() => void run("approve")}>
+          确认执行
+        </button>
+        <button disabled={loading || !trace?.approval_required} type="button" onClick={() => void run("reject")}>
+          拒绝
+        </button>
+      </div>
+      {error ? <p className="agent-error" role="alert">{error}</p> : null}
+      {trace ? (
+        <article className={`cli-trace cli-trace-${trace.execution_status ?? "idle"}`}>
+          <strong>{trace.command_preview}</strong>
+          <span>{trace.cwd}</span>
+          {trace.env_keys?.length ? <small>env: {trace.env_keys.join(", ")}</small> : null}
+          <p>{trace.result_summary}</p>
+        </article>
       ) : null}
-
-      <p className="agent-evidence-boundary">
-        <strong>研究边界：</strong>
-        本区块只解释证据来源、工具策略和观察依据，不构成买卖指令。
-      </p>
     </section>
   );
 }
-
-type AgentPanelProps = {
-  day: string;
-  onDayChange: (day: string) => void;
-};
 
 export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
   const [message, setMessage] = useState("基于今天的机会观察，哪些假设最需要反证？");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [reply, setReply] = useState<AgentReply | null>(null);
-  const [runHistory, setRunHistory] = useState<AgentRunHistory | null>(null);
+  const [runHistory, setRunHistory] = useState<AgentRunHistoryData | null>(null);
   const [contextStatus, setContextStatus] = useState<ResearchContextStatus | null>(null);
   const [toolReadiness, setToolReadiness] = useState<ResearchToolReadiness[]>([]);
   const [contextLoading, setContextLoading] = useState(false);
@@ -354,7 +184,7 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
     if (!response.ok) {
       throw new Error(`Agent run history request failed: ${response.status}`);
     }
-    setRunHistory((await response.json()) as AgentRunHistory);
+    setRunHistory((await response.json()) as AgentRunHistoryData);
   }
 
   useEffect(() => {
@@ -467,140 +297,91 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
   }
 
   return (
-    <aside className="agent-panel" aria-label="机会观察 Agent">
+    <aside className="agent-panel agent-panel-auxiliary" aria-label="机会观察 Agent">
       <div className="agent-header">
         <div>
-          <p>Context Agent</p>
+          <p>研究上下文 Agent</p>
           <h2>机会观察助手</h2>
         </div>
-        <span>{reply ? `${reply.provider}:${reply.provider_status}` : "ready"}</span>
+        <span aria-live="polite">
+          {reply
+            ? `${reply.provider} / ${providerStatusLabel(reply.provider_status)}`
+            : "就绪"}
+        </span>
       </div>
 
-      <form onSubmit={submit} className="agent-form">
-        <label>
+      <form aria-busy={loading} aria-label="询问 Agent 表单" className="agent-form" onSubmit={submit}>
+        <label htmlFor="agent-panel-day">
           日期
-          <input value={day} onChange={(event) => onDayChange(event.target.value)} />
+          <input
+            id="agent-panel-day"
+            name="agent-panel-day"
+            value={day}
+            onChange={(event) => onDayChange(event.target.value)}
+          />
         </label>
-        <label>
+        <label htmlFor="agent-panel-message">
           问题
-          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={4} />
+          <textarea
+            id="agent-panel-message"
+            name="agent-panel-message"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            rows={4}
+          />
         </label>
         <div className="agent-quick-actions">
-          <button disabled={loading} type="button" onClick={runEvidenceRefresh}>
+          <button
+            aria-busy={loading}
+            disabled={loading}
+            type="button"
+            onClick={runEvidenceRefresh}
+          >
             刷新缺失证据
           </button>
         </div>
-        <button className="agent-submit-button" disabled={loading} type="submit">
+        <button
+          aria-busy={loading}
+          className="agent-submit-button"
+          disabled={loading}
+          type="submit"
+        >
           {loading ? "分析中..." : "询问 Agent"}
         </button>
       </form>
 
-      <section className="context-status" aria-live="polite">
-        <div className="context-status-head">
-          <h3>上下文预检</h3>
-          <span>{contextLoading ? "checking" : contextStatus?.missing.length ? "partial" : "ready"}</span>
-        </div>
-        {contextError ? <p>{contextError}</p> : null}
-        {contextStatus ? (
-          <>
-            <dl>
-              <div>
-                <dt>结构化日报</dt>
-                <dd>{contextStatus.hasStructuredSummary ? "可用" : "缺失"}</dd>
-              </div>
-              <div>
-                <dt>机会观察</dt>
-                <dd>{contextStatus.hasOpportunityObservation ? "可用" : "缺失"}</dd>
-              </div>
-              <div>
-                <dt>本地总结</dt>
-                <dd>{contextStatus.hasSourceSummary ? "可用" : "缺失"}</dd>
-              </div>
-            </dl>
-            <p>
-              管理员标的 {contextStatus.adminSymbolCount} 个，核心理论 {contextStatus.adminCoreCount} 条，
-              风险 {contextStatus.riskCount} 条
-            </p>
-            {contextStatus.adminSymbolsPreview.length ? (
-              <div className="context-symbols">
-                {contextStatus.adminSymbolsPreview.map((symbol) => (
-                  <span key={symbol}>{symbol}</span>
-                ))}
-              </div>
-            ) : null}
-            <p className="context-path">{contextStatus.sourceSummaryPath}</p>
-          </>
-        ) : null}
-      </section>
+      <details className="agent-auxiliary-section">
+        <summary>上下文状态</summary>
+        <AgentContextStatus
+          loading={contextLoading}
+          error={contextError}
+          status={contextStatus}
+        />
+      </details>
 
-      <section className="agent-run-list" aria-live="polite">
-        <div className="context-status-head">
-          <h3>历史运行</h3>
-          <span>{runHistory?.runs.length ?? 0} runs</span>
-        </div>
-        {runError ? <p>{runError}</p> : null}
-        {runHistory?.runs.length ? (
-          <div className="agent-run-items">
-            {runHistory.runs.map((run: AgentRunEvidenceSummary) => (
-              <article key={run.run_id}>
-                <div className="agent-run-item-head">
-                  <strong>{run.run_id}</strong>
-                  <span>{run.provider_status}</span>
-                </div>
-                <p>{run.message_preview}</p>
-                <div className="agent-run-tags">
-                  {run.tool_names.map((tool) => (
-                    <span key={`${run.run_id}-${tool}`}>{tool}</span>
-                  ))}
-                </div>
-                {run.blocked_tools.length ? (
-                  <div className="agent-run-blocked-tags">
-                    {run.blocked_tools.map((tool) => (
-                      <span key={`${run.run_id}-blocked-${tool}`}>blocked: {tool}</span>
-                    ))}
-                  </div>
-                ) : null}
-                {run.candidate_symbols.length ? (
-                  <p className="agent-run-symbols">{run.candidate_symbols.join(" / ")}</p>
-                ) : null}
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p>当前日期暂无本地运行记录。</p>
-        )}
-        {runHistory?.evidence_log_path ? (
-          <p className="context-path">{runHistory.evidence_log_path}</p>
-        ) : null}
-      </section>
+      <details className="agent-auxiliary-section">
+        <summary>运行记录</summary>
+        <AgentRunHistory error={runError} history={runHistory} />
+      </details>
 
-      <section className="tool-readiness" aria-live="polite">
-        <div className="context-status-head">
-          <h3>Tool policy</h3>
-          <span>
-            {toolReadiness.filter((tool) => tool.policy.status === "allowed").length}/{toolReadiness.length} allowed
-          </span>
-        </div>
-        {toolError ? <p>{toolError}</p> : null}
-        <div className="tool-readiness-grid">
-          {toolReadiness.map((tool) => (
-            <article key={tool.name}>
-              <div>
-                <strong>{tool.name}</strong>
-                <span className={`tool-policy-pill tool-policy-${tool.policy.status}`}>
-                  {tool.policy.status}
-                </span>
-              </div>
-              <p>{tool.policy.reason}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <details className="agent-auxiliary-section">
+        <summary>工具状态</summary>
+        <AgentToolPolicy error={toolError} tools={toolReadiness} />
+      </details>
 
-      {error ? <p className="agent-error">{error}</p> : null}
+      <details className="agent-auxiliary-section">
+        <summary>本地 CLI</summary>
+        <LocalCliRunner />
+      </details>
+
+      {error ? (
+        <p className="agent-error" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       {messages.length ? (
-        <section className="agent-history">
+        <section aria-label="对话上下文" className="agent-history">
           <h3>对话上下文</h3>
           {messages.slice(-4).map((item, index) => (
             <p key={`${item.role}-${index}`}>
@@ -612,15 +393,39 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
       ) : null}
 
       {reply ? (
-        <section className="agent-reply">
+        <section aria-label="Agent 回答" aria-live="polite" className="agent-reply">
           <h3>回答</h3>
           <AgentAnswerBody answer={reply.answer} />
           <p className="agent-run-meta">
-            run: <strong>{reply.run_id}</strong>
-            <span>{reply.evidence_log_path}</span>
+            运行 ID：<strong>{reply.run_id}</strong>
+            <span>{formatBoundedPath(reply.evidence_log_path)}</span>
           </p>
 
           <AgentEvidenceDetail reply={reply} />
+
+          <section className="agent-judgement-grid" aria-label="Agent 判断结构">
+            <article>
+              <h4>假设</h4>
+              <p>{reply.hypothesis}</p>
+            </article>
+            <article>
+              <h4>市场判断</h4>
+              <ul>{reply.marketJudgement.slice(0, 4).map((item) => <li key={item}>{item}</li>)}</ul>
+            </article>
+            <article>
+              <h4>反证</h4>
+              <ul>{reply.invalidation.slice(0, 4).map((item) => <li key={item}>{item}</li>)}</ul>
+            </article>
+            <article>
+              <h4>工具计划</h4>
+              <ul>
+                {reply.toolCalls.slice(0, 6).map((tool, index) => (
+                  <li key={`${tool.name}-${index}`}>{tool.name}</li>
+                ))}
+              </ul>
+              {reply.approvalRequired ? <strong>存在待确认工具</strong> : null}
+            </article>
+          </section>
 
           <h3>推理摘要</h3>
           <ul>
@@ -681,7 +486,7 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
                             <strong>{step.title}</strong>
                             <span>{step.stage}</span>
                             <span className={`agent-plan-status agent-plan-status-${planStatus.status}`}>
-                              {planStatus.status}
+                              {researchPlanStatusLabel(planStatus.status)}
                             </span>
                           </div>
                           <p>{step.question}</p>
@@ -706,7 +511,7 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
                         <div>
                           <strong>{need.symbol}</strong>
                           <span>{need.kind}</span>
-                          {need.required ? <em>required</em> : null}
+                          {need.required ? <em>必需</em> : null}
                         </div>
                         <p>{need.question}</p>
                         <small>{need.preferredTools.join(" / ")}</small>
@@ -740,23 +545,10 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
             </section>
           ) : null}
 
-          <h3>工具调用</h3>
-          <ul>
-            {reply.tool_trace.map((tool, index) => (
-              <li key={`${tool.name}-${index}-${JSON.stringify(tool.input ?? {})}`}>
-                <strong>{tool.name}</strong>：<ToolTraceResult tool={tool} />
-              </li>
-            ))}
-          </ul>
-
-          <h3>工具策略</h3>
-          <ul>
-            {reply.policy_decisions.map((decision, index) => (
-              <li key={`${decision.name}-${decision.status}-${index}`}>
-                <strong>{decision.status}</strong> {decision.name}：{decision.reason}
-              </li>
-            ))}
-          </ul>
+          <AgentToolTraceSection
+            toolTrace={reply.tool_trace}
+            policyDecisions={reply.policy_decisions}
+          />
 
           <h3>下一步观察</h3>
           <ul>
@@ -764,6 +556,11 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
               <li key={item}>{item}</li>
             ))}
           </ul>
+
+          <p className="agent-evidence-boundary">
+            <strong>研究边界：</strong>
+            以上回答仅用于研究观察与假设验证，不构成买卖指令。
+          </p>
         </section>
       ) : null}
     </aside>

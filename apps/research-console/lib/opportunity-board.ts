@@ -6,10 +6,10 @@ import {
 } from "./opportunity-reasoning";
 import { buildOpportunityBoardScores } from "./opportunity-scoring";
 
-export async function loadOpportunityBoard(day: string): Promise<OpportunityBoardSummary> {
+export async function loadOpportunityBoard(day?: string): Promise<OpportunityBoardSummary> {
   const status = await inspectResearchContext(day);
   const context = status.hasStructuredSummary
-    ? await loadResearchContext(day)
+    ? await loadResearchContext(status.day)
     : undefined;
   const scores = context ? buildOpportunityBoardScores(context) : [];
   const reasoning = buildOpportunityReasoning(
@@ -22,7 +22,7 @@ export async function loadOpportunityBoard(day: string): Promise<OpportunityBoar
   );
 
   return {
-    day,
+    day: status.day,
     status,
     scores,
     reasoning,

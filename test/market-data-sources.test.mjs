@@ -46,17 +46,65 @@ test("external providers are disabled by default without secrets", async () => {
   );
 });
 
-test("alpha vantage is enabled by env without leaking the key", async () => {
+test("alpha vantage requires opt-in and env without leaking the key", async () => {
   const { listMarketDataSources } = await importMarketDataSources();
   const secret = "alpha-secret-value";
 
-  const sources = listMarketDataSources({ ALPHA_VANTAGE_API_KEY: secret });
-  const alphaVantage = sources.find((source) => source.name === "alpha-vantage");
+  const closedSources = listMarketDataSources({ ALPHA_VANTAGE_API_KEY: secret });
+  const closedAlpha = closedSources.find((source) => source.name === "alpha-vantage");
 
-  assert.ok(alphaVantage);
-  assert.equal(alphaVantage.status.enabled, true);
-  assert.equal(alphaVantage.requiresSecret, true);
-  assert.doesNotMatch(JSON.stringify(alphaVantage), new RegExp(secret));
+  assert.ok(closedAlpha);
+  assert.equal(closedAlpha.status.enabled, false);
+  assert.equal(closedAlpha.status.reason, "missing-required-env");
+  assert.match(JSON.stringify(closedAlpha.status.missingEnv), /RESEARCH_ENABLE_EXTERNAL_TOOLS/);
+  assert.equal(closedAlpha.requiresSecret, true);
+  assert.doesNotMatch(JSON.stringify(closedAlpha), new RegExp(secret));
+
+  const openSources = listMarketDataSources({
+    RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
+    ALPHA_VANTAGE_API_KEY: secret,
+  });
+  const openAlpha = openSources.find((source) => source.name === "alpha-vantage");
+
+  assert.ok(openAlpha);
+  assert.equal(openAlpha.status.enabled, true);
+  assert.equal(openAlpha.status.reason, "configured");
+  assert.doesNotMatch(JSON.stringify(openAlpha), new RegExp(secret));
+});
+
+test("news search requires opt-in, endpoint, and allowed hosts", async () => {
+  const { listMarketDataSources } = await importMarketDataSources();
+
+  const closedSources = listMarketDataSources({
+    NEWS_SEARCH_ENDPOINT: "https://search.example.test/news",
+    NEWS_SEARCH_ALLOWED_HOSTS: "finance.yahoo.com,www.reuters.com",
+  });
+  const closedNews = closedSources.find((source) => source.name === "news-search");
+
+  assert.ok(closedNews);
+  assert.equal(closedNews.status.enabled, false);
+  assert.equal(closedNews.status.reason, "missing-required-env");
+  assert.match(JSON.stringify(closedNews.status.missingEnv), /RESEARCH_ENABLE_EXTERNAL_TOOLS/);
+
+  const missingHostSources = listMarketDataSources({
+    RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
+    NEWS_SEARCH_ENDPOINT: "https://search.example.test/news",
+  });
+  const missingHostNews = missingHostSources.find((source) => source.name === "news-search");
+  assert.ok(missingHostNews);
+  assert.equal(missingHostNews.status.enabled, false);
+  assert.match(JSON.stringify(missingHostNews.status.missingEnv), /NEWS_SEARCH_ALLOWED_HOSTS/);
+
+  const openSources = listMarketDataSources({
+    RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
+    NEWS_SEARCH_ENDPOINT: "https://search.example.test/news",
+    NEWS_SEARCH_ALLOWED_HOSTS: "finance.yahoo.com,www.reuters.com",
+  });
+  const openNews = openSources.find((source) => source.name === "news-search");
+
+  assert.ok(openNews);
+  assert.equal(openNews.status.enabled, true);
+  assert.equal(openNews.status.reason, "configured");
 });
 
 test("yfinance is registered as planned or local-python", async () => {

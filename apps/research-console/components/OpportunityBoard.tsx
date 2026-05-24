@@ -1,55 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { OpportunityBoardSummary } from "@stock-summary/summary-core";
+import {
+  OpportunityDetail,
+  type EvidenceToolActionRequest,
+  type ExternalEvidenceResult,
+} from "./OpportunityDetail";
 import { ScoreRows } from "./ScoreRows";
 
-type OpportunityBoardSummary = {
-  day: string;
-  status: {
-    hasStructuredSummary: boolean;
-    hasOpportunityObservation: boolean;
-    hasSourceSummary: boolean;
-    adminSymbolCount: number;
-    adminCoreCount: number;
-    riskCount: number;
-    adminSymbolsPreview: string[];
-    missing: string[];
-    sourceSummaryPath: string;
-  };
-  scores: {
-    rank: number;
-    symbol: string;
-    score: number;
-    confidence: string;
-    reason: string;
-  }[];
-  reasoning: {
-    marketIntelNeeds: string[];
-    nextChecks: string[];
-    reasoningSummary: string[];
-    candidateOpportunities: {
-      symbol: string;
-      sourceBasis: string[];
-      invalidation: string[];
-    }[];
-  };
-  riskSummary: {
-    hasRiskContext: boolean;
-    riskCount: number;
-    maxLiquidityRisk: number;
-    maxInvalidationClarity: number;
-  };
+const MISSING_LABELS: Record<string, string> = {
+  structured_summary: "结构化摘要",
+  opportunity_observation: "机会观察",
+  local_summary_markdown: "本地总结",
 };
+
+function formatMissingNote(missing: string[]) {
+  const labels = missing.map((item) => MISSING_LABELS[item] ?? item);
+  return `缺少以下上下文：${labels.join("、")}。本地评分可能不完整。`;
+}
 
 type OpportunityBoardProps = {
   day: string;
   onDayChange: (day: string) => void;
+  onEvidenceRecorded?: () => void;
 };
 
-export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
+export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: OpportunityBoardProps) {
   const [board, setBoard] = useState<OpportunityBoardSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,7 +44,11 @@ export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
         if (!response.ok) {
           throw new Error(`Opportunity board request failed: ${response.status}`);
         }
-        setBoard((await response.json()) as OpportunityBoardSummary);
+        const nextBoard = (await response.json()) as OpportunityBoardSummary;
+        setBoard(nextBoard);
+        if (!day && nextBoard.day) {
+          onDayChange(nextBoard.day);
+        }
       })
       .catch((rawError) => {
         if ((rawError as Error).name === "AbortError") return;
@@ -75,25 +60,77 @@ export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
     return () => controller.abort();
   }, [day]);
 
+  useEffect(() => {
+    if (!board) {
+      setSelectedSymbol(null);
+      return;
+    }
+
+    if (!selectedSymbol) return;
+
+    const stillExists = board.scores.some((score) => score.symbol === selectedSymbol);
+    if (!stillExists) {
+      setSelectedSymbol(null);
+    }
+  }, [board, selectedSymbol]);
+
+  const selectedScore = useMemo(
+    () => board?.scores.find((score) => score.symbol === selectedSymbol) ?? null,
+    [board, selectedSymbol],
+  );
+
+  async function runEvidenceTool(request: EvidenceToolActionRequest): Promise<ExternalEvidenceResult> {
+    const response = await fetch("/api/research/evidence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    const payload = (await response.json()) as ExternalEvidenceResult & { error?: string };
+    if (!response.ok && !payload.tool) {
+      throw new Error(payload.error || `Evidence request failed: ${response.status}`);
+    }
+    onEvidenceRecorded?.();
+    return payload;
+  }
+
+  const contextStatus = loading
+    ? "加载中"
+    : board?.status.missing.length
+      ? "部分就绪"
+      : "就绪";
+
+  const showEmptyScores = !loading && !error && board && board.scores.length === 0;
+  const reasoningSignalCount = board?.reasoning
+    ? board.reasoning.reasoningSummary.length
+      + board.reasoning.marketIntelNeeds.length
+      + board.reasoning.nextChecks.length
+    : 0;
+
   return (
-    <section className="opportunity-board">
+    <section aria-label="机会池" className="opportunity-board opportunity-blotter">
       <div className="opportunity-board-head">
         <div>
-          <p className="eyebrow">Opportunity Board</p>
-          <h2>当日机会面板</h2>
+          <p className="eyebrow">Opportunity Blotter</p>
+          <h2>机会池</h2>
+          <p className="opportunity-day-label">所选日期：{day}</p>
         </div>
-        <label>
+        <label htmlFor="opportunity-board-day">
           日期
-          <input value={day} onChange={(event) => onDayChange(event.target.value)} />
+          <input
+            id="opportunity-board-day"
+            name="opportunity-board-day"
+            value={day}
+            onChange={(event) => onDayChange(event.target.value)}
+          />
         </label>
       </div>
 
-      {error ? <p className="agent-error">{error}</p> : null}
+      {error ? <p className="agent-error opportunity-board-error">{error}</p> : null}
 
       <div className="opportunity-metrics">
         <article>
           <span>上下文</span>
-          <strong>{loading ? "checking" : board?.status.missing.length ? "partial" : "ready"}</strong>
+          <strong>{contextStatus}</strong>
         </article>
         <article>
           <span>管理员标的</span>
@@ -118,18 +155,59 @@ export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
       ) : null}
 
       {board?.status.missing.length ? (
-        <p className="opportunity-note">缺失：{board.status.missing.join(", ")}</p>
+        <p className="opportunity-note opportunity-note-missing">
+          {formatMissingNote(board.status.missing)}
+        </p>
       ) : null}
 
+      {board?.status.sourceStatuses.length ? (
+        <div className="opportunity-source-grid" aria-label="资料来源状态">
+          {board.status.sourceStatuses.map((source) => (
+            <article className={source.available ? "source-ready" : "source-missing"} key={source.key}>
+              <span>{source.label}</span>
+              <strong>{source.available ? "可用" : "缺失"}</strong>
+              <small>{source.resolvedPath ?? source.path}</small>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="opportunity-workbench-grid">
+        <div className="opportunity-blotter-list">
+          {loading ? (
+            <p className="score-empty">加载评分中…</p>
+          ) : error ? null : showEmptyScores ? (
+            <p className="score-empty opportunity-board-empty">暂无可评分机会。</p>
+          ) : (
+            <ScoreRows
+              rows={board?.scores ?? []}
+              selectedSymbol={selectedSymbol}
+              onSelect={setSelectedSymbol}
+            />
+          )}
+        </div>
+
+        <OpportunityDetail
+          day={day}
+          score={selectedScore}
+          evidenceNeeds={board?.reasoning.evidenceNeeds}
+          candidateOpportunities={board?.reasoning.candidateOpportunities}
+          onRunEvidenceTool={runEvidenceTool}
+        />
+      </div>
+
       {board?.reasoning ? (
-        <section className="reasoning-panel">
-          <div className="reasoning-panel-head">
-            <p className="eyebrow">Reasoning Plan</p>
-            <h3>Staged opportunity research</h3>
-          </div>
+        <details className="reasoning-panel">
+          <summary className="reasoning-panel-head">
+            <span>
+              <span className="eyebrow">Research Plan</span>
+              <strong>本地推演计划</strong>
+            </span>
+            <span className="reasoning-panel-count">{reasoningSignalCount} 条辅助线索</span>
+          </summary>
           <div className="reasoning-columns">
             <article>
-              <strong>Reasoning summary</strong>
+              <strong>推理摘要</strong>
               <ul>
                 {board.reasoning.reasoningSummary.slice(0, 3).map((item) => (
                   <li key={item}>{item}</li>
@@ -137,7 +215,7 @@ export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
               </ul>
             </article>
             <article>
-              <strong>Market intel needs</strong>
+              <strong>市场情报需求</strong>
               <ul>
                 {board.reasoning.marketIntelNeeds.slice(0, 4).map((item) => (
                   <li key={item}>{item}</li>
@@ -145,7 +223,7 @@ export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
               </ul>
             </article>
             <article>
-              <strong>Next checks</strong>
+              <strong>下一步检查</strong>
               <ul>
                 {board.reasoning.nextChecks.slice(0, 4).map((item) => (
                   <li key={item}>{item}</li>
@@ -153,10 +231,9 @@ export function OpportunityBoard({ day, onDayChange }: OpportunityBoardProps) {
               </ul>
             </article>
           </div>
-        </section>
+        </details>
       ) : null}
 
-      <ScoreRows rows={board?.scores ?? []} />
       <p className="opportunity-note">本地确定性研究分流，不是交易指令。</p>
     </section>
   );

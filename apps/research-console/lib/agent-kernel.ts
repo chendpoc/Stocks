@@ -15,7 +15,7 @@ import { authorizeResearchTool, isResearchToolName } from "./tool-policy";
 const MAX_TOOL_PLANNING_ROUNDS = 3;
 
 export type RunResearchAgentInput = {
-  day: string;
+  day?: string;
   message: string;
   messages?: AgentChatMessage[];
   provider?: ResearchAgentProvider;
@@ -37,6 +37,7 @@ function summarizeConversation(message: string, messages: AgentChatMessage[] = [
 export async function runResearchAgent(input: RunResearchAgentInput): Promise<AgentResponseEnvelope> {
   const { provider: injectedProvider, ...agentInput } = input;
   const context = await loadResearchContext(input.day);
+  const resolvedAgentInput = { ...agentInput, day: context.day };
   const opportunity_reasoning = buildOpportunityReasoning(
     buildReasoningInputFromResearchContext(context),
   );
@@ -44,11 +45,12 @@ export async function runResearchAgent(input: RunResearchAgentInput): Promise<Ag
   const conversation_summary = summarizeConversation(input.message, input.messages);
   const tool_trace: AgentResponseEnvelope["tool_trace"] = [];
   const policy_decisions: AgentResponseEnvelope["policy_decisions"] = [];
+  const planned_tool_calls: AgentResponseEnvelope["toolCalls"] = [];
   const seenToolCalls = new Set<string>();
 
   for (let round = 0; round < MAX_TOOL_PLANNING_ROUNDS; round += 1) {
     const toolPlan = await provider.selectToolPlan({
-      ...agentInput,
+      ...resolvedAgentInput,
       context,
       opportunityReasoning: opportunity_reasoning,
       toolTrace: tool_trace,
@@ -69,6 +71,7 @@ export async function runResearchAgent(input: RunResearchAgentInput): Promise<Ag
 
     const roundDecisions = toolCalls.map((toolCall) => authorizeResearchTool(toolCall.name));
     policy_decisions.push(...roundDecisions);
+    planned_tool_calls.push(...toolCalls);
 
     const allowedToolCalls = toolCalls.filter((toolCall, index) =>
       roundDecisions[index]?.status === "allowed" && isResearchToolName(toolCall.name),
@@ -82,7 +85,7 @@ export async function runResearchAgent(input: RunResearchAgentInput): Promise<Ag
   }
 
   const response = await provider.generateResponse({
-    ...agentInput,
+    ...resolvedAgentInput,
     context,
     opportunityReasoning: opportunity_reasoning,
     toolTrace: tool_trace,
@@ -92,6 +95,16 @@ export async function runResearchAgent(input: RunResearchAgentInput): Promise<Ag
 
   const baseResponse: Omit<AgentResponseEnvelope, "run_id" | "evidence_log_path"> = {
     ...response,
+    hypothesis:
+      opportunity_reasoning.candidateOpportunities[0]?.thesis ??
+      opportunity_reasoning.adminTheory.summary ??
+      "当前资料不足以形成单一高置信假设。",
+    planSteps: opportunity_reasoning.researchPlan,
+    toolCalls: planned_tool_calls,
+    approvalRequired: tool_trace.some((tool) => tool.approval_required),
+    executionTrace: tool_trace,
+    marketJudgement: opportunity_reasoning.reasoningSummary,
+    invalidation: opportunity_reasoning.invalidationPlan,
     opportunity_reasoning,
     conversation_summary,
     provider: provider.mode,

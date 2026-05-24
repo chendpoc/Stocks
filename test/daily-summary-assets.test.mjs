@@ -474,7 +474,7 @@ test("daily publish sends image without waiting for a public card cover", async 
   assert.doesNotMatch(script, /card\.coverImageUrl/);
   assert.ok(
     script.indexOf("await sendWeWorkImage(webhookUrl, image.imagePath)") <
-      script.indexOf("await sendWeWorkTemplateCard(webhookUrl, card.payload)"),
+    script.indexOf("await sendWeWorkTemplateCard(webhookUrl, card.payload)"),
     "image webhook should not be blocked by template card delivery",
   );
 });
@@ -490,7 +490,7 @@ test("daily publish optionally triggers deploy hook after git publish before web
   assert.match(script, /if \(published\) \{\s*await triggerDeployHook\(\);\s*\}/s);
   assert.ok(
     script.indexOf("await triggerDeployHook()") <
-      script.indexOf("await sendWeWorkImage(webhookUrl, image.imagePath)"),
+    script.indexOf("await sendWeWorkImage(webhookUrl, image.imagePath)"),
     "deploy hook should be triggered before webhook delivery when it is configured",
   );
 });
@@ -503,7 +503,7 @@ test("daily publish rebases onto current remote branch before pushing generated 
   assert.match(script, /git",\s*\["rebase",\s*`origin\/\$\{branch\}`\]/);
   assert.ok(
     script.indexOf("syncCurrentBranchBeforePush(branch)") <
-      script.indexOf('run("git", ["push", "origin", branch])'),
+    script.indexOf('run("git", ["push", "origin", branch])'),
     "daily publish should update its checkout before pushing generated docs",
   );
 });
@@ -783,9 +783,9 @@ test("research console scaffold provides a React agent workspace with server-sid
   assert.equal(appPkg.scripts.lint, "tsc --noEmit --incremental false");
   assert.equal(rootPkg.scripts["console:dev"], "node scripts/pnpm-workspace.mjs --filter research-console dev");
   assert.match(page, /<ResearchWorkspace/);
-  assert.match(page, /交易研究工作台/);
+  assert.match(workspace, /aria-label="动态交易研究工作台"/);
   assert.match(workspace, /<AgentPanel/);
-  assert.match(workspace, /timeZone:\s*"Asia\/Shanghai"/);
+  assert.match(workspace, /requestedDay === "latest"/);
   assert.match(panel, /"use client"/);
   assert.match(panel, /\/api\/agent\/chat/);
   assert.doesNotMatch(panel, /useState\("2026-05-22"\)/);
@@ -796,12 +796,14 @@ test("research console scaffold provides a React agent workspace with server-sid
   assert.match(auth, /process\.env\.NODE_ENV\s*!==\s*"production"/);
   assert.match(auth, /process\.env\.RESEARCH_CONSOLE_ACCESS_TOKEN/);
   assert.match(auth, /x-research-console-token/);
-  assert.match(route, /timeZone:\s*"Asia\/Shanghai"/);
+  assert.match(route, /day\?: string/);
   assert.match(route, /runResearchAgent/);
   assert.match(kernel, /loadResearchContext/);
   assert.match(provider, /reasoning_summary/);
   assert.match(context, /STRUCTURED_DATA_PARTS/);
   assert.match(context, /OPPORTUNITIES_PARTS/);
+  assert.match(context, /listAvailableResearchDays/);
+  assert.match(context, /selectedDayStatus/);
   assert.equal(corePkg.name, "@stock-summary/summary-core");
   assert.match(corePkg.exports["."], /src\/index\.ts/);
 });
@@ -884,7 +886,8 @@ test("research console agent contract supports multi-turn tool-calling traces", 
 
   assert.match(panel, /messages/);
   assert.match(panel, /tool_trace/);
-  assert.match(panel, /工具调用/);
+  assert.match(panel, /AgentToolTraceSection/);
+  assert.match(await readFile("apps/research-console/components/AgentEvidenceDetail.tsx", "utf8"), /工具调用/);
   assert.match(panel, /className="agent-answer-text"/);
 });
 
@@ -1079,8 +1082,8 @@ test("research console exposes tool readiness before an agent run", async () => 
   assert.match(policySource, /listResearchToolReadiness/);
   assert.match(route, /listResearchToolReadiness/);
   assert.match(panel, /\/api\/research\/tools/);
-  assert.match(panel, /className="tool-readiness"/);
-  assert.match(panel, /policy.status/);
+  assert.match(await readFile("apps/research-console/components/AgentToolPolicy.tsx", "utf8"), /className="tool-readiness"/);
+  assert.match(await readFile("apps/research-console/components/AgentToolPolicy.tsx", "utf8"), /policy.status/);
   assert.match(styles, /\.tool-readiness/);
   assert.match(styles, /\.tool-policy-pill/);
 });
@@ -1203,7 +1206,7 @@ test("research console kernel executes provider-planned score_opportunities", as
       assert.match(response.answer, /LITE/);
       assert.match(response.answer, /thesis_alignment=\d+/);
       assert.match(response.answer, /liquidity_risk=\d+/);
-  assert.doesNotMatch(response.answer, /\b(buy|sell|long|short|call option|put option)\b/i);
+      assert.doesNotMatch(response.answer, /\b(buy|sell|long|short|call option|put option)\b/i);
     });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -1211,17 +1214,17 @@ test("research console kernel executes provider-planned score_opportunities", as
 });
 
 test("research console renders score_opportunities traces as compact score rows", async () => {
-  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const evidenceDetail = await readFile("apps/research-console/components/AgentEvidenceDetail.tsx", "utf8");
   const scoreRows = await readFile("apps/research-console/components/ScoreRows.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
   const tools = await readFile("apps/research-console/lib/agent-tools.ts", "utf8");
 
   assert.match(tools, /\$\{index \+ 1\} \| \$\{score\.symbol\} \|/);
-  assert.match(panel, /function\s+parseScoreTraceRows\(/);
-  assert.match(panel, /tool\.name\s*===\s*"score_opportunities"/);
-  assert.match(panel, /<ScoreRows rows=\{rows\}/);
-  assert.match(panel, /className="score-trace"/);
-  assert.match(scoreRows, /className="score-row"/);
+  assert.match(evidenceDetail, /function\s+parseScoreTraceRows\(/);
+  assert.match(evidenceDetail, /tool\.name\s*===\s*"score_opportunities"/);
+  assert.match(evidenceDetail, /<ScoreRows rows=\{rows\}/);
+  assert.match(evidenceDetail, /className="score-trace"/);
+  assert.match(scoreRows, /"score-row(?: score-row-selected)? score-blotter-row"/);
   assert.match(scoreRows, /className="score-pill"/);
   assert.match(scoreRows, /className="score-meter-fill"/);
   assert.match(styles, /\.score-trace/);
@@ -1231,7 +1234,7 @@ test("research console renders score_opportunities traces as compact score rows"
 });
 
 test("research console renders yfinance history traces as metric cards", async () => {
-  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const evidenceDetail = await readFile("apps/research-console/components/AgentEvidenceDetail.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
   const tools = await readFile("apps/research-console/lib/agent-tools.ts", "utf8");
 
@@ -1239,13 +1242,13 @@ test("research console renders yfinance history traces as metric cards", async (
   assert.match(tools, /`close change \$\{percentText\(history\.close_change_percent\)\}`/);
   assert.match(tools, /`max drawdown \$\{percentText\(history\.max_drawdown_percent\)\}`/);
   assert.match(tools, /`latest volume ratio \$\{ratioText\(history\.latest_volume_ratio\)\}`/);
-  assert.match(panel, /function\s+parseYfinanceHistoryTrace\(/);
-  assert.match(panel, /tool\.name\s*===\s*"yfinance_history"/);
-  assert.match(panel, /className="history-trace"/);
-  assert.match(panel, /Close change/);
-  assert.match(panel, /Max drawdown/);
-  assert.match(panel, /Realized volatility/);
-  assert.match(panel, /Latest volume ratio/);
+  assert.match(evidenceDetail, /function\s+parseYfinanceHistoryTrace\(/);
+  assert.match(evidenceDetail, /tool\.name\s*===\s*"yfinance_history"/);
+  assert.match(evidenceDetail, /className="history-trace"/);
+  assert.match(evidenceDetail, /Close change/);
+  assert.match(evidenceDetail, /Max drawdown/);
+  assert.match(evidenceDetail, /Realized volatility/);
+  assert.match(evidenceDetail, /Latest volume ratio/);
   assert.match(styles, /\.history-trace/);
   assert.match(styles, /\.history-metrics/);
   assert.match(styles, /\.history-metric/);
@@ -1294,7 +1297,7 @@ test("research console exposes selected-day context status without raw content",
   assert.match(route, /export async function GET/);
   assert.match(route, /inspectResearchContext/);
   assert.match(panel, /\/api\/research\/context/);
-  assert.match(panel, /className="context-status"/);
+  assert.match(await readFile("apps/research-console/components/AgentContextStatus.tsx", "utf8"), /className="context-status"/);
 });
 
 test("research console exposes a local opportunity board without model or raw content", async () => {
@@ -1342,9 +1345,11 @@ test("research console exposes a local opportunity board without model or raw co
   assert.match(route, /export async function GET/);
   assert.match(route, /loadOpportunityBoard/);
   assert.match(page, /<ResearchWorkspace/);
-  assert.match(workspace, /<OpportunityBoard day=\{day\} onDayChange=\{setDay\}/);
+  assert.match(workspace, /function ResearchMainTabs/);
+  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}/);
+  assert.match(workspace, /onDayChange=\{onDayChange\}/);
   assert.match(board, /\/api\/research\/opportunities/);
-  assert.match(board, /className="opportunity-board"/);
+  assert.match(board, /className="opportunity-board opportunity-blotter"/);
   assert.match(board, /board\?\.reasoning/);
   assert.match(board, /className="reasoning-panel"/);
   assert.match(board, /<ScoreRows/);
@@ -1353,6 +1358,442 @@ test("research console exposes a local opportunity board without model or raw co
   assert.match(styles, /\.opportunity-metrics/);
   assert.match(styles, /\.opportunity-watchlist/);
   assert.match(styles, /\.reasoning-panel/);
+});
+
+test("OpportunityBoard readable labels avoid garbled Chinese copy", async () => {
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+
+  assert.match(board, /Opportunity Blotter/);
+  assert.match(board, /机会池/);
+  assert.match(board, /所选日期/);
+  assert.match(board, /上下文/);
+  assert.match(board, /管理员标的/);
+  assert.match(board, /核心理论/);
+  assert.match(board, /风险条件/);
+  assert.match(board, /本地确定性研究分流，不是交易指令/);
+  assert.match(board, /本地推演计划/);
+  assert.match(board, /推理摘要/);
+  assert.match(board, /市场情报需求/);
+  assert.match(board, /下一步检查/);
+  assert.doesNotMatch(board, /Staged opportunity research/);
+  assert.doesNotMatch(board, /Reasoning summary/);
+  assert.doesNotMatch(board, /Market intel needs/);
+  assert.doesNotMatch(board, /Next checks/);
+  assert.doesNotMatch(board, /褰撴棩|涓婁笅鏂|鍘嗗彶|瓒嬪娍/);
+});
+
+test("OpportunityBoard empty state keeps selected day visible without raw source leakage", async () => {
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const { loadOpportunityBoard } = loadResearchConsoleModule("apps/research-console/lib/opportunity-board.ts");
+  const root = await mkdtemp(path.join(os.tmpdir(), "research-console-empty-"));
+  const day = "2099-01-01";
+
+  try {
+    await withEnv({ STOCK_SUMMARY_ROOT: root }, async () => {
+      const result = await loadOpportunityBoard(day);
+      const serialized = JSON.stringify(result);
+
+      assert.equal(result.day, day);
+      assert.equal(result.scores.length, 0);
+      assert.ok(result.status.missing.length > 0);
+      assert.doesNotMatch(serialized, /# 机会观察/);
+      assert.doesNotMatch(serialized, new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+
+  assert.match(board, /所选日期/);
+  assert.match(board, /formatMissingNote/);
+  assert.match(board, /缺少以下上下文/);
+  assert.match(board, /暂无可评分机会/);
+  assert.match(board, /opportunity-board-empty/);
+  assert.match(board, /opportunity-board-error/);
+  assert.match(board, /opportunity-note-missing/);
+  assert.doesNotMatch(board, /sourceSummaryPath/);
+  assert.doesNotMatch(board, /structuredSummaryPath/);
+});
+
+test("score row information density exposes research score components", async () => {
+  const scoreRows = await readFile("apps/research-console/components/ScoreRows.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(scoreRows, /thesis_alignment/);
+  assert.match(scoreRows, /trigger_clarity/);
+  assert.match(scoreRows, /evidence_quality/);
+  assert.match(scoreRows, /invalidation_clarity/);
+  assert.match(scoreRows, /liquidity_risk/);
+  assert.match(scoreRows, /score-components/);
+  assert.match(scoreRows, /score-boundary/);
+  assert.match(scoreRows, /仅供研究观察，不是交易指令/);
+  assert.match(styles, /\.score-components/);
+  assert.match(styles, /\.score-boundary/);
+  assert.doesNotMatch(scoreRows, /\b(buy|sell|long|short|position sizing)\b/i);
+});
+
+test("Phase 1 opportunity board boundary keeps local scoring off publishing surfaces", async () => {
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const route = await readFile("apps/research-console/app/api/research/opportunities/route.ts", "utf8");
+  const opportunityBoardLib = await readFile("apps/research-console/lib/opportunity-board.ts", "utf8");
+  const dailyPublish = await readFile("scripts/daily-publish.mjs", "utf8");
+  const dailySummary = await readFile("scripts/daily-summary.mjs", "utf8");
+  const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
+
+  assert.match(workspace, /function ResearchMainTabs/);
+  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}[\s\S]*onDayChange=\{onDayChange\}/);
+  assert.match(route, /loadOpportunityBoard/);
+  assert.doesNotMatch(opportunityBoardLib, /longbridge|alpha_vantage|yfinance|news_search/i);
+  assert.doesNotMatch(opportunityBoardLib, /fetch\(/);
+  assert.match(board, /本地确定性研究分流，不是交易指令/);
+  assert.doesNotMatch(board, /rawMarkdown|rawJson|absolutePath|process\.env/);
+  assert.doesNotMatch(dailyPublish, /research-console|OpportunityBoard|loadOpportunityBoard/);
+  assert.doesNotMatch(dailySummary, /research-console|OpportunityBoard|loadOpportunityBoard/);
+});
+
+test("Fortress visual refactor keeps opportunity blotter primary and Agent auxiliary", async () => {
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+  const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const agent = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const moduleDoc = await readFile(
+    "docs/research-agent/modules/2026-05-23-research-workbench-terminal-visual-refactor.md",
+    "utf8",
+  );
+  const combined = [workspace, board, detail, agent].join("\n");
+
+  assert.match(moduleDoc, /Fortress Dashboard visual language/i);
+  assert.match(moduleDoc, /dark fixed sidebar/i);
+  assert.match(moduleDoc, /first-screen task is fast opportunity-pool scanning/i);
+  assert.match(styles, /color-scheme:\s*light/);
+  assert.match(styles, /--sidebar:/);
+  assert.match(styles, /--accent:\s*#3367d6/);
+  assert.match(styles, /\.fortress-sidebar/);
+  assert.match(styles, /\.fortress-nav/);
+  assert.match(styles, /\.cockpit-search/);
+  assert.match(styles, /\.opportunity-blotter/);
+  assert.match(styles, /\.research-inspector/);
+  assert.match(styles, /\.agent-panel-auxiliary/);
+  assert.match(styles, /\.reasoning-panel-head::after/);
+  assert.match(styles, /\.reasoning-panel-count/);
+  assert.match(workspace, /activeTab.*opportunities/);
+  assert.match(workspace, /className="fortress-brand"/);
+  assert.match(workspace, /className="fortress-nav"/);
+  assert.match(workspace, /className="cockpit-search"/);
+  assert.match(board, /Opportunity Blotter|机会池/);
+  assert.match(board, /opportunity-blotter/);
+  assert.match(board, /<details className="reasoning-panel">/);
+  assert.ok(
+    board.indexOf('className="opportunity-workbench-grid"') <
+      board.indexOf('<details className="reasoning-panel">'),
+    "opportunity blotter should appear before auxiliary research plan",
+  );
+  assert.match(board, /reasoningSignalCount/);
+  assert.match(detail, /Research Inspector|研究详情/);
+  assert.match(detail, /research-inspector/);
+  assert.match(agent, /agent-panel-auxiliary/);
+  assert.match(combined, /仅供研究观察|研究边界/);
+  assert.doesNotMatch(moduleDoc, /institutional dark research cockpit/i);
+  assert.doesNotMatch(combined, /\b(buy|sell|long|short|stop loss|target price|position sizing|order ticket)\b/i);
+  assert.doesNotMatch(combined, /买入|卖出|做多|做空|开仓|平仓|止损|目标价|仓位|下单/);
+  assert.doesNotMatch(combined, /daily:publish|notify-card|deploy-cloudflare|scripts\/daily-summary/);
+});
+
+test("OpportunityDetail component renders bounded research detail for a selected score", async () => {
+  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(detail, /export function OpportunityDetail/);
+  assert.match(detail, /OpportunityBoardScore/);
+  assert.match(detail, /sourceRefs/);
+  assert.match(detail, /activeScore\.components/);
+  assert.match(detail, /请在上方的评分列表中选择一个机会行/);
+  assert.match(detail, /仅供研究观察，不是交易指令/);
+  assert.match(detail, /className="opportunity-detail research-inspector/);
+  assert.match(styles, /\.opportunity-detail/);
+  assert.match(styles, /\.opportunity-detail-boundary/);
+  assert.doesNotMatch(detail, /process\.env/);
+  assert.doesNotMatch(detail, /# 机会观察/);
+  assert.doesNotMatch(detail, /data\/structured/);
+  assert.doesNotMatch(detail, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing)\b/i);
+});
+
+test("OpportunityBoard selected detail wires row selection to OpportunityDetail", async () => {
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+
+  assert.match(board, /OpportunityDetail/);
+  assert.match(board, /selectedSymbol/);
+  assert.match(board, /setSelectedSymbol/);
+  assert.match(board, /selectedScore/);
+  assert.match(board, /onSelect=\{setSelectedSymbol\}/);
+  assert.match(board, /stillExists/);
+  assert.match(board, /setSelectedSymbol\(null\)/);
+  assert.match(board, /evidenceNeeds=\{board\?\.reasoning\.evidenceNeeds\}/);
+  assert.match(board, /candidateOpportunities=\{board\?\.reasoning\.candidateOpportunities\}/);
+  assert.match(board, /score=\{selectedScore\}/);
+  assert.doesNotMatch(board, /localStorage/);
+  assert.doesNotMatch(board, /useSearchParams/);
+});
+
+test("ScoreRows selection supports keyboard and accessible selected state", async () => {
+  const scoreRows = await readFile("apps/research-console/components/ScoreRows.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(scoreRows, /selectedSymbol/);
+  assert.match(scoreRows, /onSelect/);
+  assert.match(scoreRows, /aria-selected/);
+  assert.match(scoreRows, /onKeyDown/);
+  assert.match(scoreRows, /score-row-selected/);
+  assert.match(scoreRows, /role=\{selectable \? "option" : undefined\}/);
+  assert.match(scoreRows, /aria-label=\{selectable \? "机会评分列表" : undefined\}/);
+  assert.match(scoreRows, /role="progressbar"/);
+  assert.match(scoreRows, /aria-valuenow=\{row\.score\}/);
+  assert.match(scoreRows, /评分 \$\{row\.score\}，满分 100/);
+  assert.doesNotMatch(scoreRows, /out of 100/);
+  assert.match(scoreRows, /Enter/);
+  assert.match(styles, /\.score-row-selected/);
+  assert.doesNotMatch(scoreRows, /fetch\(/);
+  assert.doesNotMatch(scoreRows, /XMLHttpRequest/);
+});
+
+test("OpportunityDetail evidence needs and candidate invalidation stay bounded", async () => {
+  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const { loadOpportunityBoard } = loadResearchConsoleModule("apps/research-console/lib/opportunity-board.ts");
+  const { root, day } = await createResearchFixture();
+
+  try {
+    await withEnv({ STOCK_SUMMARY_ROOT: root }, async () => {
+      const result = await loadOpportunityBoard(day);
+      const serialized = JSON.stringify(result);
+
+      assert.ok(result.reasoning.evidenceNeeds.length > 0);
+      assert.ok(result.reasoning.candidateOpportunities.length > 0);
+      assert.equal(typeof result.reasoning.evidenceNeeds[0].kind, "string");
+      assert.equal(typeof result.reasoning.evidenceNeeds[0].question, "string");
+      assert.ok(Array.isArray(result.reasoning.evidenceNeeds[0].preferredTools));
+      assert.equal(typeof result.reasoning.evidenceNeeds[0].required, "boolean");
+      assert.ok(result.reasoning.candidateOpportunities[0].invalidation.length > 0);
+      assert.doesNotMatch(serialized, /provider raw payload/i);
+      assert.doesNotMatch(serialized, /sk-[A-Za-z0-9]+/);
+      assert.doesNotMatch(serialized, /# 机会观察/);
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+
+  assert.match(detail, /evidenceNeeds/);
+  assert.match(detail, /candidateOpportunities/);
+  assert.match(detail, /MAX_EVIDENCE_NEEDS = 5/);
+  assert.match(detail, /MAX_INVALIDATION_LINES = 5/);
+  assert.match(detail, /need\.kind/);
+  assert.match(detail, /need\.question/);
+  assert.match(detail, /need\.preferredTools/);
+  assert.match(detail, /need\.required/);
+  assert.match(detail, /opportunity-detail-evidence-required/);
+  assert.match(detail, /必需/);
+  assert.match(detail, /未记录该标的的明确证据需求/);
+  assert.match(detail, /失效条件/);
+  assert.match(board, /evidenceNeeds=\{board\?\.reasoning\.evidenceNeeds\}/);
+  assert.doesNotMatch(detail, /process\.env/);
+  assert.doesNotMatch(detail, /raw payload/i);
+});
+
+test("OpportunityDetail exposes guarded external evidence actions", async () => {
+  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const route = await readFile("apps/research-console/app/api/research/evidence/route.ts", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(route, /isAuthorizedResearchConsoleRequest/);
+  assert.match(route, /authorizeResearchTool/);
+  assert.match(route, /executeResearchTool/);
+  assert.match(route, /isResearchToolName/);
+  assert.match(route, /AgentToolTrace/);
+  assert.doesNotMatch(route, /process\.env\.[A-Z_]+/);
+
+  assert.match(detail, /onRunEvidenceTool/);
+  assert.match(detail, /evidenceToolResults/);
+  assert.match(detail, /preferredTools/);
+  assert.match(detail, /ExternalEvidenceResult/);
+  assert.match(detail, /补充证据|刷新证据|请求证据/);
+  assert.match(detail, /evidence-action-button/);
+  assert.match(detail, /evidence-result-card/);
+  assert.match(detail, /result\.tool\.result_summary/);
+  assert.match(board, /\/api\/research\/evidence/);
+  assert.match(board, /onRunEvidenceTool=\{runEvidenceTool\}/);
+  assert.match(styles, /\.evidence-action-button/);
+  assert.match(styles, /\.evidence-result-card/);
+  assert.doesNotMatch(detail, /process\.env|Authorization|Bearer|api_key|access_token/);
+  assert.doesNotMatch(detail, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing|order)\b/i);
+});
+
+test("research session service creates a bounded dynamic workbench session", async () => {
+  const { loadResearchSession, appendEvidenceRun, appendReviewRecord } = loadResearchConsoleModule(
+    "apps/research-console/lib/research-session.ts",
+  );
+  const { root, day } = await createResearchFixture();
+
+  try {
+    await withEnv({ STOCK_SUMMARY_ROOT: root }, async () => {
+      const session = await loadResearchSession(day);
+      const serialized = JSON.stringify(session);
+
+      assert.equal(session.day, day);
+      assert.equal(session.status, "opportunity_generated");
+      assert.equal(session.contextStatus.hasStructuredSummary, true);
+      assert.ok(session.sourceContext.adminTheory.length > 0);
+      assert.ok(session.opportunities.length > 0);
+      assert.ok(session.opportunities[0].id.includes(day));
+      assert.equal(session.evidenceRuns.length, 0);
+      assert.equal(session.reviewRecords.length, 0);
+      assert.doesNotMatch(serialized, /# 鏈轰細瑙傚療/);
+      assert.doesNotMatch(serialized, new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.doesNotMatch(serialized, /process\.env|Authorization|Bearer|API_KEY|provider raw payload/i);
+
+      const evidence = await appendEvidenceRun(day, {
+        opportunityId: session.opportunities[0].id,
+        toolName: "yfinance_quote",
+        input: { symbol: session.opportunities[0].symbols[0] },
+        summary: "yfinance quote blocked: missing external-tool opt-in",
+        verdict: "blocked",
+        sourceType: "quote",
+        fromCache: false,
+      });
+      assert.equal(evidence.verdict, "blocked");
+
+      const review = await appendReviewRecord(day, {
+        opportunityId: session.opportunities[0].id,
+        outcome: "unclear",
+        observedMove: "No confirmed follow-through yet.",
+        learning: "Need more evidence before increasing confidence.",
+      });
+      assert.equal(review.outcome, "unclear");
+
+      const updated = await loadResearchSession(day);
+      assert.equal(updated.status, "reviewed");
+      assert.equal(updated.evidenceRuns.length, 1);
+      assert.equal(updated.reviewRecords.length, 1);
+      assert.equal(updated.reviewRecords[0].opportunityId, session.opportunities[0].id);
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("research session API and UI shell define dynamic cockpit surfaces", async () => {
+  const coreTypes = await readFile("packages/summary-core/src/index.ts", "utf8");
+  const sessionLib = await readFile("apps/research-console/lib/research-session.ts", "utf8");
+  const sessionRoute = await readFile("apps/research-console/app/api/research/session/route.ts", "utf8");
+  const reviewRoute = await readFile("apps/research-console/app/api/research/review-record/route.ts", "utf8");
+  const marketRoute = await readFile("apps/research-console/app/api/research/market-interpretation/route.ts", "utf8");
+  const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+  const moduleDoc = await readFile(
+    "docs/research-agent/modules/2026-05-23-dynamic-research-session-prd.md",
+    "utf8",
+  );
+
+  assert.match(coreTypes, /interface ResearchSession/);
+  assert.match(coreTypes, /interface ResearchOpportunity/);
+  assert.match(coreTypes, /interface EvidenceRun/);
+  assert.match(coreTypes, /interface ReviewRecord/);
+  assert.match(coreTypes, /interface MarketInterpretation/);
+  assert.match(sessionLib, /\.cache/);
+  assert.match(sessionLib, /research-sessions/);
+  assert.match(sessionLib, /loadResearchSession/);
+  assert.match(sessionLib, /appendEvidenceRun/);
+  assert.match(sessionLib, /appendReviewRecord/);
+  assert.match(sessionLib, /buildMarketInterpretation/);
+  assert.match(sessionRoute, /GET/);
+  assert.match(sessionRoute, /POST/);
+  assert.match(sessionRoute, /PATCH/);
+  assert.match(sessionRoute, /isAuthorizedResearchConsoleRequest/);
+  assert.match(reviewRoute, /appendReviewRecord/);
+  assert.match(marketRoute, /buildMarketInterpretation/);
+  assert.match(workspace, /SessionSidebar/);
+  assert.match(workspace, /ResearchMainTabs/);
+  assert.match(workspace, /EvidenceCenter/);
+  assert.match(workspace, /ReviewRecordsPanel/);
+  assert.match(workspace, /market-interpretation/);
+  assert.match(styles, /\.research-cockpit/);
+  assert.match(styles, /\.session-sidebar/);
+  assert.match(styles, /\.fortress-nav/);
+  assert.match(styles, /\.evidence-center/);
+  assert.match(styles, /\.review-records/);
+  for (const expected of [
+    "Dynamic Research Session PRD",
+    "ResearchSession",
+    "local-first",
+    ".cache/research-sessions/YYYY-MM-DD/session.json",
+    "appendEvidenceRun",
+    "appendReviewRecord",
+    "buildMarketInterpretation",
+    "research-only",
+    "public VitePress build",
+  ]) {
+    assert.match(moduleDoc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+  assert.doesNotMatch(sessionRoute + reviewRoute + marketRoute, /process\.env\.[A-Z_]+/);
+  assert.doesNotMatch(workspace, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing|order)\b/i);
+});
+
+test("market interpretation uses session evidence and stays research-only", async () => {
+  const { loadResearchSession, appendEvidenceRun, buildMarketInterpretation } =
+    loadResearchConsoleModule("apps/research-console/lib/research-session.ts");
+  const { root, day } = await createResearchFixture();
+
+  try {
+    await withEnv({ STOCK_SUMMARY_ROOT: root }, async () => {
+      const session = await loadResearchSession(day);
+      await appendEvidenceRun(day, {
+        opportunityId: session.opportunities[0].id,
+        toolName: "news_search",
+        input: { query: "LITE recent market news" },
+        summary: "news_search blocked: missing external-tool opt-in",
+        verdict: "blocked",
+        sourceType: "news",
+        fromCache: false,
+      });
+
+      const interpretation = await buildMarketInterpretation(day);
+      const serialized = JSON.stringify(interpretation);
+
+      assert.equal(interpretation.day, day);
+      assert.ok(interpretation.marketState.length > 0);
+      assert.ok(interpretation.mainLine.length > 0);
+      assert.ok(interpretation.symbolReadings.length > 0);
+      assert.ok(interpretation.supportingEvidence.length > 0);
+      assert.ok(interpretation.contradictingRisks.length > 0);
+      assert.ok(interpretation.nextWatch.length > 0);
+      assert.doesNotMatch(serialized, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing|order)\b/i);
+      assert.doesNotMatch(serialized, /provider raw payload|Authorization|Bearer|API_KEY/i);
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("opportunity detail boundary keeps research-only UI off publishing and raw source surfaces", async () => {
+  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const scoreRows = await readFile("apps/research-console/components/ScoreRows.tsx", "utf8");
+  const dailyPublish = await readFile("scripts/daily-publish.mjs", "utf8");
+
+  assert.match(detail, /OpportunityBoardScore/);
+  assert.match(board, /selectedSymbol/);
+  assert.match(board, /<OpportunityDetail/);
+  assert.doesNotMatch(scoreRows, /fetch\(/);
+  assert.doesNotMatch(scoreRows, /\.push\(/);
+  assert.doesNotMatch(detail, /daily-publish/);
+  assert.doesNotMatch(detail, /daily-summary/);
+  assert.doesNotMatch(detail, /process\.env/);
+  assert.doesNotMatch(detail, /# 机会观察/);
+  assert.doesNotMatch(detail, /data\/structured/);
+  assert.doesNotMatch(detail, /RESEARCH_CONSOLE_ACCESS_TOKEN/);
+  assert.match(detail, /仅供研究观察，不是交易指令/);
+  assert.doesNotMatch(dailyPublish, /OpportunityDetail/);
 });
 
 test("research console agent response includes staged opportunity reasoning without raw content", async () => {
@@ -1600,6 +2041,7 @@ test("research console renders agent evidence log viewer in the agent panel", as
   const route = await readFile("apps/research-console/app/api/agent/runs/route.ts", "utf8");
   const auth = await readFile("apps/research-console/lib/api-auth.ts", "utf8");
   const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const runHistory = await readFile("apps/research-console/components/AgentRunHistory.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
 
   assert.match(coreTypes, /interface AgentRunEvidenceSummary/);
@@ -1608,35 +2050,37 @@ test("research console renders agent evidence log viewer in the agent panel", as
   assert.match(route, /isAuthorizedResearchConsoleRequest/);
   assert.match(auth, /x-research-console-token/);
   assert.match(panel, /\/api\/agent\/runs\?day=\$\{encodeURIComponent\(day\)\}/);
-  assert.match(panel, /className="agent-run-list"/);
-  assert.match(panel, /历史运行/);
+  assert.match(runHistory, /className="agent-run-list"/);
+  assert.match(runHistory, /历史运行/);
   assert.match(styles, /\.agent-run-list/);
 });
 
 test("research console renders blocked tool tags in run history", async () => {
-  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const runHistory = await readFile("apps/research-console/components/AgentRunHistory.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
 
-  assert.match(panel, /run\.blocked_tools\.length/);
-  assert.match(panel, /run\.blocked_tools\.map\(\(tool\)/);
-  assert.match(panel, /className="agent-run-blocked-tags"/);
-  assert.match(panel, /blocked:/);
+  assert.match(runHistory, /run\.blocked_tools\.length/);
+  assert.match(runHistory, /run\.blocked_tools\.map\(\(tool\)/);
+  assert.match(runHistory, /className="agent-run-blocked-tags"/);
+  assert.match(runHistory, /已阻断：/);
   assert.match(styles, /\.agent-run-blocked-tags/);
   assert.match(styles, /\.agent-run-blocked-tags span/);
 });
 
 test("research console renders current response evidence detail panel", async () => {
+  const evidenceDetail = await readFile("apps/research-console/components/AgentEvidenceDetail.tsx", "utf8");
   const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
 
-  assert.match(panel, /const\s+blockedDecisions\s*=\s*reply\.policy_decisions\.filter/);
-  assert.match(panel, /className="agent-evidence-detail"/);
-  assert.match(panel, /reply\.tool_trace\.length/);
-  assert.match(panel, /blockedDecisions\.length/);
-  assert.match(panel, /reply\.evidence_log_path/);
-  assert.match(panel, /reply\.tool_trace\.map\(\(tool,\s*index\)/);
-  assert.match(panel, /blockedDecisions\.map\(\(decision,\s*index\)/);
-  assert.match(panel, /研究边界/);
+  assert.match(evidenceDetail, /const\s+blockedDecisions\s*=\s*reply\.policy_decisions\.filter/);
+  assert.match(evidenceDetail, /className="agent-evidence-detail"/);
+  assert.match(evidenceDetail, /reply\.tool_trace\.length/);
+  assert.match(evidenceDetail, /blockedDecisions\.length/);
+  assert.match(evidenceDetail, /reply\.evidence_log_path/);
+  assert.match(evidenceDetail, /reply\.tool_trace\.map\(\(tool,\s*index\)/);
+  assert.match(evidenceDetail, /blockedDecisions\.map\(\(decision,\s*index\)/);
+  assert.match(evidenceDetail, /研究边界/);
+  assert.match(panel, /<AgentEvidenceDetail reply=\{reply\}/);
   assert.match(styles, /\.agent-evidence-detail/);
   assert.match(styles, /\.agent-evidence-stats/);
   assert.match(styles, /\.agent-evidence-row/);
@@ -1781,8 +2225,11 @@ test("research console shares one selected day between opportunity board and age
   assert.match(page, /import \{ ResearchWorkspace \}/);
   assert.match(page, /<ResearchWorkspace \/>/);
   assert.match(workspace, /"use client"/);
-  assert.match(workspace, /const\s+\[day,\s*setDay\]\s*=\s*useState\(currentBeijingDay\)/);
-  assert.match(workspace, /<OpportunityBoard day=\{day\} onDayChange=\{setDay\}/);
+  assert.match(workspace, /const\s+\[day,\s*setDay\]\s*=\s*useState\(""\)/);
+  assert.match(workspace, /\/api\/research\/session";/);
+  assert.match(workspace, /setDay\(nextSession\.day\)/);
+  assert.match(workspace, /<ResearchMainTabs[\s\S]*onDayChange=\{setDay\}/);
+  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}[\s\S]*onDayChange=\{onDayChange\}/);
   assert.match(workspace, /<AgentPanel day=\{day\} onDayChange=\{setDay\}/);
   assert.match(board, /day,\s*onDayChange/);
   assert.doesNotMatch(board, /useState\(currentBeijingDay\)/);
@@ -1792,6 +2239,47 @@ test("research console shares one selected day between opportunity board and age
   assert.match(panel, /\/api\/research\/context\?day=\$\{encodeURIComponent\(day\)\}/);
   assert.match(panel, /body:\s*JSON\.stringify\(\{ day, message: normalizedMessage, messages \}\)/);
   assert.match(panel, /async function runAgent\(nextMessage: string\)/);
+});
+
+test("research console exposes latest available day and source status contracts", async () => {
+  const coreTypes = await readFile("packages/summary-core/src/index.ts", "utf8");
+  const context = await readFile("apps/research-console/lib/context.ts", "utf8");
+  const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const agentContext = await readFile("apps/research-console/components/AgentContextStatus.tsx", "utf8");
+
+  assert.match(coreTypes, /availableDays:\s*string\[\]/);
+  assert.match(coreTypes, /selectedDayStatus:\s*ResearchSelectedDayStatus/);
+  assert.match(coreTypes, /missingSources:\s*ResearchSourceStatus\[\]/);
+  assert.match(context, /listAvailableResearchDays/);
+  assert.match(context, /每日总结\(\?:-local\)\?/);
+  assert.match(context, /latest_with_structured_context/);
+  assert.match(workspace, /SourceReadinessStrip/);
+  assert.match(workspace, /sourceStatuses/);
+  assert.match(board, /opportunity-source-grid/);
+  assert.match(agentContext, /availableDays\.slice/);
+});
+
+test("research console exposes local CLI approval workflow without browser shell access", async () => {
+  const coreTypes = await readFile("packages/summary-core/src/index.ts", "utf8");
+  const policy = await readFile("apps/research-console/lib/tool-policy.ts", "utf8");
+  const tools = await readFile("apps/research-console/lib/agent-tools.ts", "utf8");
+  const route = await readFile("apps/research-console/app/api/research/cli/route.ts", "utf8");
+  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(coreTypes, /execution_status\?:\s*"pending_approval"/);
+  assert.match(coreTypes, /approvalRequired\?:\s*boolean/);
+  assert.match(policy, /name:\s*"cli_execute"/);
+  assert.match(policy, /approvalRequired:\s*true/);
+  assert.match(tools, /executeApprovedCliTool/);
+  assert.match(tools, /buildRejectedCliTrace/);
+  assert.match(route, /authorizeResearchTool\("cli_execute"\)/);
+  assert.match(route, /action === "approve"/);
+  assert.match(panel, /LocalCliRunner/);
+  assert.match(panel, /确认执行/);
+  assert.match(styles, /\.local-cli-runner/);
+  assert.doesNotMatch(panel, /process\.env/);
 });
 
 test("research console renders market data source readiness without exposing secrets", async () => {
@@ -2088,9 +2576,10 @@ test("research console agent panel provides one-click evidence refresh action", 
 
 test("research console agent panel derives research plan status from tool evidence", async () => {
   const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const types = await readFile("apps/research-console/components/agent-panel-types.ts", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
 
-  assert.match(panel, /type ResearchPlanStatus = "done" \| "blocked" \| "pending" \| "process"/);
+  assert.match(types, /type ResearchPlanStatus = "done" \| "blocked" \| "pending" \| "process"/);
   assert.match(panel, /function researchPlanStepStatus/);
   assert.match(panel, /const executedTools = new Set\(reply\.tool_trace\.map\(\(tool\) => tool\.name\)\)/);
   assert.match(panel, /const blockedTools = new Set/);
@@ -2098,6 +2587,7 @@ test("research console agent panel derives research plan status from tool eviden
   assert.match(panel, /step\.toolHints\.some\(\(tool\) => blockedTools\.has\(tool\)\)/);
   assert.match(panel, /step\.toolHints\.some\(\(tool\) => executedTools\.has\(tool\)\)/);
   assert.match(panel, /className=\{`agent-plan-status agent-plan-status-\$\{planStatus\.status\}`\}/);
+  assert.match(panel, /researchPlanStatusLabel\(planStatus\.status\)/);
   assert.match(panel, /planStatus\.tools\.join\(" \/ "\)/);
   assert.match(styles, /\.agent-plan-status/);
   assert.match(styles, /\.agent-plan-status-done/);
@@ -2212,6 +2702,25 @@ test("research console alpha vantage quote tool is explicit opt-in and sanitized
 
     await withEnv({
       STOCK_SUMMARY_ROOT: root,
+      RESEARCH_ENABLE_EXTERNAL_TOOLS: undefined,
+      ALPHA_VANTAGE_API_KEY: "secret-alpha-key",
+    }, async () => withFetch(async () => {
+      throw new Error("alpha_vantage_quote must not fetch without explicit opt-in");
+    }, async () => {
+      assert.equal(authorizeResearchTool("alpha_vantage_quote").status, "blocked");
+      const trace = await executeResearchTool(
+        { name: "alpha_vantage_quote", input: { symbol: "LITE" } },
+        context,
+      );
+
+      assert.equal(trace.name, "alpha_vantage_quote");
+      assert.equal(trace.input.symbol, "LITE");
+      assert.match(trace.result_summary, /blocked/i);
+      assert.doesNotMatch(trace.result_summary, /secret-alpha-key|12\.34|GLOBAL_QUOTE/i);
+    }));
+
+    await withEnv({
+      STOCK_SUMMARY_ROOT: root,
       RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
       ALPHA_VANTAGE_API_KEY: "secret-alpha-key",
     }, async () => withFetch(async (url) => {
@@ -2228,6 +2737,12 @@ test("research console alpha vantage quote tool is explicit opt-in and sanitized
               "09. change": "0.5600",
               "10. change percent": "4.76%",
               "07. latest trading day": "2026-05-22",
+              "99. raw debug": "should-not-cache",
+            },
+            "Information": "provider raw note should not be cached",
+            "Note": "secret-alpha-key should not be cached",
+            "provider_debug": {
+              authorization: "Bearer secret-alpha-key",
             },
           };
         },
@@ -2251,6 +2766,17 @@ test("research console alpha vantage quote tool is explicit opt-in and sanitized
         context,
       );
       assert.match(cachedTrace.result_summary, /cache/);
+      assert.match(cachedTrace.result_summary, /12\.34/);
+      assert.doesNotMatch(cachedTrace.result_summary, /provider raw note|secret-alpha-key|raw debug|Authorization|Bearer/i);
+
+      const cachedPayload = await readFile(
+        path.join(root, ".cache", "research-tools", "alpha_vantage_quote", day, "LITE.json"),
+        "utf8",
+      );
+      assert.match(cachedPayload, /"symbol": "LITE"/);
+      assert.match(cachedPayload, /"price": 12\.34/);
+      assert.doesNotMatch(cachedPayload, /Global Quote|Information|Note|provider_debug|raw debug/i);
+      assert.doesNotMatch(cachedPayload, /secret-alpha-key|Authorization|Bearer/i);
     }));
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -2286,6 +2812,34 @@ test("research console yfinance quote tool is explicit opt-in, cached, and sanit
 
     await withEnv({
       STOCK_SUMMARY_ROOT: root,
+      RESEARCH_ENABLE_EXTERNAL_TOOLS: undefined,
+      YFINANCE_QUOTE_FIXTURE_JSON: JSON.stringify({
+        symbol: "LITE",
+        regularMarketPrice: 99.99,
+      }),
+    }, async () => {
+      const trace = await executeResearchTool(
+        { name: "yfinance_quote", input: { symbol: "LITE" } },
+        context,
+      );
+      const cachePath = path.join(
+        root,
+        ".cache",
+        "research-tools",
+        "yfinance_quote",
+        day,
+        "LITE.json",
+      );
+
+      assert.equal(trace.name, "yfinance_quote");
+      assert.equal(trace.input.symbol, "LITE");
+      assert.match(trace.result_summary, /blocked/i);
+      assert.doesNotMatch(trace.result_summary, /99\.99/);
+      await assert.rejects(() => access(cachePath), { code: "ENOENT" });
+    });
+
+    await withEnv({
+      STOCK_SUMMARY_ROOT: root,
       RESEARCH_ENABLE_EXTERNAL_TOOLS: "1",
       YFINANCE_QUOTE_FIXTURE_JSON: JSON.stringify({
         symbol: "LITE",
@@ -2295,7 +2849,13 @@ test("research console yfinance quote tool is explicit opt-in, cached, and sanit
         regularMarketVolume: 1234567,
         currency: "USD",
         exchange: "NMS",
-        shortName: "Lumentum",
+        shortName: "Authorization Bearer yfinance-debug-token",
+        rawProviderPayload: "should-not-cache",
+        provider_debug: { request_headers: { Authorization: "Bearer yfinance-debug-token" } },
+        quoteType: "EQUITY",
+        regularMarketTime: 1770000000,
+        rows: [{ close: 12.34 }],
+        echoed_authorization: "Bearer should-not-cache",
       }),
     }, async () => {
       assert.equal(authorizeResearchTool("yfinance_quote").status, "allowed");
@@ -2311,7 +2871,10 @@ test("research console yfinance quote tool is explicit opt-in, cached, and sanit
       assert.match(trace.result_summary, /12\.34/);
       assert.match(trace.result_summary, /4\.76%/);
       assert.match(trace.result_summary, /volume 1234567/);
-      assert.doesNotMatch(trace.result_summary, /YFINANCE_QUOTE_FIXTURE_JSON/);
+      assert.doesNotMatch(
+        trace.result_summary,
+        /YFINANCE_QUOTE_FIXTURE_JSON|Authorization|Bearer|provider_debug|quoteType|regularMarketTime|request_headers/i,
+      );
 
       await withEnv({
         STOCK_SUMMARY_ROOT: root,
@@ -2324,6 +2887,16 @@ test("research console yfinance quote tool is explicit opt-in, cached, and sanit
         );
         assert.match(cachedTrace.result_summary, /cache/);
       });
+
+      const cachedPayload = await readFile(
+        path.join(root, ".cache", "research-tools", "yfinance_quote", day, "LITE.json"),
+        "utf8",
+      );
+      assert.match(cachedPayload, /"symbol": "LITE"/);
+      assert.doesNotMatch(
+        cachedPayload,
+        /rawProviderPayload|rows|echoed_authorization|Authorization|Bearer|provider_debug|quoteType|regularMarketTime|request_headers/i,
+      );
     });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -3008,6 +3581,17 @@ test("research console source files do not contain common mojibake markers", asy
     "鏀鹃噺",
     "鎵挎帴",
     "锛",
+    "鏃",
+    "鏈",
+    "绠",
+    "鍙",
+    "缂",
+    "璇",
+    "鐮",
+    "鍥",
+    "鎺",
+    "銆",
+    "歿",
     "鈥",
     "Ã",
     "Â",
@@ -3340,6 +3924,13 @@ test("research console news search tool is opt-in, host-filtered, cached, and sa
                   snippet: "LITE moves after earnings and guidance.",
                 },
                 {
+                  title: "Authorization: Bearer secret-news-key",
+                  url: "https://finance.yahoo.com/news/raw-provider-leak",
+                  source: "provider_debug",
+                  published_at: "2026-05-22T09:45:00Z",
+                  snippet: "api_key=secret-news-key access_token=secret-news-key",
+                },
+                {
                   title: "Reuters IREN market context",
                   url: "https://www.reuters.com/markets/iren-context",
                   source: "Reuters",
@@ -3371,6 +3962,7 @@ test("research console news search tool is opt-in, host-filtered, cached, and sa
         assert.match(first.result_summary, /finance\.yahoo\.com/);
         assert.doesNotMatch(first.result_summary, /evil-finance/);
         assert.doesNotMatch(first.result_summary, new RegExp(secret));
+        assert.doesNotMatch(first.result_summary, /Authorization|Bearer|api_key|access_token|provider_debug/i);
       });
 
       await withFetch(async () => {
@@ -3383,6 +3975,7 @@ test("research console news search tool is opt-in, host-filtered, cached, and sa
 
         assert.match(second.result_summary, /cache/);
         assert.doesNotMatch(second.result_summary, new RegExp(secret));
+        assert.doesNotMatch(second.result_summary, /Authorization|Bearer|api_key|access_token|provider_debug/i);
       });
 
       assert.equal(calls.length, 1);
@@ -3396,6 +3989,7 @@ test("research console news search tool is opt-in, host-filtered, cached, and sa
       );
       assert.equal(cachedPayload.includes(secret), false);
       assert.equal(cachedPayload.includes("evil-finance.yahoo.com"), false);
+      assert.doesNotMatch(cachedPayload, /Authorization|Bearer|api_key|access_token|provider_debug/i);
     });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -3651,6 +4245,504 @@ test("research console standalone architecture document records the site boundar
   assert.match(doc, /RESEARCH_CONSOLE_ACCESS_TOKEN/);
   assert.match(doc, /Cloudflare Access|protected deployment/);
   assert.match(doc, /must not share the VitePress public deploy/i);
+});
+
+test("trading workbench master plan records the new development focus and boundaries", async () => {
+  const doc = await readFile("docs/research-agent/trading-workbench-master-plan.md", "utf8");
+  const readiness = await readFile("docs/research-agent/delivery-readiness-audit.md", "utf8");
+
+  for (const expected of [
+    "daily summary maintenance mode",
+    "apps/research-console",
+    "local-first",
+    "module development document",
+    "research-only",
+    "protected deployment",
+    "packages/summary-core",
+    "0-2 active agents",
+    "Phase 1",
+    "Phase 6",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /VitePress/);
+  assert.match(doc, /stocks-emw\.pages\.dev/);
+  assert.match(doc, /RESEARCH_ENABLE_EXTERNAL_TOOLS=1/);
+  assert.match(doc, /x-research-console-token/);
+  assert.match(doc, /docs\/research-agent\/cursor-execution-queue\.md/);
+  assert.match(doc, /docs\/research-agent\/modules\/YYYY-MM-DD-<module>/);
+  assert.match(doc, /2026-05-23-summary-to-opportunity-board\.md/);
+  assert.match(doc, /2026-05-23-cursor-opportunity-board-prd\.md/);
+  assert.match(doc, /2026-05-23-cursor-opportunity-detail-prd\.md/);
+  assert.match(doc, /2026-05-23-cursor-agent-panel-readability-prd\.md/);
+  assert.doesNotMatch(doc, /card cover delivery waits/i);
+  assert.match(readiness, /template card no longer depends on a public cover image/i);
+  assert.doesNotMatch(readiness, /card cover delivery waits/i);
+});
+
+test("cursor execution queue records current delegated work and review gates", async () => {
+  const doc = await readFile("docs/research-agent/cursor-execution-queue.md", "utf8");
+
+  for (const expected of [
+    "Cursor Execution Queue",
+    "one Cursor prompt",
+    "0-2",
+    "main agent owns architecture",
+    "2026-05-23-cursor-opportunity-board-prd.md",
+    "2026-05-23-cursor-opportunity-detail-prd.md",
+    "2026-05-23-cursor-agent-panel-readability-prd.md",
+    "2026-05-23-codex-evidence-tool-layer-prd.md",
+    "2026-05-23-codex-agent-research-flow-prd.md",
+    "2026-05-23-codex-review-learning-records-prd.md",
+    "Implementation has landed in the working tree",
+    "visual QA",
+    "Phase 5 review and learning",
+    "Codex-agent PRD ready",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "git diff --check",
+    "Do not modify daily summary generation",
+    "research-only",
+    "raw Markdown",
+    "absolute local paths",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Do not ask Cursor to continue from the old board\/detail\/readability prompts/i);
+  assert.match(doc, /Did the patch touch daily summary, VitePress, Cloudflare, WeCom, GitHub Actions/i);
+  assert.match(doc, /does not redefine daily summary work as part of the research workbench queue/i);
+  assert.match(doc, /codex-agent-execution-queue\.md/i);
+});
+
+test("codex agent execution queue records high-decision research workbench lanes", async () => {
+  const doc = await readFile("docs/research-agent/codex-agent-execution-queue.md", "utf8");
+
+  for (const expected of [
+    "Codex Agent Execution Queue",
+    "one Codex-agent PRD task",
+    "0-2 active delegated agents",
+    "2026-05-23-codex-evidence-tool-layer-prd.md",
+    "2026-05-23-external-evidence-tool-actions-prd.md",
+    "2026-05-23-codex-agent-research-flow-prd.md",
+    "2026-05-23-codex-review-learning-records-prd.md",
+    "Phase 3 evidence tool layer",
+    "Phase 3 external evidence actions",
+    "Phase 4 agent research flow",
+    "Phase 5 review and learning records",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "node --test test\\market-data-sources.test.mjs",
+    "node --test test\\opportunity-reasoning.test.mjs",
+    "Do not modify daily summary generation",
+    "RESEARCH_ENABLE_EXTERNAL_TOOLS=1",
+    "authorizeResearchTool",
+    "research-only",
+    "raw Markdown",
+    "absolute local paths",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /external-evidence-tool-actions-prd/i);
+  assert.match(doc, /Return changed files, commands run, failed command output if any, and a boundary-risk note/i);
+  assert.match(doc, /does not redefine daily summary work as part of the research workbench queue/i);
+});
+
+test("phase 1 summary-to-opportunity board module document defines implementation boundaries", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-summary-to-opportunity-board.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "Summary-To-Opportunity Board",
+    "Phase 1",
+    "selected-day summary context",
+    "apps/research-console",
+    "packages/summary-core",
+    "raw Markdown",
+    "RESEARCH_ENABLE_EXTERNAL_TOOLS=1",
+    "module development document",
+    "0-2 active agents",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "research-only",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /api\/research\/opportunities/);
+  assert.match(doc, /opportunity-board/);
+  assert.match(doc, /score_opportunities/);
+  assert.match(doc, /must not produce buy\/sell/i);
+});
+
+test("cursor opportunity board PRD splits phase work into measurable modules", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-cursor-opportunity-board-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "PRD",
+    "Cursor",
+    "OpportunityBoard",
+    "ScoreRows",
+    "Opportunity Detail",
+    "Phase 1",
+    "Fix garbled Chinese copy",
+    "Empty state",
+    "Score row information density",
+    "Phase 1 boundary tests",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "daily publish",
+    "research-only",
+    "Copy-Paste Cursor Prompts",
+    "Cursor Prompt 1",
+    "Implement Task 1 only",
+    "Return the changed files",
+    "raw Markdown",
+    "raw JSON",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Task 1/);
+  assert.match(doc, /Task 5/);
+  assert.match(doc, /Do not modify daily summary generation/i);
+  assert.match(doc, /Do not call external market-data tools/i);
+  assert.match(doc, /No buy\/sell/i);
+});
+
+test("codex evidence tool layer PRD defines policy-gated external evidence work", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-codex-evidence-tool-layer-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "PRD",
+    "Codex Agent",
+    "Evidence Tool Layer",
+    "Phase 3",
+    "RESEARCH_ENABLE_EXTERNAL_TOOLS=1",
+    "authorizeResearchTool",
+    "yfinance_quote",
+    "yfinance_history",
+    "longbridge_quote",
+    "alpha_vantage_quote",
+    "news_search",
+    "Sanitized Cache Contract",
+    "Evidence Contract Inventory",
+    "cache shape",
+    "provider raw payloads",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "node --test test\\market-data-sources.test.mjs",
+    "research-only",
+    "raw Markdown",
+    "absolute local paths",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Do not modify daily summary generation/i);
+  assert.match(doc, /Do not add automatic external calls/i);
+  assert.match(doc, /Do not add buy\/sell/i);
+});
+
+test("external evidence tool actions PRD defines product-level provider integration", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-external-evidence-tool-actions-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "External Evidence Tool Actions",
+    "Longbridge",
+    "Alpha Vantage",
+    "news_search",
+    "OpportunityDetail",
+    "api/research/evidence",
+    "authorizeResearchTool",
+    "executeResearchTool",
+    "RESEARCH_ENABLE_EXTERNAL_TOOLS=1",
+    "AgentToolTrace",
+    "research-only",
+    "raw provider payloads",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Do not modify daily summary|Daily summary/i);
+  assert.match(doc, /buy, sell, long, short/i);
+});
+
+test("codex agent research flow PRD defines auditable non-CoT agent orchestration", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-codex-agent-research-flow-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "PRD",
+    "Codex Agent",
+    "Agent Research Flow",
+    "Phase 4",
+    "public research plan",
+    "evidence needs",
+    "policy decisions",
+    "AgentResponseEnvelope",
+    "runResearchAgent",
+    "agent-kernel",
+    "agent-provider",
+    "agent-evidence",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "node --test test\\opportunity-reasoning.test.mjs",
+    "research-only",
+    "raw chain-of-thought",
+    "raw Markdown",
+    "absolute local paths",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Do not modify daily summary generation/i);
+  assert.match(doc, /Do not expose raw chain-of-thought/i);
+  assert.match(doc, /No buy, sell, long, short/i);
+});
+
+test("codex review learning records PRD defines local-only review archive", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-codex-review-learning-records-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "PRD",
+    "Codex Agent",
+    "Review And Learning Records",
+    "Phase 5",
+    "local review archive",
+    "Review Record Contract",
+    "record_id",
+    "source_day",
+    "failure_mode",
+    "learning_notes",
+    "next_review_at",
+    "api-auth",
+    "OpportunityDetail",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "git diff --check",
+    "research-only",
+    "raw Markdown",
+    "absolute local paths",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Do not publish review records to docs, VitePress, or stocks-emw\.pages\.dev/i);
+  assert.match(doc, /Do not call external market-data tools or model providers/i);
+  assert.match(doc, /Do not add buy\/sell/i);
+});
+
+test("cursor opportunity detail PRD splits phase 2 detail work into measurable modules", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-cursor-opportunity-detail-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "PRD",
+    "Cursor",
+    "Phase 2",
+    "OpportunityDetail",
+    "OpportunityBoardScore",
+    "ScoreRows",
+    "evidence needs",
+    "candidate invalidation",
+    "selected opportunity state",
+    "Copy-Paste Cursor Prompts",
+    "Cursor Prompt 1",
+    "Implement Task 1 only",
+    "Return the changed files",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "research-only",
+    "raw Markdown",
+    "raw JSON",
+    "absolute local paths",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Task 1/);
+  assert.match(doc, /Task 4/);
+  assert.match(doc, /Do not modify daily summary generation/i);
+  assert.match(doc, /Do not call Longbridge, Alpha Vantage, yfinance, news search/i);
+  assert.match(doc, /Do not include buy, sell, long, short/i);
+  assert.match(doc, /at most five evidence needs/i);
+});
+
+test("cursor agent panel readability PRD splits phase 4 UI cleanup into measurable modules", async () => {
+  const doc = await readFile(
+    "docs/research-agent/modules/2026-05-23-cursor-agent-panel-readability-prd.md",
+    "utf8",
+  );
+
+  for (const expected of [
+    "PRD",
+    "Cursor",
+    "Phase 4",
+    "AgentPanel",
+    "AgentContextStatus",
+    "AgentRunHistory",
+    "AgentToolPolicy",
+    "AgentEvidenceDetail",
+    "visible copy",
+    "common mojibake",
+    "tool trace",
+    "blocked tools",
+    "Copy-Paste Cursor Prompts",
+    "Cursor Prompt 1",
+    "Implement Task 1 only",
+    "Return the changed files",
+    "npm run console:lint",
+    "npm run console:build",
+    "npm run test:summary",
+    "research-only",
+    "raw Markdown",
+    "raw structured JSON",
+  ]) {
+    assert.match(doc, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  assert.match(doc, /Task 1/);
+  assert.match(doc, /Task 4/);
+  assert.match(doc, /Do not modify daily summary generation/i);
+  assert.match(doc, /Do not call Longbridge, Alpha Vantage, yfinance, news search/i);
+  assert.match(doc, /Do not include buy, sell, long, short/i);
+  assert.match(doc, /AgentPanel must keep fetch\/state orchestration/i);
+});
+
+test("AgentPanel readable copy uses clear Chinese labels and research boundary language", async () => {
+  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const contextStatus = await readFile("apps/research-console/components/AgentContextStatus.tsx", "utf8");
+  const runHistory = await readFile("apps/research-console/components/AgentRunHistory.tsx", "utf8");
+  const toolPolicy = await readFile("apps/research-console/components/AgentToolPolicy.tsx", "utf8");
+  const evidenceDetail = await readFile("apps/research-console/components/AgentEvidenceDetail.tsx", "utf8");
+  const combined = [panel, contextStatus, runHistory, toolPolicy, evidenceDetail].join("\n");
+
+  assert.match(panel, /基于今天的机会观察，哪些假设最需要反证？/);
+  assert.match(panel, /你.*Agent/);
+  assert.match(panel, /上下文预检|AgentContextStatus/);
+  assert.match(panel, /历史运行|AgentRunHistory/);
+  assert.match(panel, /工具策略|AgentToolPolicy/);
+  assert.match(panel, /研究边界/);
+  assert.match(panel, /不构成买卖指令/);
+  assert.match(contextStatus, /上下文预检/);
+  assert.match(contextStatus, /结构化日报/);
+  assert.match(runHistory, /历史运行/);
+  assert.match(runHistory, /已阻断：/);
+  assert.match(toolPolicy, /工具策略/);
+  assert.match(evidenceDetail, /证据详情/);
+  assert.match(evidenceDetail, /已执行/);
+  assert.match(evidenceDetail, /已阻断/);
+  assert.match(evidenceDetail, /研究边界/);
+  assert.doesNotMatch(combined, /<span>executed<\/span>/);
+  assert.doesNotMatch(combined, /<span>blocked<\/span>/);
+  assert.doesNotMatch(combined, /evidence log:/);
+  assert.doesNotMatch(combined, /Tool policy/);
+  assert.doesNotMatch(combined, /<em>required<\/em>/);
+});
+
+test("AgentPanel subcomponents are presentational and receive data via props", async () => {
+  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const subcomponents = [
+    "apps/research-console/components/AgentContextStatus.tsx",
+    "apps/research-console/components/AgentRunHistory.tsx",
+    "apps/research-console/components/AgentToolPolicy.tsx",
+    "apps/research-console/components/AgentEvidenceDetail.tsx",
+  ];
+
+  assert.match(panel, /useState/);
+  assert.match(panel, /fetch\(/);
+  assert.match(panel, /<AgentContextStatus/);
+  assert.match(panel, /<AgentRunHistory/);
+  assert.match(panel, /<AgentToolPolicy/);
+  assert.match(panel, /<AgentEvidenceDetail reply=\{reply\}/);
+
+  for (const file of subcomponents) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(source, /\bfetch\s*\(/);
+    assert.doesNotMatch(source, /process\.env/);
+    assert.doesNotMatch(source, /daily:publish|notify-card|notify-text|deploy-cloudflare/);
+  }
+});
+
+test("agent panel boundary keeps state ownership and avoids transaction instruction language", async () => {
+  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const agentFiles = (await collectFiles("apps/research-console/components", [".tsx"]))
+    .filter((file) => file.includes("Agent") || file.includes("agent-panel"));
+  const combined = (await Promise.all(agentFiles.map((file) => readFile(file, "utf8")))).join("\n");
+
+  assert.match(panel, /const \[message, setMessage\]/);
+  assert.match(panel, /const \[reply, setReply\]/);
+  assert.match(panel, /const \[contextStatus, setContextStatus\]/);
+  assert.match(panel, /const \[runHistory, setRunHistory\]/);
+  assert.match(panel, /const \[toolReadiness, setToolReadiness\]/);
+  assert.match(combined, /研究边界/);
+  assert.match(combined, /不构成买卖指令|不构成买卖/);
+  assert.doesNotMatch(combined, /\b(buy|sell|long|short|stop loss|target price|position sizing)\b/i);
+  assert.doesNotMatch(panel, /daily:publish|notify-card|scripts\/deploy/);
+});
+
+test("AgentPanel exposes keyboard focus, live regions, and alert semantics", async () => {
+  const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(panel, /htmlFor="agent-panel-day"/);
+  assert.match(panel, /id="agent-panel-day"/);
+  assert.match(panel, /htmlFor="agent-panel-message"/);
+  assert.match(panel, /id="agent-panel-message"/);
+  assert.match(panel, /aria-busy=\{loading\}/);
+  assert.match(panel, /role="alert"/);
+  assert.match(panel, /aria-label="对话上下文"/);
+  assert.match(panel, /aria-label="Agent 回答"/);
+  assert.match(panel, /aria-live="polite"/);
+  assert.match(styles, /\.agent-form input:focus-visible/);
+  assert.match(styles, /\.agent-submit-button:focus-visible/);
+});
+
+test("tool trace layout distinguishes executed and blocked tools with bounded summaries", async () => {
+  const evidenceDetail = await readFile("apps/research-console/components/AgentEvidenceDetail.tsx", "utf8");
+  const styles = await readFile("apps/research-console/app/globals.css", "utf8");
+
+  assert.match(evidenceDetail, /className="tool-trace-list"/);
+  assert.match(evidenceDetail, /className="tool-trace-card tool-trace-executed"/);
+  assert.match(evidenceDetail, /className="tool-trace-card tool-trace-blocked"/);
+  assert.match(evidenceDetail, /tool-trace-reason/);
+  assert.match(evidenceDetail, /ToolTraceResult/);
+  assert.match(evidenceDetail, /formatBoundedPath\(reply\.evidence_log_path\)/);
+  assert.match(styles, /\.tool-trace-executed/);
+  assert.match(styles, /\.tool-trace-blocked/);
+  assert.match(styles, /\.tool-trace-blocked-tag/);
 });
 
 test("research console deployment boundary document keeps the workbench off the public report deploy", async () => {
@@ -3947,7 +5039,7 @@ test("package exposes a JS release check command for pre-push verification", asy
     '["npm", ["run", "public:build:audit"]]',
     '["git", ["diff", "--check"]]',
   ]) {
-  assert.match(script, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(script, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.doesNotMatch(script, /git",\s*\["push"|git",\s*\["commit"|wrangler",\s*"pages",\s*"deploy"/);
   assert.match(script, /const cmdShims = new Set\(\["npm", "npx", "pnpm"\]\)/);

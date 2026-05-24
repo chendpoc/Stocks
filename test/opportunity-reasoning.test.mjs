@@ -85,6 +85,7 @@ test("buildOpportunityReasoning returns the staged reasoning contract", () => {
   assert.deepEqual(Object.keys(result), [
     "context",
     "adminTheory",
+    "matchedAdminRules",
     "marketIntelNeeds",
     "evidenceNeeds",
     "candidateOpportunities",
@@ -95,7 +96,108 @@ test("buildOpportunityReasoning returns the staged reasoning contract", () => {
   ]);
   assert.equal(result.context.day, "2026-05-22");
   assert.ok(result.adminTheory.summary.includes("研究观察"));
+  assert.ok(Array.isArray(result.matchedAdminRules));
   assert.ok(result.reasoningSummary.every((item) => item.includes("不是交易指令")));
+});
+
+test("admin strategy rulebook exposes v1 research-only rules with source refs", () => {
+  const coreTypes = readFileSync("packages/summary-core/src/index.ts", "utf8");
+  const { ADMIN_STRATEGY_RULES } = loadResearchConsoleModule(
+    "apps/research-console/lib/admin-strategy-rulebook.ts",
+  );
+
+  assert.match(coreTypes, /interface AdminStrategyRule/);
+  assert.match(coreTypes, /interface AdminStrategyRuleMatch/);
+  assert.ok(ADMIN_STRATEGY_RULES.length >= 8);
+
+  const families = new Set(ADMIN_STRATEGY_RULES.map((rule) => rule.family));
+  assert.ok(families.has("market_regime"));
+  assert.ok(families.has("signal_confirmation"));
+  assert.ok(families.has("instrument_discipline"));
+  assert.ok(families.has("falsification"));
+
+  for (const rule of ADMIN_STRATEGY_RULES) {
+    assert.match(rule.id, /^zhao-/);
+    assert.ok(rule.title);
+    assert.ok(rule.thesis);
+    assert.ok(rule.trigger.length > 0);
+    assert.ok(rule.requiredEvidence.length > 0);
+    assert.ok(rule.invalidation.length > 0);
+    assert.ok(rule.sourceRefs.length > 0);
+    assert.ok(rule.researchBoundary.includes("研究观察"));
+    assert.doesNotMatch(
+      JSON.stringify(rule),
+      /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing|order)\b/i,
+    );
+  }
+});
+
+test("admin strategy rulebook matches Zhao-style context into bounded rule matches", () => {
+  const { selectAdminStrategyRules } = loadResearchConsoleModule(
+    "apps/research-console/lib/admin-strategy-rulebook.ts",
+  );
+
+  const matches = selectAdminStrategyRules({
+    summary: {
+      day: "2026-05-22",
+      overview: ["节日前被动减仓，每隔一小时机器程序化急跌急涨。"],
+      risks: ["周末讲话和伊朗谈判带来盘后不确定性，不隔夜。"],
+    },
+    opportunity: {
+      symbols: ["LITE", "IREN"],
+      trigger: ["等待时间窗口、价格位置和资金承接同时出现确认。"],
+      invalidation: ["若跌破前低或资金不承接，观察失效。"],
+    },
+    context: {
+      adminCore: ["只做算力、光通信、炒币股等重点标的的急跌急涨。"],
+      adminSymbols: ["LITE", "IREN"],
+    },
+  });
+
+  const ids = new Set(matches.map((match) => match.ruleId));
+  assert.ok(ids.has("zhao-passive-reduction-window"));
+  assert.ok(ids.has("zhao-turning-volume-confirmation"));
+  assert.ok(ids.has("zhao-event-weekend-cash-discipline"));
+  assert.ok(matches.every((match) => match.matchReason));
+  assert.ok(matches.every((match) => match.requiredEvidence.length > 0));
+  assert.ok(matches.every((match) => match.invalidation.length > 0));
+  assert.ok(matches.every((match) => match.sourceRefs.length > 0));
+  assert.ok(matches.every((match) => !/buy|sell|long|short/i.test(JSON.stringify(match))));
+});
+
+test("opportunity reasoning surfaces matched admin strategy rules", () => {
+  const { buildOpportunityReasoning } = loadResearchConsoleModule(
+    "apps/research-console/lib/opportunity-reasoning.ts",
+  );
+
+  const result = buildOpportunityReasoning({
+    summary: {
+      day: "2026-05-22",
+      overview: ["节日前被动减仓，每隔一小时机器程序化急跌急涨。"],
+      eventSummary: ["LITE 和 IREN 是当日管理员重点套利标的。"],
+      risks: ["节日期间伊朗讲话可能带来突发利空。"],
+    },
+    opportunity: {
+      title: "节奏观察",
+      symbols: ["LITE", "IREN"],
+      hypothesis: "利用节日前被动减仓的急跌急涨观察重点标的。",
+      supportingEvidence: ["等待核心理论、价格位置、时间窗口和资金承接出现一致信号。"],
+      contradictingEvidence: ["若跌破前低或资金不承接，观察失效。"],
+      trigger: ["10:30 和 11:30 附近急跌窗口。"],
+      invalidation: ["下周二和6月1日若急跌破前低，应进一步降级观察。"],
+      watchPlan: ["先验证时间窗口、价格位置和资金承接。"],
+    },
+    context: {
+      adminCore: ["重个股轻指数，只观察算力、光通信、炒币股等重点标的。"],
+      adminSymbols: ["LITE", "IREN"],
+    },
+  });
+
+  assert.ok(result.matchedAdminRules.length >= 3);
+  assert.ok(result.matchedAdminRules.some((rule) => rule.ruleId === "zhao-passive-reduction-window"));
+  assert.ok(result.matchedAdminRules.some((rule) => rule.ruleId === "zhao-turning-volume-confirmation"));
+  assert.ok(result.reasoningSummary.some((item) => item.includes("规则命中")));
+  assert.ok(result.researchPlan[0].method.includes("规则"));
 });
 
 test("buildOpportunityReasoning exposes a public research plan without private chain-of-thought", () => {

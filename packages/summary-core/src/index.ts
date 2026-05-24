@@ -33,6 +33,38 @@ export interface OpportunityBoardScore {
   sourceRefs: string[];
 }
 
+export type AdminStrategyRuleFamily =
+  | "market_regime"
+  | "signal_confirmation"
+  | "instrument_discipline"
+  | "falsification";
+
+export interface AdminStrategyRule {
+  id: string;
+  title: string;
+  family: AdminStrategyRuleFamily;
+  regime: string;
+  thesis: string;
+  trigger: string[];
+  requiredEvidence: string[];
+  invalidation: string[];
+  instrumentDiscipline: string[];
+  sourceRefs: string[];
+  researchBoundary: string;
+  keywords: string[];
+}
+
+export interface AdminStrategyRuleMatch {
+  ruleId: string;
+  title: string;
+  family: AdminStrategyRuleFamily;
+  regime: string;
+  matchReason: string;
+  requiredEvidence: string[];
+  invalidation: string[];
+  sourceRefs: string[];
+}
+
 export type EvidenceNeedKind = "quote" | "history" | "news" | "fundamental";
 
 export interface EvidenceNeed {
@@ -73,6 +105,7 @@ export interface OpportunityReasoningResult {
     supportingPoints: string[];
     openRisks: string[];
   };
+  matchedAdminRules: AdminStrategyRuleMatch[];
   marketIntelNeeds: string[];
   evidenceNeeds: EvidenceNeed[];
   candidateOpportunities: OpportunityReasoningCandidate[];
@@ -86,6 +119,8 @@ export interface ResearchContextSummary {
   day: string;
   sourceSummaryPath?: string;
   opportunityPath?: string;
+  structuredSummaryPath?: string;
+  sourceRefs?: string[];
   eventSummary: string[];
   overview: string[];
   adminCore: string[];
@@ -94,14 +129,38 @@ export interface ResearchContextSummary {
   opportunityMarkdown?: string;
 }
 
+export type ResearchSourceKey = "structured_summary" | "opportunity_observation" | "source_summary";
+
+export type ResearchSelectedDayStatus =
+  | "exact_ready"
+  | "exact_partial"
+  | "latest_with_structured_context"
+  | "latest_partial"
+  | "no_sources";
+
+export interface ResearchSourceStatus {
+  key: ResearchSourceKey;
+  label: string;
+  available: boolean;
+  path: string;
+  resolvedPath?: string;
+  candidates: string[];
+}
+
 export interface ResearchContextStatus {
   day: string;
+  requestedDay: string;
+  selectedDayStatus: ResearchSelectedDayStatus;
+  availableDays: string[];
   hasStructuredSummary: boolean;
   hasOpportunityObservation: boolean;
   hasSourceSummary: boolean;
   structuredSummaryPath: string;
   opportunityPath: string;
   sourceSummaryPath: string;
+  sourceRefs: string[];
+  missingSources: ResearchSourceStatus[];
+  sourceStatuses: ResearchSourceStatus[];
   eventSummaryCount: number;
   overviewCount: number;
   adminCoreCount: number;
@@ -124,6 +183,101 @@ export interface OpportunityBoardSummary {
   };
 }
 
+export type SessionStatus =
+  | "draft"
+  | "context_loaded"
+  | "opportunity_generated"
+  | "evidence_enriched"
+  | "watching"
+  | "reviewed";
+
+export type ResearchOpportunityStatus =
+  | "new"
+  | "needs_evidence"
+  | "evidence_ready"
+  | "watching"
+  | "invalidated"
+  | "reviewed";
+
+export interface ResearchOpportunity {
+  id: string;
+  day: string;
+  symbols: string[];
+  sourceMotive: string;
+  adminTheoryLink: string;
+  hypothesis: string;
+  triggerConditions: string[];
+  invalidationConditions: string[];
+  evidenceNeeds: EvidenceNeed[];
+  score: number;
+  status: ResearchOpportunityStatus;
+}
+
+export type EvidenceRunSourceType =
+  | "quote"
+  | "history"
+  | "news"
+  | "admin_context"
+  | "market_context";
+
+export type EvidenceRunVerdict =
+  | "supporting"
+  | "contradicting"
+  | "neutral"
+  | "blocked";
+
+export interface EvidenceRun {
+  id: string;
+  sessionDay: string;
+  opportunityId: string;
+  toolName: string;
+  input: Record<string, string>;
+  summary: string;
+  sourceType: EvidenceRunSourceType;
+  verdict: EvidenceRunVerdict;
+  createdAt: string;
+  fromCache: boolean;
+}
+
+export interface ReviewRecord {
+  id: string;
+  opportunityId: string;
+  outcome: "validated" | "failed" | "unclear";
+  observedMove: string;
+  failureReason?: string;
+  learning: string;
+  createdAt: string;
+}
+
+export interface MarketInterpretation {
+  day: string;
+  marketState: string[];
+  mainLine: string[];
+  symbolReadings: string[];
+  supportingEvidence: string[];
+  contradictingRisks: string[];
+  nextWatch: string[];
+  researchOnly: true;
+}
+
+export interface ResearchSession {
+  day: string;
+  status: SessionStatus;
+  updatedAt: string;
+  contextStatus: ResearchContextStatus;
+  sourceContext: {
+    adminTheory: string[];
+    marketContext: string[];
+    keySymbols: string[];
+    risks: string[];
+    sourceRefs: string[];
+  };
+  opportunities: ResearchOpportunity[];
+  evidenceRuns: EvidenceRun[];
+  agentAnalyses: AgentResponseEnvelope[];
+  reviewRecords: ReviewRecord[];
+}
+
 export interface AgentChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -134,6 +288,11 @@ export interface AgentToolTrace {
   reason: string;
   input: Record<string, string>;
   result_summary: string;
+  execution_status?: "pending_approval" | "approved" | "rejected" | "blocked" | "failed";
+  approval_required?: boolean;
+  command_preview?: string;
+  cwd?: string;
+  env_keys?: string[];
 }
 
 export interface AgentToolCall {
@@ -147,6 +306,7 @@ export interface AgentToolDefinition {
   input_schema: Record<string, string>;
   source: "local" | "external";
   enabled: boolean;
+  approvalRequired?: boolean;
 }
 
 export interface AgentToolPolicyDecision {
@@ -166,6 +326,13 @@ export interface AgentResponseEnvelope {
   run_id: string;
   evidence_log_path: string;
   answer: string;
+  hypothesis: string;
+  planSteps: ResearchPlanStep[];
+  toolCalls: AgentToolCall[];
+  approvalRequired: boolean;
+  executionTrace: AgentToolTrace[];
+  marketJudgement: string[];
+  invalidation: string[];
   reasoning_summary: string[];
   used_context: string[];
   next_watch_plan: string[];

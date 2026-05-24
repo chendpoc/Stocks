@@ -1,6 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ResearchContextStatus, ResearchContextSummary } from "@stock-summary/summary-core";
+import type {
+  ResearchContextStatus,
+  ResearchContextSummary,
+  ResearchSelectedDayStatus,
+  ResearchSourceKey,
+  ResearchSourceStatus,
+} from "@stock-summary/summary-core";
 
 type StructuredSummary = {
   event_summary?: unknown[];
@@ -68,7 +74,10 @@ function researchPaths(root: string, day: string) {
   return {
     structuredPath: path.join(root, ...STRUCTURED_DATA_PARTS, day, `${day}.json`),
     opportunityPath: path.join(root, ...OPPORTUNITIES_PARTS, month, `${day}-机会观察.md`),
-    sourceSummaryPath: path.join(root, ...SUMMARIES_PARTS, month, `${day}-每日总结-local.md`),
+    sourceSummaryCandidates: [
+      path.join(root, ...SUMMARIES_PARTS, month, `${day}-每日总结-local.md`),
+      path.join(root, ...SUMMARIES_PARTS, month, `${day}-每日总结.md`),
+    ],
   };
 }
 
@@ -97,14 +106,168 @@ async function readTextIfExists(filePath: string) {
   }
 }
 
-export async function inspectResearchContext(day: string): Promise<ResearchContextStatus> {
-  validateDay(day);
+async function listDirectoryNames(directory: string) {
+  try {
+    return (await fs.readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function listFileNames(directory: string) {
+  try {
+    return (await fs.readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function collectDaysFromMarkdown(root: string, parts: string[], pattern: RegExp) {
+  const base = path.join(root, ...parts);
+  const months = await listDirectoryNames(base);
+  const daySet = new Set<string>();
+  for (const month of months) {
+    const files = await listFileNames(path.join(base, month));
+    for (const file of files) {
+      const match = file.match(pattern);
+      if (match?.[1]) daySet.add(match[1]);
+    }
+  }
+  return daySet;
+}
+
+export async function listAvailableResearchDays(root = workspaceRoot()): Promise<string[]> {
+  const structuredDays = (await listDirectoryNames(path.join(root, ...STRUCTURED_DATA_PARTS)))
+    .filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day));
+  const opportunityDays = await collectDaysFromMarkdown(
+    root,
+    OPPORTUNITIES_PARTS,
+    /^(\d{4}-\d{2}-\d{2})-机会观察\.md$/,
+  );
+  const summaryDays = await collectDaysFromMarkdown(
+    root,
+    SUMMARIES_PARTS,
+    /^(\d{4}-\d{2}-\d{2})-每日总结(?:-local)?\.md$/,
+  );
+
+  return Array.from(new Set([
+    ...structuredDays,
+    ...opportunityDays,
+    ...summaryDays,
+  ])).sort((left, right) => right.localeCompare(left));
+}
+
+async function firstExistingPath(paths: string[]) {
+  for (const filePath of paths) {
+    if (await exists(filePath)) return filePath;
+  }
+  return paths[0];
+}
+
+async function hasStructuredForDay(root: string, day: string) {
+  return exists(researchPaths(root, day).structuredPath);
+}
+
+async function resolveResearchDay(root: string, requestedDay?: string) {
+  const normalized = requestedDay?.trim();
+  if (normalized && normalized !== "latest") {
+    validateDay(normalized);
+    return {
+      day: normalized,
+      requestedDay: normalized,
+      availableDays: await listAvailableResearchDays(root),
+    };
+  }
+
+  const availableDays = await listAvailableResearchDays(root);
+  const structuredDays = [];
+  for (const candidate of availableDays) {
+    if (await hasStructuredForDay(root, candidate)) structuredDays.push(candidate);
+  }
+
+  return {
+    day: structuredDays[0] ?? availableDays[0] ?? normalized ?? "latest",
+    requestedDay: normalized || "latest",
+    availableDays,
+  };
+}
+
+function sourceStatus(
+  root: string,
+  key: ResearchSourceKey,
+  label: string,
+  candidatePaths: string[],
+  resolvedPath: string,
+  available: boolean,
+): ResearchSourceStatus {
+  return {
+    key,
+    label,
+    available,
+    path: relativePath(root, resolvedPath),
+    resolvedPath: available ? relativePath(root, resolvedPath) : undefined,
+    candidates: candidatePaths.map((candidate) => relativePath(root, candidate)),
+  };
+}
+
+function selectedDayStatus(input: {
+  requestedDay: string;
+  hasStructuredSummary: boolean;
+  hasOpportunityObservation: boolean;
+  hasSourceSummary: boolean;
+  availableDays: string[];
+}): ResearchSelectedDayStatus {
+  const ready = input.hasStructuredSummary && input.hasOpportunityObservation && input.hasSourceSummary;
+  if (input.requestedDay === "latest") {
+    if (ready && input.hasStructuredSummary) return "latest_with_structured_context";
+    return input.availableDays.length ? "latest_partial" : "no_sources";
+  }
+  return ready ? "exact_ready" : "exact_partial";
+}
+
+export async function inspectResearchContext(day?: string): Promise<ResearchContextStatus> {
   const root = workspaceRoot();
-  const paths = researchPaths(root, day);
+  const resolved = await resolveResearchDay(root, day);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(resolved.day)) {
+    return {
+      day: "",
+      requestedDay: resolved.requestedDay,
+      selectedDayStatus: "no_sources",
+      availableDays: [],
+      hasStructuredSummary: false,
+      hasOpportunityObservation: false,
+      hasSourceSummary: false,
+      structuredSummaryPath: "",
+      opportunityPath: "",
+      sourceSummaryPath: "",
+      sourceRefs: [],
+      missingSources: [],
+      sourceStatuses: [],
+      eventSummaryCount: 0,
+      overviewCount: 0,
+      adminCoreCount: 0,
+      adminSymbolCount: 0,
+      riskCount: 0,
+      adminSymbolsPreview: [],
+      missing: ["structured_summary", "opportunity_observation", "local_summary_markdown"],
+    };
+  }
+
+  const { day: resolvedDay } = resolved;
+  const paths = researchPaths(root, resolvedDay);
+  const sourceSummaryPath = await firstExistingPath(paths.sourceSummaryCandidates);
   const [hasStructuredSummary, hasOpportunityObservation, hasSourceSummary] = await Promise.all([
     exists(paths.structuredPath),
     exists(paths.opportunityPath),
-    exists(paths.sourceSummaryPath),
+    exists(sourceSummaryPath),
   ]);
   const summary = hasStructuredSummary
     ? JSON.parse(await fs.readFile(paths.structuredPath, "utf8")) as StructuredSummary
@@ -115,15 +278,56 @@ export async function inspectResearchContext(day: string): Promise<ResearchConte
     hasOpportunityObservation ? "" : "opportunity_observation",
     hasSourceSummary ? "" : "local_summary_markdown",
   ].filter(Boolean);
+  const sourceStatuses = [
+    sourceStatus(
+      root,
+      "structured_summary",
+      "结构化日报",
+      [paths.structuredPath],
+      paths.structuredPath,
+      hasStructuredSummary,
+    ),
+    sourceStatus(
+      root,
+      "opportunity_observation",
+      "机会观察",
+      [paths.opportunityPath],
+      paths.opportunityPath,
+      hasOpportunityObservation,
+    ),
+    sourceStatus(
+      root,
+      "source_summary",
+      "每日总结",
+      paths.sourceSummaryCandidates,
+      sourceSummaryPath,
+      hasSourceSummary,
+    ),
+  ];
+  const sourceRefs = sourceStatuses
+    .filter((status) => status.available)
+    .map((status) => status.resolvedPath ?? status.path);
 
   return {
-    day,
+    day: resolvedDay,
+    requestedDay: resolved.requestedDay,
+    selectedDayStatus: selectedDayStatus({
+      requestedDay: resolved.requestedDay,
+      hasStructuredSummary,
+      hasOpportunityObservation,
+      hasSourceSummary,
+      availableDays: resolved.availableDays,
+    }),
+    availableDays: resolved.availableDays,
     hasStructuredSummary,
     hasOpportunityObservation,
     hasSourceSummary,
     structuredSummaryPath: relativePath(root, paths.structuredPath),
     opportunityPath: relativePath(root, paths.opportunityPath),
-    sourceSummaryPath: relativePath(root, paths.sourceSummaryPath),
+    sourceSummaryPath: relativePath(root, sourceSummaryPath),
+    sourceRefs,
+    missingSources: sourceStatuses.filter((status) => !status.available),
+    sourceStatuses,
     eventSummaryCount: asTextList(summary.event_summary).length,
     overviewCount: asTextList(summary.overview).length,
     adminCoreCount: asTextList(summary.admin_core).length,
@@ -134,20 +338,28 @@ export async function inspectResearchContext(day: string): Promise<ResearchConte
   };
 }
 
-export async function loadResearchContext(day: string): Promise<ResearchContextSummary> {
-  validateDay(day);
-
+export async function loadResearchContext(day?: string): Promise<ResearchContextSummary> {
   const root = workspaceRoot();
-  const { structuredPath, opportunityPath, sourceSummaryPath } = researchPaths(root, day);
+  const resolved = await resolveResearchDay(root, day);
+  validateDay(resolved.day);
+  const { structuredPath, opportunityPath, sourceSummaryCandidates } = researchPaths(root, resolved.day);
+  const sourceSummaryPath = await firstExistingPath(sourceSummaryCandidates);
 
   const rawSummary = await fs.readFile(structuredPath, "utf8");
   const summary = JSON.parse(rawSummary) as StructuredSummary;
   const opportunityMarkdown = await readTextIfExists(opportunityPath);
+  const sourceRefs = [
+    relativePath(root, structuredPath),
+    relativePath(root, opportunityPath),
+    relativePath(root, sourceSummaryPath),
+  ];
 
   return {
-    day,
+    day: resolved.day,
     sourceSummaryPath: relativePath(root, sourceSummaryPath),
+    structuredSummaryPath: relativePath(root, structuredPath),
     opportunityPath: relativePath(root, opportunityPath),
+    sourceRefs,
     eventSummary: asTextList(summary.event_summary),
     overview: asTextList(summary.overview),
     adminCore: asTextList(summary.admin_core),

@@ -7,8 +7,11 @@ This page documents the local research-console tool policy. It is not part of th
 - Local deterministic provider: uses local summary and opportunity files only.
 - OpenAI-compatible provider: can request tool calls, but every tool still passes through local policy.
 - Context preflight: `/api/research/context?day=YYYY-MM-DD` exposes selected-day availability, counts, workspace-relative paths, and bounded symbol previews before an agent request is sent.
+- Latest-day fallback: omitting `day` makes the server select the newest available day with structured context, while still reporting newer partial days in `availableDays`.
 - Opportunity board: `/api/research/opportunities?day=YYYY-MM-DD` returns local deterministic score rows for the main workbench without calling a model or external data provider.
 - Market data source registry: `/api/research/data-sources` reports provider capability and environment readiness only. It is not a quote, news, or historical-price query endpoint.
+- Evidence action endpoint: `/api/research/evidence` executes one policy-approved evidence tool for the selected opportunity and returns only an `AgentToolTrace` summary plus policy status.
+- Local CLI endpoint: `/api/research/cli` previews, approves, or rejects a local `cli_execute` command. Preview never executes; approve runs server-side only and returns bounded stdout/stderr plus an execution state.
 - Agent run evidence: each `/api/agent/chat` run appends a sanitized local JSONL record under `.cache/research-agent/runs/`.
 - Agent run history: `/api/agent/runs?day=YYYY-MM-DD` reads that local JSONL file and returns bounded run summaries only.
 - Visible answer digest: the local deterministic answer includes a compact `证据摘要`, optional `策略阻断`, and `研究边界` section so the reader can see evidence use without opening JSONL logs.
@@ -35,7 +38,6 @@ All research-console API routes use the shared `apps/research-console/lib/api-au
 | `LONGBRIDGE_APP_KEY` | `longbridge_quote` | Server-side Longbridge app key. |
 | `LONGBRIDGE_APP_SECRET` | `longbridge_quote` | Server-side Longbridge app secret. |
 | `LONGBRIDGE_ACCESS_TOKEN` | `longbridge_quote` | Server-side Longbridge access token. |
-| `LONGBRIDGE_QUOTE_ENDPOINT` | `longbridge_quote` | Optional quote endpoint override. |
 | `ALPHA_VANTAGE_API_KEY` | `alpha_vantage_quote` | Alpha Vantage quote API key. |
 | `YFINANCE_PYTHON_BIN` | `yfinance_quote`, `yfinance_history` | Optional Python executable override. Defaults to the repo `.venv` Python. |
 | `NEWS_SEARCH_ENDPOINT` | `news_search` | JSON news-search endpoint. |
@@ -52,6 +54,10 @@ All research-console API routes use the shared `apps/research-console/lib/api-au
 - Agent run evidence log: `.cache/research-agent/runs/YYYY-MM-DD.jsonl`
 
 `news_search` caches a filtered and redacted payload, not the full provider response. Disallowed source URLs and provider metadata are dropped before the cache file is written.
+
+Provider configuration alone is not readiness. Longbridge, Alpha Vantage, yfinance, and news search are executable only when `RESEARCH_ENABLE_EXTERNAL_TOOLS=1` is present and each provider's required server-side configuration is complete.
+
+The selected opportunity detail can request evidence through `/api/research/evidence`. That route calls `authorizeResearchTool(...)` before `executeResearchTool(...)`, so UI actions and direct API calls cannot bypass the same policy used by the agent kernel.
 
 Agent run evidence stores one sanitized JSON object per line. It records `run_id`, selected day, provider status, bounded user-message preview, context counts, used context paths, tool trace summaries, policy decisions, opportunity reasoning, and the answer preview. It does not store raw Markdown, raw structured JSON, absolute local paths, authorization headers, or secret values.
 
@@ -79,8 +85,11 @@ The `刷新缺失证据` UI action does not bypass planning or policy. It picks 
 | `load_opportunity_observation` | Loads the local opportunity-observation Markdown page. | No |
 | `extract_watchlist` | Extracts admin-side watchlist symbols from the daily context. | No |
 | `score_opportunities` | Scores admin watchlist symbols against local theory alignment, trigger clarity, evidence quality, invalidation clarity, and liquidity risk. | No |
+| `cli_execute` | Builds a local CLI execution plan and returns `pending_approval` until the user confirms execution through `/api/research/cli`. | No |
 
 `score_opportunities` is a research triage tool. It returns compact score rows for the React agent panel and must not be interpreted as an order, signal, or direct trading instruction.
+
+`cli_execute` is for personal local automation. It is not a browser shell: the browser sees command preview, cwd summary, selected env names, bounded output, and execution state only. It does not expose the full environment or absolute local paths.
 
 ## External Tools
 
@@ -92,11 +101,31 @@ The `刷新缺失证据` UI action does not bypass planning or policy. It picks 
 | `yfinance_history` | Runs local Python `yfinance` for bounded historical trend, drawdown, volatility, and volume metrics. | `RESEARCH_ENABLE_EXTERNAL_TOOLS=1` | No |
 | `news_search` | Fetches source-filtered market news snippets from a configured endpoint. | `RESEARCH_ENABLE_EXTERNAL_TOOLS=1` | Optional |
 
-`longbridge_quote` caches only normalized fields: symbol, price, change, change percent, volume, currency, market status, and timestamp. It does not cache raw provider metadata, request headers, or credentials. `LONGBRIDGE_QUOTE_ENDPOINT` is optional so the runtime can adapt if Longbridge endpoint shape changes.
+`longbridge_quote` uses the official Node.js `longbridge` SDK package, not the deprecated `longport` package. It creates `Config.fromApikey(...)`, uses `QuoteContext.new(config).quote([symbol])`, and caches only normalized fields: symbol, price, change, change percent, volume, currency, market status, and timestamp. It does not cache raw provider metadata, request headers, or credentials.
 
 `yfinance_quote` is still treated as an external data tool because the local Python package queries Yahoo Finance. It caches only sanitized quote fields and does not cache arbitrary provider metadata.
 
 `yfinance_history` is also opt-in external evidence. The Python helper returns only metric snapshots: observations, date span, first/last close, close-change percent, max drawdown, realized volatility, average/latest volume, and latest-volume ratio. It drops raw rows before caching so the agent can cite market structure evidence without exposing a hidden historical data dump.
+
+## Evidence Tool Contract Inventory
+
+External evidence tools currently expose browser-facing results through `AgentToolTrace`:
+
+- `name`
+- `reason`
+- `input`
+- `result_summary`
+
+Raw provider responses must stop before that trace boundary. Local cache files must also use normalized evidence shapes, not full provider payloads.
+
+| Tool | Input shape | Normalized cache shape | Raw provider fields that must not survive |
+| --- | --- | --- | --- |
+| `alpha_vantage_quote` | `{ symbol }` | `{ symbol, price, change, changePercent, latestTradingDay }` | `Global Quote`, `Information`, `Note`, provider debug metadata, API key echoes |
+| `longbridge_quote` | `{ symbol }` | `{ symbol, price, change, changePercent, volume, currency, marketStatus, timestamp }` | Authorization echoes, app key, app secret, access token, unknown provider metadata |
+| `yfinance_quote` | `{ symbol }` | `{ symbol, regularMarketPrice, regularMarketChange, regularMarketChangePercent, regularMarketVolume, currency, exchange, shortName }` | raw SDK objects, historical rows, provider metadata, authorization-shaped text |
+| `yfinance_history` | `{ symbol, period }` | Metric-only snapshot: observations, date span, close change, drawdown, volatility, average/latest volume, volume ratio | historical rows, provider raw frames, fixture env names |
+| `news_search` | `{ query }` | `{ results: [{ title, url, source, published_at, snippet }] }` after host allowlist filtering | request metadata, authorization echoes, disallowed hosts, full provider article payloads |
+| `cli_execute` | `{ command, args, cwd, timeoutMs, envKeys }` | `AgentToolTrace` with `pending_approval`, `approved`, or `rejected` state | full environment, unbounded stdout/stderr, absolute local paths, shell history |
 
 ## Default Agent Planning
 

@@ -1,9 +1,11 @@
 import type {
+  AdminStrategyRuleMatch,
   EvidenceNeed,
   OpportunityReasoningResult,
   ResearchContextSummary,
   ResearchPlanStep,
 } from "@stock-summary/summary-core";
+import { selectAdminStrategyRules } from "./admin-strategy-rulebook";
 import { symbolsFromResearchContext } from "./opportunity-scoring";
 
 export type OpportunityReasoningInput = {
@@ -83,7 +85,7 @@ function buildSourceScope(input: OpportunityReasoningInput) {
   ].filter(Boolean);
 }
 
-function buildAdminTheory(input: OpportunityReasoningInput) {
+function buildAdminTheory(input: OpportunityReasoningInput, matchedAdminRules: AdminStrategyRuleMatch[]) {
   const adminCore = cleanList(input.context?.adminCore);
   const overview = cleanList(input.summary?.overview);
   const hypothesis = cleanText(input.opportunity?.hypothesis);
@@ -98,7 +100,12 @@ function buildAdminTheory(input: OpportunityReasoningInput) {
       "尚未形成明确机会假设，需要先补齐管理员理论、事件背景和标的线索。",
     )} (${RESEARCH_ONLY_NOTICE}).`,
     supportingPoints: fallbackList(
-      [...adminCore, ...overview, ...cleanList(input.opportunity?.supportingEvidence)],
+      [
+        ...matchedAdminRules.map((rule) => `规则 ${rule.ruleId}: ${rule.title}`),
+        ...adminCore,
+        ...overview,
+        ...cleanList(input.opportunity?.supportingEvidence),
+      ],
       "当前支撑证据不足，需先从本地总结、管理员观点和事件背景中补齐证据链。",
     ),
     openRisks: fallbackList(risks, "风险条件尚不完整，需要先明确哪些事实会让该观察失效。"),
@@ -202,6 +209,7 @@ export function buildResearchPlan(
   evidenceNeeds: EvidenceNeed[],
   invalidationPlan: string[],
   nextChecks: string[],
+  matchedAdminRules: AdminStrategyRuleMatch[] = [],
 ): ResearchPlanStep[] {
   const hypothesis = cleanText(input.opportunity?.hypothesis)
     || cleanList(input.context?.adminCore)[0]
@@ -209,13 +217,16 @@ export function buildResearchPlan(
     || "先澄清本地机会假设，再使用外部证据。";
   const symbols = fallbackList(symbolsFromInput(input), "GENERAL").slice(0, 4);
   const tools = unique(evidenceNeeds.flatMap((need) => need.preferredTools)).slice(0, 6);
+  const ruleSummary = matchedAdminRules.length
+    ? `命中规则：${matchedAdminRules.map((rule) => rule.ruleId).join(", ")}。`
+    : "尚未命中明确规则。";
 
   return [
     {
       stage: "hypothesis",
       title: "整理假设",
       question: "管理员理论要成立，哪些事实必须同时为真？",
-      method: `把本地线索转成可证伪的研究命题：${hypothesis}`,
+      method: `${ruleSummary}把本地线索转成可证伪的研究命题：${hypothesis}`,
       expectedOutput: "形成绑定具体标的和失效条件的有限研究假设。",
       toolHints: [],
     },
@@ -298,12 +309,13 @@ export function buildReasoningInputFromResearchContext(
 }
 
 export function buildOpportunityReasoning(input: OpportunityReasoningInput): OpportunityReasoningResult {
-  const adminTheory = buildAdminTheory(input);
+  const matchedAdminRules = selectAdminStrategyRules(input);
+  const adminTheory = buildAdminTheory(input, matchedAdminRules);
   const evidenceNeeds = buildEvidenceNeeds(input);
   const candidateOpportunities = buildCandidateOpportunities(input);
   const invalidationPlan = buildInvalidationPlan(input);
   const nextChecks = buildNextChecks(input);
-  const researchPlan = buildResearchPlan(input, evidenceNeeds, invalidationPlan, nextChecks);
+  const researchPlan = buildResearchPlan(input, evidenceNeeds, invalidationPlan, nextChecks, matchedAdminRules);
 
   return {
     context: {
@@ -312,6 +324,7 @@ export function buildOpportunityReasoning(input: OpportunityReasoningInput): Opp
       observationOnly: true,
     },
     adminTheory,
+    matchedAdminRules,
     marketIntelNeeds: buildMarketIntelNeeds(input),
     evidenceNeeds,
     candidateOpportunities,
@@ -321,6 +334,7 @@ export function buildOpportunityReasoning(input: OpportunityReasoningInput): Opp
     reasoningSummary: [
       `仅基于本地输入生成分阶段机会推演（${RESEARCH_ONLY_NOTICE}）。`,
       `核心理论来自机会假设、总结概览和管理员观点，是研究框架，不是交易指令。`,
+      `规则命中数量=${matchedAdminRules.length}；规则用于限定研究框架，不是确认信号，也不是交易指令。`,
       `证据需求数量=${evidenceNeeds.length}；这些是待补证问题，不是已验证结论，也不是交易指令。`,
       `候选观察数量=${candidateOpportunities.length}；每个候选都需要来源依据和失效条件核验，不是交易指令。`,
       `下一步优先找反证并刷新证据，再考虑是否升级观察优先级；不是交易指令。`,

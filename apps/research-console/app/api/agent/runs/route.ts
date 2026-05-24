@@ -4,15 +4,7 @@ import {
   researchConsoleForbiddenResponse,
 } from "../../../../lib/api-auth";
 import { listAgentRunEvidence } from "../../../../lib/agent-evidence";
-
-function latestBeijingDay() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+import { inspectResearchContext } from "../../../../lib/context";
 
 function parseLimit(value: string | null) {
   if (!value) return undefined;
@@ -26,10 +18,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const day = url.searchParams.get("day") || latestBeijingDay();
+  const requestedDay = url.searchParams.get("day") || undefined;
   const limit = parseLimit(url.searchParams.get("limit"));
 
   try {
+    const day = requestedDay ?? (await inspectResearchContext()).day;
     return NextResponse.json(await listAgentRunEvidence(day, { limit }));
   } catch (error) {
     return NextResponse.json(
