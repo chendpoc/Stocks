@@ -353,12 +353,12 @@ Acceptance:
 
 ## Phase 1.5: Rule Discovery And Lite Backtest
 
-- [ ] Implement `modules/rule_discovery.py` with `RuleCandidate` creation from semantic events, anomaly observations, or manual API input.
-- [ ] Implement evidence requirement validation against `LocalToolAdapter` capabilities.
-- [ ] Implement lite backtest with explicit sample window, no future leakage, entry condition, exit condition, invalidation condition, and cost assumptions.
-- [ ] Store report in `lite_backtest_reports`.
-- [ ] Advance proposal state only through the approved state machine: `draft -> evidence_required -> backtest_pending -> backtested -> needs_more_data/rejected/pending_shadow_tracking/pending_manual_approval`.
-- [ ] Add `tests/test_rule_discovery_lite_backtest.py`.
+- [x] Implement `modules/rule_discovery.py` with `RuleCandidate` creation from semantic events, anomaly observations, or manual API input.
+- [x] Implement evidence requirement validation against `LocalToolAdapter` capabilities.
+- [x] Implement lite backtest with explicit sample window, no future leakage, entry condition, exit condition, invalidation condition, and cost assumptions.
+- [x] Store report in `lite_backtest_reports`.
+- [x] Advance proposal state only through the approved state machine: `draft -> evidence_required -> backtest_pending -> backtested -> needs_more_data/rejected/pending_shadow_tracking/pending_manual_approval`.
+- [x] Add `tests/test_rule_discovery_lite_backtest.py`.
 
 Acceptance:
 
@@ -369,10 +369,10 @@ Acceptance:
 
 ## Phase 1.6: Explanation Service
 
-- [ ] Implement `modules/explanation.py` for signal explanations from persisted evidence only.
-- [ ] Add `GET /signals/{signal_id}/explanation`.
-- [ ] Include status, reason, trigger, invalidation, evidence timeline, rule hits, risk blocks, and next human decision point.
-- [ ] Block explanations that invent missing evidence.
+- [x] Implement `modules/explanation.py` for signal explanations from persisted evidence only.
+- [x] Add `GET /signals/{signal_id}/explanation`.
+- [x] Include status, reason, trigger, invalidation, evidence timeline, rule hits, risk blocks, and next human decision point.
+- [x] Block explanations that invent missing evidence.
 
 Acceptance:
 
@@ -404,15 +404,15 @@ Acceptance:
 
 This phase introduces AI model participation as narrow, auditable helper channels. It does not introduce a general ModelGateway, provider router, Vercel AI Gateway, OpenRouter integration, LangChain, or LangGraph dependency.
 
-- [ ] Implement minimal direct structured model calls with explicit `model_channel` values: `deepseek_direct` and `codex_cli_runtime`.
-- [ ] Use direct HTTPS calls to the DeepSeek API with an operator-provided API key; no SaaS gateway sits between the backend and DeepSeek.
-- [ ] Keep Codex CLI runtime as an optional local model channel behind an explicit capability flag, executable path, timeout, and prompt-size limit.
-- [ ] Support only bounded structural tasks, such as news event classification, evidence summarization, explanation drafting, or rule-candidate wording.
-- [ ] Require every model call to declare `task_type`, `schema_name`, `model_channel`, `evidence_ids`, `input_digest`, and `cost_policy`.
-- [ ] Validate structured tasks with Zod schema when a Node/TypeScript helper is used; reject invalid output before returning it to the Python backend.
-- [ ] Return only validated structured results to the Python backend.
-- [ ] Record `agent_events` for each model call, schema validation failure, disabled-capability rejection, provider error, timeout, and redaction decision.
-- [ ] Add tests for disabled DeepSeek rejection, missing API key rejection, disabled Codex CLI runtime rejection, schema validation failure, provider timeout, and successful mocked structured generation.
+- [x] Implement minimal direct structured model calls with explicit `model_channel` values: `deepseek_direct` and `codex_cli_runtime`.
+- [x] Use direct HTTPS calls to the DeepSeek API with an operator-provided API key; no SaaS gateway sits between the backend and DeepSeek.
+- [x] Keep Codex CLI runtime as an optional local model channel behind an explicit capability flag, executable path, timeout, and prompt-size limit.
+- [x] Support only bounded structural tasks, such as news event classification, evidence summarization, explanation drafting, or rule-candidate wording.
+- [x] Require every model call to declare `task_type`, `schema_name`, `model_channel`, `evidence_ids`, `input_digest`, and `cost_policy`.
+- [x] Validate structured tasks with Zod schema when a Node/TypeScript helper is used; reject invalid output before returning it to the Python backend.
+- [x] Return only validated structured results to the Python backend.
+- [x] Record `agent_events` for each model call, schema validation failure, disabled-capability rejection, provider error, timeout, and redaction decision.
+- [x] Add tests for disabled DeepSeek rejection, missing API key rejection, disabled Codex CLI runtime rejection, schema validation failure, provider timeout, and successful mocked structured generation.
 
 Acceptance:
 
