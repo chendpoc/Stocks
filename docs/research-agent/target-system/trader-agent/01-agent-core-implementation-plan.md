@@ -15,6 +15,7 @@
 - [00-system-overview.md](./00-system-overview.md)
 - [01-agent-core-backend-prd.md](./01-agent-core-backend-prd.md)
 - [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md)
+- [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md)
 - [01-agent-core-development/README.md](./01-agent-core-development/README.md)
 - [01-agent-core-development/21-rule-discovery-lite-backtest-engine.md](./01-agent-core-development/21-rule-discovery-lite-backtest-engine.md)
 
@@ -90,16 +91,27 @@ apps/trader-agent/
         runtime_orchestrator.py
         rule_discovery.py
         explanation.py
+        knowledge_source_registry.py
+        document_indexer.py
+        local_search.py
+        model_gateway.py
       rulepack/
         __init__.py
         loader.py
       tools/
         __init__.py
         local_adapter.py
+        sec_adapter.py
+        yfinance_adapter.py
+        longbridge_adapter.py
+        news_archive_adapter.py
     tests/
       conftest.py
       fixtures/
         market_bars_spy.csv
+        market_bars_tsla.csv
+        market_bars_coin.csv
+        market_bars_nvda.csv
         market_calendar_us.csv
         trader_messages.jsonl
         news_events.jsonl
@@ -115,6 +127,9 @@ apps/trader-agent/
     README.md
     fixtures/
       market_bars_spy.csv
+      market_bars_tsla.csv
+      market_bars_coin.csv
+      market_bars_nvda.csv
       market_calendar_us.csv
       news_events.jsonl
       filing_events.jsonl
@@ -132,6 +147,9 @@ data/trader-agent/
   trader-agent.db
   raw/
     trader_messages.jsonl
+    x_posts.jsonl
+    news_events.jsonl
+    filing_events.jsonl
   fixtures/                  # optional local overrides for Settings.fixture_data_dir
   audit/
     agent_events.jsonl
@@ -300,13 +318,14 @@ Acceptance:
 
 ## Phase 1C: Deterministic Signal Pipeline
 
-- [ ] Implement `modules/market_snapshot.py` using `LocalToolAdapter`.
-- [ ] Implement `modules/setup_detection.py` for deterministic setups: gap fill, volume contraction after sharp drop, BTC move alert, post-reduction wait window, Friday options risk pattern.
+- [x] Implement `modules/market_snapshot.py` using `LocalToolAdapter`.
+- [x] Implement `modules/setup_detection.py` for deterministic setups: gap fill, volume contraction after sharp drop, BTC move alert, post-reduction wait window, Friday options risk pattern.
 - [ ] Implement `modules/rule_engine.py` to evaluate active RulePack rules.
 - [ ] Implement `modules/scoring.py` with transparent score components: setup strength, evidence quality, catalyst risk, liquidity, historical hit rate.
 - [ ] Implement `modules/risk.py` with veto priority over score and ticket generation.
 - [ ] Implement `modules/signal_manager.py` with legal states: `observe`, `waiting_trigger`, `triggered`, `ticket_ready`, `waiting_approval`, `rejected`, `review`, `completed`, `invalidated`.
-- [ ] Add `tests/test_signal_pipeline.py`.
+- [x] Add `tests/test_signal_pipeline.py` for Phase 1C-1 market snapshot and setup detection coverage.
+- [ ] Extend `tests/test_signal_pipeline.py` for rule engine, scoring, risk, and signal manager coverage.
 
 Acceptance:
 
@@ -357,16 +376,94 @@ Acceptance:
 - Explanation for `invalidated` clearly says which condition failed.
 - Explanation does not contain direct execution language such as automatic buy or automatic sell.
 
+## Phase 1.7: Local Knowledge And Lightweight RAG
+
+This phase implements the practical subset of `04-ai-rag-mcp-platform-roadmap-prd.md`: local-first knowledge retrieval without vector DB, SaaS, or agent framework dependency.
+
+- [ ] Implement `modules/knowledge_source_registry.py` to register local source roots: `docs/summaries/**/*.md`, `data/trader-agent/raw/trader_messages.jsonl`, `data/trader-agent/raw/x_posts.jsonl`, `data/trader-agent/raw/news_events.jsonl`, and `data/trader-agent/raw/filing_events.jsonl`.
+- [ ] Implement `modules/document_indexer.py` to parse Markdown and JSONL sources into normalized chunks with source path, source type, symbol hints, timestamp hints, confidence, and raw text.
+- [ ] Implement `modules/local_search.py` with SQLite FTS5 keyword search and filters for symbol, source type, date range, and rule keyword.
+- [ ] Add idempotent index bootstrap tables for document chunks and FTS rows.
+- [ ] Add `POST /api/knowledge/reindex` for manual reindex only.
+- [ ] Add `GET /api/knowledge/search` with bounded result count and evidence IDs.
+- [ ] Add tests using at least one `docs/summaries` fixture and one JSONL fixture.
+
+Acceptance:
+
+- Zhao-style historical summaries can be searched by ticker, rule phrase, and date range.
+- Search returns source path, snippet, source type, evidence ID, confidence, and timestamp when available.
+- X posts are indexed only when present in local `x_posts.jsonl`; public web scraping is not part of this phase.
+- Search results may support explanation and rule discovery, but cannot alone trigger a signal state change.
+- The phase passes without LlamaIndex, Chroma, Qdrant, Milvus, Pinecone, LangChain, or LangGraph dependencies.
+
+## Phase 1.8: ModelGateway
+
+This phase introduces AI model participation as a structured, auditable helper. It must not replace deterministic setup detection, rule evaluation, risk veto, or signal lifecycle decisions.
+
+- [ ] Implement `modules/model_gateway.py` with `generate_structured(...)`.
+- [ ] Add model profiles: `local_light`, `codex_cli`, and `deepseek_api`.
+- [ ] Keep `deepseek_api` disabled by default and gated by explicit config.
+- [ ] Require every model call to declare `task_type`, `schema`, `model_profile`, `evidence_ids`, and `cost_policy`.
+- [ ] Validate model outputs through Pydantic schemas before returning them to business modules.
+- [ ] Record `agent_events` for each remote model call, schema validation failure, and disabled-capability rejection.
+- [ ] Add tests for disabled DeepSeek rejection, schema validation failure, and successful local stub generation.
+
+Acceptance:
+
+- A disabled DeepSeek profile cannot be called accidentally.
+- Remote model calls include source evidence IDs and do not accept untracked raw prompts.
+- Model output cannot enter `signals`, `rule_candidates`, or `lite_backtest_reports` unless schema validation succeeds.
+- Model text may explain evidence, classify events, or draft rule candidates, but cannot create execution instructions.
+
+## Phase 1.9: External Evidence Adapters
+
+This phase expands `LocalToolAdapter` with manually enabled read-only evidence sources. It does not add broker execution or simulation account actions.
+
+- [ ] Implement `tools/sec_adapter.py` for SEC / EDGAR-style filing evidence lookup.
+- [ ] Implement `tools/news_archive_adapter.py` for local news archive lookup.
+- [ ] Add optional `tools/yfinance_adapter.py` behind a capability flag for US equity market data.
+- [ ] Add optional `tools/longbridge_adapter.py` behind a capability flag for market data only.
+- [ ] Add optional Alpha Vantage adapter only if a free/manual-key path is configured; otherwise keep it documented as deferred.
+- [ ] Normalize every provider response into the shared evidence object shape from `04-ai-rag-mcp-platform-roadmap-prd.md`.
+- [ ] Add provider-level limitations, freshness, and cost category fields.
+- [ ] Add tests that prove business modules cannot import provider SDKs directly.
+
+Acceptance:
+
+- Filing evidence can validate earnings, reduction, major holding, litigation, or corporate-action contexts.
+- News archive evidence can classify macro, earnings, filing, geopolitical, sector, company-specific, options-market, and crypto-beta events.
+- Live provider usage stays disabled unless explicitly enabled.
+- Longbridge simulation account capability remains backlog and is not exposed by this phase.
+- AkShare is not added as a default dependency for US stock MVP.
+
+## Phase 2A: Tool Registry And Read-Only MCP Preparation
+
+This phase prepares tool governance. It does not require a remote MCP server yet.
+
+- [ ] Implement `ToolRegistry` metadata for read-only tools, required capabilities, cost policy, and allowed input scope.
+- [ ] Implement `ToolPermissionPolicy` with explicit allow/deny results and denial reasons.
+- [ ] Implement `ToolCallAudit` records through `agent_events`.
+- [ ] Mark read-only MCP-compatible tools as candidates: local file search, local knowledge search, market data lookup, filing lookup, and news archive lookup.
+- [ ] Explicitly deny tools that modify RulePack active state, expand active universe, invoke unapproved remote services, or touch broker execution.
+
+Acceptance:
+
+- Every tool call can be explained by capability, permission, provider, evidence ID, and audit event.
+- Read-only MCP integration has a clear contract but is not required for Phase 1 completion.
+- No write-capable MCP or broker-action tool is exposed.
+
 ## Phase 2 Deferral Boundary
 
 These capabilities are intentionally deferred until the local deterministic pipeline is stable:
 
 - Trader Brain, Market Brain, and Opportunity Brain as LLM composition layers.
 - WebSocket/SSE stream to Web Cockpit.
-- Remote Tool Gateway and MCP adapter.
+- Remote Tool Gateway and MCP adapter beyond read-only preparation.
 - PostgreSQL and Redis migration.
 - Real approval UI integration.
 - Trade ticket drafting beyond stored conditional notes.
+- Longbridge simulation account integration.
+- Vector DB, LlamaIndex, LangGraph, or Backtrader adapters unless the upgrade triggers in `04-ai-rag-mcp-platform-roadmap-prd.md` are met.
 
 The reason is simple: if deterministic evidence, rules, risk veto, and signal lifecycle are unstable, adding Brain and remote tools only increases ambiguity and debugging cost.
 
@@ -407,6 +504,10 @@ VitePress build exits with code 0.
 5. Complete Phase 1D and stop for review.
 6. Complete Phase 1.5 and stop for review.
 7. Complete Phase 1.6 and stop for review.
+8. Complete Phase 1.7 and stop for review.
+9. Complete Phase 1.8 and stop for review.
+10. Complete Phase 1.9 and stop for review.
+11. Complete Phase 2A only after Phase 1 evidence, model, and adapter boundaries are stable.
 
 Each review must include:
 
@@ -424,6 +525,9 @@ Each review must include:
 - Signal statuses use observe, waiting trigger, triggered, and invalidated correctly.
 - Rule candidate can be created and lite-backtested.
 - Rule candidate cannot become active without manual approval.
+- Local knowledge search can retrieve `docs/summaries` evidence by symbol, date, and rule phrase.
+- ModelGateway can run with local/stub profile and rejects disabled DeepSeek calls.
+- External live data providers remain capability-gated.
 - Every state mutation writes `agent_events`.
 - Documentation build passes.
 - No trading execution path exists.

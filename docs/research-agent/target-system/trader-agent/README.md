@@ -29,7 +29,8 @@
 2. [01-agent-core-backend-prd.md](./01-agent-core-backend-prd.md)：拆解 Agent 大脑、规则、风控、学习闭环。
 3. [02-web-agent-cockpit-prd.md](./02-web-agent-cockpit-prd.md)：拆解 Web 工作台、实时对话、任务、规则、审批。
 4. [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md)：拆解数据库、事件总线、工具网关、RulePack、开发路线和验收标准。
-5. [01-agent-core-implementation-plan.md](./01-agent-core-implementation-plan.md)：Agent Core 第一版可执行开发计划。
+5. [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md)：拆解 AI 模型、RAG、MCP、市场工具和轻量化升级路线。
+6. [01-agent-core-implementation-plan.md](./01-agent-core-implementation-plan.md)：Agent Core 第一版可执行开发计划。
 
 ## 开发约束
 
