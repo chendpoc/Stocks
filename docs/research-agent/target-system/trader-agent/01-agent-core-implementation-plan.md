@@ -382,13 +382,13 @@ Acceptance:
 
 This phase implements the practical subset of `04-ai-rag-mcp-platform-roadmap-prd.md`: local-first knowledge retrieval without vector DB, SaaS, or agent framework dependency.
 
-- [ ] Implement `modules/knowledge_source_registry.py` to register local source roots: `docs/summaries/**/*.md`, `data/trader-agent/raw/trader_messages.jsonl`, `data/trader-agent/raw/x_posts.jsonl`, `data/trader-agent/raw/news_events.jsonl`, and `data/trader-agent/raw/filing_events.jsonl`.
-- [ ] Implement `modules/document_indexer.py` to parse Markdown and JSONL sources into normalized chunks with source path, source type, symbol hints, timestamp hints, confidence, and raw text.
-- [ ] Implement `modules/local_search.py` with SQLite FTS5 keyword search and filters for symbol, source type, date range, and rule keyword.
-- [ ] Add idempotent index bootstrap tables for document chunks and FTS rows.
-- [ ] Add `POST /api/knowledge/reindex` for manual reindex only.
-- [ ] Add `GET /api/knowledge/search` with bounded result count and evidence IDs.
-- [ ] Add tests using at least one `docs/summaries` fixture and one JSONL fixture.
+- [x] Implement `modules/knowledge_source_registry.py` to register local source roots: `docs/summaries/**/*.md`, `data/trader-agent/raw/trader_messages.jsonl`, `data/trader-agent/raw/x_posts.jsonl`, `data/trader-agent/raw/news_events.jsonl`, and `data/trader-agent/raw/filing_events.jsonl`.
+- [x] Implement `modules/document_indexer.py` to parse Markdown and JSONL sources into normalized chunks with source path, source type, symbol hints, timestamp hints, confidence, and raw text.
+- [x] Implement `modules/local_search.py` with SQLite FTS5 keyword search and filters for symbol, source type, date range, and rule keyword.
+- [x] Add idempotent index bootstrap tables for document chunks and FTS rows.
+- [x] Add `POST /api/knowledge/reindex` for manual reindex only.
+- [x] Add `GET /api/knowledge/search` with bounded result count and evidence IDs.
+- [x] Add tests using at least one `docs/summaries` fixture and one JSONL fixture.
 
 Acceptance:
 

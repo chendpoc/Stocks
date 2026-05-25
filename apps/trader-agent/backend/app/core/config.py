@@ -22,6 +22,7 @@ class Settings:
     repo_root: Path = field(default_factory=_default_repo_root)
     data_dir: Path | None = None
     fixture_data_dir: Path | None = None
+    knowledge_docs_root: Path | None = None
     rulepack_path: Path | None = None
     enable_event_jsonl_mirror: bool = False
     enabled_tool_capabilities: frozenset[str] = field(
@@ -35,6 +36,7 @@ class Settings:
             self.fixture_data_dir
             or repo_root / "apps" / "trader-agent" / "shared" / "fixtures"
         )
+        knowledge_docs_root = self.knowledge_docs_root or repo_root / "docs" / "summaries"
         rulepack_path = (
             self.rulepack_path
             or repo_root / "apps" / "trader-agent" / "shared" / "rulepacks" / "v0_1_0.yaml"
@@ -44,6 +46,7 @@ class Settings:
         object.__setattr__(self, "repo_root", repo_root)
         object.__setattr__(self, "data_dir", Path(data_dir))
         object.__setattr__(self, "fixture_data_dir", Path(fixture_data_dir))
+        object.__setattr__(self, "knowledge_docs_root", Path(knowledge_docs_root))
         object.__setattr__(self, "rulepack_path", Path(rulepack_path))
         object.__setattr__(self, "enabled_tool_capabilities", enabled_tool_capabilities)
 

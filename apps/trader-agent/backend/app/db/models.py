@@ -410,3 +410,20 @@ rule_versions = Table(
     timestamp_column("approved_at"),
     timestamp_column("activated_at"),
 )
+
+document_chunks = Table(
+    "document_chunks",
+    metadata,
+    uuid_column("id", primary_key=True, nullable=False),
+    Column("evidence_id", Text, nullable=False, unique=True),
+    Column("source_path", Text, nullable=False),
+    Column("source_type", Text, nullable=False),
+    Column("chunk_index", Integer, nullable=False),
+    json_column("symbol_hints", nullable=False),
+    timestamp_column("timestamp_hint"),
+    Column("confidence", Numeric, nullable=False),
+    Column("raw_text", Text, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    timestamp_column("indexed_at", nullable=False),
+    UniqueConstraint("source_path", "chunk_index", "content_hash"),
+)

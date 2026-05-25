@@ -5,6 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from app.db.migrations import bootstrap_database
+from app.modules.document_indexer import index_local_knowledge
+from app.modules.local_search import MAX_SEARCH_LIMIT, search_local_knowledge
 from app.modules.runtime_orchestrator import (
     EmptyScanUniverseError,
     RuntimeOrchestrator,
@@ -15,6 +18,7 @@ from app.modules.runtime_orchestrator import (
 )
 
 router = APIRouter(prefix="/api/agent", tags=["agent-runtime"])
+knowledge_router = APIRouter(prefix="/api/knowledge", tags=["local-knowledge"])
 
 
 class ScanRequest(BaseModel):
@@ -97,3 +101,38 @@ def events(
         end=end,
         limit=limit,
     )
+
+
+@knowledge_router.post("/reindex")
+def reindex_knowledge(request: Request) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    summary = index_local_knowledge(settings)
+    return {"source_count": summary.source_count, "indexed_count": summary.indexed_count}
+
+
+@knowledge_router.get("/search")
+def search_knowledge(
+    request: Request,
+    q: Annotated[str, Query(min_length=1)],
+    symbol: str | None = None,
+    source_type: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_SEARCH_LIMIT)] = 10,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    try:
+        results = search_local_knowledge(
+            settings,
+            query=q,
+            symbol=symbol,
+            source_type=source_type,
+            start=start,
+            end=end,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"query": q, "results": [result.as_dict() for result in results]}
