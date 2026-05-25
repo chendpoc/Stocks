@@ -1,0 +1,154 @@
+version: "0.1.0"
+
+universe:
+  symbols:
+    - SPY
+    - QQQ
+    - TSLA
+    - NVDA
+    - AAPL
+    - COIN
+    - BMNR
+
+market_gate:
+  risk_on:
+    required:
+      - qqq_above_vwap
+      - spy_not_strong_risk_off
+  risk_off:
+    conditions:
+      - qqq_below_vwap
+      - spy_below_vwap
+      - vix_rising
+  high_beta_long_block:
+    if:
+      - qqq_risk_off
+    symbols:
+      - TSLA
+      - NVDA
+      - COIN
+      - BMNR
+
+setups:
+  vwap_reclaim:
+    enabled: true
+    allowed_symbols:
+      - TSLA
+      - NVDA
+      - COIN
+      - QQQ
+      - SPY
+      - BMNR
+    required:
+      - symbol_reclaims_vwap
+      - qqq_not_risk_off
+      - relative_volume_gt_threshold
+    thresholds:
+      min_relative_volume: 1.5
+      max_distance_from_vwap_atr: 0.75
+    invalidation:
+      - symbol_5m_close_below_vwap
+      - qqq_loses_vwap
+
+  relative_strength_pullback:
+    enabled: true
+    allowed_symbols:
+      - TSLA
+      - NVDA
+      - AAPL
+      - QQQ
+    required:
+      - symbol_outperforms_qqq
+      - qqq_not_risk_off
+      - pullback_not_high_volume_selloff
+    invalidation:
+      - relative_strength_turns_negative
+      - symbol_breaks_20ema
+
+  opening_range_breakout:
+    enabled: true
+    allowed_symbols:
+      - SPY
+      - QQQ
+      - TSLA
+      - NVDA
+      - AAPL
+      - COIN
+    required:
+      - opening_range_defined
+      - break_above_opening_range_high
+      - relative_volume_gt_threshold
+      - qqq_confirms_direction
+    thresholds:
+      min_relative_volume: 1.5
+    invalidation:
+      - price_returns_inside_opening_range
+
+  gap_hold:
+    enabled: true
+    allowed_symbols:
+      - TSLA
+      - NVDA
+      - COIN
+      - BMNR
+    required:
+      - gap_up
+      - catalyst_exists
+      - price_above_vwap_after_open
+    invalidation:
+      - gap_fills_quickly
+      - price_loses_vwap
+    symbol_specific:
+      BMNR:
+        required:
+          - first_30m_hold_above_vwap
+          - qqq_not_risk_off
+          - crypto_not_weak
+        risk_multiplier: 0.3
+
+  daily_breakout_retest:
+    enabled: true
+    allowed_symbols:
+      - SPY
+      - QQQ
+      - TSLA
+      - NVDA
+      - AAPL
+    required:
+      - daily_breakout_confirmed
+      - retest_holds
+      - qqq_not_risk_off
+    invalidation:
+      - daily_close_back_inside_base
+      - break_below_20ema
+
+scoring:
+  weights:
+    market_gate: 25
+    trader_playbook_match: 20
+    technical_structure: 25
+    relative_strength: 15
+    volume_confirmation: 10
+    catalyst: 5
+    options_confirmation: 5
+    risk_penalty_max: -25
+
+thresholds:
+  watch: 70
+  waiting_trigger: 80
+  ticket: 85
+
+risk:
+  max_trade_risk_pct: 0.5
+  max_daily_loss_pct: 1.2
+  min_risk_reward: 1.5
+  block_if_no_stop: true
+  block_0dte_by_default: true
+  symbol_risk_multiplier:
+    SPY: 1.0
+    QQQ: 0.9
+    AAPL: 0.9
+    NVDA: 0.7
+    TSLA: 0.6
+    COIN: 0.5
+    BMNR: 0.3

@@ -1,0 +1,10 @@
+{
+  "name": "trader-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backend:test": "..\\..\\.venv\\Scripts\\python.exe -m pytest backend/tests -q",
+    "backend:lint": "..\\..\\.venv\\Scripts\\python.exe -m ruff check backend",
+    "cockpit:dev": "echo cockpit-not-implemented-yet"
+  }
+}

@@ -15,6 +15,7 @@ docs/summaries/*
 docs/summaries/*/*
 !docs/summaries/*/????-??-??-每日总结.md
 __pycache__/
+*.egg-info/
 utils/local_secrets.py
 utils/.local_secrets.py
 .venv/

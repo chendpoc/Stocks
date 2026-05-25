@@ -1,0 +1,5 @@
+{"source":"zhao-notes","source_url":"https://example.test/zhao/1","author":"zhao","timestamp":"2026-05-20T13:30:00+08:00","raw_text":"TSLA 减持后等三天，别急着追。等待放量站回 VWAP 再看；如果跌破前低就失效。","context":{"symbol_price":342.5,"symbol_vwap":340.1,"symbol_above_vwap":true,"spy_state":{"trend":"neutral"},"qqq_state":{"trend":"risk_on"},"missing_fields":[]},"outcome":{"return_1d":0.032,"mfe":0.048,"mae":-0.011,"outperformed_qqq":true,"final_label":"worked","notes":"fixture only"}}
+{"source":"zhao-notes","source_url":"https://example.test/zhao/2","author":"zhao","timestamp":"2026-05-21T09:45:00+08:00","raw_text":"NVDA 急跌之后量能缩减，等二次握手，不要第一下冲进去。失效看 QQQ 继续破位。"}
+{"source":"zhao-notes","source_url":"https://example.test/zhao/3","author":"zhao","timestamp":"2026-05-22T10:15:00+08:00","raw_text":"QQQ 回补缺口后看承接，周五期权日多空双杀，仓位要轻。"}
+{"source":"zhao-notes","source_url":"https://example.test/zhao/4","author":"zhao","timestamp":"2026-05-23T08:00:00+08:00","raw_text":"BTC 涨跌幅 0.85%/1% 预警，COIN 和 BMNR 只当市场情绪参考，不自动开仓。"}
+{"source":"zhao-notes","source_url":"https://example.test/zhao/5","author":"zhao","timestamp":"2026-05-24T11:20:00+08:00","raw_text":"XYZ 这个票先别加入池子，未知 ticker 必须人工确认。"}
