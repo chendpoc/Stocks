@@ -244,19 +244,19 @@ SQLite field mapping:
 
 ## Phase 0: Backend Foundation
 
-- [ ] Create `apps/trader-agent/package.json` as the monorepo workspace package entry for backend and future cockpit scripts.
-- [ ] Create `apps/trader-agent/backend/pyproject.toml` with package metadata, runtime dependencies, `[project.optional-dependencies].dev`, pytest config, and ruff config. Runtime deps include FastAPI, Pydantic, SQLAlchemy, uvicorn, pandas, pandas-market-calendars, and yfinance. Dev deps include pytest and ruff.
-- [ ] Create `apps/trader-agent/backend/app/main.py` with FastAPI app factory and `/health`.
-- [ ] Create `app/core/config.py` with local data dir, universe, RulePack path, market timezone, and tool capability flags.
-- [ ] Create local data directory bootstrap for `data/trader-agent/raw`, `data/trader-agent/fixtures`, and `data/trader-agent/audit`.
-- [ ] Create `app/db/session.py` with SQLite engine and session dependency.
-- [ ] Create `app/db/models.py` with the Phase 0 runtime tables listed above, using `03-shared-platform-roadmap-prd.md` Part 5 as the schema source.
-- [ ] Create `app/db/migrations.py` with idempotent local schema bootstrap.
-- [ ] Create `app/core/events.py` with `record_agent_event(...)`.
-- [ ] Make `record_agent_event(...)` write SQLite first and optionally mirror to `data/trader-agent/audit/agent_events.jsonl`.
-- [ ] Create `app/core/cache.py` with process-local TTL cache abstraction.
-- [ ] Create `backend/app/rulepack/loader.py` and `shared/rulepacks/v0_1_0.yaml`.
-- [ ] Add `tests/test_health.py`, `tests/test_rulepack_loader.py`, `tests/test_db_bootstrap.py`, and `tests/test_agent_events.py`.
+- [x] Create `apps/trader-agent/package.json` as the monorepo workspace package entry for backend and future cockpit scripts.
+- [x] Create `apps/trader-agent/backend/pyproject.toml` with package metadata, runtime dependencies, `[project.optional-dependencies].dev`, pytest config, and ruff config. Runtime deps include FastAPI, Pydantic, SQLAlchemy, uvicorn, pandas, pandas-market-calendars, and yfinance. Dev deps include pytest and ruff.
+- [x] Create `apps/trader-agent/backend/app/main.py` with FastAPI app factory and `/health`.
+- [x] Create `app/core/config.py` with local data dir, universe, RulePack path, market timezone, and tool capability flags.
+- [x] Create local data directory bootstrap for `data/trader-agent/raw`, `data/trader-agent/fixtures`, and `data/trader-agent/audit`.
+- [x] Create `app/db/session.py` with SQLite engine and session dependency.
+- [x] Create `app/db/models.py` with the Phase 0 runtime tables listed above, using `03-shared-platform-roadmap-prd.md` Part 5 as the schema source.
+- [x] Create `app/db/migrations.py` with idempotent local schema bootstrap.
+- [x] Create `app/core/events.py` with `record_agent_event(...)`.
+- [x] Make `record_agent_event(...)` write SQLite first and optionally mirror to `data/trader-agent/audit/agent_events.jsonl`.
+- [x] Create `app/core/cache.py` with process-local TTL cache abstraction.
+- [x] Create `backend/app/rulepack/loader.py` and `shared/rulepacks/v0_1_0.yaml`.
+- [x] Add `tests/test_health.py`, `tests/test_rulepack_loader.py`, `tests/test_db_bootstrap.py`, and `tests/test_agent_events.py`.
 
 Commands:
 
@@ -287,13 +287,13 @@ Phase 0 test expectations:
 
 ## Phase 1A: Knowledge Ingestion Chain
 
-- [ ] Implement `modules/corpus.py` for `trader_raw_messages` ingestion from JSONL or API body; keep raw JSONL as source material and store parsed/indexed records in SQLite.
-- [ ] Implement `modules/ticker_alias.py` with fixed universe as default and optional discovery marked `requires_approval`.
-- [ ] Implement `modules/semantic_extraction.py` to extract rule mentions, ticker mentions, trigger conditions, invalidation conditions, and source confidence.
-- [ ] Implement `modules/market_context.py` to bind semantic events to price/news context.
-- [ ] Implement `modules/outcome_labeling.py` to attach future outcome labels from fixture or local market data.
-- [ ] Implement `modules/playbook.py` to aggregate repeated trader patterns into playbook candidates.
-- [ ] Add corpus fixture tests using `tests/fixtures/trader_messages.jsonl`.
+- [x] Implement `modules/corpus.py` for `trader_raw_messages` ingestion from JSONL or API body; keep raw JSONL as source material and store parsed/indexed records in SQLite.
+- [x] Implement `modules/ticker_alias.py` with fixed universe as default and optional discovery marked `requires_approval`.
+- [x] Implement `modules/semantic_extraction.py` to extract rule mentions, ticker mentions, trigger conditions, invalidation conditions, and source confidence.
+- [x] Implement `modules/market_context.py` to bind semantic events to price/news context.
+- [x] Implement `modules/outcome_labeling.py` to attach future outcome labels from fixture or local market data.
+- [x] Implement `modules/playbook.py` to aggregate repeated trader patterns into playbook candidates.
+- [x] Add corpus fixture tests using `tests/fixtures/trader_messages.jsonl`.
 
 Acceptance:
 
