@@ -100,16 +100,24 @@ apps/trader-agent/
       conftest.py
       fixtures/
         market_bars_spy.csv
+        market_calendar_us.csv
         trader_messages.jsonl
         news_events.jsonl
+        filing_events.jsonl
       test_health.py
       test_rulepack_loader.py
+      test_local_tool_adapter.py
       test_signal_pipeline.py
       test_rule_discovery_lite_backtest.py
   cockpit/
     README.md
   shared/
     README.md
+    fixtures/
+      market_bars_spy.csv
+      market_calendar_us.csv
+      news_events.jsonl
+      filing_events.jsonl
     rulepacks/
       v0_1_0.yaml
     schemas/
@@ -124,10 +132,7 @@ data/trader-agent/
   trader-agent.db
   raw/
     trader_messages.jsonl
-  fixtures/
-    market_bars_spy.csv
-    news_events.jsonl
-    filing_events.jsonl
+  fixtures/                  # optional local overrides for Settings.fixture_data_dir
   audit/
     agent_events.jsonl
 ```
@@ -136,7 +141,7 @@ Storage rule:
 
 - RulePack: canonical storage is `apps/trader-agent/shared/rulepacks/v0_1_0.yaml`.
 - Raw trader messages: canonical storage can be JSONL; parsed semantic events are indexed in SQLite.
-- Market/news/filing fixtures: CSV or JSONL; normalized snapshots and evidence references are indexed in SQLite.
+- Versioned market/calendar/news/filing seed fixtures live in `apps/trader-agent/shared/fixtures/`; local overrides may use `data/trader-agent/fixtures/` via `Settings.fixture_data_dir`.
 - Agent runtime state: SQLite.
 - Agent audit: SQLite `agent_events` is required; `data/trader-agent/audit/agent_events.jsonl` is an optional mirror for human inspection.
 
@@ -281,11 +286,11 @@ Acceptance:
 
 ## Phase 1B: Local Tool Adapter
 
-- [ ] Implement `tools/local_adapter.py` with one stable interface for market bars, market calendar, news events, and filing events.
-- [ ] Support fixture-backed reads before live provider calls.
-- [ ] Gate live provider usage behind config capability flags.
-- [ ] Return normalized evidence objects with provider, timestamp, symbol, payload, and cost category.
-- [ ] Add tests that prove missing capability blocks the call.
+- [x] Implement `tools/local_adapter.py` with one stable interface for market bars, market calendar, news events, and filing events.
+- [x] Support fixture-backed reads before live provider calls.
+- [x] Gate live provider usage behind config capability flags.
+- [x] Return normalized evidence objects with provider, timestamp, symbol, payload, and cost category.
+- [x] Add tests that prove missing capability blocks the call.
 
 Acceptance:
 

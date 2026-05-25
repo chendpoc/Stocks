@@ -1,0 +1,2 @@
+{"timestamp":"2026-05-21T20:05:00Z","symbol":"TSLA","source":"fixture-filing","form_type":"8-K","issuer":"Tesla, Inc.","url":"fixture://filings/tsla-8k","summary":"Company filed an 8-K after market close."}
+{"timestamp":"2026-05-20T21:15:00Z","symbol":"NVDA","source":"fixture-filing","form_type":"144","issuer":"NVIDIA Corporation","url":"fixture://filings/nvda-form-144","summary":"Insider sale plan filing used for reduction-watch examples."}
