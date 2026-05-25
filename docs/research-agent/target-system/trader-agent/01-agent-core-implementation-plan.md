@@ -427,14 +427,14 @@ Acceptance:
 
 This phase expands `LocalToolAdapter` with manually enabled read-only evidence sources. It does not add broker execution or simulation account actions.
 
-- [ ] Implement `tools/sec_adapter.py` for SEC / EDGAR-style filing evidence lookup.
-- [ ] Implement `tools/news_archive_adapter.py` for local news archive lookup.
-- [ ] Add optional `tools/yfinance_adapter.py` behind a capability flag for US equity market data.
-- [ ] Add optional `tools/longbridge_adapter.py` behind a capability flag for market data only.
-- [ ] Add optional Alpha Vantage adapter only if a free/manual-key path is configured; otherwise keep it documented as deferred.
-- [ ] Normalize every provider response into the shared evidence object shape from `04-ai-rag-mcp-platform-roadmap-prd.md`.
-- [ ] Add provider-level limitations, freshness, and cost category fields.
-- [ ] Add tests that prove business modules cannot import provider SDKs directly.
+- [x] Implement `tools/sec_adapter.py` for SEC / EDGAR-style filing evidence lookup.
+- [x] Implement `tools/news_archive_adapter.py` for local news archive lookup.
+- [x] Add optional `tools/yfinance_adapter.py` behind a capability flag for US equity market data.
+- [x] Add optional `tools/longbridge_adapter.py` behind a capability flag for market data only.
+- [x] Add optional Alpha Vantage adapter only if a free/manual-key path is configured; otherwise keep it documented as deferred.
+- [x] Normalize every provider response into the shared evidence object shape from `04-ai-rag-mcp-platform-roadmap-prd.md`.
+- [x] Add provider-level limitations, freshness, and cost category fields.
+- [x] Add tests that prove business modules cannot import provider SDKs directly.
 
 Acceptance:
 

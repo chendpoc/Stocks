@@ -131,6 +131,40 @@ class LocalToolAdapter:
             end=end,
         )
 
+    def get_sec_filings(
+        self,
+        symbol: str,
+        *,
+        contexts: set[str] | None = None,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[Any]:
+        from app.tools.sec_adapter import SecFilingAdapter
+
+        return SecFilingAdapter(self.settings).lookup(
+            symbol=symbol,
+            contexts=contexts,
+            start=start,
+            end=end,
+        )
+
+    def get_news_archive_events(
+        self,
+        symbol: str,
+        *,
+        start: str | None = None,
+        end: str | None = None,
+        event_types: set[str] | None = None,
+    ) -> list[Any]:
+        from app.tools.news_archive_adapter import NewsArchiveAdapter
+
+        return NewsArchiveAdapter(self.settings).lookup(
+            symbol=symbol,
+            start=start,
+            end=end,
+            event_types=event_types,
+        )
+
     def _read_jsonl_events(
         self,
         filename: str,

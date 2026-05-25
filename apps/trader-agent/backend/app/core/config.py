@@ -23,6 +23,8 @@ class Settings:
     data_dir: Path | None = None
     fixture_data_dir: Path | None = None
     knowledge_docs_root: Path | None = None
+    news_archive_path: Path | None = None
+    sec_filings_archive_path: Path | None = None
     rulepack_path: Path | None = None
     enable_event_jsonl_mirror: bool = False
     enabled_tool_capabilities: frozenset[str] = field(
@@ -36,6 +38,7 @@ class Settings:
     codex_cli_executable: Path | None = None
     codex_cli_timeout_seconds: int = 30
     codex_cli_max_prompt_chars: int = 12000
+    alpha_vantage_api_key: str | None = None
 
     def __post_init__(self) -> None:
         repo_root = self.repo_root.resolve()
@@ -45,6 +48,10 @@ class Settings:
             or repo_root / "apps" / "trader-agent" / "shared" / "fixtures"
         )
         knowledge_docs_root = self.knowledge_docs_root or repo_root / "docs" / "summaries"
+        news_archive_path = self.news_archive_path or data_dir / "raw" / "news_events.jsonl"
+        sec_filings_archive_path = (
+            self.sec_filings_archive_path or data_dir / "raw" / "filing_events.jsonl"
+        )
         rulepack_path = (
             self.rulepack_path
             or repo_root / "apps" / "trader-agent" / "shared" / "rulepacks" / "v0_1_0.yaml"
@@ -59,6 +66,8 @@ class Settings:
         object.__setattr__(self, "data_dir", Path(data_dir))
         object.__setattr__(self, "fixture_data_dir", Path(fixture_data_dir))
         object.__setattr__(self, "knowledge_docs_root", Path(knowledge_docs_root))
+        object.__setattr__(self, "news_archive_path", Path(news_archive_path))
+        object.__setattr__(self, "sec_filings_archive_path", Path(sec_filings_archive_path))
         object.__setattr__(self, "rulepack_path", Path(rulepack_path))
         object.__setattr__(self, "enabled_tool_capabilities", enabled_tool_capabilities)
         object.__setattr__(self, "enabled_model_channels", enabled_model_channels)
