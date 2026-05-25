@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from app.db.migrations import bootstrap_database
 from app.modules.document_indexer import index_local_knowledge
+from app.modules.explanation import build_signal_explanation
 from app.modules.local_search import MAX_SEARCH_LIMIT, search_local_knowledge
 from app.modules.runtime_orchestrator import (
     EmptyScanUniverseError,
@@ -101,6 +102,14 @@ def events(
         end=end,
         limit=limit,
     )
+
+
+@router.get("/signals/{signal_id}/explanation")
+def signal_explanation(signal_id: str, request: Request) -> dict:
+    payload = build_signal_explanation(_settings(request), signal_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return payload
 
 
 @knowledge_router.post("/reindex")

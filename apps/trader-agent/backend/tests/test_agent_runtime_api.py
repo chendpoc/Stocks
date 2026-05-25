@@ -173,3 +173,35 @@ def test_events_invalid_symbol_filter_returns_empty_result(tmp_path: Path) -> No
 
     assert response.status_code == 200
     assert response.json()["events"] == []
+
+
+def test_signal_explanation_endpoint_returns_404_for_unknown_signal(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    response = client.get("/api/agent/signals/unknown-signal/explanation")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Signal not found"
+
+
+def test_signal_explanation_endpoint_returns_persisted_signal_context(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    run_response = client.post(
+        "/api/agent/run-symbol/TSLA",
+        json={"start": "2026-05-20", "end": "2026-05-22"},
+    )
+    signal_id = run_response.json()["symbol_results"][0]["signals"][0]["id"]
+
+    response = client.get(f"/api/agent/signals/{signal_id}/explanation")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["signal_id"] == signal_id
+    assert payload["symbol"] == "TSLA"
+    assert payload["current_status"] in {"observe", "waiting_trigger", "invalidated"}
+    assert payload["evidence_timeline"]
+    assert any(
+        item["name"] == "relative_volume_gt_threshold" for item in payload["rule_hits"]
+    )
+    forbidden = ("automatic buy", "automatic sell", "place order", "execute trade", "ticket_ready")
+    assert not any(term in str(payload).lower() for term in forbidden)
