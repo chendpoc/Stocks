@@ -335,17 +335,19 @@ Acceptance:
 
 ## Phase 1D: Runtime Orchestration
 
-- [ ] Implement `modules/runtime_orchestrator.py` for manual `POST /api/agent/run-scan`.
-- [ ] Wire scan flow: market snapshot -> setup detection -> rule engine -> scoring -> risk -> signal manager.
-- [ ] Add `GET /agent/status` with storage health, RulePack version, universe size, enabled capabilities, last scan time.
-- [ ] Add `GET /agent/events` with filters for module, symbol, event type, and time range.
-- [ ] Add runtime test using fixture SPY data.
+- [x] Implement `modules/runtime_orchestrator.py` for manual `POST /api/agent/run-scan`.
+- [x] Wire Phase 1D scan flow: market snapshot -> setup detection -> run summary -> agent_events.
+- [x] Add `GET /api/agent/status` with storage health, RulePack version, universe size, enabled capabilities, and last scan time.
+- [x] Add `GET /api/agent/events` with filters for module, symbol, event type, status, run_id, time range, and bounded limit.
+- [x] Add `POST /api/agent/run-symbol/{symbol}`, `GET /api/agent/runs`, and `GET /api/agent/runs/{id}` backed by `agent_events`.
+- [x] Add runtime test using fixture SPY data.
 
 Acceptance:
 
-- A scan can run end-to-end with fixtures and create deterministic signals.
+- A scan can run end-to-end with fixtures and create deterministic setup candidates.
 - Runtime never calls a live provider unless explicitly enabled.
 - Every step records traceable `agent_events`.
+- Rule Engine, Scoring Engine, Risk Engine, and Signal Manager remain Phase 1C/1D follow-up work and are not implemented by Runtime Orchestrator.
 
 ## Phase 1.5: Rule Discovery And Lite Backtest
 

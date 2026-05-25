@@ -3,6 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+DEFAULT_FIXTURE_TOOL_CAPABILITIES = frozenset(
+    {
+        "market_bars.fixture",
+        "market_calendar.fixture",
+        "news_events.fixture",
+        "filing_events.fixture",
+    }
+)
+
 
 def _default_repo_root() -> Path:
     return Path(__file__).resolve().parents[5]
@@ -15,7 +24,9 @@ class Settings:
     fixture_data_dir: Path | None = None
     rulepack_path: Path | None = None
     enable_event_jsonl_mirror: bool = False
-    enabled_tool_capabilities: frozenset[str] = field(default_factory=frozenset)
+    enabled_tool_capabilities: frozenset[str] = field(
+        default_factory=lambda: DEFAULT_FIXTURE_TOOL_CAPABILITIES
+    )
 
     def __post_init__(self) -> None:
         repo_root = self.repo_root.resolve()

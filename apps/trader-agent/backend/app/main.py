@@ -2,14 +2,19 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.api.agent import router as agent_router
+from app.core.config import Settings
 
-def create_app() -> FastAPI:
+
+def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Trader Agent Backend")
+    app.state.settings = settings or Settings()
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    app.include_router(agent_router)
     return app
 
 
