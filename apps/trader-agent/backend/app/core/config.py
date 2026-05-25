@@ -28,6 +28,14 @@ class Settings:
     enabled_tool_capabilities: frozenset[str] = field(
         default_factory=lambda: DEFAULT_FIXTURE_TOOL_CAPABILITIES
     )
+    enabled_model_channels: frozenset[str] = field(default_factory=frozenset)
+    deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com/chat/completions"
+    deepseek_model: str = "deepseek-chat"
+    model_call_timeout_seconds: int = 20
+    codex_cli_executable: Path | None = None
+    codex_cli_timeout_seconds: int = 30
+    codex_cli_max_prompt_chars: int = 12000
 
     def __post_init__(self) -> None:
         repo_root = self.repo_root.resolve()
@@ -42,6 +50,10 @@ class Settings:
             or repo_root / "apps" / "trader-agent" / "shared" / "rulepacks" / "v0_1_0.yaml"
         )
         enabled_tool_capabilities = frozenset(str(item) for item in self.enabled_tool_capabilities)
+        enabled_model_channels = frozenset(str(item) for item in self.enabled_model_channels)
+        codex_cli_executable = (
+            Path(self.codex_cli_executable) if self.codex_cli_executable is not None else None
+        )
 
         object.__setattr__(self, "repo_root", repo_root)
         object.__setattr__(self, "data_dir", Path(data_dir))
@@ -49,6 +61,8 @@ class Settings:
         object.__setattr__(self, "knowledge_docs_root", Path(knowledge_docs_root))
         object.__setattr__(self, "rulepack_path", Path(rulepack_path))
         object.__setattr__(self, "enabled_tool_capabilities", enabled_tool_capabilities)
+        object.__setattr__(self, "enabled_model_channels", enabled_model_channels)
+        object.__setattr__(self, "codex_cli_executable", codex_cli_executable)
 
     @property
     def database_path(self) -> Path:
