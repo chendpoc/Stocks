@@ -398,24 +398,28 @@ Acceptance:
 - Search results may support explanation and rule discovery, but cannot alone trigger a signal state change.
 - The phase passes without LlamaIndex, Chroma, Qdrant, Milvus, Pinecone, LangChain, or LangGraph dependencies.
 
-## Phase 1.8: ModelGateway
+## Phase 1.8: Direct Structured Model Calls
 
-This phase introduces AI model participation as a structured, auditable helper. It must not replace deterministic setup detection, rule evaluation, risk veto, or signal lifecycle decisions.
+This phase introduces AI model participation as narrow, auditable helper channels. It does not introduce a general ModelGateway, provider router, Vercel AI Gateway, OpenRouter integration, LangChain, or LangGraph dependency.
 
-- [ ] Implement `modules/model_gateway.py` with `generate_structured(...)`.
-- [ ] Add model profiles: `local_light`, `codex_cli`, and `deepseek_api`.
-- [ ] Keep `deepseek_api` disabled by default and gated by explicit config.
-- [ ] Require every model call to declare `task_type`, `schema`, `model_profile`, `evidence_ids`, and `cost_policy`.
-- [ ] Validate model outputs through Pydantic schemas before returning them to business modules.
-- [ ] Record `agent_events` for each remote model call, schema validation failure, and disabled-capability rejection.
-- [ ] Add tests for disabled DeepSeek rejection, schema validation failure, and successful local stub generation.
+- [ ] Implement minimal direct structured model calls with explicit `model_channel` values: `deepseek_direct` and `codex_cli_runtime`.
+- [ ] Use direct HTTPS calls to the DeepSeek API with an operator-provided API key; no SaaS gateway sits between the backend and DeepSeek.
+- [ ] Keep Codex CLI runtime as an optional local model channel behind an explicit capability flag, executable path, timeout, and prompt-size limit.
+- [ ] Support only bounded structural tasks, such as news event classification, evidence summarization, explanation drafting, or rule-candidate wording.
+- [ ] Require every model call to declare `task_type`, `schema_name`, `model_channel`, `evidence_ids`, `input_digest`, and `cost_policy`.
+- [ ] Validate structured tasks with Zod schema when a Node/TypeScript helper is used; reject invalid output before returning it to the Python backend.
+- [ ] Return only validated structured results to the Python backend.
+- [ ] Record `agent_events` for each model call, schema validation failure, disabled-capability rejection, provider error, timeout, and redaction decision.
+- [ ] Add tests for disabled DeepSeek rejection, missing API key rejection, disabled Codex CLI runtime rejection, schema validation failure, provider timeout, and successful mocked structured generation.
 
 Acceptance:
 
-- A disabled DeepSeek profile cannot be called accidentally.
-- Remote model calls include source evidence IDs and do not accept untracked raw prompts.
+- DeepSeek cannot be called accidentally when the capability flag is disabled or the API key is missing.
+- Codex CLI runtime cannot be called accidentally when the capability flag is disabled or the executable path is missing.
+- Remote model calls include source evidence IDs and an input digest; untracked raw prompts are rejected.
 - Model output cannot enter `signals`, `rule_candidates`, or `lite_backtest_reports` unless schema validation succeeds.
 - Model text may explain evidence, classify events, or draft rule candidates, but cannot create execution instructions.
+- Codex CLI runtime is a local structured reasoning channel only; it cannot mutate files, call tools, create signals, approve rules, or change risk decisions from inside Agent Core.
 
 ## Phase 1.9: External Evidence Adapters
 
@@ -528,7 +532,7 @@ Each review must include:
 - Rule candidate can be created and lite-backtested.
 - Rule candidate cannot become active without manual approval.
 - Local knowledge search can retrieve `docs/summaries` evidence by symbol, date, and rule phrase.
-- ModelGateway can run with local/stub profile and rejects disabled DeepSeek calls.
+- Direct structured model calls are disabled by default, schema-validated when enabled, and fully audited through `agent_events`.
 - External live data providers remain capability-gated.
 - Every state mutation writes `agent_events`.
 - Documentation build passes.

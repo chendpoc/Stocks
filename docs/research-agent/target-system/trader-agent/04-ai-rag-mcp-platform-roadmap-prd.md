@@ -19,7 +19,7 @@
   -> SQLite FTS5 keyword search
   -> LocalToolAdapter 获取行情、公告、新闻
   -> Deterministic Rule Engine 生成 signal
-  -> 可选 ModelGateway 调用本地模型或 DeepSeek
+  -> 可选 Direct Structured Model Calls
   -> 人工审批后进入规则候选或模拟账户 backlog
 ```
 
@@ -33,8 +33,8 @@
 |---|---|
 | 系统重量 | 本地优先、轻量优先；不为专业感提前引入重型基础设施 |
 | SaaS | 不依赖 SaaS 作为核心数据、向量库或流程编排基础 |
-| 付费模型 | DeepSeek API 可作为可选模型，默认关闭，人工启用 |
-| 本地模型 | 轻任务默认使用本地可用 Codex CLI / 本地模型能力；必须可切换 |
+| 付费模型 | DeepSeek API 可作为唯一第一版远程模型，默认关闭，人工启用 |
+| 本地模型 | Codex CLI runtime 可作为第一版本地可选结构化推理通道，默认关闭，人工启用 |
 | 扫描频率 | 默认支持 1 分钟扫描，可配置 5 分钟、15 分钟和手动触发 |
 | 交易频率 | 不做高频；最多分钟级信息查询和机会判断 |
 | 输出形态 | 允许输出明确观点、原因、观察/等待/失效/触发条件；不自动实盘下单 |
@@ -55,6 +55,8 @@
 - 不把 LLM 的自由判断当成交易信号。
 - 不把 X、新闻、自媒体内容直接当作事实源。
 - 不把 DeepSeek 或任何远程模型设置为默认必需依赖。
+- 不构建通用 ModelGateway、provider router、Vercel AI Gateway 或 OpenRouter 抽象。
+- 不让 Codex CLI runtime 拥有写文件、调用交易工具、变更 signal、审批规则或覆盖风控的权限。
 - 不在第一版接入真实券商交易执行。
 - 不让 agent 自动启用新规则、扩大股票池、提升风险权限。
 - 不使用 Pinecone 等 SaaS 向量库作为核心依赖。
@@ -182,39 +184,51 @@ LocalSearchIndex
 | Hybrid retrieval | 同一问题需要同时按 ticker/date 精确过滤和按语义召回 |
 | Reranker | 检索结果过多，解释质量受噪音影响 |
 
-### 5.3 Phase C：ModelGateway
+### 5.3 Phase C：Direct Structured Model Calls
 
-目标：统一本地模型、Codex CLI 能力和 DeepSeek API 的调用边界。
+目标：在不引入通用模型网关的前提下，让 Agent Core 可以按需调用 DeepSeek direct 或 Codex CLI runtime 完成少量结构化任务，并把结果返回 Python backend 进入审计链路。
 
 接口形态：
 
 ```text
-ModelGateway.generate_structured(
+StructuredModelCalls.generate(
   task_type,
-  prompt,
-  schema,
-  model_profile,
+  input_payload,
+  schema_name,
+  model_channel,
   evidence_ids,
+  input_digest,
   cost_policy
 )
 ```
 
-模型 profile：
+第一版模型通道：
 
-| Profile | 默认状态 | 用途 |
+| Channel | 默认状态 | 用途 | 硬边界 |
+|---|---|---|---|
+| `deepseek_direct` | 默认关闭 | 复杂新闻、公告、规则解释和结构化分类 | 需要 API key；不经过 Vercel AI Gateway 或 OpenRouter |
+| `codex_cli_runtime` | 默认关闭 | 本地复杂文档理解、规则候选整理、解释草稿 | 只允许结构化输入输出；不得写文件、调用交易工具或修改状态 |
+
+第一版允许任务：
+
+| Task | 默认状态 | 用途 |
 |---|---|---|
-| `local_light` | 默认启用 | 轻量分类、摘要、格式化 |
-| `codex_cli` | 默认启用但受本地环境约束 | 复杂文档理解、代码辅助、规则抽取 |
-| `deepseek_api` | 默认关闭 | 高质量推理、复杂新闻和规则解释 |
+| `news_event_classification` | 手动启用 | 将新闻或公告归类为宏观、财报、减持、地缘风险、期权市场、币股联动等事件 |
+| `evidence_summary` | 手动启用 | 总结一组 evidence 的要点和冲突 |
+| `signal_explanation_draft` | 手动启用 | 为已存在的 deterministic signal 起草解释文本 |
+| `rule_candidate_wording` | 手动启用 | 辅助把人工确认的规律整理为规则候选草案 |
 
 约束：
 
-- DeepSeek 必须手动启用。
-- 任何远程模型调用必须记录 `agent_events`。
-- 发送给远程模型的内容必须可追踪来源。
-- 远程模型不接收未脱敏的敏感账户信息。
-- 模型输出必须通过 Pydantic schema 校验。
-- schema 校验失败不能进入 signal 状态机。
+- DeepSeek 必须手动启用，并且必须存在 operator-provided API key。
+- Codex CLI runtime 必须手动启用，并且必须配置可执行路径、超时、输入大小上限和只读运行策略。
+- 不接入 Vercel AI Gateway、OpenRouter、LangChain 或 LangGraph。
+- 任何模型调用必须记录 `agent_events`。
+- 发送给模型的内容必须可追踪来源，并记录 `evidence_ids` 与 `input_digest`。
+- 模型不接收未脱敏的敏感账户信息。
+- 如果使用 Node/TypeScript helper，结构化输出必须通过 Zod schema 校验。
+- schema 校验失败不能返回给 Python backend 作为有效结果，也不能进入 signal 状态机。
+- 模型输出只能解释、分类、总结或起草候选，不得创建交易执行指令。
 
 ### 5.4 Phase D：市场数据与新闻工具
 
@@ -467,7 +481,7 @@ Scan Scheduler
   -> Market Snapshot
   -> Setup Detection
   -> Knowledge Retrieval
-  -> Optional ModelGateway Explanation
+  -> Optional Direct Structured Model Explanation
   -> Rule Engine
   -> Risk Engine
   -> Signal Manager
@@ -498,14 +512,16 @@ Scan Scheduler
 - 能返回 evidence IDs。
 - 检索结果可以进入 explanation，但不能单独触发 signal。
 
-### Milestone 3：ModelGateway
+### Milestone 3：Direct Structured Model Calls
 
 验收：
 
-- 本地轻模型 / Codex CLI / DeepSeek profile 可配置。
-- DeepSeek 默认关闭。
-- 模型输出必须 schema validate。
-- 每次模型调用写入 `agent_events`。
+- DeepSeek direct 默认关闭，必须显式配置 API key 和 capability flag。
+- Codex CLI runtime 默认关闭，必须显式配置 executable path、timeout、input limit 和 capability flag。
+- 第一版不实现通用 ModelGateway、provider router、Vercel AI Gateway 或 OpenRouter。
+- 结构化任务必须通过 Zod schema validate。
+- 验证通过的结果返回 Python backend。
+- 每次调用、失败、拒绝和 schema 错误都写入 `agent_events`。
 
 ### Milestone 4：外部工具扩展
 
