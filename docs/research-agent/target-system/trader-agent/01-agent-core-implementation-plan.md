@@ -448,11 +448,11 @@ Acceptance:
 
 This phase prepares tool governance. It does not require a remote MCP server yet.
 
-- [ ] Implement `ToolRegistry` metadata for read-only tools, required capabilities, cost policy, and allowed input scope.
-- [ ] Implement `ToolPermissionPolicy` with explicit allow/deny results and denial reasons.
-- [ ] Implement `ToolCallAudit` records through `agent_events`.
-- [ ] Mark read-only MCP-compatible tools as candidates: local file search, local knowledge search, market data lookup, filing lookup, and news archive lookup.
-- [ ] Explicitly deny tools that modify RulePack active state, expand active universe, invoke unapproved remote services, or touch broker execution.
+- [x] Implement `ToolRegistry` metadata for read-only tools, required capabilities, cost policy, and allowed input scope.
+- [x] Implement `ToolPermissionPolicy` with explicit allow/deny results and denial reasons.
+- [x] Implement `ToolCallAudit` records through `agent_events`.
+- [x] Mark read-only MCP-compatible tools as candidates: local file search, local knowledge search, market data lookup, filing lookup, and news archive lookup.
+- [x] Explicitly deny tools that modify RulePack active state, expand active universe, invoke unapproved remote services, or touch broker execution.
 
 Acceptance:
 
