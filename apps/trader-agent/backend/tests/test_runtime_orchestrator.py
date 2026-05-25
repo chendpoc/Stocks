@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.config import Settings
-from app.db.models import agent_events
+from app.db.models import agent_events, signals
 from app.db.session import create_sqlite_engine
 from app.modules.runtime_orchestrator import EmptyScanUniverseError, RuntimeOrchestrator
 from app.tools.local_adapter import (
@@ -40,7 +40,17 @@ def _settings(tmp_path: Path) -> Settings:
 def _event_rows(settings: Settings) -> list[dict[str, object]]:
     engine = create_sqlite_engine(settings)
     with engine.connect() as conn:
-        return list(conn.execute(select(agent_events)).mappings().all())
+        return list(
+            conn.execute(select(agent_events).order_by(agent_events.c.timestamp, agent_events.c.id))
+            .mappings()
+            .all()
+        )
+
+
+def _signal_rows(settings: Settings) -> list[dict[str, object]]:
+    engine = create_sqlite_engine(settings)
+    with engine.connect() as conn:
+        return list(conn.execute(select(signals)).mappings().all())
 
 
 def test_run_symbol_builds_fixture_snapshot_detects_setups_and_records_events(
@@ -62,17 +72,32 @@ def test_run_symbol_builds_fixture_snapshot_detects_setups_and_records_events(
         item["setup_type"] == "sharp_drop_volume_contraction"
         for item in symbol_result["candidates"]
     )
+    assert result["signal_count"] >= 1
+    assert symbol_result["signals"]
+    assert all(
+        item["status"] in {"observe", "waiting_trigger", "invalidated"}
+        for item in symbol_result["signals"]
+    )
     assert symbol_result["evidence_refs"]
 
     rows = _event_rows(settings)
     assert [row["event_type"] for row in rows] == [
         "runtime_orchestrator.run_started",
+        "signal_manager.signal_persisted",
         "runtime_orchestrator.symbol_completed",
         "runtime_orchestrator.run_completed",
     ]
     assert {row["run_id"] for row in rows} == {result["run_id"]}
-    assert rows[1]["symbol"] == "TSLA"
-    assert json.loads(rows[1]["output_summary"])["candidate_count"] >= 1
+    signal_id = symbol_result["signals"][0]["id"]
+    assert rows[1]["signal_id"] == signal_id
+    assert rows[2]["symbol"] == "TSLA"
+    symbol_summary = json.loads(rows[2]["output_summary"])
+    assert symbol_summary["candidate_count"] >= 1
+    assert symbol_summary["signal_count"] >= 1
+
+    persisted_signals = _signal_rows(settings)
+    assert {row["id"] for row in persisted_signals} >= {signal_id}
+    assert persisted_signals[0]["status"] in {"observe", "waiting_trigger", "invalidated"}
 
 
 def test_scan_keeps_outside_universe_as_failed_symbol_result_and_event(
@@ -90,6 +115,7 @@ def test_scan_keeps_outside_universe_as_failed_symbol_result_and_event(
     failed = next(item for item in result["symbol_results"] if item["symbol"] == "XYZ")
     assert failed["status"] == "failed"
     assert failed["candidates"] == []
+    assert failed["signals"] == []
     assert failed["errors"][0]["gap_type"] == "outside_fixed_universe"
     assert "buy" not in str(failed).lower()
     assert "order" not in str(failed).lower()
@@ -102,6 +128,7 @@ def test_scan_keeps_outside_universe_as_failed_symbol_result_and_event(
     assert len(failed_events) == 1
     assert failed_events[0]["symbol"] == "XYZ"
     assert failed_events[0]["status"] == "failed"
+    assert result["signal_count"] == sum(len(item["signals"]) for item in result["symbol_results"])
 
 
 def test_run_scan_rejects_explicit_empty_symbols_before_recording_events(

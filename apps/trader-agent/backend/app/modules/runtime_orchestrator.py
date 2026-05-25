@@ -15,8 +15,12 @@ from app.db.migrations import bootstrap_database
 from app.db.models import agent_events
 from app.db.session import create_sqlite_engine
 from app.modules.market_snapshot import EvidenceGap, EvidenceGapError, build_market_snapshot
+from app.modules.risk_engine import assess_signal_risk
+from app.modules.rule_engine import evaluate_candidate_rule
+from app.modules.scoring import score_candidate
 from app.modules.setup_detection import detect_setups
-from app.rulepack.loader import load_rulepack
+from app.modules.signal_manager import persist_signal
+from app.rulepack.loader import RulePack, load_rulepack
 from app.tools.local_adapter import LocalToolAdapter, normalize_symbol
 
 RUN_STARTED = "runtime_orchestrator.run_started"
@@ -76,6 +80,7 @@ class RuntimeOrchestrator:
                 symbol=symbol,
                 start=start,
                 end=end,
+                rulepack=rulepack,
             )
             for symbol in requested_symbols
         ]
@@ -95,6 +100,7 @@ class RuntimeOrchestrator:
             "symbols_scanned": normalized_symbols,
             "symbol_results": symbol_results,
             "candidate_count": sum(len(item["candidates"]) for item in symbol_results),
+            "signal_count": sum(len(item["signals"]) for item in symbol_results),
             "gap_count": sum(len(item["gaps"]) for item in symbol_results),
             "error_count": sum(len(item["errors"]) for item in symbol_results),
             "evidence_refs": sorted(
@@ -125,6 +131,7 @@ class RuntimeOrchestrator:
         symbol: str,
         start: str,
         end: str,
+        rulepack: RulePack,
     ) -> dict[str, Any]:
         timer_start = perf_counter()
         normalized_symbol = _safe_symbol_label(symbol)
@@ -157,6 +164,35 @@ class RuntimeOrchestrator:
             )
 
         candidates = [_serialize_candidate(candidate) for candidate in detection.candidates]
+        signals = []
+        for candidate in detection.candidates:
+            rule_result = evaluate_candidate_rule(
+                candidate=candidate,
+                rulepack=rulepack,
+                snapshot=snapshot,
+            )
+            score_result = score_candidate(
+                candidate=candidate,
+                rule_result=rule_result,
+                snapshot=snapshot,
+            )
+            risk_result = assess_signal_risk(
+                candidate=candidate,
+                rule_result=rule_result,
+                score_result=score_result,
+                rulepack=rulepack,
+            )
+            persisted = persist_signal(
+                settings=self.settings,
+                candidate=candidate,
+                rule_result=rule_result,
+                score_result=score_result,
+                risk_result=risk_result,
+                snapshot=snapshot,
+                run_id=run_id,
+            )
+            if persisted is not None:
+                signals.append(persisted)
         gaps = [_serialize_gap(gap) for gap in detection.gaps]
         evidence_refs = sorted(
             {
@@ -171,6 +207,7 @@ class RuntimeOrchestrator:
             "start": start,
             "end": end,
             "candidates": candidates,
+            "signals": signals,
             "gaps": gaps,
             "errors": [],
             "evidence_refs": evidence_refs,
@@ -190,6 +227,8 @@ class RuntimeOrchestrator:
                 "module": "runtime_orchestrator",
                 "symbol": detection.symbol,
                 "candidate_count": len(candidates),
+                "signal_count": len(signals),
+                "signal_ids": [item["id"] for item in signals],
                 "gap_count": len(gaps),
                 "evidence_refs": evidence_refs,
                 "candidates": candidates,
@@ -217,6 +256,7 @@ class RuntimeOrchestrator:
             "start": start,
             "end": end,
             "candidates": [],
+            "signals": [],
             "gaps": [],
             "errors": errors,
             "evidence_refs": sorted(
@@ -398,6 +438,7 @@ def _run_from_completed_event(row: Any) -> dict[str, Any]:
         "end": summary.get("end"),
         "symbols_scanned": summary.get("symbols_scanned", []),
         "candidate_count": summary.get("candidate_count", 0),
+        "signal_count": summary.get("signal_count", 0),
         "gap_count": summary.get("gap_count", 0),
         "error_count": summary.get("error_count", 0),
         "evidence_refs": summary.get("evidence_refs", []),
