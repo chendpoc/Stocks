@@ -320,23 +320,25 @@ Acceptance:
 
 - [x] Implement `modules/market_snapshot.py` using `LocalToolAdapter`.
 - [x] Implement `modules/setup_detection.py` for deterministic setups: gap fill, volume contraction after sharp drop, BTC move alert, post-reduction wait window, Friday options risk pattern.
-- [ ] Implement `modules/rule_engine.py` to evaluate active RulePack rules.
-- [ ] Implement `modules/scoring.py` with transparent score components: setup strength, evidence quality, catalyst risk, liquidity, historical hit rate.
-- [ ] Implement `modules/risk.py` with veto priority over score and ticket generation.
-- [ ] Implement `modules/signal_manager.py` with legal states: `observe`, `waiting_trigger`, `triggered`, `ticket_ready`, `waiting_approval`, `rejected`, `review`, `completed`, `invalidated`.
-- [x] Add `tests/test_signal_pipeline.py` for Phase 1C-1 market snapshot and setup detection coverage.
-- [ ] Extend `tests/test_signal_pipeline.py` for rule engine, scoring, risk, and signal manager coverage.
+- [x] Implement `modules/rule_engine.py` to evaluate active RulePack rules, allowed symbols, required conditions, and symbol-specific gates.
+- [x] Implement `modules/scoring.py` with transparent deterministic score components and no double-counted RulePack weights.
+- [x] Implement `modules/risk_engine.py` with veto and downgrade priority over score.
+- [x] Implement `modules/signal_manager.py` with Phase 1C persisted states limited to `observe`, `waiting_trigger`, and `invalidated`.
+- [x] Add `tests/test_signal_pipeline.py` for market snapshot, setup detection, rule engine, scoring, risk, and signal manager coverage.
+- [x] Extend runtime tests for persisted signals and signal-linked audit events.
 
 Acceptance:
 
 - A sharp drop plus volume contraction can produce `waiting_trigger`, not a buy order.
 - A blocked risk rule produces `invalidated` with reason.
+- Pending required conditions are explicit, do not receive full market-gate score, and reduce risk-adjusted score.
 - Signal output includes evidence IDs, rule hits, score breakdown, risk decision, and next trigger condition.
+- Every persisted signal writes an atomic `agent_events` audit row with `signal_id`.
 
 ## Phase 1D: Runtime Orchestration
 
 - [x] Implement `modules/runtime_orchestrator.py` for manual `POST /api/agent/run-scan`.
-- [x] Wire Phase 1D scan flow: market snapshot -> setup detection -> run summary -> agent_events.
+- [x] Wire Phase 1D scan flow: market snapshot -> setup detection -> rule engine -> scoring -> risk engine -> signal manager -> run summary -> agent_events.
 - [x] Add `GET /api/agent/status` with storage health, RulePack version, universe size, enabled capabilities, and last scan time.
 - [x] Add `GET /api/agent/events` with filters for module, symbol, event type, status, run_id, time range, and bounded limit.
 - [x] Add `POST /api/agent/run-symbol/{symbol}`, `GET /api/agent/runs`, and `GET /api/agent/runs/{id}` backed by `agent_events`.
@@ -344,10 +346,10 @@ Acceptance:
 
 Acceptance:
 
-- A scan can run end-to-end with fixtures and create deterministic setup candidates.
+- A scan can run end-to-end with fixtures and create deterministic setup candidates and audited signals.
 - Runtime never calls a live provider unless explicitly enabled.
 - Every step records traceable `agent_events`.
-- Rule Engine, Scoring Engine, Risk Engine, and Signal Manager remain Phase 1C/1D follow-up work and are not implemented by Runtime Orchestrator.
+- Runtime Orchestrator owns composition only; deterministic rule, scoring, risk, and signal state logic remain in their dedicated modules.
 
 ## Phase 1.5: Rule Discovery And Lite Backtest
 
