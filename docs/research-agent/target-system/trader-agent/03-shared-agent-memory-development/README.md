@@ -1,0 +1,121 @@
+# Shared Agent Memory Development
+
+版本：`v0.1`
+
+范围：`03-shared-agent-memory-prd.md` 的实施拆解。
+
+本目录只定义 Shared Agent Memory 的开发文档，不直接实现代码。实现时应优先保持本地、轻量、可审计，不引入 SaaS 向量库或重型 Agent 框架。
+
+## 1. 模块目标
+
+Shared Agent Memory 的目标是把本地资料库转成可检索、可引用、可人工确认、可注入上下文的金融记忆层。
+
+核心链路：
+
+```text
+Source Artifact
+  -> Artifact Catalog
+  -> Markdown Heading Sections
+  -> FTS5 Search
+  -> Memory Candidate
+  -> Human Review
+  -> Active Memory
+  -> Context Injection
+  -> Audit / Rebuild
+```
+
+## 2. 非目标
+
+- 不做通用个人记忆系统。
+- 不存工程开发偏好和代码协作偏好。
+- 不把所有原始资料直接变成 active memory。
+- 不让 Agent 自动覆盖 active memory。
+- 不接入远程向量数据库。
+- 不把图片二进制写入 SQLite。
+- 不做自动交易、订单、审批或券商执行。
+
+## 3. 文档索引
+
+| 顺序 | 文档 | 目标 |
+|---:|---|---|
+| 1 | [01-source-artifact-catalog.md](./01-source-artifact-catalog.md) | 登记 Markdown、图片、聊天记录和资料来源 |
+| 2 | [02-markdown-chunking-and-fts5.md](./02-markdown-chunking-and-fts5.md) | 按 Markdown heading 切块并建立 FTS5 |
+| 3 | [03-image-and-chat-source-handling.md](./03-image-and-chat-source-handling.md) | 管理图片、原始聊天、总结图和辅助证据 |
+| 4 | [04-memory-candidate-extraction.md](./04-memory-candidate-extraction.md) | 从 chunks 和 learning 中生成候选记忆 |
+| 5 | [05-memory-review-and-activation.md](./05-memory-review-and-activation.md) | 设计 candidate 管理、确认、拒绝、合并、冲突 |
+| 6 | [06-context-injection-policy.md](./06-context-injection-policy.md) | 定义 Agent 如何选择 active memory 注入上下文 |
+| 7 | [07-audit-and-rebuild-workflow.md](./07-audit-and-rebuild-workflow.md) | 定义 JSONL 审计、hash 检测、索引重建和回放 |
+
+## 4. 实现顺序
+
+推荐顺序：
+
+```text
+Phase M0: Artifact Catalog
+Phase M1: Markdown Section Index + FTS5
+Phase M2: Local Corpus Search API
+Phase M3: Memory Candidate Schema + Extraction
+Phase M4: Candidate Review UI Contract
+Phase M5: Active Memory Context Injection
+Phase M6: Audit + Rebuild
+```
+
+M0-M2 先解决资料检索。M3-M5 再解决长期记忆。不要在资料索引还没有稳定前实现复杂 memory UI。
+
+如果 `apps/trader-agent/backend` 已存在 local knowledge、FTS5、`/api/knowledge/*` 或类似实现，本目录任务不是 greenfield 重写，而是 reconciliation：
+
+```text
+现有能力盘点
+  -> 保留可用 index/search contract
+  -> 补 artifact catalog 和稳定 EvidenceRef
+  -> 补 candidate review / active memory / context injection audit
+```
+
+## 5. 共享数据边界
+
+| 数据 | Source of Truth | Query Layer | Audit |
+|---|---|---|---|
+| Markdown 原文 | 文件系统 | SQLite catalog + sections | index events |
+| 图片原文件 | 文件系统 | image catalog | index events |
+| Document sections | SQLite | FTS5 | rebuild events |
+| Memory candidates | SQLite | candidate table/filter | memory events JSONL |
+| Active memory | SQLite | memory context selector | memory events JSONL |
+| Audit events | SQLite + JSONL mirror | SQLite | JSONL append-only |
+
+PRD、旧路线文档和工程设计文档可以进入 artifact catalog 方便人工检索，但默认 `memory_eligible = false`。第一版 candidate extraction 只面向金融业务语料和 learning 结果。
+
+## 6. 与其他层关系
+
+### 6.1 Agent Core
+
+Agent Core 使用本模块：
+
+- 搜索赵哥语料。
+- 查找相似市场规律。
+- 生成 rule candidate。
+- 为 signal explanation 提供记忆引用。
+- 选择 active memory 注入结构化模型调用。
+
+### 6.2 Web Cockpit
+
+Cockpit 使用本模块：
+
+- `/cockpit/settings/memory` 管理 candidate 和 active memory。
+- `/cockpit/learning` 从后验验证生成 candidate。
+- `/cockpit/agent` 展示回答使用了哪些 memory。
+
+### 6.3 Shared Platform
+
+本模块属于 Shared Platform 的本地资料库和记忆子系统。它不替代 `03-shared-platform-roadmap-prd.md`，而是把其中存储、检索和审计能力具体化。
+
+## 7. 验收标准
+
+- 所有原始资料都有 artifact catalog。
+- Markdown section 可以按 heading path 定位。
+- FTS5 能搜索标题、section 文本、symbol、tags。
+- Candidate 必须引用 EvidenceRef。
+- Evidence 使用统一 `EvidenceRef`，可指向 document section、image artifact、raw chat message、news/archive 或 filing/archive。
+- Active memory 必须经过人工确认。
+- update candidate 不会静默覆盖 active memory。
+- JSONL audit 可重放关键 memory 操作。
+- 文档明确第一版不依赖远程向量库。
