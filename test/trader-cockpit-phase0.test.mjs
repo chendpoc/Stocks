@@ -112,13 +112,12 @@ test("trader-cockpit nav lists only first-version routes", () => {
   const expectedHrefs = [
     "/dashboard/live",
     "/signals",
-    "/chat",
     "/inbox",
     "/playbook-theories",
     "/learning",
     "/settings",
   ];
-  const forbiddenHrefs = ["/approvals", "/tasks", "/rules", "/capabilities", "/playbooks", "/journal", "/audit"];
+  const forbiddenHrefs = ["/chat", "/approvals", "/tasks", "/rules", "/capabilities", "/playbooks", "/journal", "/audit"];
 
   for (const href of expectedHrefs) {
     assert.match(shell, new RegExp(`href:\\s*"${href}"`), `Missing nav href ${href}`);
@@ -126,6 +125,48 @@ test("trader-cockpit nav lists only first-version routes", () => {
   for (const href of forbiddenHrefs) {
     assert.doesNotMatch(shell, new RegExp(`href:\\s*"${href}"`), `Forbidden nav href ${href}`);
   }
+});
+
+test("trader-cockpit shell exposes chat as a floating dock instead of nav page entry", () => {
+  const shell = readText("apps", "trader-cockpit", "components", "cockpit", "shell", "CockpitShell.tsx");
+
+  assert.match(shell, /AgentChatDock/);
+  assertFile("apps", "trader-cockpit", "components", "cockpit", "chat", "AgentChatDock.tsx");
+
+  const dock = readText("apps", "trader-cockpit", "components", "cockpit", "chat", "AgentChatDock.tsx");
+  assert.match(dock, /chatDockMode/);
+  assert.match(dock, /setChatDockMode/);
+  assert.match(dock, /streamChat/);
+  assert.match(dock, /selectedSymbol/);
+  assert.match(dock, /selectedSignalId/);
+  assert.match(dock, /chat\.dockExpand/);
+  assert.match(dock, /chat\.dockMinimize/);
+});
+
+test("trader-cockpit settings exposes zh-CN and en-US language switching", () => {
+  const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
+  assert.ok(resources["zh-CN"], "Missing zh-CN resources");
+  assert.ok(resources["en-US"], "Missing en-US resources");
+  assert.equal(resources["en-US"].translation.nav.live, "Live");
+
+  const store = readText("apps", "trader-cockpit", "lib", "cockpit", "use-cockpit-ui-store.ts");
+  assert.match(store, /language:\s*readStoredLanguage\(\)/);
+  assert.match(store, /setLanguage/);
+  assert.match(store, /localStorage/);
+
+  const settings = readText("apps", "trader-cockpit", "components", "cockpit", "settings", "SettingsWorkspace.tsx");
+  assert.match(settings, /changeLanguage/);
+  assert.match(settings, /settings\.language/);
+  assert.match(settings, /zh-CN/);
+  assert.match(settings, /en-US/);
+});
+
+test("trader-cockpit dashboard aligns live status cards with watchlist column", () => {
+  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+
+  assert.match(dashboard, /xl:grid-cols-\[360px_minmax\(0,1fr\)_360px\]/);
+  assert.doesNotMatch(dashboard, /xl:col-span-3 grid gap-3 md:grid-cols-4/);
+  assert.match(dashboard, /dashboardStatusStack/);
 });
 
 test("trader-cockpit uses Chinese-first cockpit copy", () => {

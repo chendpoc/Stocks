@@ -4,13 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
+import type { CockpitLanguage } from "@/lib/cockpit/use-cockpit-ui-store";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
 
 export function SettingsWorkspace() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const density = useCockpitUiStore((state) => state.density);
   const setDensity = useCockpitUiStore((state) => state.setDensity);
+  const language = useCockpitUiStore((state) => state.language);
+  const setLanguage = useCockpitUiStore((state) => state.setLanguage);
   const chartTimeframe = useCockpitUiStore((state) => state.chartTimeframe);
   const setChartTimeframe = useCockpitUiStore((state) => state.setChartTimeframe);
 
@@ -29,12 +32,28 @@ export function SettingsWorkspace() {
 
   const settings = settingsQuery.data;
 
+  function handleLanguageChange(nextLanguage: CockpitLanguage) {
+    setLanguage(nextLanguage);
+    void i18n.changeLanguage(nextLanguage);
+  }
+
   return (
     <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
       <section className="rounded-md border border-border bg-card/80 p-4">
         <p className="text-[11px] uppercase tracking-wider text-muted">{t("settings.localPreferences")}</p>
         <h2 className="mt-1 text-lg font-semibold">{t("settings.title")}</h2>
         <div className="mt-4 space-y-4 text-sm">
+          <label className="block">
+            <span className="text-xs text-muted">{t("settings.language")}</span>
+            <select
+              value={language}
+              onChange={(event) => handleLanguageChange(event.target.value as CockpitLanguage)}
+              className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2"
+            >
+              <option value="zh-CN">{t("settings.languageZh")}</option>
+              <option value="en-US">{t("settings.languageEn")}</option>
+            </select>
+          </label>
           <label className="block">
             <span className="text-xs text-muted">{t("settings.density")}</span>
             <select

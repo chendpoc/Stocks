@@ -45,33 +45,32 @@ export function LiveDashboard() {
   const invalidatedSignals = signals.filter((signal) => signal.status === "invalidated").length;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-      <section className="xl:col-span-3 grid gap-3 md:grid-cols-4">
-        <div className="rounded-md border border-warning/50 bg-warning/10 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.marketGate")}</p>
-          <div className="mt-2 flex items-center gap-2 text-lg font-semibold text-warning">
-            <AlertTriangle className="h-4 w-4" />
-            CAUTION
-          </div>
-        </div>
-        <div className="rounded-md border border-border bg-card/80 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.openSignals")}</p>
-          <p className="mt-2 text-lg font-semibold tabular-nums">{signals.length}</p>
-        </div>
-        <div className="rounded-md border border-border bg-card/80 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.invalidated")}</p>
-          <p className="mt-2 text-lg font-semibold text-warning tabular-nums">{invalidatedSignals}</p>
-        </div>
-        <div className="rounded-md border border-positive/40 bg-positive/10 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.dataFreshness")}</p>
-          <div className="mt-2 flex items-center gap-2 text-sm font-medium text-positive">
-            <CheckCircle2 className="h-4 w-4" />
-            {t("dashboard.mockLive")}
-          </div>
-        </div>
-      </section>
-
+    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)_360px]">
       <section className="space-y-4">
+        <div data-testid="dashboardStatusStack" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="rounded-md border border-warning/50 bg-warning/10 p-3">
+            <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.marketGate")}</p>
+            <div className="mt-2 flex items-center gap-2 text-lg font-semibold text-warning">
+              <AlertTriangle className="h-4 w-4" />
+              CAUTION
+            </div>
+          </div>
+          <div className="rounded-md border border-border bg-card/80 p-3">
+            <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.openSignals")}</p>
+            <p className="mt-2 text-lg font-semibold tabular-nums">{signals.length}</p>
+          </div>
+          <div className="rounded-md border border-border bg-card/80 p-3">
+            <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.invalidated")}</p>
+            <p className="mt-2 text-lg font-semibold text-warning tabular-nums">{invalidatedSignals}</p>
+          </div>
+          <div className="rounded-md border border-positive/40 bg-positive/10 p-3">
+            <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.dataFreshness")}</p>
+            <div className="mt-2 flex items-center gap-2 text-sm font-medium text-positive">
+              <CheckCircle2 className="h-4 w-4" />
+              {t("dashboard.mockLive")}
+            </div>
+          </div>
+        </div>
         <div className="rounded-md border border-border bg-card/80">
           <div className="border-b border-border px-4 py-3">
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("dashboard.watchlistKicker")}</p>

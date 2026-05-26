@@ -7,7 +7,6 @@ import {
   BookOpen,
   Brain,
   Gauge,
-  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -18,11 +17,11 @@ import {
 import { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
+import { AgentChatDock } from "@/components/cockpit/chat/AgentChatDock";
 
 const navItems = [
   { href: "/dashboard/live", labelKey: "nav.live", icon: Gauge },
   { href: "/signals", labelKey: "nav.signals", icon: Signal },
-  { href: "/chat", labelKey: "nav.chat", icon: MessageSquare },
   { href: "/inbox", labelKey: "nav.inbox", icon: Bell },
   { href: "/playbook-theories", labelKey: "nav.theories", icon: BookOpen },
   { href: "/learning", labelKey: "nav.learning", icon: Brain },
@@ -118,6 +117,7 @@ export function CockpitShell({ children }: { children: ReactNode }) {
         </aside>
         <main className="min-w-0 p-4">{children}</main>
       </div>
+      <AgentChatDock />
     </div>
   );
 }

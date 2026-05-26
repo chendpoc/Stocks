@@ -10,7 +10,7 @@ import { cockpitKeys } from "@/lib/cockpit/query-keys";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
 
-function ChatPart({ part }: { part: ChatStreamPart }) {
+export function ChatPart({ part }: { part: ChatStreamPart }) {
   const { t } = useTranslation();
 
   if (part.type === "text-delta") {
