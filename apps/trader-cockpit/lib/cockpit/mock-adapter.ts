@@ -14,6 +14,9 @@ import type {
   SignalListInput,
   SignalListViewModel,
   TheoryListInput,
+  TodayFocusItem,
+  TodayFocusListInput,
+  TodayFocusListViewModel,
   ToolSettingsViewModel,
 } from "./adapter";
 import {
@@ -21,8 +24,10 @@ import {
   mockChatStreamParts,
   mockInboxMessages,
   mockLearningItems,
+  mockMarketIntentExplanation,
   mockPlaybookTheories,
   mockSignals,
+  mockTodayFocusItems,
   mockToolSettings,
   mockWatchlist,
 } from "./fixtures";
@@ -54,11 +59,51 @@ function filterSignals(input?: SignalListInput): SignalDetail[] {
   });
 }
 
+function matchesTodayFocusQuery(item: TodayFocusItem, query?: string): boolean {
+  const normalizedQuery = query?.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return [item.title, item.summary, item.reason, item.symbol ?? "", ...item.tags].some((value) => {
+    return value.toLowerCase().includes(normalizedQuery);
+  });
+}
+
+function filterTodayFocusItems(input?: TodayFocusListInput): TodayFocusItem[] {
+  return mockTodayFocusItems.filter((item) => {
+    const queryMatch = matchesTodayFocusQuery(item, input?.query);
+    const typeMatch = !input?.type || item.type === input.type;
+    const statusMatch = !input?.status || item.status === input.status;
+    return queryMatch && typeMatch && statusMatch;
+  });
+}
+
 export const mockCockpitAdapter: CockpitDataAdapter = {
   async listSignals(input?: SignalListInput): Promise<SignalListViewModel> {
     return {
       signals: filterSignals(input),
       watchlist: mockWatchlist,
+    };
+  },
+
+  async getMarketIntentExplanation() {
+    return {
+      explanation: mockMarketIntentExplanation,
+    };
+  },
+
+  async listTodayFocus(input?: TodayFocusListInput): Promise<TodayFocusListViewModel> {
+    const filteredItems = filterTodayFocusItems(input);
+    const page = Math.max(1, input?.page ?? 1);
+    const pageSize = Math.max(1, input?.pageSize ?? 6);
+    const startIndex = (page - 1) * pageSize;
+
+    return {
+      items: filteredItems.slice(startIndex, startIndex + pageSize),
+      total: filteredItems.length,
+      page,
+      pageSize,
     };
   },
 

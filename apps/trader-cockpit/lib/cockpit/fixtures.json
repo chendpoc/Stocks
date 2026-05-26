@@ -45,6 +45,168 @@
       "reason": "VWAP 回收失败，headline risk 未解除。"
     }
   ],
+  "mockMarketIntentExplanation": {
+    "marketGate": "caution",
+    "summary": "高 beta 个股有主动性，但市场广度仍没有给出完整确认；当前更适合观察意图而不是升级动作。",
+    "whyNow": [
+      "TSLA 与 NVDA 仍在 VWAP 附近保持相对强度。",
+      "QQQ 没有继续扩大跌幅，risk gate 暂未进入 block。"
+    ],
+    "whyWait": [
+      "QQQ 仍有 lower-high 结构，市场确认不足。",
+      "部分 lead signal 来源过期，COIN 类相关股证据不干净。"
+    ],
+    "nextWatchCondition": "等待 QQQ 停止 lower-high，并观察 TSLA/NVDA 是否在下一根确认 K 中守住 VWAP 或开盘区间。",
+    "evidenceCount": 3,
+    "evidenceLabels": ["QQQ 广度与 VWAP 状态", "赵哥被动减持窗口笔记", "BTC lead signal 过期"],
+    "updatedAt": "09:52:30"
+  },
+  "mockTodayFocusItems": [
+    {
+      "id": "today-focus-tsla-opportunity",
+      "type": "opportunity",
+      "status": "active",
+      "priority": 1,
+      "symbol": "TSLA",
+      "title": "TSLA VWAP 回收仍是首要观察",
+      "summary": "价格贴近 VWAP，主动性没有完全丢失。",
+      "reason": "只有 QQQ 停止 lower-high 后，这个机会才有继续观察价值。",
+      "tags": ["opportunity_watch", "market_intent", "vwap"],
+      "target": {
+        "route": "/cockpit/signals",
+        "queryKey": "signalId",
+        "queryValue": "mock-signal-tsla-watch",
+        "label": "查看信号"
+      },
+      "updatedAt": "09:53:12"
+    },
+    {
+      "id": "today-focus-nvda-watchlist",
+      "type": "watchlist",
+      "status": "waiting",
+      "priority": 2,
+      "symbol": "NVDA",
+      "title": "NVDA 开盘区间等待确认",
+      "summary": "相对强度仍在，但突破还没有确认。",
+      "reason": "等待 193.10 上方第二根 10m K 继续守住。",
+      "tags": ["opportunity_watch", "relative_strength", "range"],
+      "target": {
+        "route": "/cockpit/signals",
+        "queryKey": "signalId",
+        "queryValue": "mock-signal-nvda-near",
+        "label": "查看信号"
+      },
+      "updatedAt": "09:51:42"
+    },
+    {
+      "id": "today-focus-bmnr-event",
+      "type": "news_event",
+      "status": "invalidated",
+      "priority": 3,
+      "symbol": "BMNR",
+      "title": "BMNR 事件风险没有解除",
+      "summary": "VWAP 回收失败后，新闻消化逻辑被价格行为否定。",
+      "reason": "保留为风险样本，避免把事件波动误读成机会。",
+      "tags": ["news_event", "risk_or_invalidation", "vwap"],
+      "target": {
+        "route": "/cockpit/inbox",
+        "queryKey": "eventId",
+        "queryValue": "inbox-risk-bmnr",
+        "label": "查看事件"
+      },
+      "updatedAt": "09:49:05"
+    },
+    {
+      "id": "today-focus-high-beta-theory",
+      "type": "rule_match",
+      "status": "triggered",
+      "priority": 4,
+      "symbol": "BMNR",
+      "title": "三日消化理论命中失败路径",
+      "summary": "BMNR 形态触发了事件风险阻断条件。",
+      "reason": "VWAP 回收失败时，消化逻辑必须退回验证层。",
+      "tags": ["rule_learning", "risk_or_invalidation", "digestion"],
+      "target": {
+        "route": "/cockpit/playbook-theories",
+        "queryKey": "theoryId",
+        "queryValue": "theory-three-day-digestion",
+        "label": "查看理论"
+      },
+      "updatedAt": "09:47:18"
+    },
+    {
+      "id": "today-focus-tsla-next-watch",
+      "type": "next_watch",
+      "status": "waiting",
+      "priority": 5,
+      "symbol": "TSLA",
+      "title": "TSLA 下一根确认 K 是关键",
+      "summary": "VWAP 附近仍有主动性，但市场 gate 还没改善。",
+      "reason": "下一步只观察 QQQ 是否停止 lower-high 与 TSLA 是否守住 VWAP。",
+      "tags": ["market_intent", "next_watch", "vwap"],
+      "target": {
+        "route": "/cockpit/signals",
+        "queryKey": "signalId",
+        "queryValue": "mock-signal-tsla-watch",
+        "label": "查看信号"
+      },
+      "updatedAt": "09:44:20"
+    },
+    {
+      "id": "today-focus-bmnr-review",
+      "type": "outcome_review",
+      "status": "reviewed",
+      "priority": 6,
+      "symbol": "BMNR",
+      "title": "BMNR 失败样本进入复盘",
+      "summary": "事件风险与 VWAP 失败同时出现，形态不能升级。",
+      "reason": "把失败路径沉淀为后置验证样本。",
+      "tags": ["post_validation", "risk_or_invalidation", "learning"],
+      "target": {
+        "route": "/cockpit/learning",
+        "queryKey": "reviewId",
+        "queryValue": "learn-bmnr-validation",
+        "label": "查看复盘"
+      },
+      "updatedAt": "09:42:33"
+    },
+    {
+      "id": "today-focus-qqq-market-event",
+      "type": "news_event",
+      "status": "active",
+      "priority": 7,
+      "symbol": "QQQ",
+      "title": "QQQ lower-high 仍压制市场意图",
+      "summary": "指数没有继续扩大跌幅，但结构确认不足。",
+      "reason": "市场 gate 不改善时，高 beta 单票只能停留在观察层。",
+      "tags": ["market_intent", "news_event", "breadth"],
+      "target": {
+        "route": "/cockpit/inbox",
+        "queryKey": "eventId",
+        "queryValue": "inbox-signal-tsla",
+        "label": "查看事件"
+      },
+      "updatedAt": "09:40:58"
+    },
+    {
+      "id": "today-focus-nvda-trigger",
+      "type": "opportunity",
+      "status": "triggered",
+      "priority": 8,
+      "symbol": "NVDA",
+      "title": "NVDA 接近触发位后等待二次确认",
+      "summary": "开盘区间上沿被测试，但确认 K 还不完整。",
+      "reason": "需要第二根确认 K，避免追逐首个突破动作。",
+      "tags": ["opportunity_watch", "trigger_check", "range"],
+      "target": {
+        "route": "/cockpit/signals",
+        "queryKey": "signalId",
+        "queryValue": "mock-signal-nvda-near",
+        "label": "查看信号"
+      },
+      "updatedAt": "09:39:44"
+    }
+  ],
   "mockSignals": [
     {
       "id": "mock-signal-tsla-watch",

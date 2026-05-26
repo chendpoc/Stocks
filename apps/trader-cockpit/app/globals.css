@@ -1,21 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  color-scheme: dark;
-  --radius: 0.5rem;
-  --background: 8 12 18;
-  --foreground: 229 236 246;
-  --card: 15 21 30;
-  --panel: 18 26 38;
-  --muted: 132 146 166;
-  --border: 42 54 73;
-  --accent: 79 209 197;
-  --positive: 42 190 123;
-  --warning: 226 164 66;
-  --danger: 235 92 92;
-}
+@import "tailwindcss";
+@import "@heroui/styles";
+@config "../tailwind.config.ts";
+@custom-variant dark (&:is(.dark *));
 
 * {
   box-sizing: border-box;
@@ -28,9 +14,9 @@ body {
   background:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(180deg, #080c12 0%, #0b1018 58%, #070a0f 100%);
+    linear-gradient(180deg, var(--background) 0%, var(--background-secondary) 58%, var(--background) 100%);
   background-size: 28px 28px, 28px 28px, auto;
-  color: rgb(var(--foreground));
+  color: var(--foreground);
 }
 
 body {

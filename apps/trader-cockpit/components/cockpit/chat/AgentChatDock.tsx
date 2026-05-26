@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import { AlertTriangle, Maximize2, MessageSquare, Minimize2, RotateCcw, Send, Square, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { FormEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatStreamPart } from "@/lib/cockpit/adapter";
@@ -10,6 +11,7 @@ import { ChatPart } from "@/components/cockpit/chat/AgentChatShell";
 
 export function AgentChatDock() {
   const { t } = useTranslation();
+  const pathname = usePathname();
   const selectedSymbol = useCockpitUiStore((state) => state.selectedSymbol);
   const selectedSignalId = useCockpitUiStore((state) => state.selectedSignalId);
   const chatDockMode = useCockpitUiStore((state) => state.chatDockMode);
@@ -19,6 +21,11 @@ export function AgentChatDock() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const quickPrompts = [
+    t("chat.quickPrompts.marketIntent"),
+    t("chat.quickPrompts.waitingReason"),
+    t("chat.quickPrompts.triggerInvalidation"),
+  ];
 
   async function runStream(message: string) {
     const controller = new AbortController();
@@ -61,7 +68,7 @@ export function AgentChatDock() {
       <button
         type="button"
         onClick={() => setChatDockMode("dock")}
-        className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-md border border-accent/50 bg-accent px-4 py-3 text-sm font-medium text-background shadow-xl shadow-black/30"
+        className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-md border border-accent/50 bg-accent px-4 py-3 text-sm font-medium text-accent-foreground shadow-xl shadow-black/30"
         aria-label={t("chat.dockOpen")}
       >
         <MessageSquare className="h-4 w-4" />
@@ -76,8 +83,8 @@ export function AgentChatDock() {
     <section
       className={
         expanded
-          ? "fixed inset-4 z-50 flex flex-col rounded-md border border-border bg-card shadow-2xl shadow-black/40"
-          : "fixed bottom-4 right-4 z-50 flex h-[560px] max-h-[calc(100vh-2rem)] w-[420px] max-w-[calc(100vw-2rem)] flex-col rounded-md border border-border bg-card shadow-2xl shadow-black/40"
+          ? "fixed inset-4 z-50 flex flex-col rounded-md border border-border bg-surface shadow-2xl shadow-black/40"
+          : "fixed bottom-4 right-4 z-50 flex h-[560px] max-h-[calc(100vh-2rem)] w-[420px] max-w-[calc(100vw-2rem)] flex-col rounded-md border border-border bg-surface shadow-2xl shadow-black/40"
       }
       aria-label={t("chat.dockTitle")}
     >
@@ -87,6 +94,9 @@ export function AgentChatDock() {
           <h2 className="truncate text-sm font-semibold">
             {selectedSymbol} / {selectedSignalId ?? t("chat.noBoundSignal")}
           </h2>
+          <p className="mt-1 truncate text-[11px] text-muted">
+            {t("chat.pageContext")} {pathname}
+          </p>
         </div>
         <div className="flex items-center gap-1">
           {isStreaming ? (
@@ -126,6 +136,24 @@ export function AgentChatDock() {
           </button>
         </div>
       </header>
+      <div className="border-b border-border px-4 py-3">
+        <div className="flex flex-wrap gap-2">
+          {quickPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => {
+                setInput(prompt);
+                void runStream(prompt);
+              }}
+              disabled={isStreaming}
+              className="rounded border border-border bg-background/70 px-2 py-1 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {parts.length === 0 && !isStreaming && !error ? (
           <div className="rounded-md border border-border bg-background/70 p-3 text-sm text-muted">
@@ -142,7 +170,7 @@ export function AgentChatDock() {
           </div>
         ) : null}
       </div>
-      <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border bg-card p-3">
+      <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border bg-surface p-3">
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
@@ -152,7 +180,7 @@ export function AgentChatDock() {
         <button
           type="submit"
           disabled={isStreaming}
-          className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-background disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={t("chat.send")}
         >
           <Send className="h-4 w-4" />

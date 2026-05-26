@@ -3,9 +3,11 @@ import type {
   ChatStreamPart,
   InboxMessage,
   LearningItem,
+  MarketIntentExplanation,
   PlaybookTheory,
   SignalDetail,
   SignalSummary,
+  TodayFocusItem,
   ToolSetting,
   WatchlistItem,
 } from "./adapter";
@@ -13,6 +15,8 @@ import fixtures from "./fixtures.json";
 
 export const mockWatchlist = fixtures.mockWatchlist as WatchlistItem[];
 export const mockSignals = fixtures.mockSignals as SignalDetail[];
+export const mockMarketIntentExplanation = fixtures.mockMarketIntentExplanation as MarketIntentExplanation;
+export const mockTodayFocusItems = fixtures.mockTodayFocusItems as TodayFocusItem[];
 export const mockInboxMessages = fixtures.mockInboxMessages as InboxMessage[];
 export const mockAgentEvents = fixtures.mockAgentEvents as AgentEvent[];
 export const mockPlaybookTheories = fixtures.mockPlaybookTheories as PlaybookTheory[];

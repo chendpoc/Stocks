@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
+import { Table } from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { SignalSummary } from "@/lib/cockpit/adapter";
+import type { CockpitTag, SignalStatus, SignalSummary } from "@/lib/cockpit/adapter";
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
@@ -15,7 +16,26 @@ function riskClass(value: string) {
   if (value === "medium" || value === "caution" || value === "watching" || value === "waiting_trigger" || value === "near_trigger") {
     return "text-warning";
   }
-  return "text-positive";
+  return "text-success";
+}
+
+function statusClass(status: SignalStatus) {
+  if (status === "invalidated") return "border-danger/50 bg-danger/10 text-danger";
+  if (status === "triggered_for_attention") return "border-danger/50 bg-danger/10 text-danger";
+  if (status === "near_trigger" || status === "waiting_trigger") {
+    return "border-warning/50 bg-warning/10 text-warning";
+  }
+  if (status === "needs_more_evidence") return "border-accent/50 bg-accent/10 text-accent";
+  return "border-success/50 bg-success/10 text-success";
+}
+
+function tagClass(tag: CockpitTag) {
+  if (tag === "opportunity_watch") return "border-danger/40 bg-danger/10 text-danger";
+  if (tag === "market_intent") return "border-success/40 bg-success/10 text-success";
+  if (tag === "rule_learning") return "border-accent/40 bg-accent/10 text-accent";
+  if (tag === "risk_or_invalidation") return "border-warning/50 bg-warning/10 text-warning";
+  if (tag === "news_event") return "border-warning/40 bg-warning/10 text-warning";
+  return "border-border bg-background/60 text-muted";
 }
 
 type SignalColumn = {
@@ -24,9 +44,10 @@ type SignalColumn = {
   render: (signal: SignalSummary) => ReactNode;
 };
 
-export function SignalsWorkspace() {
+export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState("all");
+  const [pendingInitialSignalId, setPendingInitialSignalId] = useState<string | null | undefined>(initialSignalId);
   const selectedSignalId = useCockpitUiStore((state) => state.selectedSignalId);
   const setSelectedSignalId = useCockpitUiStore((state) => state.setSelectedSignalId);
   const setSelectedSymbol = useCockpitUiStore((state) => state.setSelectedSymbol);
@@ -36,7 +57,8 @@ export function SignalsWorkspace() {
     queryFn: () => cockpitAdapter.listSignals({ status }),
   });
   const signals = signalsQuery.data?.signals ?? [];
-  const effectiveSignalId = selectedSignalId ?? signals[0]?.id ?? null;
+  const requestedSignalId = initialSignalId ?? selectedSignalId;
+  const effectiveSignalId = pendingInitialSignalId ?? requestedSignalId ?? signals[0]?.id ?? null;
   const detailQuery = useQuery({
     queryKey: cockpitKeys.signal(effectiveSignalId ?? "none"),
     queryFn: () => {
@@ -48,6 +70,20 @@ export function SignalsWorkspace() {
     },
     enabled: Boolean(effectiveSignalId),
   });
+
+  useEffect(() => {
+    setPendingInitialSignalId(initialSignalId);
+  }, [initialSignalId]);
+
+  useEffect(() => {
+    if (!pendingInitialSignalId || !detailQuery.data || detailQuery.data.id !== pendingInitialSignalId) {
+      return;
+    }
+
+    setSelectedSignalId(effectiveSignalId);
+    setSelectedSymbol(detailQuery.data.symbol);
+    setPendingInitialSignalId(null);
+  }, [detailQuery.data, effectiveSignalId, pendingInitialSignalId, setSelectedSignalId, setSelectedSymbol]);
 
   const columns = useMemo<SignalColumn[]>(
     () => [
@@ -62,15 +98,19 @@ export function SignalsWorkspace() {
       {
         key: "status",
         header: t("common.status"),
-        render: (signal) => <span className={riskClass(signal.status)}>{signal.status}</span>,
+        render: (signal) => (
+          <span className={`rounded border px-1.5 py-0.5 text-[11px] ${statusClass(signal.status)}`}>
+            {signal.status}
+          </span>
+        ),
       },
       {
         key: "tags",
         header: t("common.tags"),
         render: (signal) => (
           <div className="flex flex-wrap gap-1">
-            {signal.tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted">
+            {signal.tags.slice(0, 3).map((tag) => (
+              <span key={tag} className={`rounded border px-1.5 py-0.5 text-[11px] ${tagClass(tag)}`}>
                 {tag}
               </span>
             ))}
@@ -103,7 +143,7 @@ export function SignalsWorkspace() {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section className="rounded-md border border-border bg-card/80">
+      <section className="rounded-md border border-border bg-surface/80">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("signals.workspace")}</p>
@@ -122,62 +162,82 @@ export function SignalsWorkspace() {
             ))}
           </select>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="sticky top-0 bg-background text-[11px] uppercase tracking-wider text-muted">
-              <tr>
+        <Table>
+          <Table.ScrollContainer>
+            <Table.Content aria-label={t("signals.workspace")}>
+              <Table.Header>
                 {columns.map((column) => (
-                  <th key={column.key} className="border-b border-border px-3 py-2 font-medium">
-                    {column.header}
-                  </th>
+                  <Table.Column key={column.key}>{column.header}</Table.Column>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {signals.map((signal) => (
-                <tr
-                  key={signal.id}
-                  onClick={() => {
-                    setSelectedSignalId(signal.id);
-                    setSelectedSymbol(signal.symbol);
-                  }}
-                  className={
-                    signal.id === effectiveSignalId
-                      ? "cursor-pointer border-l-2 border-accent bg-panel"
-                      : "cursor-pointer border-l-2 border-transparent hover:bg-panel/70"
-                  }
-                >
-                  {columns.map((column) => (
-                    <td key={column.key} className="border-b border-border px-3 py-2">
-                      {column.render(signal)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </Table.Header>
+              <Table.Body>
+                {signals.map((signal) => (
+                  <Table.Row
+                    key={signal.id}
+                    onClick={() => {
+                      setSelectedSignalId(signal.id);
+                      setSelectedSymbol(signal.symbol);
+                    }}
+                    className={
+                      signal.id === effectiveSignalId
+                        ? "cursor-pointer border-l-2 border-accent bg-surface-secondary"
+                        : "cursor-pointer border-l-2 border-transparent hover:bg-surface-secondary/70"
+                    }
+                  >
+                    {columns.map((column) => (
+                      <Table.Cell key={column.key}>{column.render(signal)}</Table.Cell>
+                    ))}
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
       </section>
-      <aside className="rounded-md border border-border bg-card/80 p-4">
+      <aside className="rounded-md border border-border bg-surface/80 p-4">
         {detailQuery.data ? (
           <>
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("signals.detail")}</p>
             <h2 className="mt-1 text-lg font-semibold">
               {detailQuery.data.symbol} / {detailQuery.data.setup}
             </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={`rounded border px-2 py-1 text-xs ${statusClass(detailQuery.data.status)}`}>
+                {detailQuery.data.status}
+              </span>
+              {detailQuery.data.tags.map((tag) => (
+                <span key={tag} className={`rounded border px-2 py-1 text-xs ${tagClass(tag)}`}>
+                  {tag}
+                </span>
+              ))}
+            </div>
             <p className="mt-3 text-sm leading-6 text-muted">{detailQuery.data.thesis}</p>
             <div className="mt-4 grid gap-3">
               <section className="rounded border border-border bg-background/60 p-3">
-                <p className="text-xs text-muted">{t("common.scenarioPlan")}</p>
+                <p className="text-xs text-muted">{t("signals.triggerInvalidation")}</p>
                 <p className="mt-2 text-sm">{detailQuery.data.scenarioPlan.summary}</p>
                 <div className="mt-3 grid gap-2 text-xs">
                   <div>
                     <p className="font-medium text-foreground">{t("common.trigger")}</p>
                     <p className="mt-1 text-muted">{detailQuery.data.entryTrigger}</p>
+                    <div className="mt-2 space-y-1">
+                      {detailQuery.data.scenarioPlan.triggerConditions.map((condition) => (
+                        <p key={condition} className="rounded border border-danger/30 bg-danger/10 px-2 py-1 text-danger">
+                          {condition}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <p className="font-medium text-foreground">{t("common.invalidation")}</p>
                     <p className="mt-1 text-warning">{detailQuery.data.invalidation}</p>
+                    <div className="mt-2 space-y-1">
+                      {detailQuery.data.scenarioPlan.invalidationConditions.map((condition) => (
+                        <p key={condition} className="rounded border border-warning/40 bg-warning/10 px-2 py-1 text-warning">
+                          {condition}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <p className="font-medium text-foreground">{t("common.nextWatch")}</p>
@@ -186,7 +246,7 @@ export function SignalsWorkspace() {
                 </div>
               </section>
               <section className="rounded border border-border bg-background/60 p-3">
-                <p className="text-xs text-muted">{t("signals.ruleHits")}</p>
+                <p className="text-xs text-muted">{t("signals.relatedRules")}</p>
                 <div className="mt-2 space-y-2">
                   {detailQuery.data.ruleHits.map((hit) => (
                     <div key={hit.ruleId} className="rounded border border-warning/40 bg-warning/10 p-2 text-xs">
@@ -197,7 +257,9 @@ export function SignalsWorkspace() {
                 </div>
               </section>
               <section className="rounded border border-border bg-background/60 p-3">
-                <p className="text-xs text-muted">{t("common.evidence")}</p>
+                <p className="text-xs text-muted">
+                  {t("signals.evidence")} / {detailQuery.data.evidence.length}
+                </p>
                 <div className="mt-2 space-y-2">
                   {detailQuery.data.evidence.map((evidence) => (
                     <div key={evidence.id} className="rounded border border-border p-2 text-xs">

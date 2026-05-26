@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,6 +7,7 @@ import {
   BookOpen,
   Brain,
   Gauge,
+  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -20,12 +21,13 @@ import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { AgentChatDock } from "@/components/cockpit/chat/AgentChatDock";
 
 const navItems = [
-  { href: "/dashboard/live", labelKey: "nav.live", icon: Gauge },
-  { href: "/signals", labelKey: "nav.signals", icon: Signal },
-  { href: "/inbox", labelKey: "nav.inbox", icon: Bell },
-  { href: "/playbook-theories", labelKey: "nav.theories", icon: BookOpen },
-  { href: "/learning", labelKey: "nav.learning", icon: Brain },
-  { href: "/settings", labelKey: "nav.settings", icon: SlidersHorizontal },
+  { href: "/cockpit/dashboard/live", labelKey: "nav.live", icon: Gauge },
+  { href: "/cockpit/signals", labelKey: "nav.signals", icon: Signal },
+  { href: "/cockpit/chat", labelKey: "nav.chat", icon: MessageSquare },
+  { href: "/cockpit/inbox", labelKey: "nav.inbox", icon: Bell },
+  { href: "/cockpit/playbook-theories", labelKey: "nav.theories", icon: BookOpen },
+  { href: "/cockpit/learning", labelKey: "nav.learning", icon: Brain },
+  { href: "/cockpit/settings", labelKey: "nav.settings", icon: SlidersHorizontal },
 ];
 
 export function CockpitShell({ children }: { children: ReactNode }) {
@@ -37,8 +39,8 @@ export function CockpitShell({ children }: { children: ReactNode }) {
   const selectedSymbol = useCockpitUiStore((state) => state.selectedSymbol);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      <header className="z-30 shrink-0 border-b border-border bg-background/95 backdrop-blur">
         <div className="flex h-14 items-center gap-3 px-4">
           <button
             type="button"
@@ -53,7 +55,7 @@ export function CockpitShell({ children }: { children: ReactNode }) {
               <p className="text-[10px] uppercase tracking-widest text-muted">Trader Agent Cockpit</p>
               <h1 className="truncate text-sm font-semibold">{t("brand.title")}</h1>
             </div>
-            <div className="hidden min-w-64 items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted md:flex">
+            <div className="hidden min-w-64 items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-muted md:flex">
               <Search className="h-3.5 w-3.5" />
               <span>{t("brand.search")}</span>
             </div>
@@ -62,21 +64,21 @@ export function CockpitShell({ children }: { children: ReactNode }) {
             <span className="rounded border border-warning/50 bg-warning/10 px-2 py-1 text-warning">
               {t("shell.gate")} CAUTION
             </span>
-            <span className="rounded border border-border bg-card px-2 py-1 text-muted">
+            <span className="rounded border border-border bg-surface px-2 py-1 text-muted">
               {t("shell.context")} {selectedSymbol}
             </span>
-            <span className="rounded border border-positive/50 bg-positive/10 px-2 py-1 text-positive">
+            <span className="rounded border border-success/50 bg-success/10 px-2 py-1 text-success">
               {connectionState.toUpperCase()}
             </span>
           </div>
         </div>
       </header>
-      <div className="grid min-h-[calc(100vh-56px)] grid-cols-[auto_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-[auto_1fr] overflow-hidden">
         <aside
           className={
             navCollapsed
-              ? "w-16 border-r border-border bg-card/70"
-              : "w-56 border-r border-border bg-card/70"
+              ? "h-full w-16 overflow-y-auto border-r border-border bg-surface/70"
+              : "h-full w-56 overflow-y-auto border-r border-border bg-surface/70"
           }
         >
           <nav className="flex flex-col gap-1 p-2">
@@ -84,20 +86,20 @@ export function CockpitShell({ children }: { children: ReactNode }) {
               const Icon = item.icon;
               const active = pathname === item.href;
 
-                  return (
+              return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={
                     active
-                      ? "flex items-center gap-3 rounded-md bg-accent px-3 py-2 text-sm font-medium text-background"
-                      : "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted hover:bg-panel hover:text-foreground"
+                      ? "flex items-center gap-3 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground"
+                      : "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted hover:bg-surface-secondary hover:text-foreground"
                   }
                 >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {navCollapsed ? null : <span>{t(item.labelKey)}</span>}
-                    </Link>
-                  );
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {navCollapsed ? null : <span>{t(item.labelKey)}</span>}
+                </Link>
+              );
             })}
           </nav>
           {navCollapsed ? null : (
@@ -115,7 +117,7 @@ export function CockpitShell({ children }: { children: ReactNode }) {
             </div>
           )}
         </aside>
-        <main className="min-w-0 p-4">{children}</main>
+        <main className="min-w-0 overflow-y-auto p-4">{children}</main>
       </div>
       <AgentChatDock />
     </div>

@@ -86,6 +86,36 @@ export type WatchlistItem = {
   reason: string;
 };
 
+export type TodayFocusItem = {
+  id: string;
+  type: "opportunity" | "watchlist" | "news_event" | "rule_match" | "next_watch" | "outcome_review";
+  status: "active" | "waiting" | "triggered" | "invalidated" | "reviewed";
+  priority: number;
+  symbol?: string;
+  title: string;
+  summary: string;
+  reason: string;
+  tags: string[];
+  target: {
+    route: string;
+    queryKey: string;
+    queryValue: string;
+    label: string;
+  };
+  updatedAt: string;
+};
+
+export type MarketIntentExplanation = {
+  marketGate: "pass" | "caution" | "block";
+  summary: string;
+  whyNow: string[];
+  whyWait: string[];
+  nextWatchCondition: string;
+  evidenceCount: number;
+  evidenceLabels: string[];
+  updatedAt: string;
+};
+
 export type InboxMessage = {
   id: string;
   type: string;
@@ -202,6 +232,14 @@ export type LearningInput = {
   type?: string;
 };
 
+export type TodayFocusListInput = {
+  query?: string;
+  type?: TodayFocusItem["type"];
+  status?: TodayFocusItem["status"];
+  page?: number;
+  pageSize?: number;
+};
+
 export type ChatStreamInput = {
   conversationId: string;
   message: string;
@@ -215,6 +253,17 @@ export type ChatStreamInput = {
 export type SignalListViewModel = {
   signals: SignalSummary[];
   watchlist: WatchlistItem[];
+};
+
+export type MarketIntentExplanationViewModel = {
+  explanation: MarketIntentExplanation;
+};
+
+export type TodayFocusListViewModel = {
+  items: TodayFocusItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export type AgentEventListViewModel = {
@@ -245,6 +294,8 @@ export type ToolSettingsViewModel = {
 
 export interface CockpitDataAdapter {
   listSignals(input?: SignalListInput): Promise<SignalListViewModel>;
+  getMarketIntentExplanation(): Promise<MarketIntentExplanationViewModel>;
+  listTodayFocus(input?: TodayFocusListInput): Promise<TodayFocusListViewModel>;
   getSignal(input: SignalDetailInput): Promise<SignalDetail>;
   listInboxMessages(input?: InboxInput): Promise<InboxMessageListViewModel>;
   listAgentEvents(input?: AgentEventInput): Promise<AgentEventListViewModel>;

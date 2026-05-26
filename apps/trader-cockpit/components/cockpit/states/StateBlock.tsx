@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, RefreshCcw, ShieldAlert } from "lucide-react";
+﻿import { AlertTriangle, Loader2, RefreshCcw, ShieldAlert } from "lucide-react";
 
 type StateBlockProps = {
   title: string;
@@ -26,7 +26,7 @@ export function StateBlock({
   const Icon = icons[state];
 
   return (
-    <section className="rounded-md border border-border bg-card/80 p-4 text-sm">
+    <section className="rounded-md border border-border bg-surface/80 p-4 text-sm">
       <div className="flex items-start gap-3">
         <Icon className={state === "loading" ? "mt-0.5 h-4 w-4 animate-spin text-accent" : "mt-0.5 h-4 w-4 text-warning"} />
         <div className="min-w-0">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RotateCcw, Send, Square, Wrench } from "lucide-react";
@@ -133,7 +133,7 @@ export function AgentChatShell() {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <section className="min-h-[calc(100vh-88px)] rounded-md border border-border bg-card/80">
+      <section className="min-h-[calc(100vh-88px)] rounded-md border border-border bg-surface/80">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("chat.title")}</p>
@@ -181,7 +181,7 @@ export function AgentChatShell() {
             <StateBlock state="error" title={t("chat.streamError")} description={error} actionLabel={t("chat.retry")} onAction={() => void runStream(input)} />
           ) : null}
         </div>
-        <form onSubmit={handleSubmit} className="sticky bottom-0 flex gap-2 border-t border-border bg-card p-4">
+        <form onSubmit={handleSubmit} className="sticky bottom-0 flex gap-2 border-t border-border bg-surface p-4">
           <input
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -191,7 +191,7 @@ export function AgentChatShell() {
           <button
             type="submit"
             disabled={isStreaming}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             {t("chat.send")}
@@ -200,7 +200,7 @@ export function AgentChatShell() {
       </section>
       <aside className="space-y-4">
         {signalQuery.data ? (
-          <section className="rounded-md border border-border bg-card/80 p-4">
+          <section className="rounded-md border border-border bg-surface/80 p-4">
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("chat.boundSignal")}</p>
             <h3 className="mt-1 text-base font-semibold">
               {signalQuery.data.symbol} / {signalQuery.data.setup}

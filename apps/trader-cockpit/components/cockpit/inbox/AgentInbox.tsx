@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -16,10 +16,23 @@ function priorityClass(priority: string) {
   return "text-accent border-accent/40 bg-accent/10";
 }
 
-export function AgentInbox() {
+function contextImpact(message: InboxMessage) {
+  return `${message.summary} ${message.objectLabel}`;
+}
+
+function relatedSignals(message: InboxMessage) {
+  const [kind, signalId] = message.objectLabel.split(" ");
+  if (kind !== "signal" || !signalId) {
+    return [];
+  }
+
+  return [{ signalId, symbol: signalId.split("-")[2]?.toUpperCase() ?? signalId, status: message.type }];
+}
+
+export function AgentInbox({ initialEventId }: { initialEventId?: string }) {
   const { t } = useTranslation();
   const [priority, setPriority] = useState("all");
-  const [selectedId, setSelectedId] = useState("inbox-signal-tsla");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const inboxQuery = useQuery({
     queryKey: cockpitKeys.inbox({ priority }),
@@ -35,11 +48,12 @@ export function AgentInbox() {
   }
 
   const messages = inboxQuery.data?.messages ?? [];
-  const selected = messages.find((message) => message.id === selectedId) ?? messages[0];
+  const requestedEventId = initialEventId ?? selectedId;
+  const selected = messages.find((message) => message.id === (selectedId ?? requestedEventId)) ?? messages[0];
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section className="rounded-md border border-border bg-card/80">
+      <section className="rounded-md border border-border bg-surface/80">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("inbox.kicker")}</p>
@@ -71,8 +85,8 @@ export function AgentInbox() {
                 onClick={() => setSelectedId(message.id)}
                 className={
                   message.id === selected?.id
-                    ? "w-full border-l-2 border-accent bg-panel px-4 py-3 text-left"
-                    : "w-full border-l-2 border-transparent px-4 py-3 text-left hover:bg-panel/70"
+                    ? "w-full border-l-2 border-accent bg-surface-secondary px-4 py-3 text-left"
+                    : "w-full border-l-2 border-transparent px-4 py-3 text-left hover:bg-surface-secondary/70"
                 }
               >
                 <InboxRow message={message} />
@@ -81,7 +95,7 @@ export function AgentInbox() {
           </div>
         )}
       </section>
-      <aside className="rounded-md border border-border bg-card/80 p-4">
+      <aside className="rounded-md border border-border bg-surface/80 p-4">
         {selected ? (
           <>
             <span className={`rounded border px-2 py-1 text-xs ${priorityClass(selected.priority)}`}>{selected.priority}</span>
@@ -89,16 +103,23 @@ export function AgentInbox() {
             <p className="mt-3 text-sm leading-6 text-muted">{selected.summary}</p>
             <div className="mt-4 grid gap-2 text-sm">
               <div className="rounded border border-border bg-background/60 p-3">
-                <p className="text-xs text-muted">{t("inbox.messageType")}</p>
+                <p className="text-xs text-muted">{t("inbox.eventDetail")}</p>
                 <p className="mt-1">{selected.type}</p>
               </div>
               <div className="rounded border border-border bg-background/60 p-3">
-                <p className="text-xs text-muted">{t("inbox.linkedObject")}</p>
-                <p className="mt-1">{selected.objectLabel}</p>
+                <p className="text-xs text-muted">{t("inbox.contextImpact")}</p>
+                <p className="mt-1">{contextImpact(selected)}</p>
               </div>
               <div className="rounded border border-border bg-background/60 p-3">
-                <p className="text-xs text-muted">{t("inbox.phaseActions")}</p>
-                <p className="mt-1 text-warning">{t("inbox.phaseActionsDescription")}</p>
+                <p className="text-xs text-muted">{t("inbox.relatedSignals")}</p>
+                <div className="mt-2 space-y-1">
+                  {relatedSignals(selected).map((signal) => (
+                    <p key={signal.signalId} className="rounded border border-border px-2 py-1 text-xs text-muted">
+                      {signal.symbol} / {signal.status}
+                    </p>
+                  ))}
+                  {relatedSignals(selected).length ? null : <p className="text-muted">{selected.objectLabel}</p>}
+                </div>
               </div>
             </div>
           </>

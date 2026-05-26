@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
@@ -9,12 +9,12 @@ import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
 
 function confidenceClass(confidence: string) {
-  if (confidence === "high") return "text-positive";
+  if (confidence === "high") return "text-success";
   if (confidence === "medium") return "text-warning";
   return "text-muted";
 }
 
-export function PlaybookTheoriesWorkspace() {
+export function PlaybookTheoriesWorkspace({ initialTheoryId }: { initialTheoryId?: string }) {
   const { t } = useTranslation();
   const selectedTheoryId = useCockpitUiStore((state) => state.selectedTheoryId);
   const setSelectedTheoryId = useCockpitUiStore((state) => state.setSelectedTheoryId);
@@ -25,7 +25,14 @@ export function PlaybookTheoriesWorkspace() {
   });
 
   const theories = useMemo(() => theoriesQuery.data?.theories ?? [], [theoriesQuery.data?.theories]);
-  const selectedTheory = theories.find((theory) => theory.id === selectedTheoryId) ?? theories[0];
+  const requestedTheoryId = initialTheoryId ?? selectedTheoryId;
+  const selectedTheory = theories.find((theory) => theory.id === requestedTheoryId) ?? theories[0];
+
+  useEffect(() => {
+    if (selectedTheory && selectedTheory.id !== selectedTheoryId) {
+      setSelectedTheoryId(selectedTheory.id);
+    }
+  }, [selectedTheory, selectedTheoryId, setSelectedTheoryId]);
 
   if (theoriesQuery.isLoading) {
     return <StateBlock state="loading" title={t("theories.loadingTitle")} description={t("theories.loadingDescription")} />;
@@ -41,7 +48,7 @@ export function PlaybookTheoriesWorkspace() {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <section className="rounded-md border border-border bg-card/80">
+      <section className="rounded-md border border-border bg-surface/80">
         <div className="border-b border-border px-4 py-3">
           <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.kicker")}</p>
           <h2 className="mt-1 text-sm font-semibold">{t("theories.title")}</h2>
@@ -54,8 +61,8 @@ export function PlaybookTheoriesWorkspace() {
               onClick={() => setSelectedTheoryId(theory.id)}
               className={
                 theory.id === selectedTheory.id
-                  ? "w-full border-l-2 border-accent bg-panel px-4 py-3 text-left"
-                  : "w-full border-l-2 border-transparent px-4 py-3 text-left hover:bg-panel/70"
+                  ? "w-full border-l-2 border-accent bg-surface-secondary px-4 py-3 text-left"
+                  : "w-full border-l-2 border-transparent px-4 py-3 text-left hover:bg-surface-secondary/70"
               }
             >
               <div className="flex items-center justify-between gap-2">
@@ -69,10 +76,10 @@ export function PlaybookTheoriesWorkspace() {
       </section>
 
       <section className="space-y-4">
-        <section className="rounded-md border border-border bg-card/80 p-4">
+        <section className="rounded-md border border-border bg-surface/80 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.selected")}</p>
+              <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.theoryDetail")}</p>
               <h2 className="mt-1 text-lg font-semibold">{selectedTheory.name}</h2>
             </div>
             <div className="flex gap-2 text-xs">
@@ -92,8 +99,8 @@ export function PlaybookTheoriesWorkspace() {
           </div>
         </section>
 
-        <section className="rounded-md border border-border bg-card/80 p-4">
-          <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.rules")}</p>
+        <section className="rounded-md border border-border bg-surface/80 p-4">
+          <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.rulesArray")}</p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {selectedTheory.rules.map((rule) => (
               <div key={rule.id} className="rounded border border-border bg-background/60 p-3">
@@ -107,16 +114,19 @@ export function PlaybookTheoriesWorkspace() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-md border border-border bg-card/80 p-4">
-            <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.failureModes")}</p>
+          <div className="rounded-md border border-border bg-surface/80 p-4">
+            <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.validationNotes")}</p>
+            {selectedTheory.validationSummary ? (
+              <p className="mt-3 text-sm leading-6 text-muted">{selectedTheory.validationSummary}</p>
+            ) : null}
             <ul className="mt-3 space-y-2 text-sm text-muted">
               {selectedTheory.failureModes.map((mode) => (
                 <li key={mode}>{mode}</li>
               ))}
             </ul>
           </div>
-          <div className="rounded-md border border-border bg-card/80 p-4">
-            <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.currentMatches")}</p>
+          <div className="rounded-md border border-border bg-surface/80 p-4">
+            <p className="text-[11px] uppercase tracking-wider text-muted">{t("theories.matchedSignals")}</p>
             <div className="mt-3 space-y-2">
               {selectedTheory.currentMatches.length ? (
                 selectedTheory.currentMatches.map((match) => (

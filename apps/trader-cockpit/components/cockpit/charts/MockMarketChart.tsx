@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useTranslation } from "react-i18next";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
@@ -30,7 +30,7 @@ export function MockMarketChart() {
   const setChartTimeframe = useCockpitUiStore((state) => state.setChartTimeframe);
 
   return (
-    <section className="rounded-md border border-border bg-card/80 p-4">
+    <section className="rounded-md border border-border bg-surface/80 p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-wider text-muted">{t("chart.kicker")}</p>
@@ -44,7 +44,7 @@ export function MockMarketChart() {
               onClick={() => setChartTimeframe(value)}
               className={
                 timeframe === value
-                  ? "rounded bg-accent px-2.5 py-1 font-medium text-background"
+                  ? "rounded bg-accent px-2.5 py-1 font-medium text-accent-foreground"
                   : "rounded px-2.5 py-1 text-muted hover:text-foreground"
               }
             >
@@ -78,7 +78,7 @@ export function MockMarketChart() {
         </div>
         <div className="rounded border border-border bg-background/60 p-2">
           <p className="text-muted">{t("chart.trigger")}</p>
-          <p className="mt-1 font-medium text-positive">423.10</p>
+          <p className="mt-1 font-medium text-success">423.10</p>
         </div>
         <div className="rounded border border-border bg-background/60 p-2">
           <p className="text-muted">{t("chart.invalidation")}</p>

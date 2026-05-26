@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Activity, AlertTriangle, CheckCircle2, CircleDotDashed } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,7 @@ const statusIcon: Record<AgentEventStatus, typeof Activity> = {
 
 const statusClass: Record<AgentEventStatus, string> = {
   running: "text-accent",
-  succeeded: "text-positive",
+  succeeded: "text-success",
   failed: "text-danger",
   blocked: "text-warning",
 };
@@ -25,7 +25,7 @@ export function AgentActionTimeline({ events }: { events: AgentEvent[] }) {
   const setMode = useCockpitUiStore((state) => state.setTimelineMode);
 
   return (
-    <section className="rounded-md border border-border bg-card/80">
+    <section className="rounded-md border border-border bg-surface/80">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <p className="text-[11px] uppercase tracking-wider text-muted">{t("timeline.kicker")}</p>

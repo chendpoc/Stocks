@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -39,7 +39,7 @@ export function SettingsWorkspace() {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <section className="rounded-md border border-border bg-card/80 p-4">
+      <section className="rounded-md border border-border bg-surface/80 p-4">
         <p className="text-[11px] uppercase tracking-wider text-muted">{t("settings.localPreferences")}</p>
         <h2 className="mt-1 text-lg font-semibold">{t("settings.title")}</h2>
         <div className="mt-4 space-y-4 text-sm">
@@ -84,7 +84,7 @@ export function SettingsWorkspace() {
         </div>
       </section>
 
-      <section className="rounded-md border border-border bg-card/80">
+      <section className="rounded-md border border-border bg-surface/80">
         <div className="border-b border-border px-4 py-3">
           <p className="text-[11px] uppercase tracking-wider text-muted">{t("settings.toolSources")}</p>
           <h2 className="mt-1 text-sm font-semibold">{t("settings.toolSourcesTitle")}</h2>
@@ -98,7 +98,7 @@ export function SettingsWorkspace() {
               </div>
               <span className="rounded border border-border px-2 py-1 text-xs text-muted">{t("common.readOnly")}</span>
               <p className="text-sm leading-5 text-muted">{tool.summary}</p>
-              <span className={tool.enabled ? "text-xs text-positive" : "text-xs text-muted"}>
+              <span className={tool.enabled ? "text-xs text-success" : "text-xs text-muted"}>
                 {tool.enabled ? t("common.enabled") : t("common.hidden")}
               </span>
             </div>

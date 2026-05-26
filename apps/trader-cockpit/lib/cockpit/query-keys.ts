@@ -24,8 +24,18 @@ export type LearningFilters = {
   type?: string;
 };
 
+export type TodayFocusFilters = {
+  query?: string;
+  type?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+};
+
 export const cockpitKeys = {
   dashboard: (scope: DashboardScope) => ["cockpit", "dashboard", scope] as const,
+  marketIntentExplanation: () => ["cockpit", "market-intent-explanation"] as const,
+  todayFocus: (filters: TodayFocusFilters = {}) => ["cockpit", "today-focus", filters] as const,
   signals: (filters: SignalFilters = {}) => ["cockpit", "signals", filters] as const,
   signal: (id: string) => ["cockpit", "signal", id] as const,
   inbox: (filters: InboxFilters = {}) => ["cockpit", "inbox", filters] as const,
