@@ -32,9 +32,10 @@
 5. [02-web-agent-cockpit-development/01-agent-core-to-cockpit-contract-gap-review.md](./02-web-agent-cockpit-development/01-agent-core-to-cockpit-contract-gap-review.md)：进入 Web Cockpit 真实接入前，确认当前 Agent Core API 与 Cockpit contract 缺口。
 6. [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md)：拆解数据库、事件总线、工具网关、RulePack、开发路线和验收标准。
 7. [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md)：拆解 AI 模型、RAG、MCP、市场工具和轻量化升级路线。
-8. [03-shared-agent-memory-prd.md](./03-shared-agent-memory-prd.md)：定义本地资料库索引、候选记忆、长期金融记忆、上下文注入和审计重建。
-9. [03-shared-agent-memory-development/README.md](./03-shared-agent-memory-development/README.md)：进入 Shared Agent Memory 开发前，确认 artifact catalog、Markdown heading chunk、FTS5、candidate review 和 audit/rebuild 设计。
-10. [01-agent-core-implementation-plan.md](./01-agent-core-implementation-plan.md)：Agent Core 第一版可执行开发计划。
+8. [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md)：定义未来 agent task orchestration、workflow runtime、只读 run viewer 和 workflow builder 的跨层边界。
+9. [03-shared-agent-memory-prd.md](./03-shared-agent-memory-prd.md)：定义本地资料库索引、候选记忆、长期金融记忆、上下文注入和审计重建。
+10. [03-shared-agent-memory-development/README.md](./03-shared-agent-memory-development/README.md)：进入 Shared Agent Memory 开发前，确认 artifact catalog、Markdown heading chunk、FTS5、candidate review 和 audit/rebuild 设计。
+11. [01-agent-core-implementation-plan.md](./01-agent-core-implementation-plan.md)：Agent Core 第一版可执行开发计划。
 
 ## 开发约束
 

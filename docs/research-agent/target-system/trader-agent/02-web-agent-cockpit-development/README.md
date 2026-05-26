@@ -26,13 +26,13 @@
 |---|---|
 | Product form | Agent Market Cockpit |
 | App framework | Next.js App Router + React + TypeScript |
-| UI system | shadcn/ui + Radix primitives + Tailwind tokens |
+| UI system | HeroUI + Tailwind v4 semantic tokens |
 | AI call boundary | Next.js API route for DeepSeek direct, read-only context only |
 | Server state | TanStack Query |
 | UI state | Zustand, only for local UI state |
-| Data table | TanStack Table |
-| Financial chart | TradingView Lightweight Charts |
-| Statistical chart | Recharts or Tremor |
+| Data table | HeroUI Table for current version; dedicated table library only when sorting/filtering complexity requires it |
+| Financial chart | Current mock chart first; TradingView Lightweight Charts remains a later enhancement |
+| Statistical chart | Current mock/stateless chart first; Recharts/Tremor remains a later enhancement |
 | Forms | React Hook Form + Zod |
 | Realtime v1 | polling + manual refresh + chat stream |
 
@@ -53,6 +53,13 @@
 | Component doc | Scope |
 |---|---|
 | [06-agent-action-timeline.md](./06-agent-action-timeline.md) | Embedded agent event and tool-source timeline used inside dashboard, signal detail, inbox, chat and learning views |
+| [16-agent-console-dlite-v3.md](./16-agent-console-dlite-v3.md) | Phase 0D Agent Console split: breadth-first workspace skeleton, then read-only Activity DAG module |
+
+## Cross-System Backlog
+
+| Roadmap doc | Scope |
+|---|---|
+| [05-agent-workflow-orchestration-roadmap.md](../05-agent-workflow-orchestration-roadmap.md) | Future workflow and agent task orchestration across Agent Core, Shared Platform and Cockpit |
 
 ## Excluded From First Version
 
@@ -113,13 +120,15 @@ Any first-version component depending on missing APIs must have mock fallback.
 | [01-agent-core-to-cockpit-contract-gap-review.md](./01-agent-core-to-cockpit-contract-gap-review.md) | Current API gap review |
 | [02-shared-cockpit-contracts.md](./02-shared-cockpit-contracts.md) | View models, tags, ScenarioPlan, PlaybookTheory, tool sources |
 | [03-live-dashboard.md](./03-live-dashboard.md) to [15-settings-and-tool-sources.md](./15-settings-and-tool-sources.md) | First-version page/module docs |
+| [16-agent-console-dlite-v3.md](./16-agent-console-dlite-v3.md) | D-lite v3 Agent Console development plan |
+| [05-agent-workflow-orchestration-roadmap.md](../05-agent-workflow-orchestration-roadmap.md) | Cross-system workflow orchestration roadmap and ownership split |
 
 ## Shared Quality Gate
 
 Run after document changes:
 
 ```powershell
-rg "TB[D]|TO[D]O|待[定]" docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-development docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-prd.md
+rg "TB[D]|TO[D]O|待[定]" docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-development docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-prd.md docs/research-agent/target-system/trader-agent/05-agent-workflow-orchestration-roadmap.md
 pnpm run docs:build
 ```
 
