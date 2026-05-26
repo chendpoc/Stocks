@@ -1,0 +1,483 @@
+{
+  "mockWatchlist": [
+    {
+      "symbol": "TSLA",
+      "price": 421.82,
+      "changePct": 1.74,
+      "score": 82,
+      "setup": "VWAP 回收",
+      "status": "等待触发",
+      "relativeVolume": 1.8,
+      "riskLevel": "high",
+      "reason": "动能改善，但 QQQ gate 仍是 caution。"
+    },
+    {
+      "symbol": "NVDA",
+      "price": 192.44,
+      "changePct": 0.62,
+      "score": 76,
+      "setup": "开盘区间守住",
+      "status": "接近触发",
+      "relativeVolume": 1.3,
+      "riskLevel": "medium",
+      "reason": "相对强度仍高于 QQQ。"
+    },
+    {
+      "symbol": "COIN",
+      "price": 284.11,
+      "changePct": -1.09,
+      "score": 61,
+      "setup": "BTC 相关股延迟反应",
+      "status": "需要更多证据",
+      "relativeVolume": 0.9,
+      "riskLevel": "high",
+      "reason": "BTC lead signal 已过期，需要刷新。"
+    },
+    {
+      "symbol": "BMNR",
+      "price": 57.38,
+      "changePct": -2.46,
+      "score": 43,
+      "setup": "新闻消化",
+      "status": "已失效",
+      "relativeVolume": 2.1,
+      "riskLevel": "critical",
+      "reason": "VWAP 回收失败，headline risk 未解除。"
+    }
+  ],
+  "mockSignals": [
+    {
+      "id": "mock-signal-tsla-watch",
+      "symbol": "TSLA",
+      "timeframe": "5m",
+      "setup": "VWAP 回收",
+      "score": 82,
+      "status": "waiting_trigger",
+      "tags": ["opportunity_watch", "market_intent", "risk_or_invalidation"],
+      "marketIntent": "高 beta 强度存在，但大盘确认还不完整。",
+      "marketGate": "caution",
+      "traderMatch": 0.78,
+      "riskLevel": "high",
+      "entryTrigger": "站上 VWAP 并连续两个 5m 收盘确认，同时 QQQ 稳定。",
+      "invalidation": "跌破 419.20，或 QQQ 跌破开盘区间。",
+      "nextWatch": "观察 QQQ 是否停止 lower-high，以及 TSLA 接下来两根 K 的相对量能。",
+      "scenarioPlan": {
+        "planId": "scenario-tsla-vwap",
+        "signalId": "mock-signal-tsla-watch",
+        "summary": "观察 TSLA 强度能否穿过 caution 状态下的 QQQ 盘面。",
+        "watchConditions": ["QQQ 停止 lower-high。", "TSLA 相对量能保持在 1.5x 以上。"],
+        "triggerConditions": ["两个 5m 收盘站上 VWAP。", "市场广度稳定在开盘中位线以上。"],
+        "invalidationConditions": ["TSLA 跌破 419.20。", "QQQ 跌破开盘区间。"],
+        "expectedPaths": ["如果 QQQ 稳定，TSLA 继续留在关注列表。", "如果 QQQ 走弱，取消关注。"],
+        "evidenceRefs": ["ev-qqq-state", "ev-zhao-rule"],
+        "confidence": "medium",
+        "tags": ["opportunity_watch", "market_intent"],
+        "validationDue": "today close"
+      },
+      "updatedAt": "09:48:31",
+      "thesis": "只有市场 gate 从 caution 改善到 pass 时，这个形态才值得继续观察。",
+      "missingConditions": ["QQQ 必须停止 lower-high。", "相对量能必须保持在 1.5x 以上。"],
+      "riskFlags": ["市场 gate caution", "高 beta 集中", "当日风险使用偏高"],
+      "ruleHits": [
+        {
+          "ruleId": "risk-high-beta-gate",
+          "label": "高 beta 需要市场确认",
+          "severity": "high",
+          "summary": "当 QQQ gate 是 caution 时，不能把 TSLA 解释成独立强势。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "ev-qqq-state",
+          "title": "QQQ 广度与 VWAP 状态",
+          "source": "market.snapshot.mock",
+          "timestamp": "09:46:18",
+          "confidence": 0.82
+        },
+        {
+          "id": "ev-zhao-rule",
+          "title": "赵哥被动减持窗口笔记",
+          "source": "rulepack.v0.1.mock",
+          "timestamp": "09:44:02",
+          "confidence": 0.76
+        }
+      ]
+    },
+    {
+      "id": "mock-signal-bmnr-invalidated",
+      "symbol": "BMNR",
+      "timeframe": "15m",
+      "setup": "利空后三天消化",
+      "score": 43,
+      "status": "invalidated",
+      "tags": ["risk_or_invalidation", "news_event", "rule_learning"],
+      "marketIntent": "价格行为否定了消化逻辑，headline risk 仍未解除。",
+      "marketGate": "block",
+      "traderMatch": 0.41,
+      "riskLevel": "critical",
+      "entryTrigger": "无触发。需要重新在早盘 VWAP 上方建立 base。",
+      "invalidation": "已经因 VWAP 失守和事件风险失效。",
+      "nextWatch": "等待新的吸收行为和 base 后，再重新评估该理论。",
+      "scenarioPlan": {
+        "planId": "scenario-bmnr-digestion",
+        "signalId": "mock-signal-bmnr-invalidated",
+        "summary": "把失败形态保留为后置验证样本。",
+        "watchConditions": ["出现新的量能吸收。", "headline risk 解除。"],
+        "triggerConditions": ["重新站回早盘 VWAP。", "卖压降低并形成 higher low。"],
+        "invalidationConditions": ["继续低于 VWAP。", "出现新的负面 headline。"],
+        "expectedPaths": ["当前已失效；只有新 base 形成后再回看。"],
+        "evidenceRefs": ["ev-bmnr-vwap"],
+        "confidence": "high",
+        "tags": ["risk_or_invalidation", "post_validation"]
+      },
+      "updatedAt": "09:39:04",
+      "thesis": "原来的消化逻辑已经不被价格行为支持。",
+      "missingConditions": ["新的量能吸收", "headline risk 解除", "risk gate 降到 critical 以下"],
+      "riskFlags": ["事件风险", "回收失败", "critical 风险等级"],
+      "ruleHits": [
+        {
+          "ruleId": "event-risk-block",
+          "label": "事件风险阻断关注升级",
+          "severity": "critical",
+          "summary": "新闻不确定性叠加 VWAP 回收失败，强制进入 invalidated 状态。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "ev-bmnr-vwap",
+          "title": "BMNR VWAP 回收失败",
+          "source": "market.snapshot.mock",
+          "timestamp": "09:37:42",
+          "confidence": 0.88
+        }
+      ]
+    },
+    {
+      "id": "mock-signal-nvda-near",
+      "symbol": "NVDA",
+      "timeframe": "10m",
+      "setup": "开盘区间守住",
+      "score": 76,
+      "status": "near_trigger",
+      "tags": ["opportunity_watch", "market_intent"],
+      "marketIntent": "相对强度完整，但突破确认还没有触发。",
+      "marketGate": "pass",
+      "traderMatch": 0.71,
+      "riskLevel": "medium",
+      "entryTrigger": "突破 193.10 且市场广度持续。",
+      "invalidation": "跌回开盘区间中位线下方。",
+      "nextWatch": "观察突破后第二根 10m K 是否继续守住。",
+      "scenarioPlan": {
+        "planId": "scenario-nvda-range",
+        "signalId": "mock-signal-nvda-near",
+        "summary": "在 pass market gate 下观察开盘区间延续。",
+        "watchConditions": ["价格保持在开盘区间中位线之上。", "QQQ 保持在 VWAP 上方。"],
+        "triggerConditions": ["突破 193.10。", "第二根 10m K 确认区间守住。"],
+        "invalidationConditions": ["跌回开盘区间中位线下方。"],
+        "expectedPaths": ["如果广度继续支持，则观察延续。", "如果量能衰减，则回到中性。"],
+        "evidenceRefs": ["ev-qqq-state"],
+        "confidence": "medium",
+        "tags": ["opportunity_watch"]
+      },
+      "updatedAt": "09:51:12",
+      "thesis": "相对强度完整，但触发条件尚未发生。",
+      "missingConditions": ["突破确认", "流动性来源刷新"],
+      "riskFlags": ["流动性来源未刷新"],
+      "ruleHits": [
+        {
+          "ruleId": "confirm-before-escalation",
+          "label": "先证伪再升级关注",
+          "severity": "medium",
+          "summary": "触发条件和来源检查一致前，不提升信号状态。"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "ev-qqq-state",
+          "title": "QQQ 广度与 VWAP 状态",
+          "source": "market.snapshot.mock",
+          "timestamp": "09:46:18",
+          "confidence": 0.82
+        },
+        {
+          "id": "ev-zhao-rule",
+          "title": "赵哥被动减持窗口笔记",
+          "source": "rulepack.v0.1.mock",
+          "timestamp": "09:44:02",
+          "confidence": 0.76
+        }
+      ]
+    }
+  ],
+  "mockInboxMessages": [
+    {
+      "id": "inbox-signal-tsla",
+      "type": "signal_watch",
+      "priority": "watch",
+      "title": "TSLA 关注计划需要市场确认",
+      "summary": "Agent 看到高 beta 强度，但 QQQ gate 仍是 caution。",
+      "objectLabel": "signal mock-signal-tsla-watch",
+      "createdAt": "09:49:02",
+      "acknowledged": false
+    },
+    {
+      "id": "inbox-risk-bmnr",
+      "type": "risk_invalidation",
+      "priority": "critical",
+      "title": "BMNR 信号被事件风险规则失效",
+      "summary": "VWAP 回收失败，同时事件风险未解除。",
+      "objectLabel": "signal mock-signal-bmnr-invalidated",
+      "createdAt": "09:39:11",
+      "acknowledged": false
+    },
+    {
+      "id": "inbox-learning",
+      "type": "learning_summary_ready",
+      "priority": "info",
+      "title": "有信息量的学习候选已生成",
+      "summary": "三天消化理论新增一个失败案例。",
+      "objectLabel": "learning learn-bmnr-validation",
+      "createdAt": "09:32:50",
+      "acknowledged": true
+    }
+  ],
+  "mockAgentEvents": [
+    {
+      "id": "mock-event-tool-running",
+      "runId": "run-tsla-0948",
+      "eventType": "agent.tool_call_started",
+      "status": "running",
+      "summary": "刷新 TSLA 市场快照与 QQQ 广度上下文。",
+      "toolName": "market_snapshot_mock",
+      "createdAt": "09:48:44",
+      "evidenceIds": ["ev-qqq-state"]
+    },
+    {
+      "id": "event-rule-hit",
+      "runId": "run-tsla-0948",
+      "eventType": "rule.hit",
+      "status": "succeeded",
+      "summary": "高 beta gate 规则命中 TSLA，当前 QQQ 状态为 caution。",
+      "durationMs": 42,
+      "createdAt": "09:48:21",
+      "evidenceIds": ["ev-zhao-rule"]
+    },
+    {
+      "id": "mock-event-tool-failed",
+      "runId": "run-coin-0942",
+      "eventType": "agent.tool_call_finished",
+      "status": "failed",
+      "summary": "BTC lead signal 获取失败；缓存值被标记为过期。",
+      "toolName": "btc_lead_signal_mock",
+      "durationMs": 1204,
+      "createdAt": "09:42:07",
+      "evidenceIds": []
+    },
+    {
+      "id": "event-learning-linked",
+      "runId": "run-bmnr-0939",
+      "eventType": "learning.case_linked",
+      "status": "succeeded",
+      "summary": "BMNR 失败形态已关联到三天消化理论。",
+      "durationMs": 18,
+      "createdAt": "09:49:02",
+      "evidenceIds": ["ev-bmnr-vwap", "ev-zhao-rule"]
+    }
+  ],
+  "mockPlaybookTheories": [
+    {
+      "id": "theory-three-day-digestion",
+      "name": "利空后三天消化",
+      "thesis": "重大负面持股或公司事件后，等待消化与价格吸收，再重新考虑关注。",
+      "source": "zhao",
+      "sourceEvidence": [
+        {
+          "id": "ev-zhao-rule",
+          "title": "赵哥被动减持窗口笔记",
+          "source": "rulepack.v0.1.mock",
+          "timestamp": "09:44:02",
+          "confidence": 0.76
+        }
+      ],
+      "applicableSymbols": ["BMNR", "事件驱动美股"],
+      "applicableRegimes": ["headline risk", "被动减持窗口"],
+      "confidence": "medium",
+      "status": "active",
+      "tags": ["rule_learning", "news_event", "risk_or_invalidation"],
+      "failureModes": ["headline risk 延续。", "价格低于 VWAP 时量能继续放大。"],
+      "currentMatches": [{ "signalId": "mock-signal-bmnr-invalidated", "symbol": "BMNR", "status": "invalidated" }],
+      "validationSummary": "已关联一个失败案例，后续用于比较。",
+      "rules": [
+        {
+          "id": "rule-three-day-wait",
+          "parentTheoryId": "theory-three-day-digestion",
+          "name": "等待消化窗口",
+          "condition": "负面事件刚发生，价格尚未重新建立 base。",
+          "effect": "decrease_confidence",
+          "explainText": "吸收行为出现前，保持低置信度。"
+        },
+        {
+          "id": "rule-digestion-invalidates-on-vwap-loss",
+          "parentTheoryId": "theory-three-day-digestion",
+          "name": "VWAP 失守使早期关注失效",
+          "condition": "价格失守 VWAP 且 headline risk 未解除。",
+          "effect": "invalidate_signal",
+          "explainText": "失效该 scenario，并保留为后置验证样本。"
+        }
+      ]
+    },
+    {
+      "id": "theory-btc-equity-lag",
+      "name": "BTC 到币股的延迟反应",
+      "thesis": "BTC 大幅波动可能延迟反映到相关股票，但 BTC 数据过期时必须降低置信度。",
+      "source": "manual",
+      "sourceEvidence": [
+        {
+          "id": "ev-btc-lag-note",
+          "title": "BTC lead-lag 观察笔记",
+          "source": "knowledge.search.mock",
+          "timestamp": "09:20:00",
+          "confidence": 0.66
+        }
+      ],
+      "applicableSymbols": ["COIN", "MSTR", "crypto-related equities"],
+      "applicableRegimes": ["crypto volatility", "pre-market sympathy"],
+      "confidence": "low",
+      "status": "candidate",
+      "tags": ["opportunity_watch", "external_unverified"],
+      "failureModes": ["BTC 来源过期。", "股票自身新闻导致不跟随 BTC。"],
+      "currentMatches": [],
+      "rules": [
+        {
+          "id": "rule-btc-move-threshold",
+          "parentTheoryId": "theory-btc-equity-lag",
+          "name": "BTC 波动阈值",
+          "condition": "BTC 波动超过 0.85%，且相关股票数据新鲜。",
+          "effect": "create_signal",
+          "explainText": "只有市场与标的数据新鲜时才创建关注信号。"
+        }
+      ]
+    }
+  ],
+  "mockLearningItems": [
+    {
+      "id": "learn-bmnr-validation",
+      "type": "post_validation",
+      "title": "BMNR 已作为失败验证案例加入",
+      "summary": "三天消化理论新增一个 VWAP 回收失败样本，用于后续比较。",
+      "confidence": "medium",
+      "tags": ["post_validation", "rule_learning"],
+      "evidence": [
+        {
+          "id": "ev-bmnr-vwap",
+          "title": "BMNR VWAP 回收失败",
+          "source": "market.snapshot.mock",
+          "timestamp": "09:37:42",
+          "confidence": 0.88
+        }
+      ],
+      "createdAt": "09:52:08"
+    },
+    {
+      "id": "learn-btc-lag-candidate",
+      "type": "low_confidence_candidate",
+      "title": "BTC lead-lag 候选需要更干净的证据",
+      "summary": "Agent 需要刷新 BTC 与相关股票快照，再提升这个规律的置信度。",
+      "confidence": "low",
+      "tags": ["external_unverified", "opportunity_watch"],
+      "evidence": [
+        {
+          "id": "ev-btc-lag-note",
+          "title": "BTC lead-lag 观察笔记",
+          "source": "knowledge.search.mock",
+          "timestamp": "09:20:00",
+          "confidence": 0.66
+        }
+      ],
+      "createdAt": "09:43:22"
+    }
+  ],
+  "mockToolSettings": [
+    {
+      "id": "tool-market-snapshot",
+      "name": "Market Snapshot",
+      "sourceType": "market",
+      "mode": "readonly",
+      "enabled": true,
+      "summary": "提供 mock market gate、观察池和证据卡片。"
+    },
+    {
+      "id": "tool-news-search",
+      "name": "News Search",
+      "sourceType": "news",
+      "mode": "readonly",
+      "enabled": true,
+      "summary": "在有数据时展示新闻与事件来源占位。"
+    },
+    {
+      "id": "tool-knowledge-search",
+      "name": "Knowledge Search",
+      "sourceType": "knowledge",
+      "mode": "readonly",
+      "enabled": true,
+      "summary": "通过 adapter 边界展示本地赵哥语料证据。"
+    },
+    {
+      "id": "tool-chat-model",
+      "name": "Chat Model",
+      "sourceType": "model",
+      "mode": "readonly",
+      "enabled": true,
+      "summary": "Phase 0 使用 mock stream；真实模型调用后续再接。"
+    }
+  ],
+  "mockChatStreamParts": [
+    {
+      "id": "chat-1",
+      "type": "text-delta",
+      "text": "结论：TSLA 是观察候选，不是已经确认的形态。"
+    },
+    {
+      "id": "chat-2",
+      "type": "tool",
+      "status": "running",
+      "toolName": "market_snapshot_mock",
+      "summary": "刷新 QQQ 广度与 TSLA VWAP 上下文。"
+    },
+    {
+      "id": "chat-3",
+      "type": "source",
+      "title": "市场 gate 快照",
+      "source": "market.snapshot.mock",
+      "timestamp": "09:46:18"
+    },
+    {
+      "id": "chat-4",
+      "type": "evidence",
+      "evidence": {
+        "id": "ev-qqq-state",
+        "title": "QQQ 广度与 VWAP 状态",
+        "source": "market.snapshot.mock",
+        "timestamp": "09:46:18",
+        "confidence": 0.82
+      }
+    },
+    {
+      "id": "chat-5",
+      "type": "warning",
+      "message": "高 beta gate 仍是 caution。Phase 0 的对话输出保持只读。"
+    },
+    {
+      "id": "chat-6",
+      "type": "text-delta",
+      "text": "触发条件：QQQ 必须停止 lower-high，且 TSLA 必须连续两个 5m 收盘守住 VWAP。"
+    },
+    {
+      "id": "chat-7",
+      "type": "done",
+      "traceId": "trace-mock-tsla-0949",
+      "usage": "mock stream, 7 parts"
+    }
+  ],
+  "emptySignalList": []
+}
