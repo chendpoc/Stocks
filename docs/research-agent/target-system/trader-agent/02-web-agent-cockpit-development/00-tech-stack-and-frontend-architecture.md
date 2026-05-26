@@ -2,14 +2,15 @@
 
 ## Goal
 
-定义 Web Agent Cockpit 的前端技术栈、目录结构、状态边界、实时连接方式和依赖约束。本文是所有页面实现文档的工程基线。
+Define the frontend stack, directory shape, state ownership, polling/stream strategy and boundary between Web Cockpit, Agent Core and model calls.
 
 ## Non-goals
 
-- 不定义 Layer 1 Agent Core 的策略逻辑。
-- 不定义 Layer 3 API 的数据库实现。
-- 不改造现有 `apps/research-console` 代码；最终 cockpit 新建为独立 workspace：`apps/trader-cockpit/`。
-- 不选择 MUI、Ant Design、Mantine、Chakra 作为主 UI 系统。
+- Do not define Agent Core strategy logic.
+- Do not define backend persistence.
+- Do not build a trading execution UI.
+- Do not introduce LangGraph or LangChain for the first frontend version.
+- Do not turn browser state into the source of truth for signals or learning.
 
 ## Stack Decision
 
@@ -21,74 +22,63 @@
 | Icons | lucide-react |
 | Server state | TanStack Query |
 | UI state | Zustand |
-| AI streaming | Vercel AI SDK compatible UI protocol |
-| Chat component references | AI Elements, assistant-ui |
+| Chat/model call | Next.js API route calling DeepSeek direct |
 | Table | TanStack Table |
 | Financial chart | TradingView Lightweight Charts |
 | Statistical chart | Recharts or Tremor |
 | Forms | React Hook Form + Zod |
-| Validation | Zod schemas shared with API client layer |
-| Testing | unit tests for adapters, component tests for critical states, Playwright for cockpit flows |
+| Validation | Zod schemas in API/client adapter layer |
+| Testing | adapter unit tests, component state tests, Playwright route smoke |
 
 ## Architecture Principles
 
-1. App Router owns routing, server boundaries, metadata and authenticated layouts.
-2. TanStack Query owns all server data, cache invalidation, pagination and refetch.
-3. Zustand owns only ephemeral UI state: selected tab, panel width, drawer open state, focused signal id, local filters before commit.
-4. WebSocket and SSE events update TanStack Query caches or append stream parts; they do not become a separate hidden data store.
-5. Frontend does not compute trading decisions. It renders `signal`, `rule_hit`, `risk`, `approval`, `tool_call`, `learning_summary` objects from backend contracts.
-6. Every write mutation routes through API client functions with Zod validation and audit metadata.
+1. App Router owns route composition and API route boundaries.
+2. TanStack Query owns server data, polling, stale state and invalidation.
+3. Zustand owns only UI preferences and selections.
+4. Polling updates query caches; stream parts append to chat runtime state.
+5. Frontend renders Agent Core outputs; it does not compute market decisions.
+6. Next.js model route can aggregate read-only context; it cannot mutate Agent Core objects.
+7. Missing backend contracts are represented as adapter fallback, not hidden component logic.
 
 ## Recommended Directory Shape
 
 ```text
 apps/trader-cockpit/
-  package.json
   app/
     (cockpit)/
       dashboard/live/page.tsx
+      signals/page.tsx
       chat/page.tsx
       inbox/page.tsx
-      tasks/page.tsx
-      rules/page.tsx
-      capabilities/page.tsx
-      approvals/page.tsx
-      signals/page.tsx
-      playbooks/page.tsx
-      journal/page.tsx
+      playbook-theories/page.tsx
       learning/page.tsx
       settings/page.tsx
-      audit/page.tsx
     api/
       agent-chat/route.ts
   components/
     cockpit/
       shell/
       dashboard/
+      signals/
       chat/
       inbox/
       timeline/
-      tasks/
-      rules/
-      capabilities/
-      approvals/
-      signals/
-      playbooks/
-      journal/
+      playbook-theories/
       learning/
       settings/
-      audit/
     ui/
   lib/
     cockpit/
-      api-client.ts
+      adapter.ts
+      real-readonly-adapter.ts
+      mock-adapter.ts
+      fixtures.ts
       query-keys.ts
-      realtime-client.ts
+      polling.ts
       schemas.ts
-      permissions.ts
-      audit.ts
+      tool-sources.ts
+      tags.ts
       errors.ts
-      formatters.ts
       use-cockpit-ui-store.ts
 ```
 
@@ -96,103 +86,105 @@ apps/trader-cockpit/
 
 | Boundary | Rule |
 |---|---|
-| `app/(cockpit)` | route composition only; no business calculation |
-| `components/cockpit/*` | UI composition, TanStack hooks, interaction state |
-| `components/ui/*` | reusable shadcn primitives only |
-| `lib/cockpit/api-client.ts` | all REST calls and mutation headers |
-| `lib/cockpit/realtime-client.ts` | WebSocket connection, SSE helper, dedupe and reconnect |
-| `lib/cockpit/schemas.ts` | Zod schemas for API DTOs and event payloads |
-| `lib/cockpit/query-keys.ts` | canonical TanStack Query key factory |
-| `lib/cockpit/use-cockpit-ui-store.ts` | UI-only Zustand slices |
+| `app/(cockpit)` | route composition only |
+| `app/api/agent-chat` | read-only context aggregation and DeepSeek direct call |
+| `components/cockpit/*` | UI composition, query hooks and local interactions |
+| `components/ui/*` | reusable shadcn primitives |
+| `lib/cockpit/adapter.ts` | stable view-model interface |
+| `lib/cockpit/real-readonly-adapter.ts` | existing Agent Core read endpoints only |
+| `lib/cockpit/mock-adapter.ts` | fallback for missing read contracts |
+| `lib/cockpit/polling.ts` | interval defaults, manual refresh and stale handling |
+| `lib/cockpit/schemas.ts` | Zod schemas for view models and API parts |
+| `lib/cockpit/use-cockpit-ui-store.ts` | UI-only state |
 
 ## State Model
 
 | State type | Owner | Examples |
 |---|---|---|
-| API data | TanStack Query | `signals`, `agent_tasks`, `approval_requests`, `agent_events`, `learning_summaries` |
-| Streaming message parts | AI SDK compatible chat runtime plus query cache snapshots | assistant text, tool part, evidence card, source citation |
-| Connection metadata | realtime client + UI store | connected, reconnecting, last event time |
-| UI preferences | Zustand | sidebar collapsed, table density, selected symbol, drawer open |
-| Form drafts | React Hook Form | task draft, rule draft, approval comment |
-| Persisted preferences | Layer 3 Configuration API | watchlist, notification preference, default timeframe |
+| API/read model data | TanStack Query | signals, market snapshot, agent events, theories, learning |
+| Streaming message parts | chat runtime + component state | assistant text, tool part, evidence card, source card |
+| Polling metadata | TanStack Query + polling helper | interval, last refresh, stale |
+| UI preferences | Zustand | sidebar collapsed, density, selected symbol, selected signal id |
+| Form drafts | React Hook Form | settings preferences only |
 
-API response data must not be copied into Zustand. A selected id in Zustand is allowed; the selected object must be resolved from Query cache.
+API response data must not be copied into Zustand. Store ids and UI flags only.
 
 ## Query Key Conventions
 
-Use a factory so cache invalidation is predictable:
-
 ```ts
 export const cockpitKeys = {
+  status: () => ["cockpit", "agent-status"],
   dashboard: (scope: DashboardScope) => ["cockpit", "dashboard", scope],
+  marketSnapshot: (scope: MarketScope) => ["cockpit", "market-snapshot", scope],
   signals: (filters: SignalFilters) => ["cockpit", "signals", filters],
   signal: (id: string) => ["cockpit", "signal", id],
+  signalExplanation: (id: string) => ["cockpit", "signal-explanation", id],
   agentEvents: (filters: EventFilters) => ["cockpit", "agent-events", filters],
-  tasks: (filters: TaskFilters) => ["cockpit", "tasks", filters],
-  approvals: (filters: ApprovalFilters) => ["cockpit", "approvals", filters],
-  rules: (filters: RuleFilters) => ["cockpit", "rules", filters],
-  capabilities: () => ["cockpit", "capabilities"],
-  learning: (range: DateRange) => ["cockpit", "learning", range],
+  agentRuns: (filters: RunFilters) => ["cockpit", "agent-runs", filters],
+  playbookTheories: (filters: TheoryFilters) => ["cockpit", "playbook-theories", filters],
+  learning: (filters: LearningFilters) => ["cockpit", "learning", filters],
+  knowledgeSearch: (input: KnowledgeSearchInput) => ["cockpit", "knowledge-search", input],
 };
 ```
 
-## Real-time Strategy
+## Polling And Stream Strategy
 
-| Channel | Use |
+| Surface | Strategy |
 |---|---|
-| `/ws/events` | global `agent_event.*`, rule hit, tool call, risk block, learning event |
-| `/ws/signals` | `signal.created`, `signal.updated`, `signal.invalidated`, `ticket.generated` |
-| `/ws/tasks` | `task.created`, `task.updated`, `task.paused`, `task.failed`, `task.completed` |
-| `/ws/approvals` | `approval.created`, `approval.updated`, `approval.expired`, `approval.decided` |
-| `/api/chat/stream` or Layer 3 SSE chat endpoint | Agent chat token stream, tool part stream, evidence/source parts |
+| dashboard | polling default 1 minute; user can switch to 5/15 minutes or manual |
+| signals | polling default 1 minute; manual refresh |
+| inbox | polling default 1 minute; unread state local |
+| playbook theories | fetch on page entry and manual refresh |
+| learning | fetch on page entry and manual refresh |
+| chat | stream response from `/api/agent-chat` |
 
-Reconnect behavior:
+WebSocket can be introduced later through the same adapter/query boundaries.
 
-- Exponential backoff capped at 30 seconds.
-- Heartbeat timeout after 45 seconds without event or pong.
-- On reconnect, call REST delta endpoint using last acknowledged `event_id` or `created_at`.
-- Dedupe by `event_id`; for objects use `version` or `updated_at` as secondary guard.
-- Surface connection state in shell, not as modal noise.
+## DeepSeek Route Boundary
+
+`/api/agent-chat` may:
+
+- fetch read-only context from Agent Core;
+- call DeepSeek direct with an API key stored server-side;
+- validate request and response shape with Zod;
+- return stream parts with source/tool/evidence metadata.
+
+It must not:
+
+- create or mutate signals;
+- create or mutate PlaybookTheory or PlaybookRule;
+- write learning proposals;
+- trigger order or execution actions.
 
 ## API Client Requirements
 
-Every request wrapper must:
-
-- Parse response with Zod.
-- Normalize API errors to `CockpitError`.
-- Attach request id and audit context for write actions.
-- Preserve pagination, sort and filter parameters.
+- Parse responses with Zod when schemas exist.
+- Normalize errors to `CockpitError`.
+- Surface fallback state when contracts are missing.
+- Preserve request id or trace id when backend provides it.
 - Never expose secrets or raw tool credentials to client code.
-
-## Security Boundaries
-
-- Browser receives capability metadata, not secrets.
-- Permission checks are server authoritative.
-- UI permission gates are affordance gates only.
-- Approval decision mutation must include explicit user intent, comment, visible object version and request id.
-- Audit log is read-only from frontend perspective.
 
 ## Implementation Tasks
 
-1. Create `app/(cockpit)` route group and authenticated cockpit layout.
-2. Add `lib/cockpit` API, schema, query key and realtime modules.
-3. Add missing shadcn primitives: table, tabs, sheet, dialog, popover, dropdown-menu, toast/sonner, skeleton, tooltip, scroll-area.
-4. Add TanStack Query provider with devtools only in local development.
-5. Add WebSocket provider and SSE chat helper.
-6. Add cockpit UI store with only layout and selection state.
-7. Add shared error, loading, empty and reconnect components.
+1. Create or repair first-version route group.
+2. Add adapter interfaces and real-readonly/mock implementations.
+3. Add query key factory and polling helper.
+4. Add tag and status schema.
+5. Add DeepSeek chat API route boundary.
+6. Add shared state components.
+7. Add route smoke and adapter tests.
 
 ## Acceptance
 
-- Route shell can mount all PRD pages without mixing old research summary naming into trader cockpit.
-- Server state and UI state have separate owners.
-- WebSocket reconnect and event dedupe behavior is testable without each page reimplementing it.
-- A page can be built by combining query hook, realtime subscription and shadcn primitives without custom one-off state architecture.
+- Route shell mounts only first-version routes.
+- Read-only backend calls stay inside adapter or chat API route.
+- Polling and fallback behavior are testable without page-specific custom logic.
+- No order, execution, approval-center or task-center dependency exists in first-version architecture.
 
 ## Tests
 
-- Unit test query key factory stability.
-- Unit test event dedupe and reconnect delta request logic.
-- Unit test API error normalization.
-- Component test cockpit shell with connected, reconnecting and offline states.
-- Playwright smoke test route navigation across all PRD routes.
+- Unit test query key factory.
+- Unit test adapter fallback behavior.
+- Unit test normalized errors.
+- Component test cockpit shell with fresh/stale/fallback states.
+- Playwright smoke test route navigation across first-version routes.

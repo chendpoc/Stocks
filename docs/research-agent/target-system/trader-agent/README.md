@@ -27,14 +27,16 @@
 
 1. [00-system-overview.md](./00-system-overview.md)：建立系统边界、三层架构和 MVP 范围。
 2. [01-agent-core-backend-prd.md](./01-agent-core-backend-prd.md)：拆解 Agent 大脑、规则、风控、学习闭环。
-3. [02-web-agent-cockpit-prd.md](./02-web-agent-cockpit-prd.md)：拆解 Web 工作台、实时对话、任务、规则、审批。
-4. [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md)：拆解数据库、事件总线、工具网关、RulePack、开发路线和验收标准。
-5. [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md)：拆解 AI 模型、RAG、MCP、市场工具和轻量化升级路线。
-6. [01-agent-core-implementation-plan.md](./01-agent-core-implementation-plan.md)：Agent Core 第一版可执行开发计划。
+3. [02-web-agent-cockpit-prd.md](./02-web-agent-cockpit-prd.md)：拆解 Agent Market Cockpit、市场意图解释、机会关注、Agent 对话和交易规律学习。
+4. [02-web-agent-cockpit-development/README.md](./02-web-agent-cockpit-development/README.md)：进入 Web Cockpit 实施前，确认第一版 route、mock fallback、只读接入和非目标。
+5. [02-web-agent-cockpit-development/01-agent-core-to-cockpit-contract-gap-review.md](./02-web-agent-cockpit-development/01-agent-core-to-cockpit-contract-gap-review.md)：进入 Web Cockpit 真实接入前，确认当前 Agent Core API 与 Cockpit contract 缺口。
+6. [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md)：拆解数据库、事件总线、工具网关、RulePack、开发路线和验收标准。
+7. [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md)：拆解 AI 模型、RAG、MCP、市场工具和轻量化升级路线。
+8. [01-agent-core-implementation-plan.md](./01-agent-core-implementation-plan.md)：Agent Core 第一版可执行开发计划。
 
 ## 开发约束
 
 - 不再扩展旧的本地研究工作台路线；后续工作应围绕 trader-agent 目标系统重构。
 - 旧代码必须接受目标系统重新分层：Agent Core Backend、Web Agent Cockpit、Shared Platform Layer。
 - 任何新模块都应说明它对应本目录哪一层、哪个模块、哪个验收标准。
-- 自动执行、实盘下单和高风险工具仍必须服从目标系统中的规则、风控和审批边界。
+- 当前 Web Cockpit 第一版不包含自动执行、实盘下单、模拟账户交易或订单审批中心；这些能力如未来需要，必须重新立项并补齐规则、风控和审批边界。
