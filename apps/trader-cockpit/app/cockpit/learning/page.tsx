@@ -8,5 +8,9 @@ function firstParam(value: string | string[] | undefined) {
 
 export default async function LearningPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  return <LearningWorkspace initialReviewId={firstParam(params["reviewId"])} />;
+  return (
+    <div className="h-full min-h-0 overflow-y-auto">
+      <LearningWorkspace initialReviewId={firstParam(params["reviewId"])} />
+    </div>
+  );
 }

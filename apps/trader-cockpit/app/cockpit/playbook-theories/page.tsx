@@ -8,5 +8,9 @@ function firstParam(value: string | string[] | undefined) {
 
 export default async function PlaybookTheoriesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  return <PlaybookTheoriesWorkspace initialTheoryId={firstParam(params["theoryId"])} />;
+  return (
+    <div className="h-full min-h-0 overflow-y-auto">
+      <PlaybookTheoriesWorkspace initialTheoryId={firstParam(params["theoryId"])} />
+    </div>
+  );
 }

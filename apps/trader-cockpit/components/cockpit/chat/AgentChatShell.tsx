@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Button, Input } from "@heroui/react";
 import { AlertTriangle, RotateCcw, Send, Square, Wrench } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -141,23 +142,27 @@ export function AgentChatShell() {
           </div>
           <div className="flex gap-2">
             {isStreaming ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => abortRef.current?.abort()}
                 className="inline-flex items-center gap-2 rounded-md border border-danger/50 px-3 py-1.5 text-xs text-danger"
               >
                 <Square className="h-3.5 w-3.5" />
                 {t("chat.stop")}
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => void runStream(input)}
                 className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 {t("chat.retry")}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -182,20 +187,20 @@ export function AgentChatShell() {
           ) : null}
         </div>
         <form onSubmit={handleSubmit} className="sticky bottom-0 flex gap-2 border-t border-border bg-surface p-4">
-          <input
+          <Input
             value={input}
             onChange={(event) => setInput(event.target.value)}
             className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             aria-label={t("chat.messageAria")}
           />
-          <button
+          <Button
             type="submit"
-            disabled={isStreaming}
+            isDisabled={isStreaming}
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             {t("chat.send")}
-          </button>
+          </Button>
         </form>
       </section>
       <aside className="space-y-4">

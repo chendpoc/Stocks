@@ -1,4 +1,9 @@
 import type {
+  AgentConsoleInput,
+  AgentConsoleViewModel,
+  AgentActivityEdge,
+  AgentActivityNode,
+  ContextUsedSummary,
   AgentEventInput,
   AgentEventListViewModel,
   ChatStreamInput,
@@ -21,6 +26,7 @@ import type {
 } from "./adapter";
 import {
   mockAgentEvents,
+  mockAgentConsole,
   mockChatStreamParts,
   mockInboxMessages,
   mockLearningItems,
@@ -77,6 +83,28 @@ function filterTodayFocusItems(input?: TodayFocusListInput): TodayFocusItem[] {
     const statusMatch = !input?.status || item.status === input.status;
     return queryMatch && typeMatch && statusMatch;
   });
+}
+
+function getSelectedWorkstreamId(input?: AgentConsoleInput): string {
+  const requestedWorkstream = mockAgentConsole.workstreams.find((workstream) => workstream.id === input?.workstreamId);
+  return requestedWorkstream?.id ?? mockAgentConsole.selectedWorkstreamId;
+}
+
+function filterTraceNodes(workstreamId: string): AgentActivityNode[] {
+  return mockAgentConsole.trace.nodes.filter((node) => node.workstreamId === workstreamId);
+}
+
+function filterTraceEdges(nodes: AgentActivityNode[]): AgentActivityEdge[] {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  return mockAgentConsole.trace.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+}
+
+function getFixtureContextUsed(workstreamId: string): ContextUsedSummary {
+  const context = mockAgentConsole.contextUsedByWorkstream.find((item) => item.workstreamId === workstreamId);
+  if (!context) {
+    throw new Error(`Agent Console context fixture missing for workstream: ${workstreamId}`);
+  }
+  return context;
 }
 
 export const mockCockpitAdapter: CockpitDataAdapter = {
@@ -161,6 +189,28 @@ export const mockCockpitAdapter: CockpitDataAdapter = {
         density: "compact",
         chartTimeframe: "5m",
       },
+    };
+  },
+
+  async getAgentConsole(input?: AgentConsoleInput): Promise<AgentConsoleViewModel> {
+    const selectedWorkstreamId = getSelectedWorkstreamId(input);
+    const nodes = filterTraceNodes(selectedWorkstreamId);
+    const selectedNodeId = nodes.some((node) => node.id === mockAgentConsole.trace.selectedNodeId)
+      ? mockAgentConsole.trace.selectedNodeId
+      : nodes[0]?.id;
+
+    return {
+      workstreams: mockAgentConsole.workstreams,
+      selectedWorkstreamId,
+      priorityPushes: mockAgentConsole.priorityPushes.slice(0, 3),
+      messages: mockAgentConsole.messages.filter((message) => message.workstreamId === selectedWorkstreamId),
+      trace: {
+        workstreamId: selectedWorkstreamId,
+        nodes,
+        edges: filterTraceEdges(nodes),
+        selectedNodeId,
+      },
+      contextUsed: getFixtureContextUsed(selectedWorkstreamId),
     };
   },
 

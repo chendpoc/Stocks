@@ -641,5 +641,316 @@
       "usage": "mock stream, 7 parts"
     }
   ],
+  "mockAgentConsole": {
+    "workstreams": [
+      {
+        "id": "ws-tsla-market-gate",
+        "title": "TSLA 市场 gate 复核",
+        "symbols": ["TSLA", "QQQ"],
+        "status": "updated",
+        "unreadCount": 2,
+        "summary": "Agent 正在解释 TSLA 为什么仍停留在观察层，核心约束是 QQQ lower-high 与 VWAP 确认不足。",
+        "updatedAt": "09:58:12"
+      },
+      {
+        "id": "ws-bmnr-risk-sample",
+        "title": "BMNR 风险样本复盘",
+        "symbols": ["BMNR"],
+        "status": "active",
+        "unreadCount": 1,
+        "summary": "BMNR 已转为失败样本，Agent 只保留证据与规则命中，不升级后续动作。",
+        "updatedAt": "09:50:41"
+      },
+      {
+        "id": "ws-btc-lag-cleanup",
+        "title": "BTC lead-lag 来源刷新",
+        "symbols": ["BTC", "COIN", "MSTR"],
+        "status": "quiet",
+        "unreadCount": 0,
+        "summary": "BTC 到相关股票的延迟反应证据仍不干净，当前只等待来源刷新。",
+        "updatedAt": "09:44:07"
+      }
+    ],
+    "selectedWorkstreamId": "ws-tsla-market-gate",
+    "priorityPushes": [
+      {
+        "id": "msg-tsla-agent-push-1",
+        "workstreamId": "ws-tsla-market-gate",
+        "role": "agent_push",
+        "createdAt": "09:58:12",
+        "text": "TSLA 主动性还在，但 QQQ lower-high 没有解除；Agent 建议继续保持只读观察。",
+        "tags": ["market_intent", "risk_or_invalidation"],
+        "relatedNodeIds": ["node-tsla-risk-check"]
+      },
+      {
+        "id": "msg-bmnr-agent-push-1",
+        "workstreamId": "ws-bmnr-risk-sample",
+        "role": "agent_push",
+        "createdAt": "09:50:41",
+        "text": "BMNR 失败路径已沉淀为复盘样本，可用于校准三日消化规则。",
+        "tags": ["rule_learning", "post_validation"],
+        "relatedNodeIds": ["node-bmnr-learning"]
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-tsla-user-1",
+        "workstreamId": "ws-tsla-market-gate",
+        "role": "user",
+        "createdAt": "09:54:02",
+        "text": "为什么 TSLA 现在还不能确认？",
+        "tags": ["market_intent"],
+        "relatedNodeIds": ["node-tsla-question"]
+      },
+      {
+        "id": "msg-tsla-agent-1",
+        "workstreamId": "ws-tsla-market-gate",
+        "role": "agent",
+        "createdAt": "09:55:18",
+        "text": "核心原因是市场确认不足：TSLA 相对强度存在，但 QQQ 仍是 caution，不能把单票主动性解释成完整机会。",
+        "tags": ["market_intent", "opportunity_watch"],
+        "relatedNodeIds": ["node-tsla-market", "node-tsla-rule"]
+      },
+      {
+        "id": "msg-tsla-agent-push-1",
+        "workstreamId": "ws-tsla-market-gate",
+        "role": "agent_push",
+        "createdAt": "09:58:12",
+        "text": "TSLA 主动性还在，但 QQQ lower-high 没有解除；Agent 建议继续保持只读观察。",
+        "tags": ["market_intent", "risk_or_invalidation"],
+        "relatedNodeIds": ["node-tsla-risk-check"]
+      },
+      {
+        "id": "msg-tsla-agent-2",
+        "workstreamId": "ws-tsla-market-gate",
+        "role": "agent",
+        "createdAt": "09:59:04",
+        "text": "下一步只看两个条件：QQQ 不再走 lower-high，以及 TSLA 连续两根 5m K 守住 VWAP。",
+        "tags": ["market_intent", "opportunity_watch"],
+        "relatedNodeIds": ["node-tsla-rule"]
+      },
+      {
+        "id": "msg-bmnr-agent-push-1",
+        "workstreamId": "ws-bmnr-risk-sample",
+        "role": "agent_push",
+        "createdAt": "09:50:41",
+        "text": "BMNR 失败路径已沉淀为复盘样本，可用于校准三日消化规则。",
+        "tags": ["rule_learning", "post_validation"],
+        "relatedNodeIds": ["node-bmnr-learning"]
+      }
+    ],
+    "trace": {
+      "workstreamId": "ws-tsla-market-gate",
+      "selectedNodeId": "node-tsla-risk-check",
+      "nodes": [
+        {
+          "id": "node-tsla-question",
+          "workstreamId": "ws-tsla-market-gate",
+          "kind": "user_question",
+          "status": "completed",
+          "title": "用户追问",
+          "summary": "用户要求解释 TSLA 为什么仍不能确认。",
+          "evidenceBullets": ["问题绑定 TSLA 与当前 chat workstream。", "需要结合市场 gate、新闻扫描与规则命中。"],
+          "relatedLearningRefs": [],
+          "askPrompts": ["TSLA 需要满足哪些确认条件？", "当前回答用了哪些上下文？"],
+          "createdAt": "09:54:02"
+        },
+        {
+          "id": "node-tsla-market",
+          "workstreamId": "ws-tsla-market-gate",
+          "kind": "market_snapshot",
+          "status": "completed",
+          "title": "市场快照",
+          "summary": "TSLA 保持相对强度，但 QQQ lower-high 仍让市场 gate 停留在 caution。",
+          "evidenceBullets": ["TSLA 贴近 VWAP 且相对量能高于 1.5x。", "QQQ 没有重新站稳开盘区间上沿。"],
+          "relatedLearningRefs": [],
+          "askPrompts": ["QQQ gate 为什么仍是 caution？", "TSLA 的下一根确认 K 要看什么？"],
+          "createdAt": "09:54:20"
+        },
+        {
+          "id": "node-tsla-news",
+          "workstreamId": "ws-tsla-market-gate",
+          "kind": "news_scan",
+          "status": "completed",
+          "title": "新闻扫描",
+          "summary": "没有发现足以单独改变 TSLA 观察层级的新事件，新闻侧保持中性。",
+          "evidenceBullets": ["未发现新的高置信事件催化。", "当前解释仍以市场结构与规则为主。"],
+          "relatedLearningRefs": [],
+          "askPrompts": ["新闻扫描有没有改变结论？", "哪些来源还需要刷新？"],
+          "createdAt": "09:54:28"
+        },
+        {
+          "id": "node-tsla-rule",
+          "workstreamId": "ws-tsla-market-gate",
+          "kind": "rule_match",
+          "status": "completed",
+          "title": "规则命中",
+          "summary": "高 beta 需要市场确认规则命中，TSLA 不能脱离 QQQ gate 单独升级。",
+          "evidenceBullets": ["规则 risk-high-beta-gate 命中。", "市场 gate caution 时只保留观察计划。"],
+          "relatedLearningRefs": [
+            {
+              "id": "theory-three-day-digestion",
+              "title": "利空后三天消化",
+              "href": "/cockpit/playbook-theories?theoryId=theory-three-day-digestion"
+            }
+          ],
+          "askPrompts": ["这条规则如何影响 TSLA？", "相关规则还有哪些失败样本？"],
+          "createdAt": "09:55:01"
+        },
+        {
+          "id": "node-tsla-risk-check",
+          "workstreamId": "ws-tsla-market-gate",
+          "kind": "risk_check",
+          "status": "warning",
+          "title": "风险检查",
+          "summary": "风险不是来自单票，而是来自市场确认不足和高 beta 聚集。",
+          "evidenceBullets": ["QQQ gate 仍是 caution。", "TSLA、NVDA 同时依赖市场广度改善。"],
+          "relatedLearningRefs": [],
+          "askPrompts": ["如果 QQQ 继续走弱，TSLA 如何失效？", "是否还有其他高 beta 同步风险？"],
+          "createdAt": "09:56:12"
+        },
+        {
+          "id": "node-tsla-learning",
+          "workstreamId": "ws-tsla-market-gate",
+          "kind": "learning_candidate",
+          "status": "pending",
+          "title": "学习候选",
+          "summary": "如果 TSLA 后续确认失败，可作为高 beta gate 规则的负样本。",
+          "evidenceBullets": ["当前仅是候选，未进入复盘页状态。", "需要收盘后结果对照。"],
+          "relatedLearningRefs": [
+            {
+              "id": "learn-bmnr-validation",
+              "title": "BMNR 已作为失败验证案例加入",
+              "href": "/cockpit/learning?reviewId=learn-bmnr-validation"
+            }
+          ],
+          "askPrompts": ["什么情况下会形成有价值的学习样本？", "当前为什么只是候选？"],
+          "createdAt": "09:57:30"
+        },
+        {
+          "id": "node-bmnr-learning",
+          "workstreamId": "ws-bmnr-risk-sample",
+          "kind": "learning_candidate",
+          "status": "completed",
+          "title": "BMNR 复盘样本",
+          "summary": "BMNR 已完成失败样本关联，用于后续比较三日消化规则。",
+          "evidenceBullets": ["VWAP 回收失败。", "事件不确定性没有解除。"],
+          "relatedLearningRefs": [
+            {
+              "id": "learn-bmnr-validation",
+              "title": "BMNR 已作为失败验证案例加入",
+              "href": "/cockpit/learning?reviewId=learn-bmnr-validation"
+            }
+          ],
+          "askPrompts": ["BMNR 失败路径与 TSLA 有什么不同？"],
+          "createdAt": "09:50:41"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge-question-market",
+          "source": "node-tsla-question",
+          "target": "node-tsla-market",
+          "label": "读取市场"
+        },
+        {
+          "id": "edge-question-news",
+          "source": "node-tsla-question",
+          "target": "node-tsla-news",
+          "label": "读取新闻"
+        },
+        {
+          "id": "edge-market-rule",
+          "source": "node-tsla-market",
+          "target": "node-tsla-rule",
+          "label": "市场条件"
+        },
+        {
+          "id": "edge-news-rule",
+          "source": "node-tsla-news",
+          "target": "node-tsla-rule",
+          "label": "事件条件"
+        },
+        {
+          "id": "edge-rule-risk",
+          "source": "node-tsla-rule",
+          "target": "node-tsla-risk-check",
+          "label": "约束检查"
+        },
+        {
+          "id": "edge-risk-learning",
+          "source": "node-tsla-risk-check",
+          "target": "node-tsla-learning",
+          "label": "结果跟踪"
+        }
+      ]
+    },
+    "contextUsed": {
+      "workstreamId": "ws-tsla-market-gate",
+      "marketFacts": [
+        "TSLA 贴近 VWAP 且相对量能仍高。",
+        "QQQ 仍存在 lower-high 结构，market gate 为 caution。",
+        "NVDA 同类高 beta 强度没有完全退潮。"
+      ],
+      "activeLearnings": [
+        "高 beta 个股需要市场确认，不能只看单票主动性。",
+        "失败样本需要保留证据链，避免后续重复误读。"
+      ],
+      "preferences": [
+        "优先给出等待理由，而不是给出动作建议。",
+        "默认中文、紧凑密度、只读解释。"
+      ]
+    },
+    "contextUsedByWorkstream": [
+      {
+        "workstreamId": "ws-tsla-market-gate",
+        "marketFacts": [
+          "TSLA 贴近 VWAP 且相对量能仍高。",
+          "QQQ 仍存在 lower-high 结构，market gate 为 caution。",
+          "NVDA 同类高 beta 强度没有完全退潮。"
+        ],
+        "activeLearnings": [
+          "高 beta 个股需要市场确认，不能只看单票主动性。",
+          "失败样本需要保留证据链，避免后续重复误读。"
+        ],
+        "preferences": [
+          "优先给出等待理由，而不是给出动作建议。",
+          "默认中文、紧凑密度、只读解释。"
+        ]
+      },
+      {
+        "workstreamId": "ws-bmnr-risk-sample",
+        "marketFacts": [
+          "BMNR VWAP 回收失败。",
+          "事件不确定性没有解除。",
+          "当前状态只适合作为复盘样本。"
+        ],
+        "activeLearnings": [
+          "三日消化理论需要失败样本校准。",
+          "利空未消化前不把反弹解释为确认。"
+        ],
+        "preferences": [
+          "失败样本保留证据链。",
+          "复盘内容优先进入 learning，而不是进入关注计划。"
+        ]
+      },
+      {
+        "workstreamId": "ws-btc-lag-cleanup",
+        "marketFacts": [
+          "BTC 与 COIN/MSTR 的 lead-lag 证据仍不干净。",
+          "当前来源刷新间隔不足以支持高置信解释。",
+          "币股联动需要同时看 BTC 变动幅度和股票盘口延迟。"
+        ],
+        "activeLearnings": [
+          "BTC 涨跌幅超过阈值后，币股可能出现滞后反应。",
+          "来源不一致时只保留观察，不提升为机会。"
+        ],
+        "preferences": [
+          "币股联动先解释证据来源，再解释可能路径。",
+          "没有干净来源时不要输出强判断。"
+        ]
+      }
+    ]
+  },
   "emptySignalList": []
 }

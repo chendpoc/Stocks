@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Table } from "@heroui/react";
+import { Chip, Table } from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -10,6 +10,7 @@ import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
+import { CockpitSelect } from "@/components/cockpit/ui/CockpitSelect";
 
 function riskClass(value: string) {
   if (value === "critical" || value === "high" || value === "block") return "text-danger";
@@ -47,7 +48,7 @@ type SignalColumn = {
 export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState("all");
-  const [pendingInitialSignalId, setPendingInitialSignalId] = useState<string | null | undefined>(initialSignalId);
+  const [activeSignalId, setActiveSignalId] = useState<string | null>(initialSignalId ?? null);
   const selectedSignalId = useCockpitUiStore((state) => state.selectedSignalId);
   const setSelectedSignalId = useCockpitUiStore((state) => state.setSelectedSignalId);
   const setSelectedSymbol = useCockpitUiStore((state) => state.setSelectedSymbol);
@@ -57,8 +58,7 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
     queryFn: () => cockpitAdapter.listSignals({ status }),
   });
   const signals = signalsQuery.data?.signals ?? [];
-  const requestedSignalId = initialSignalId ?? selectedSignalId;
-  const effectiveSignalId = pendingInitialSignalId ?? requestedSignalId ?? signals[0]?.id ?? null;
+  const effectiveSignalId = activeSignalId ?? selectedSignalId ?? signals[0]?.id ?? null;
   const detailQuery = useQuery({
     queryKey: cockpitKeys.signal(effectiveSignalId ?? "none"),
     queryFn: () => {
@@ -70,20 +70,25 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
     },
     enabled: Boolean(effectiveSignalId),
   });
+  const selectedSignalKeys = useMemo(
+    () => (effectiveSignalId ? new Set([effectiveSignalId]) : new Set<string>()),
+    [effectiveSignalId],
+  );
 
   useEffect(() => {
-    setPendingInitialSignalId(initialSignalId);
+    if (initialSignalId) {
+      setActiveSignalId(initialSignalId);
+    }
   }, [initialSignalId]);
 
   useEffect(() => {
-    if (!pendingInitialSignalId || !detailQuery.data || detailQuery.data.id !== pendingInitialSignalId) {
+    if (!detailQuery.data) {
       return;
     }
 
-    setSelectedSignalId(effectiveSignalId);
+    setSelectedSignalId(detailQuery.data.id);
     setSelectedSymbol(detailQuery.data.symbol);
-    setPendingInitialSignalId(null);
-  }, [detailQuery.data, effectiveSignalId, pendingInitialSignalId, setSelectedSignalId, setSelectedSymbol]);
+  }, [detailQuery.data, setSelectedSignalId, setSelectedSymbol]);
 
   const columns = useMemo<SignalColumn[]>(
     () => [
@@ -108,7 +113,7 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
         key: "tags",
         header: t("common.tags"),
         render: (signal) => (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-nowrap gap-1">
             {signal.tags.slice(0, 3).map((tag) => (
               <span key={tag} className={`rounded border px-1.5 py-0.5 text-[11px] ${tagClass(tag)}`}>
                 {tag}
@@ -133,6 +138,15 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
     [t],
   );
 
+  function selectSignal(signalId: string) {
+    const signal = signals.find((item) => item.id === signalId);
+    if (!signal) return;
+
+    setActiveSignalId(signal.id);
+    setSelectedSignalId(signal.id);
+    setSelectedSymbol(signal.symbol);
+  }
+
   if (signalsQuery.isLoading) {
     return <StateBlock state="loading" title={t("signals.loadingTitle")} description={t("signals.loadingDescription")} />;
   }
@@ -142,42 +156,54 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section className="rounded-md border border-border bg-surface/80">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="grid h-full min-h-0 gap-4 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_420px] xl:overflow-hidden">
+      <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-surface/80">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("signals.workspace")}</p>
             <h2 className="mt-1 text-sm font-semibold">{t("signals.subtitle")}</h2>
           </div>
-          <select
+          <CockpitSelect
+            ariaLabel={t("signals.statusFilter")}
             value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs"
-            aria-label={t("signals.statusFilter")}
-          >
-            {["all", "watching", "waiting_trigger", "near_trigger", "triggered_for_attention", "invalidated", "needs_more_evidence"].map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+            className="w-[220px]"
+            options={["all", "watching", "waiting_trigger", "near_trigger", "triggered_for_attention", "invalidated", "needs_more_evidence"].map((item) => ({
+              value: item,
+              label: item,
+            }))}
+            onChange={setStatus}
+          />
         </div>
-        <Table>
-          <Table.ScrollContainer>
-            <Table.Content aria-label={t("signals.workspace")}>
+        <Table className="min-h-0 flex-1">
+          <Table.ScrollContainer className="h-full overflow-x-auto">
+            <Table.Content
+              className="min-w-[1120px]"
+              aria-label={t("signals.workspace")}
+              selectionMode="single"
+              selectedKeys={selectedSignalKeys}
+              onRowAction={(key) => selectSignal(String(key))}
+              onSelectionChange={(keys) => {
+                if (keys === "all") return;
+                const nextKey = Array.from(keys)[0];
+                if (nextKey) {
+                  selectSignal(String(nextKey));
+                }
+              }}
+            >
               <Table.Header>
                 {columns.map((column) => (
-                  <Table.Column key={column.key}>{column.header}</Table.Column>
+                  <Table.Column key={column.key} className="whitespace-nowrap" isRowHeader={column.key === "symbol"}>
+                    {column.header}
+                  </Table.Column>
                 ))}
               </Table.Header>
               <Table.Body>
                 {signals.map((signal) => (
                   <Table.Row
                     key={signal.id}
-                    onClick={() => {
-                      setSelectedSignalId(signal.id);
-                      setSelectedSymbol(signal.symbol);
-                    }}
+                    id={signal.id}
+                    textValue={`${signal.symbol} ${signal.setup}`}
+                    onClick={() => selectSignal(signal.id)}
                     className={
                       signal.id === effectiveSignalId
                         ? "cursor-pointer border-l-2 border-accent bg-surface-secondary"
@@ -185,7 +211,13 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
                     }
                   >
                     {columns.map((column) => (
-                      <Table.Cell key={column.key}>{column.render(signal)}</Table.Cell>
+                      <Table.Cell
+                        key={column.key}
+                        className="whitespace-nowrap"
+                        onClick={() => selectSignal(signal.id)}
+                      >
+                        {column.render(signal)}
+                      </Table.Cell>
                     ))}
                   </Table.Row>
                 ))}
@@ -194,7 +226,7 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
           </Table.ScrollContainer>
         </Table>
       </section>
-      <aside className="rounded-md border border-border bg-surface/80 p-4">
+      <aside className="min-h-0 overflow-y-auto rounded-md border border-border bg-surface/80 p-4">
         {detailQuery.data ? (
           <>
             <p className="text-[11px] uppercase tracking-wider text-muted">{t("signals.detail")}</p>
@@ -206,9 +238,9 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
                 {detailQuery.data.status}
               </span>
               {detailQuery.data.tags.map((tag) => (
-                <span key={tag} className={`rounded border px-2 py-1 text-xs ${tagClass(tag)}`}>
+                <Chip key={tag} size="sm" className={`border bg-transparent ${tagClass(tag)}`}>
                   {tag}
-                </span>
+                </Chip>
               ))}
             </div>
             <p className="mt-3 text-sm leading-6 text-muted">{detailQuery.data.thesis}</p>

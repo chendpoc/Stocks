@@ -8,5 +8,9 @@ function firstParam(value: string | string[] | undefined) {
 
 export default async function AgentInboxPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  return <AgentInbox initialEventId={firstParam(params["eventId"])} />;
+  return (
+    <div className="h-full min-h-0 overflow-y-auto">
+      <AgentInbox initialEventId={firstParam(params["eventId"])} />
+    </div>
+  );
 }

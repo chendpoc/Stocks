@@ -218,15 +218,81 @@ test("trader-cockpit shell exposes chat as both workspace route and floating doc
   assert.match(dock, /chat\.dockMinimize/);
 });
 
-test("trader-cockpit shell keeps sidebar fixed while main content scrolls", () => {
+test("trader-cockpit shell pins viewport and delegates scrolling to workspaces", () => {
   const shell = readText("apps", "trader-cockpit", "components", "cockpit", "shell", "CockpitShell.tsx");
 
-  assert.match(shell, /flex h-dvh flex-col overflow-hidden/);
-  assert.match(shell, /shrink-0 border-b/);
-  assert.match(shell, /min-h-0 flex-1[\s\S]*overflow-hidden/);
-  assert.match(shell, /h-full w-16 overflow-y-auto/);
-  assert.match(shell, /h-full w-56 overflow-y-auto/);
-  assert.match(shell, /<main className="min-w-0 overflow-y-auto p-4"/);
+  assert.match(shell, /grid h-dvh min-h-0 grid-cols-\[auto_1fr\] overflow-hidden/);
+  assert.match(shell, /h-dvh w-16 overflow-y-auto/);
+  assert.match(shell, /h-dvh w-72 overflow-y-auto/);
+  assert.match(shell, /pendingHref/);
+  assert.match(shell, /optimisticPathname/);
+  assert.match(shell, /data-testid="cockpitRouteLoading"/);
+  assert.match(shell, /aria-busy=\{routePending\}/);
+  assert.match(shell, /prefetch=\{true\}/);
+  assert.match(shell, /setPendingHref\(item\.href\)/);
+  assert.match(shell, /<main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden p-4"/);
+  assert.doesNotMatch(shell, /<main className="[^"]*overflow-y-auto/);
+});
+
+test("trader-cockpit v5 shell exposes identity, context switcher, and read-only runtime status", () => {
+  const shell = readText("apps", "trader-cockpit", "components", "cockpit", "shell", "CockpitShell.tsx");
+  const store = readText("apps", "trader-cockpit", "lib", "cockpit", "use-cockpit-ui-store.ts");
+  const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
+
+  assert.match(shell, /data-testid="cockpitIdentityBlock"/);
+  assert.match(shell, /brand\.agentMarketCockpit/);
+  assert.match(shell, /brand\.personalQuant/);
+  assert.match(shell, /data-testid="cockpitContextSwitcher"/);
+  assert.match(shell, /selectedMarketContextId/);
+  assert.match(shell, /setSelectedMarketContextId/);
+  assert.match(shell, /contextSwitcherOptions/);
+  assert.match(shell, /Core Watchlist/);
+  assert.match(shell, /SPY, QQQ, AAPL, NVDA/);
+  assert.match(shell, /FOMC/);
+  assert.match(shell, /Jobs/);
+  assert.match(shell, /Inflation/);
+  assert.match(shell, /Put\/Call/);
+  assert.match(shell, /ChevronDown/);
+  assert.match(shell, /data-testid="cockpitRuntimeStatus"/);
+  assert.match(shell, /data-testid="cockpitRuntimeStrip"/);
+  assert.doesNotMatch(shell, /const selectedSymbol = useCockpitUiStore/);
+  assert.match(shell, /SQLite FTS5/);
+  assert.match(shell, /Agent Mock response/);
+  assert.match(shell, /DeepSeek/);
+  assert.match(shell, /configured inactive/);
+  assert.match(shell, /runtimeData/);
+  assert.match(shell, /runtimeAgent/);
+  assert.match(shell, /runtimeWrite/);
+  assert.match(shell, /runtimeDisplay/);
+  assert.match(shell, /readOnlyRuntimePill/);
+  assert.doesNotMatch(shell, /\bScan\b/);
+  assert.doesNotMatch(shell, /\bMonitor\b/);
+  assert.doesNotMatch(shell, /\bRun\b/);
+  assert.doesNotMatch(shell, /\bTask\b/);
+  assert.doesNotMatch(shell, /href:\s*"\/cockpit\/tasks"/);
+  assert.doesNotMatch(shell, /href:\s*"\/cockpit\/approvals"/);
+
+  assert.match(store, /selectedMarketContextId/);
+  assert.match(store, /setSelectedMarketContextId/);
+
+  for (const locale of ["zh-CN", "en-US"]) {
+    const translation = resources[locale].translation;
+    assert.equal(typeof translation.brand.agentMarketCockpit, "string", `${locale} missing brand.agentMarketCockpit`);
+    assert.equal(typeof translation.brand.personalQuant, "string", `${locale} missing brand.personalQuant`);
+    for (const key of [
+      "contextSwitcher",
+      "runtimeStatus",
+      "readOnlyRuntime",
+      "agentObserving",
+      "runtimeData",
+      "runtimeAgent",
+      "runtimeWrite",
+      "runtimeDisplay",
+      "routeLoading",
+    ]) {
+      assert.equal(typeof translation.shell[key], "string", `${locale} missing shell.${key}`);
+    }
+  }
 });
 
 test("trader-cockpit settings exposes zh-CN and en-US language switching", () => {
@@ -247,21 +313,123 @@ test("trader-cockpit settings exposes zh-CN and en-US language switching", () =>
   assert.match(settings, /en-US/);
 });
 
-test("trader-cockpit dashboard uses v4 L1 L2 L3 structure", () => {
+test("trader-cockpit dashboard uses v5 L1 L2 L3 structure", () => {
   const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const marketChart = readText("apps", "trader-cockpit", "components", "cockpit", "charts", "MockMarketChart.tsx");
 
+  assert.match(dashboard, /flex h-full min-h-0 flex-col gap-3 overflow-hidden/);
+  assert.match(dashboard, /dashboardLiveHeader/);
+  assert.match(dashboard, /dashboard\.liveCommandTitle/);
+  assert.match(dashboard, /dashboard\.headerSearchPlaceholder/);
+  assert.match(dashboard, /headerSearchDraft/);
+  assert.match(dashboard, /commitHeaderSearch/);
+  assert.match(dashboard, /onKeyDown=\{\(event\) => \{[\s\S]*event\.key === "Enter"[\s\S]*commitHeaderSearch\(\)/);
+  assert.match(dashboard, /signalsQuery\.refetch/);
+  assert.match(dashboard, /marketIntentQuery\.refetch/);
+  assert.match(dashboard, /todayFocusQueryResult\.refetch/);
+  assert.match(dashboard, /value=\{headerSearchDraft\}/);
+  assert.match(dashboard, /setHeaderSearchDraft\(event\.target\.value\)/);
+  assert.doesNotMatch(dashboard, /headerSearchPlaceholder[\s\S]{0,500}setTodayFocusQuery\(event\.target\.value\)/);
   assert.match(dashboard, /dashboardL1StatusRow/);
+  assert.match(dashboard, /dashboardL1StatusRow" className="shrink-0/);
   assert.match(dashboard, /dashboardL2MarketIntentSummary/);
+  assert.match(dashboard, /dashboardL2MarketIntentSummary[\s\S]*className="shrink-0/);
   assert.match(dashboard, /dashboardL3TodayFocusQueue/);
+  assert.match(dashboard, /dashboardL3TodayFocusQueue" className="flex min-h-0 flex-1 flex-col/);
   assert.match(dashboard, /dashboardMarketGateCard/);
   assert.match(dashboard, /xl:grid-cols-4/);
   assert.match(dashboard, /cockpitKeys\.todayFocus/);
   assert.match(dashboard, /listTodayFocus/);
+  assert.match(dashboard, /data-testid="dashboardTodayFocusScrollRegion"[\s\S]*overflow-y-auto/);
+  assert.match(dashboard, /dashboardTodayFocusSearch[\s\S]*aria-label=\{t\("dashboard\.todayFocusSearchPlaceholder"\)\}/);
+  assert.match(dashboard, /dashboard\.nextWatchCondition/);
+  assert.match(dashboard, /marketIntentExplanation\?\.nextWatchCondition/);
+  assert.match(dashboard, /dashboardL2MarketIntentStrip/);
+  assert.match(dashboard, /marketIntentExplanation\?\.whyNow\.slice\(0, 3\)/);
+  assert.match(dashboard, /marketIntentExplanation\?\.whyWait\.slice\(0, 2\)/);
+  assert.match(marketChart, /h-28/);
   assert.doesNotMatch(dashboard, /xl:col-span-3 grid gap-3 md:grid-cols-4/);
   assert.doesNotMatch(dashboard, /dashboardStatusStack/);
   assert.doesNotMatch(dashboard, /dashboardSummaryStrip/);
   assert.doesNotMatch(dashboard, /xl:grid-cols-\[360px_minmax\(0,1fr\)_360px\]/);
   assert.match(dashboard, new RegExp("dashboardL2MarketIntentSummary[\\s\\S]*<MockMarketChart />"));
+});
+
+test("trader-cockpit dashboard v5 renders compact market intent strip and table-first focus queue", () => {
+  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
+
+  assert.match(dashboard, /dashboardL2MarketIntentStrip/);
+  assert.match(dashboard, /min-h-\[76px\]/);
+  assert.match(dashboard, /flex-wrap/);
+  assert.doesNotMatch(dashboard, /dashboardL2MarketIntentStrip" className="[^"]*overflow-x-auto/);
+  assert.match(dashboard, /activeMarketIntentChip/);
+  assert.match(dashboard, /marketIntentExplanation\?\.whyNow\.slice\(0, 3\)/);
+  assert.match(dashboard, /marketIntentExplanation\?\.whyWait\.slice\(0, 2\)/);
+  assert.match(dashboard, /dashboard\.whyNowShort/);
+  assert.match(dashboard, /dashboard\.whyWaitShort/);
+  assert.match(dashboard, /SPY/);
+  assert.match(dashboard, /12\s*\+\s*3/);
+  assert.match(dashboard, /dashboardTodayFocusTable/);
+  assert.match(dashboard, /<Table(?:\s|>)/);
+  assert.match(dashboard, /<Table\.ScrollContainer className="[^"]*overflow-x-auto/);
+  assert.match(dashboard, /<Table\.Content className="[^"]*min-w-\[/);
+  assert.match(dashboard, /<Table\.Column[\s\S]*className="whitespace-nowrap"/);
+  assert.match(dashboard, /w-\[228px\] whitespace-nowrap/);
+  assert.match(dashboard, /<Table\.Cell key=\{column\.key\}[\s\S]*className="whitespace-nowrap"/);
+  assert.match(dashboard, /todayFocusColumns/);
+  assert.match(dashboard, /const todayFocusColumns: TodayFocusColumn\[\]/);
+  assert.doesNotMatch(dashboard, /useMemo<TodayFocusColumn/);
+  assert.match(dashboard, /dashboard\.focusColumnPriority/);
+  assert.match(dashboard, /dashboard\.focusColumnStatus/);
+  assert.match(dashboard, /dashboard\.focusColumnReason/);
+  assert.match(dashboard, /dashboard\.focusColumnLocalState/);
+  assert.match(dashboard, /dashboard\.focusColumnActions/);
+  assert.match(dashboard, /dashboard\.todayFocusLocalFollow/);
+  assert.match(dashboard, /dashboard\.todayFocusLocalIgnore/);
+  assert.match(dashboard, /dashboard\.queueLensTopWatchlist/);
+  assert.match(dashboard, /dashboard\.queueLensTopOpportunities/);
+  assert.match(dashboard, /dashboard\.queueLensNextWatch/);
+  assert.match(dashboard, /activeQueueLens/);
+  assert.match(dashboard, /setActiveQueueLens/);
+  assert.match(dashboard, /setTodayFocusType\("all"\)/);
+  assert.match(dashboard, /typeFilterDisabled/);
+  assert.match(dashboard, /isDisabled=\{typeFilterDisabled\}/);
+  assert.match(dashboard, /<CockpitSelect/);
+  assert.doesNotMatch(dashboard, /<select\b/);
+  assert.match(dashboard, /dashboardTodayFocusEffectiveLens/);
+  assert.match(dashboard, /dashboard\.todayFocusLensActive/);
+  assert.match(dashboard, /priorityClass\(item\.priority\)/);
+  assert.match(dashboard, /statusClass\(item\.status\)/);
+  assert.match(dashboard, /line-clamp-2/);
+
+  for (const locale of ["zh-CN", "en-US"]) {
+    const dashboardCopy = resources[locale].translation.dashboard;
+    for (const key of [
+      "whyNowShort",
+      "whyWaitShort",
+      "focusColumnPriority",
+      "focusColumnStatus",
+      "focusColumnReason",
+      "focusColumnLocalState",
+      "focusColumnActions",
+      "todayFocusLocalFollow",
+      "todayFocusLocalIgnore",
+      "todayFocusLocalFollowed",
+      "todayFocusLocalIgnored",
+      "liveCommandTitle",
+      "liveCommandSubtitle",
+      "refresh",
+      "headerSearchPlaceholder",
+      "queueLensAll",
+      "queueLensTopWatchlist",
+      "queueLensTopOpportunities",
+      "queueLensNextWatch",
+      "marketIntentStripSymbol",
+    ]) {
+      assert.equal(typeof dashboardCopy[key], "string", `${locale} missing dashboard.${key}`);
+    }
+  }
 });
 
 test("trader-cockpit dashboard reads market intent explanation from adapter data", () => {
@@ -342,13 +510,16 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
   assert.match(dashboard, /function\s+openTodayFocusDetail/);
   assert.match(dashboard, /onClick=\{\(\) => openTodayFocusDetail\(item\)\}/);
   assert.doesNotMatch(dashboard, /<Link\s+key=\{item\.id\}/);
-  assert.match(dashboard, /href=\{buildTodayFocusHref\(selectedTodayFocusItem\)\}/);
+  assert.match(dashboard, /todayFocusLocalFollow/);
+  assert.match(dashboard, /todayFocusLocalIgnore/);
+  assert.match(dashboard, /setLocalFocusState/);
+  assert.match(dashboard, /localFocusStates/);
+  assert.doesNotMatch(dashboard, /function setLocalFocusState[\s\S]*bindTodayFocusContext/);
   assert.match(dashboard, /function\s+bindTodayFocusContext/);
   assert.match(dashboard, /setSelectedSymbol\(item\.symbol\)/);
   assert.match(dashboard, /item\.target\.queryKey === "signalId"/);
   assert.match(dashboard, /setSelectedSignalId\(item\.target\.queryValue\)/);
   assert.match(dashboard, /setSelectedSignalId\(null\)/);
-  assert.match(dashboard, /item\.target\.route/);
   assert.match(dashboard, /item\.target\.queryKey/);
   assert.match(dashboard, /item\.target\.queryValue/);
   assert.match(dashboard, /selectedTodayFocusItem\.target\.label/);
@@ -364,6 +535,7 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
       "todayFocusSearchPlaceholder",
       "todayFocusAllTypes",
       "todayFocusAllStatuses",
+      "todayFocusLensActive",
       "todayFocusShowing",
       "todayFocusPrev",
       "todayFocusNext",
@@ -375,8 +547,17 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
       "todayFocusSummary",
       "todayFocusReason",
       "todayFocusTags",
-      "todayFocusOpenFullDetail",
       "todayFocusCloseDetail",
+      "todayFocusLocalFollow",
+      "todayFocusLocalIgnore",
+      "todayFocusLocalFollowed",
+      "todayFocusLocalIgnored",
+      "todayFocusLocalStateNote",
+      "todayFocusTriggerConditions",
+      "todayFocusInvalidationConditions",
+      "todayFocusEvidence",
+      "todayFocusRelatedAgentNodes",
+      "nextWatchCondition",
     ]) {
       assert.equal(typeof dashboardCopy[key], "string", `${locale} missing dashboard.${key}`);
     }
@@ -389,6 +570,39 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
         "string",
         `${locale} missing dashboard.todayFocusStatuses.${key}`,
       );
+    }
+  }
+});
+
+test("trader-cockpit dashboard v5 drawer is a right slide-over with Agent explanation sections", () => {
+  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
+
+  assert.match(dashboard, /dashboardTodayFocusDrawer/);
+  assert.match(dashboard, /<Drawer\.Content placement="right" className="fixed bottom-0 right-0 top-16 z-50">/);
+  assert.match(dashboard, /className="fixed inset-x-0 bottom-0 top-16 z-40 bg-black\/10"/);
+  assert.match(dashboard, /max-w-\[560px\]/);
+  assert.match(dashboard, /todayFocusDrawerMeta/);
+  assert.match(dashboard, /dashboard\.todayFocusAgentReason/);
+  assert.match(dashboard, /dashboard\.todayFocusTriggerConditions/);
+  assert.match(dashboard, /dashboard\.todayFocusInvalidationConditions/);
+  assert.match(dashboard, /dashboard\.todayFocusEvidence/);
+  assert.match(dashboard, /dashboard\.todayFocusRelatedAgentNodes/);
+  assert.match(dashboard, /dashboard\.todayFocusReadOnlyNote/);
+  assert.match(dashboard, /dashboard\.todayFocusLocalStateNote/);
+  assert.match(dashboard, /selectedTodayFocusItem\.updatedAt/);
+  assert.match(dashboard, /selectedTodayFocusItem\.reason/);
+  assert.match(dashboard, /selectedTodayFocusItem\.summary/);
+  assert.match(dashboard, /selectedTodayFocusItem\.target\.label/);
+  assert.doesNotMatch(dashboard, /buildTodayFocusHref/);
+  assert.doesNotMatch(dashboard, /approval/i);
+  assert.doesNotMatch(dashboard, /order execution/i);
+  assert.doesNotMatch(dashboard, /Trade Ticket/i);
+
+  for (const locale of ["zh-CN", "en-US"]) {
+    const dashboardCopy = resources[locale].translation.dashboard;
+    for (const key of ["todayFocusAgentReason", "todayFocusWhyOpen", "todayFocusWhyNotAction", "todayFocusReadOnlyNote", "todayFocusUpdatedAt"]) {
+      assert.equal(typeof dashboardCopy[key], "string", `${locale} missing dashboard.${key}`);
     }
   }
 });
@@ -489,20 +703,33 @@ test("trader-cockpit signals supports signalId deep-link selection and detail se
   const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
 
   assert.match(signals, /from "@heroui\/react"/);
-  assert.match(signals, /<Table>/);
-  assert.match(signals, /<Table\.ScrollContainer>/);
+  assert.match(signals, /<Table(?:\s|>)/);
+  assert.match(signals, /<Table\.ScrollContainer className="[^"]*overflow-x-auto/);
+  assert.match(signals, /<Table\.Content[\s\S]*className="[^"]*min-w-\[/);
+  assert.match(signals, /onRowAction=\{\(key\) => selectSignal\(String\(key\)\)\}/);
+  assert.match(signals, /onSelectionChange=\{\(keys\) => \{/);
+  assert.match(signals, /selectedKeys=\{selectedSignalKeys\}/);
   assert.match(signals, /<Table\.Content/);
   assert.match(signals, /<Table\.Header>/);
-  assert.match(signals, /<Table\.Column/);
+  assert.match(signals, /<Table\.Column[\s\S]*className="whitespace-nowrap"/);
+  assert.match(signals, /isRowHeader=\{column\.key === "symbol"\}/);
   assert.match(signals, /<Table\.Body>/);
   assert.match(signals, /<Table\.Row/);
-  assert.match(signals, /<Table\.Cell/);
+  assert.match(signals, /id=\{signal\.id\}/);
+  assert.match(signals, /onClick=\{\(\) => selectSignal\(signal\.id\)\}/);
+  assert.match(signals, /<Table\.Cell[\s\S]*key=\{column\.key\}[\s\S]*className="whitespace-nowrap"[\s\S]*onClick=\{\(\) => selectSignal\(signal\.id\)\}/);
+  assert.match(signals, /flex flex-nowrap gap-1/);
+  assert.match(signals, /overflow-y-auto[\s\S]*xl:overflow-hidden/);
   assert.doesNotMatch(signals, /from "@\/components\/ui\/table"/);
   assert.doesNotMatch(signals, /<table\b/);
   assert.doesNotMatch(signals, /<thead\b|<tbody\b|<tr\b|<th\b|<td\b/);
   assert.match(signals, /initialSignalId\?: string/);
-  assert.match(signals, /initialSignalId \?\? selectedSignalId/);
-  assert.match(signals, /setSelectedSignalId\(effectiveSignalId\)/);
+  assert.match(signals, /activeSignalId \?\? selectedSignalId \?\? signals\[0\]\?\.id/);
+  assert.match(signals, /<CockpitSelect/);
+  assert.doesNotMatch(signals, /<select\b/);
+  assert.match(signals, /setActiveSignalId\(signal\.id\)/);
+  assert.match(signals, /setSelectedSignalId\(signal\.id\)/);
+  assert.match(signals, /setSelectedSignalId\(detailQuery\.data\.id\)/);
   assert.match(signals, /setSelectedSymbol\(detailQuery\.data\.symbol\)/);
   assert.match(signals, /signals\.evidence/);
   assert.match(signals, /signals\.triggerInvalidation/);
@@ -641,6 +868,255 @@ test("trader-cockpit floating chat exposes contextual quick prompts and still st
   }
 });
 
+test("trader-cockpit exposes Agent Console adapter contract and mock implementation", () => {
+  const adapter = readText("apps", "trader-cockpit", "lib", "cockpit", "adapter.ts");
+  const mockAdapter = readText("apps", "trader-cockpit", "lib", "cockpit", "mock-adapter.ts");
+  const fixturesBridge = readText("apps", "trader-cockpit", "lib", "cockpit", "fixtures.ts");
+  const queryKeys = readText("apps", "trader-cockpit", "lib", "cockpit", "query-keys.ts");
+
+  for (const contractName of [
+    "AgentWorkstream",
+    "AgentConsoleMessage",
+    "AgentActivityNode",
+    "AgentActivityEdge",
+    "AgentActivityTrace",
+    "ContextUsedSummary",
+    "AgentConsoleViewModel",
+  ]) {
+    assert.match(adapter, new RegExp(`type\\s+${contractName}\\b`), `Missing adapter contract ${contractName}`);
+  }
+
+  assert.match(adapter, /getAgentConsole\(input\?: AgentConsoleInput\): Promise<AgentConsoleViewModel>/);
+  assert.match(mockAdapter, /getAgentConsole/);
+  assert.match(mockAdapter, /mockAgentConsole/);
+  assert.match(fixturesBridge, /mockAgentConsole/);
+  assert.match(queryKeys, /agentConsole\s*:/);
+});
+
+test("trader-cockpit Agent Console fixtures cover breadth skeleton data", () => {
+  const fixtures = JSON.parse(readText("apps", "trader-cockpit", "lib", "cockpit", "fixtures.json"));
+  const consoleFixture = fixtures.mockAgentConsole;
+  const requiredNodeKinds = [
+    "user_question",
+    "market_snapshot",
+    "news_scan",
+    "rule_match",
+    "risk_check",
+    "learning_candidate",
+  ];
+
+  assert.ok(consoleFixture, "Missing mockAgentConsole fixture");
+  assert.ok(Array.isArray(consoleFixture.workstreams), "Missing Agent Console workstreams");
+  assert.ok(consoleFixture.workstreams.length >= 3, "Agent Console should include at least 3 workstreams");
+  assert.ok(Array.isArray(consoleFixture.messages), "Missing Agent Console messages");
+  assert.ok(consoleFixture.messages.length >= 4, "Agent Console should include at least 4 messages");
+  assert.ok(consoleFixture.messages.some((message) => message.role === "agent_push"), "Missing agent_push message");
+  assert.ok(consoleFixture.trace, "Missing Agent Console activity trace");
+  assert.ok(consoleFixture.trace.nodes.length >= 6, "Agent Console should include at least 6 activity nodes");
+  assert.ok(consoleFixture.trace.edges.length >= 4, "Agent Console should include activity edges");
+  assert.ok(consoleFixture.contextUsed, "Missing Agent Console context summary");
+  assert.ok(Array.isArray(consoleFixture.contextUsed.marketFacts), "Missing contextUsed.marketFacts");
+  assert.ok(Array.isArray(consoleFixture.contextUsed.activeLearnings), "Missing contextUsed.activeLearnings");
+  assert.ok(Array.isArray(consoleFixture.contextUsed.preferences), "Missing contextUsed.preferences");
+  assert.ok(Array.isArray(consoleFixture.contextUsedByWorkstream), "Missing contextUsedByWorkstream fixture array");
+  assert.equal(
+    consoleFixture.contextUsedByWorkstream.length,
+    consoleFixture.workstreams.length,
+    "Each workstream should have fixture-backed context",
+  );
+
+  for (const kind of requiredNodeKinds) {
+    assert.ok(consoleFixture.trace.nodes.some((node) => node.kind === kind), `Missing activity node kind ${kind}`);
+  }
+
+  for (const workstream of consoleFixture.workstreams) {
+    assert.ok(
+      consoleFixture.contextUsedByWorkstream.some((context) => context.workstreamId === workstream.id),
+      `Missing context fixture for ${workstream.id}`,
+    );
+  }
+
+  const marketNode = consoleFixture.trace.nodes.find((node) => node.kind === "market_snapshot");
+  const newsNode = consoleFixture.trace.nodes.find((node) => node.kind === "news_scan");
+  const ruleNode = consoleFixture.trace.nodes.find((node) => node.kind === "rule_match");
+  assert.ok(marketNode, "Missing market snapshot node");
+  assert.ok(newsNode, "Missing news scan node");
+  assert.ok(ruleNode, "Missing rule match node");
+  assert.ok(
+    consoleFixture.trace.edges.some((edge) => edge.source === marketNode.id && edge.target === ruleNode.id),
+    "Market snapshot should converge into rule match",
+  );
+  assert.ok(
+    consoleFixture.trace.edges.some((edge) => edge.source === newsNode.id && edge.target === ruleNode.id),
+    "News scan should converge into rule match",
+  );
+});
+
+test("trader-cockpit chat route renders Agent Console workspace without React Flow", () => {
+  const page = readText("apps", "trader-cockpit", "app", "cockpit", "chat", "page.tsx");
+  const workspace = readText(
+    "apps",
+    "trader-cockpit",
+    "components",
+    "cockpit",
+    "chat",
+    "AgentConsoleWorkspace.tsx",
+  );
+  const tracePreview = readText(
+    "apps",
+    "trader-cockpit",
+    "components",
+    "cockpit",
+    "chat",
+    "ActivityTracePreview.tsx",
+  );
+  const conversationPanel = readText(
+    "apps",
+    "trader-cockpit",
+    "components",
+    "cockpit",
+    "chat",
+    "AgentConversationPanel.tsx",
+  );
+  const workstreamRail = readText(
+    "apps",
+    "trader-cockpit",
+    "components",
+    "cockpit",
+    "chat",
+    "WorkstreamRail.tsx",
+  );
+  const contextPanel = readText(
+    "apps",
+    "trader-cockpit",
+    "components",
+    "cockpit",
+    "chat",
+    "ContextUsedPanel.tsx",
+  );
+  const inspectorPanel = readText(
+    "apps",
+    "trader-cockpit",
+    "components",
+    "cockpit",
+    "chat",
+    "NodeInspectorPanel.tsx",
+  );
+  const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
+
+  assert.match(page, /AgentConsoleWorkspace/);
+  assert.doesNotMatch(page, /AgentChatShell/);
+  assert.match(workspace, /flex h-full min-h-0 flex-col gap-3 overflow-hidden/);
+  assert.match(workspace, /shrink-0/);
+  assert.match(workspace, /grid min-h-0 flex-1 gap-3 overflow-hidden/);
+  assert.match(workspace, /xl:grid-cols-\[minmax\(250px,0\.82fr\)_minmax\(300px,1fr\)_minmax\(260px,0\.88fr\)\]/);
+  assert.match(workspace, /2xl:grid-cols-\[minmax\(330px,0\.92fr\)_minmax\(360px,1fr\)_minmax\(340px,0\.9fr\)\]/);
+  assert.match(workspace, /<WorkstreamRail/);
+  assert.match(workspace, /<section className="min-h-0 overflow-hidden">/);
+  assert.doesNotMatch(workspace, /grid min-h-0 grid-rows-\[150px_minmax\(0,1fr\)\]/);
+  assert.match(workspace, /grid min-h-0 grid-rows-\[minmax\(0,1fr\)_180px\]/);
+  assert.match(workspace, /2xl:grid-rows-\[minmax\(0,1fr\)_220px\]/);
+  for (const componentName of [
+    "PriorityPushStrip",
+    "WorkstreamRail",
+    "ContextUsedPanel",
+    "AgentConversationPanel",
+    "ActivityTracePreview",
+    "NodeInspectorPanel",
+  ]) {
+    assert.match(workspace, new RegExp(componentName), `Agent Console missing ${componentName}`);
+  }
+
+  assert.match(workspace, /cockpitKeys\.agentConsole/);
+  assert.match(workspace, /getAgentConsole/);
+  assert.match(workspace, /setSelectedActivityNodeId/);
+  assert.match(workspace, /setSelectedAgentWorkstreamId\(message\.workstreamId\)/);
+  assert.match(tracePreview, /onSelectNode/);
+  assert.match(tracePreview, /<Card/);
+  assert.match(tracePreview, /<ScrollShadow/);
+  assert.match(tracePreview, /flex h-full min-h-0 flex-col/);
+  assert.match(tracePreview, /min-h-0 flex-1 space-y-2 overflow-y-auto/);
+  assert.match(conversationPanel, /<Card/);
+  assert.match(conversationPanel, /<TextArea/);
+  assert.match(conversationPanel, /<Button/);
+  assert.match(conversationPanel, /workstream:\s*AgentWorkstream \| null/);
+  assert.match(conversationPanel, /workstream \? `\$\{workstream\.title\} · \$\{workstream\.symbols\.join\(" \/ "\)\}`/);
+  assert.doesNotMatch(conversationPanel, /chat\.consoleTitle/);
+  assert.doesNotMatch(conversationPanel, /common\.mockFallback/);
+  assert.match(conversationPanel, /role="button"/);
+  assert.match(conversationPanel, /onKeyDown/);
+  assert.match(conversationPanel, /flex h-full min-h-0 flex-col/);
+  assert.match(conversationPanel, /min-h-0 flex-1 space-y-3 overflow-y-auto/);
+  assert.doesNotMatch(conversationPanel, /min-h-\[640px\]/);
+  assert.doesNotMatch(conversationPanel, /<Button[\s\S]{0,800}relatedNodeIds/);
+  assert.match(workstreamRail, /<Card/);
+  assert.match(workstreamRail, /md:grid-cols-3/);
+  assert.match(workstreamRail, /role="button"/);
+  assert.match(workstreamRail, /onKeyDown/);
+  assert.doesNotMatch(workstreamRail, /<Button/);
+  assert.doesNotMatch(workstreamRail, /min-h-0 flex-1 space-y-2 overflow-y-auto/);
+  assert.match(contextPanel, /flex h-full min-h-0 flex-col/);
+  assert.match(contextPanel, /<Card/);
+  assert.match(contextPanel, /<ScrollShadow/);
+  assert.match(contextPanel, /min-h-0 flex-1 space-y-4 overflow-y-auto/);
+  assert.match(inspectorPanel, /flex h-full min-h-0 flex-col/);
+  assert.match(inspectorPanel, /<Card/);
+  assert.match(inspectorPanel, /<Button/);
+  assert.match(inspectorPanel, /min-h-0 flex-1 overflow-y-auto/);
+  assert.doesNotMatch(tracePreview, /@xyflow\/react/);
+  assert.doesNotMatch(conversationPanel, /<form\b/);
+  assert.doesNotMatch(conversationPanel, /onSubmit/);
+  assert.match(conversationPanel, /chat\.send/);
+  assert.match(conversationPanel, /chat\.promptPreview/);
+
+  for (const locale of ["zh-CN", "en-US"]) {
+    const chatCopy = resources[locale].translation.chat;
+    for (const key of [
+      "priorityPush",
+      "workstreams",
+      "contextUsed",
+      "conversation",
+      "activityPreview",
+      "nodeInspector",
+      "noSelectedNodeTitle",
+      "askPrompts",
+      "promptPreview",
+      "promptPreviewDescription",
+    ]) {
+      assert.equal(typeof chatCopy[key], "string", `${locale} missing chat.${key}`);
+    }
+  }
+});
+
+test("trader-cockpit Agent Console code avoids excluded 0D-1 language", () => {
+  const files = [
+    repoPath("apps", "trader-cockpit", "app", "cockpit", "chat", "page.tsx"),
+    ...walkFiles(path.join(cockpitRoot, "components", "cockpit", "chat")),
+  ].filter((file) => /\.(tsx?|json)$/.test(file));
+  const consoleFixtureText = JSON.stringify(
+    JSON.parse(readText("apps", "trader-cockpit", "lib", "cockpit", "fixtures.json")).mockAgentConsole,
+  );
+  const banned = [
+    /workflow builder/i,
+    /\u4efb\u52a1\u4e0b\u53d1/,
+    /\u8282\u70b9\u7f16\u8f91/,
+    /\u4ea4\u6613/,
+    /\u8ba2\u5355/,
+    /\u5ba1\u6279/,
+  ];
+
+  for (const file of files) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const pattern of banned) {
+      assert.doesNotMatch(text, pattern, `${path.relative(repoRoot, file)} contains excluded 0D-1 language ${pattern}`);
+    }
+  }
+
+  for (const pattern of banned) {
+    assert.doesNotMatch(consoleFixtureText, pattern, `mockAgentConsole contains excluded 0D-1 language ${pattern}`);
+  }
+});
+
 test("trader-cockpit uses Chinese-first cockpit copy", () => {
   const resources = JSON.stringify(
     JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"))["zh-CN"],
@@ -666,6 +1142,23 @@ test("trader-cockpit route and component code does not import fixtures directly"
       text,
       /from\s+["'].*fixtures["']|require\(["'].*fixtures["']\)/,
       `${path.relative(repoRoot, file)} should use CockpitDataAdapter instead of fixtures`,
+    );
+  }
+});
+
+test("trader-cockpit business code stays in ts and tsx files", () => {
+  const businessRoots = [
+    path.join(cockpitRoot, "app"),
+    path.join(cockpitRoot, "components"),
+    path.join(cockpitRoot, "lib"),
+  ];
+  const files = businessRoots.flatMap((root) => walkFiles(root));
+
+  for (const file of files) {
+    assert.doesNotMatch(
+      file,
+      /\.(mjs|js)$/,
+      `${path.relative(repoRoot, file)} should not introduce business JavaScript files`,
     );
   }
 });

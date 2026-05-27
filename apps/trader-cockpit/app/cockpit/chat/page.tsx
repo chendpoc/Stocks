@@ -1,5 +1,5 @@
-import { AgentChatShell } from "@/components/cockpit/chat/AgentChatShell";
+import { AgentConsoleWorkspace } from "@/components/cockpit/chat/AgentConsoleWorkspace";
 
 export default function AgentChatPage() {
-  return <AgentChatShell />;
+  return <AgentConsoleWorkspace />;
 }

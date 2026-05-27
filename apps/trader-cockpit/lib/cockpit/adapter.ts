@@ -206,6 +206,70 @@ export type ChatStreamPart =
   | { id: string; type: "error"; message: string; retryable: boolean }
   | { id: string; type: "done"; traceId: string; usage: string };
 
+export type AgentWorkstream = {
+  id: string;
+  title: string;
+  symbols: string[];
+  status: "active" | "updated" | "quiet";
+  unreadCount: number;
+  summary: string;
+  updatedAt: string;
+};
+
+export type AgentConsoleMessage = {
+  id: string;
+  workstreamId: string;
+  role: "user" | "agent" | "agent_push";
+  createdAt: string;
+  text: string;
+  tags: CockpitTag[];
+  relatedNodeIds: string[];
+};
+
+export type AgentActivityNode = {
+  id: string;
+  workstreamId: string;
+  kind:
+    | "user_question"
+    | "market_snapshot"
+    | "news_scan"
+    | "rule_match"
+    | "risk_check"
+    | "learning_candidate";
+  status: "pending" | "running" | "completed" | "warning" | "failed";
+  title: string;
+  summary: string;
+  evidenceBullets: string[];
+  relatedLearningRefs: {
+    id: string;
+    title: string;
+    href: string;
+  }[];
+  askPrompts: string[];
+  createdAt: string;
+};
+
+export type AgentActivityEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+};
+
+export type AgentActivityTrace = {
+  workstreamId: string;
+  nodes: AgentActivityNode[];
+  edges: AgentActivityEdge[];
+  selectedNodeId?: string;
+};
+
+export type ContextUsedSummary = {
+  workstreamId: string;
+  marketFacts: string[];
+  activeLearnings: string[];
+  preferences: string[];
+};
+
 export type SignalListInput = {
   status?: string;
   symbol?: string;
@@ -250,6 +314,10 @@ export type ChatStreamInput = {
   signal?: AbortSignal;
 };
 
+export type AgentConsoleInput = {
+  workstreamId?: string;
+};
+
 export type SignalListViewModel = {
   signals: SignalSummary[];
   watchlist: WatchlistItem[];
@@ -292,6 +360,15 @@ export type ToolSettingsViewModel = {
   };
 };
 
+export type AgentConsoleViewModel = {
+  workstreams: AgentWorkstream[];
+  selectedWorkstreamId: string;
+  priorityPushes: AgentConsoleMessage[];
+  messages: AgentConsoleMessage[];
+  trace: AgentActivityTrace;
+  contextUsed: ContextUsedSummary;
+};
+
 export interface CockpitDataAdapter {
   listSignals(input?: SignalListInput): Promise<SignalListViewModel>;
   getMarketIntentExplanation(): Promise<MarketIntentExplanationViewModel>;
@@ -303,6 +380,7 @@ export interface CockpitDataAdapter {
   listLearningItems(input?: LearningInput): Promise<LearningItemListViewModel>;
   getToolSettings(): Promise<ToolSettingsViewModel>;
   streamChat(input: ChatStreamInput): AsyncIterable<ChatStreamPart>;
+  getAgentConsole(input?: AgentConsoleInput): Promise<AgentConsoleViewModel>;
 }
 
 export { mockCockpitAdapter as cockpitAdapter } from "./mock-adapter";

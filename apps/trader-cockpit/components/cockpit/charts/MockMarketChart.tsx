@@ -30,11 +30,11 @@ export function MockMarketChart() {
   const setChartTimeframe = useCockpitUiStore((state) => state.setChartTimeframe);
 
   return (
-    <section className="rounded-md border border-border bg-surface/80 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-md border border-border bg-surface/80 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-wider text-muted">{t("chart.kicker")}</p>
-          <h2 className="mt-1 text-base font-semibold text-foreground">{t("chart.title")}</h2>
+          <h2 className="mt-1 text-sm font-semibold text-foreground">{t("chart.title")}</h2>
         </div>
         <div className="flex rounded-md border border-border bg-background/70 p-0.5 text-xs">
           {(["5m", "15m", "1h"] as const).map((value) => (
@@ -53,7 +53,7 @@ export function MockMarketChart() {
           ))}
         </div>
       </div>
-      <div className="h-72 rounded border border-border bg-background/70 p-3">
+      <div className="h-28 rounded border border-border bg-background/70 p-3">
         <svg viewBox="0 0 364 92" role="img" aria-label={t("chart.aria")} className="h-full w-full">
           <defs>
             <linearGradient id="chartArea" x1="0" x2="0" y1="0" y2="1">
@@ -71,7 +71,7 @@ export function MockMarketChart() {
           <circle cx="112" cy="52" r="4" fill="rgb(235,92,92)" />
         </svg>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-xs tabular-nums">
+      <div className="mt-2 grid grid-cols-3 gap-2 text-xs tabular-nums">
         <div className="rounded border border-border bg-background/60 p-2">
           <p className="text-muted">{t("chart.vwap")}</p>
           <p className="mt-1 font-medium text-warning">421.20</p>

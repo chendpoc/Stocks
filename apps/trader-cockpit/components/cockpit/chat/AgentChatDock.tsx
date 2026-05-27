@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Maximize2, MessageSquare, Minimize2, RotateCcw, Send, Square, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { Button, Input } from "@heroui/react";
 import { FormEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatStreamPart } from "@/lib/cockpit/adapter";
@@ -65,7 +66,7 @@ export function AgentChatDock() {
 
   if (chatDockMode === "collapsed") {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => setChatDockMode("dock")}
         className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-md border border-accent/50 bg-accent px-4 py-3 text-sm font-medium text-accent-foreground shadow-xl shadow-black/30"
@@ -73,7 +74,7 @@ export function AgentChatDock() {
       >
         <MessageSquare className="h-4 w-4" />
         {t("nav.chat")}
-      </button>
+      </Button>
     );
   }
 
@@ -100,57 +101,67 @@ export function AgentChatDock() {
         </div>
         <div className="flex items-center gap-1">
           {isStreaming ? (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => abortRef.current?.abort()}
               className="rounded-md border border-danger/50 p-2 text-danger"
               aria-label={t("chat.stop")}
             >
               <Square className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => void runStream(input)}
               className="rounded-md border border-border p-2 text-muted hover:text-foreground"
               aria-label={t("chat.retry")}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setChatDockMode(expanded ? "dock" : "expanded")}
             className="rounded-md border border-border p-2 text-muted hover:text-foreground"
             aria-label={expanded ? t("chat.dockMinimize") : t("chat.dockExpand")}
           >
             {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setChatDockMode("collapsed")}
             className="rounded-md border border-border p-2 text-muted hover:text-foreground"
             aria-label={t("chat.dockClose")}
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       </header>
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap gap-2">
           {quickPrompts.map((prompt) => (
-            <button
+            <Button
               key={prompt}
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setInput(prompt);
                 void runStream(prompt);
               }}
-              disabled={isStreaming}
+              isDisabled={isStreaming}
               className="rounded border border-border bg-background/70 px-2 py-1 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               {prompt}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -171,20 +182,20 @@ export function AgentChatDock() {
         ) : null}
       </div>
       <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border bg-surface p-3">
-        <input
+        <Input
           value={input}
           onChange={(event) => setInput(event.target.value)}
           className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
           aria-label={t("chat.messageAria")}
         />
-        <button
+        <Button
           type="submit"
-          disabled={isStreaming}
+          isDisabled={isStreaming}
           className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={t("chat.send")}
         >
           <Send className="h-4 w-4" />
-        </button>
+        </Button>
       </form>
     </section>
   );

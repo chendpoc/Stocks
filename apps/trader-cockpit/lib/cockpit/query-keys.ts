@@ -32,6 +32,10 @@ export type TodayFocusFilters = {
   pageSize?: number;
 };
 
+export type AgentConsoleFilters = {
+  workstreamId?: string;
+};
+
 export const cockpitKeys = {
   dashboard: (scope: DashboardScope) => ["cockpit", "dashboard", scope] as const,
   marketIntentExplanation: () => ["cockpit", "market-intent-explanation"] as const,
@@ -44,4 +48,5 @@ export const cockpitKeys = {
   learning: (filters: LearningFilters = {}) => ["cockpit", "learning", filters] as const,
   settings: () => ["cockpit", "settings"] as const,
   chat: (conversationId: string) => ["cockpit", "chat", conversationId] as const,
+  agentConsole: (filters: AgentConsoleFilters = {}) => ["cockpit", "agent-console", filters] as const,
 };
