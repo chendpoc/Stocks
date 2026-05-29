@@ -1,19 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { OpportunityBoardSummary } from "@stock-summary/summary-core";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { OpportunityBoardSummary, ResearchSession } from "@stock-summary/summary-core";
+import { OpportunityBlotter } from "./research/OpportunityBlotter";
 import {
-  OpportunityDetail,
+  ResearchInspector,
   type EvidenceToolActionRequest,
   type ExternalEvidenceResult,
-} from "./OpportunityDetail";
-import { ScoreRows } from "./ScoreRows";
+} from "./research/ResearchInspector";
+import {
+  buildInspectorView,
+  buildOpportunityRows,
+  filterOpportunityRows,
+  type OpportunityFilterState,
+} from "./research/opportunity-view-model";
+import { Badge } from "./ui/badge";
 
 const MISSING_LABELS: Record<string, string> = {
   structured_summary: "结构化摘要",
   opportunity_observation: "机会观察",
   local_summary_markdown: "本地总结",
 };
+
+const DEFAULT_FILTER_STATE: OpportunityFilterState = {
+  query: "",
+  status: "all",
+  confidence: "all",
+  missingEvidenceOnly: false,
+  toolAvailability: "all",
+};
+
+export type PendingEvidenceAction = {
+  id: number;
+  symbol: string;
+  tool: string;
+  label: string;
+};
+
+export type PendingReviewCommand = { id: number; symbol: string; source?: "command-palette" | "review-ledger"; reviewId?: string };
 
 function formatMissingNote(missing: string[]) {
   const labels = missing.map((item) => MISSING_LABELS[item] ?? item);
@@ -22,15 +46,34 @@ function formatMissingNote(missing: string[]) {
 
 type OpportunityBoardProps = {
   day: string;
-  onDayChange: (day: string) => void;
-  onEvidenceRecorded?: () => void;
+  filter: string;
+  session?: ResearchSession | null;
+  selectedSymbol: string | null;
+  pendingEvidenceAction?: PendingEvidenceAction | null;
+  pendingReviewCommand?: PendingReviewCommand | null;
+  onSelectedSymbolChange: (symbol: string | null) => void;
+  onPendingEvidenceActionHandled?: (id: number) => void;
+  onAgentPrompt?: (command: { text: string; source?: string; symbol?: string; promptType?: string; day?: string }) => void;
+  onSessionRefresh?: () => Promise<void>;
 };
 
-export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: OpportunityBoardProps) {
+export function OpportunityBoard({
+  day,
+  filter,
+  session = null,
+  selectedSymbol,
+  pendingEvidenceAction,
+  pendingReviewCommand,
+  onSelectedSymbolChange,
+  onPendingEvidenceActionHandled,
+  onAgentPrompt,
+  onSessionRefresh,
+}: OpportunityBoardProps) {
   const [board, setBoard] = useState<OpportunityBoardSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [filterState, setFilterState] = useState<OpportunityFilterState>(DEFAULT_FILTER_STATE);
+  const [commandActionStatus, setCommandActionStatus] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,9 +89,6 @@ export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: Oppor
         }
         const nextBoard = (await response.json()) as OpportunityBoardSummary;
         setBoard(nextBoard);
-        if (!day && nextBoard.day) {
-          onDayChange(nextBoard.day);
-        }
       })
       .catch((rawError) => {
         if ((rawError as Error).name === "AbortError") return;
@@ -60,26 +100,50 @@ export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: Oppor
     return () => controller.abort();
   }, [day]);
 
+  const activeFilterState = useMemo(
+    () => ({ ...filterState, query: filter }),
+    [filter, filterState],
+  );
+
+  const allRows = useMemo(
+    () => buildOpportunityRows({ board, session }),
+    [board, session],
+  );
+
+  const visibleRows = useMemo(
+    () => filterOpportunityRows(allRows, activeFilterState),
+    [activeFilterState, allRows],
+  );
+
+  const firstSelectableSymbol = visibleRows[0]?.symbol ?? null;
+
   useEffect(() => {
     if (!board) {
-      setSelectedSymbol(null);
+      onSelectedSymbolChange(null);
       return;
     }
 
-    if (!selectedSymbol) return;
-
-    const stillExists = board.scores.some((score) => score.symbol === selectedSymbol);
-    if (!stillExists) {
-      setSelectedSymbol(null);
+    if (selectedSymbol && visibleRows.some((row) => row.symbol === selectedSymbol)) {
+      return;
     }
-  }, [board, selectedSymbol]);
 
-  const selectedScore = useMemo(
-    () => board?.scores.find((score) => score.symbol === selectedSymbol) ?? null,
-    [board, selectedSymbol],
+    onSelectedSymbolChange(firstSelectableSymbol);
+  }, [board, firstSelectableSymbol, onSelectedSymbolChange, selectedSymbol, visibleRows]);
+
+  const selectedRow = useMemo(
+    () => visibleRows.find((row) => row.symbol === selectedSymbol)
+      ?? allRows.find((row) => row.symbol === selectedSymbol)
+      ?? visibleRows[0]
+      ?? null,
+    [allRows, selectedSymbol, visibleRows],
   );
 
-  async function runEvidenceTool(request: EvidenceToolActionRequest): Promise<ExternalEvidenceResult> {
+  const inspectorView = useMemo(
+    () => buildInspectorView(selectedRow, session),
+    [selectedRow, session],
+  );
+
+  const runEvidenceTool = useCallback(async (request: EvidenceToolActionRequest): Promise<ExternalEvidenceResult> => {
     const response = await fetch("/api/research/evidence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -89,9 +153,30 @@ export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: Oppor
     if (!response.ok && !payload.tool) {
       throw new Error(payload.error || `Evidence request failed: ${response.status}`);
     }
-    onEvidenceRecorded?.();
+    await onSessionRefresh?.();
     return payload;
-  }
+  }, [onSessionRefresh]);
+
+  useEffect(() => {
+    if (!pendingEvidenceAction) return;
+    const commandId = pendingEvidenceAction.id;
+    const commandRows = allRows;
+    const row = commandRows.find((item) => item.symbol === pendingEvidenceAction.symbol);
+
+    if (!row) {
+      setCommandActionStatus(`未找到 ${pendingEvidenceAction.symbol} 的 ${pendingEvidenceAction.tool} 证据动作。`);
+      onPendingEvidenceActionHandled?.(commandId);
+      return;
+    }
+
+    setCommandActionStatus(`已将 ${row.symbol} / ${pendingEvidenceAction.label} 转到右侧 Inspector。`);
+    onSelectedSymbolChange(row.symbol);
+  }, [
+    allRows,
+    onPendingEvidenceActionHandled,
+    onSelectedSymbolChange,
+    pendingEvidenceAction,
+  ]);
 
   const contextStatus = loading
     ? "加载中"
@@ -114,18 +199,17 @@ export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: Oppor
           <h2>机会池</h2>
           <p className="opportunity-day-label">所选日期：{day}</p>
         </div>
-        <label htmlFor="opportunity-board-day">
-          日期
-          <input
-            id="opportunity-board-day"
-            name="opportunity-board-day"
-            value={day}
-            onChange={(event) => onDayChange(event.target.value)}
-          />
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={board?.status.missing.length ? "warning" : "success"}>
+            {contextStatus}
+          </Badge>
+          {filter ? <Badge variant="secondary">过滤：{filter}</Badge> : null}
+          <Badge variant="secondary">rows {visibleRows.length}</Badge>
+        </div>
       </div>
 
       {error ? <p className="agent-error opportunity-board-error">{error}</p> : null}
+      {commandActionStatus ? <p className="opportunity-note opportunity-command-status">{commandActionStatus}</p> : null}
 
       <div className="opportunity-metrics">
         <article>
@@ -133,16 +217,16 @@ export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: Oppor
           <strong>{contextStatus}</strong>
         </article>
         <article>
-          <span>管理员标的</span>
-          <strong>{board?.status.adminSymbolCount ?? 0}</strong>
+          <span>机会数量</span>
+          <strong>{board?.scores.length ?? 0}</strong>
         </article>
         <article>
-          <span>核心理论</span>
-          <strong>{board?.status.adminCoreCount ?? 0}</strong>
+          <span>证据缺口</span>
+          <strong>{visibleRows.reduce((total, row) => total + row.evidenceGapCount, 0)}</strong>
         </article>
         <article>
-          <span>风险条件</span>
-          <strong>{board?.riskSummary.riskCount ?? 0}</strong>
+          <span>复盘记录</span>
+          <strong>{session?.reviewRecords.length ?? 0}</strong>
         </article>
       </div>
 
@@ -160,39 +244,35 @@ export function OpportunityBoard({ day, onDayChange, onEvidenceRecorded }: Oppor
         </p>
       ) : null}
 
-      {board?.status.sourceStatuses.length ? (
-        <div className="opportunity-source-grid" aria-label="资料来源状态">
-          {board.status.sourceStatuses.map((source) => (
-            <article className={source.available ? "source-ready" : "source-missing"} key={source.key}>
-              <span>{source.label}</span>
-              <strong>{source.available ? "可用" : "缺失"}</strong>
-              <small>{source.resolvedPath ?? source.path}</small>
-            </article>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="opportunity-workbench-grid">
+      <div className="opportunity-workbench-grid opportunity-workbench-grid-pro">
         <div className="opportunity-blotter-list">
           {loading ? (
-            <p className="score-empty">加载评分中…</p>
+            <p className="score-empty">加载评分中...</p>
           ) : error ? null : showEmptyScores ? (
             <p className="score-empty opportunity-board-empty">暂无可评分机会。</p>
           ) : (
-            <ScoreRows
-              rows={board?.scores ?? []}
+            <OpportunityBlotter
+              allRows={allRows}
+              rows={visibleRows}
               selectedSymbol={selectedSymbol}
-              onSelect={setSelectedSymbol}
+              filterState={activeFilterState}
+              onSelectedSymbolChange={onSelectedSymbolChange}
+              onFilterStateChange={setFilterState}
             />
           )}
         </div>
 
-        <OpportunityDetail
+        <ResearchInspector
           day={day}
-          score={selectedScore}
-          evidenceNeeds={board?.reasoning.evidenceNeeds}
-          candidateOpportunities={board?.reasoning.candidateOpportunities}
+          pendingEvidenceAction={pendingEvidenceAction}
+          view={inspectorView}
+          onPendingEvidenceActionHandled={onPendingEvidenceActionHandled}
+          onAgentPrompt={onAgentPrompt}
           onRunEvidenceTool={runEvidenceTool}
+          onSessionRefresh={onSessionRefresh}
+          reviewCommandId={pendingReviewCommand?.symbol === selectedSymbol ? pendingReviewCommand.id : undefined}
+          reviewCommandReviewId={pendingReviewCommand?.reviewId}
+          reviewCommandSource={pendingReviewCommand?.source}
         />
       </div>
 

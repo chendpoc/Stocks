@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { parseAgentAnswerSections } from "../lib/agent-answer-sections";
 import { AgentContextStatus } from "./AgentContextStatus";
 import { AgentEvidenceDetail, AgentToolTraceSection } from "./AgentEvidenceDetail";
 import { AgentRunHistory } from "./AgentRunHistory";
 import { AgentToolPolicy } from "./AgentToolPolicy";
+import { AgentTimeline } from "./research/AgentTimeline";
 import type {
   AgentReply,
   AgentRunHistory as AgentRunHistoryData,
@@ -24,8 +25,55 @@ import {
 
 type AgentPanelProps = {
   day: string;
-  onDayChange: (day: string) => void;
+  selectedSymbol?: string | null;
+  promptCommand?: { id: number; text: string; source?: string; symbol?: string; promptType?: string; day?: string } | null;
+  onStatusChange?: (status: AgentRailStatus) => void;
 };
+
+type AgentRailStatus = {
+  label: string;
+  tone: "idle" | "running" | "ready" | "error";
+  detail: string;
+  runId?: string;
+};
+
+type AgentPromptMeta = {
+  source: string;
+  symbol: string;
+  promptType: string;
+  day: string;
+};
+
+const AGENT_QUICK_ACTIONS = [
+  {
+    id: "invalidate",
+    label: "反证当前机会",
+    description: "列出最该验证的失效条件",
+  },
+  {
+    id: "evidence",
+    label: "证据缺口清单",
+    description: "生成下一步工具检查顺序",
+  },
+  {
+    id: "market",
+    label: "市场状态摘要",
+    description: "压缩当前市场和机会优先级",
+  },
+] as const;
+
+type AgentQuickActionId = typeof AGENT_QUICK_ACTIONS[number]["id"];
+
+function buildAgentPrompt(actionId: AgentQuickActionId, selectedSymbol: string | null | undefined, day: string) {
+  const symbol = selectedSymbol ?? "当前机会";
+  if (actionId === "invalidate") {
+    return `基于 ${day} 的研究上下文，优先反证 ${symbol}：列出最关键的失效条件、需要的证据和下一步观察。`;
+  }
+  if (actionId === "evidence") {
+    return `为 ${symbol} 生成证据缺口清单：按 quote、history、news、fundamental 排序，并说明哪些工具会被阻断或需要人工复核。`;
+  }
+  return `总结 ${day} 的市场状态和 ${symbol} 的机会优先级：只给研究判断、置信度和反证条件。`;
+}
 
 function researchPlanStepStatus(
   step: ResearchPlanStep,
@@ -164,7 +212,7 @@ function LocalCliRunner() {
   );
 }
 
-export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
+export function AgentPanel({ day, selectedSymbol, promptCommand, onStatusChange }: AgentPanelProps) {
   const [message, setMessage] = useState("基于今天的机会观察，哪些假设最需要反证？");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [reply, setReply] = useState<AgentReply | null>(null);
@@ -177,6 +225,76 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
   const [toolError, setToolError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [promptMeta, setPromptMeta] = useState<AgentPromptMeta | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (loading) {
+      onStatusChange?.({
+        label: "运行中",
+        tone: "running",
+        detail: selectedSymbol ? `分析 ${selectedSymbol}` : day || "当前研究日",
+      });
+      return;
+    }
+    if (error || runError || toolError) {
+      onStatusChange?.({
+        label: "异常",
+        tone: "error",
+        detail: error || runError || toolError,
+      });
+      return;
+    }
+    if (reply) {
+      onStatusChange?.({
+        label: providerStatusLabel(reply.provider_status),
+        tone: "ready",
+        detail: reply.provider,
+        runId: reply.run_id,
+      });
+      return;
+    }
+    const latestRun = runHistory?.runs[0];
+    if (latestRun) {
+      onStatusChange?.({
+        label: "最近运行",
+        tone: "ready",
+        detail: providerStatusLabel(latestRun.provider_status),
+        runId: latestRun.run_id,
+      });
+      return;
+    }
+    onStatusChange?.({
+      label: "就绪",
+      tone: "idle",
+      detail: selectedSymbol ? `等待 ${selectedSymbol} prompt` : "等待提问",
+    });
+  }, [
+    day,
+    error,
+    loading,
+    onStatusChange,
+    reply,
+    runError,
+    runHistory?.runs,
+    selectedSymbol,
+    toolError,
+  ]);
+
+  useEffect(() => {
+    if (promptCommand?.text) {
+      setMessage(promptCommand.text);
+      setPromptMeta({
+        source: promptCommand.source ?? "Manual",
+        symbol: promptCommand.symbol ?? selectedSymbol ?? "未指定",
+        promptType: promptCommand.promptType ?? "custom",
+        day: promptCommand.day ?? day,
+      });
+      window.requestAnimationFrame(() => {
+        messageInputRef.current?.focus();
+      });
+    }
+  }, [day, promptCommand?.day, promptCommand?.id, promptCommand?.promptType, promptCommand?.source, promptCommand?.symbol, promptCommand?.text, selectedSymbol]);
 
   async function loadRunHistory(signal?: AbortSignal) {
     setRunError("");
@@ -248,7 +366,8 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
   function evidenceRefreshPrompt() {
     const evidenceSymbol = reply?.opportunity_reasoning.evidenceNeeds
       .find((need) => need.symbol !== "GENERAL")?.symbol;
-    const symbol = extractTickerSymbol(evidenceSymbol)
+    const symbol = selectedSymbol
+      || extractTickerSymbol(evidenceSymbol)
       || extractTickerSymbol(contextStatus?.adminSymbolsPreview[0])
       || "GENERAL";
     return `refresh all missing evidence for ${symbol} before comparing the opportunity`;
@@ -296,6 +415,16 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
     await runAgent(nextMessage);
   }
 
+  function applyQuickAction(actionId: AgentQuickActionId) {
+    setMessage(buildAgentPrompt(actionId, selectedSymbol, day));
+    setPromptMeta({
+      source: "Agent quick action",
+      symbol: selectedSymbol ?? "当前机会",
+      promptType: actionId,
+      day,
+    });
+  }
+
   return (
     <aside className="agent-panel agent-panel-auxiliary" aria-label="机会观察 Agent">
       <div className="agent-header">
@@ -311,26 +440,44 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
       </div>
 
       <form aria-busy={loading} aria-label="询问 Agent 表单" className="agent-form" onSubmit={submit}>
-        <label htmlFor="agent-panel-day">
-          日期
-          <input
-            id="agent-panel-day"
-            name="agent-panel-day"
-            value={day}
-            onChange={(event) => onDayChange(event.target.value)}
-          />
-        </label>
+        <div className="agent-readonly-context">
+          <span>研究日</span>
+          <strong>{day || "解析中"}</strong>
+        </div>
+        <div className="agent-readonly-context">
+          <span>当前机会</span>
+          <strong>{selectedSymbol ?? "未选择"}</strong>
+        </div>
+        {promptMeta ? (
+          <div className="agent-prompt-origin" aria-label="Prompt source">
+            <span>Prompt source</span>
+            <strong>{promptMeta.source}</strong>
+            <small>{promptMeta.day} / {promptMeta.symbol} / {promptMeta.promptType}</small>
+          </div>
+        ) : null}
         <label htmlFor="agent-panel-message">
           问题
           <textarea
             id="agent-panel-message"
             name="agent-panel-message"
+            ref={messageInputRef}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             rows={4}
           />
         </label>
         <div className="agent-quick-actions">
+          {AGENT_QUICK_ACTIONS.map((action) => (
+            <button
+              disabled={loading}
+              key={action.id}
+              title={action.description}
+              type="button"
+              onClick={() => applyQuickAction(action.id)}
+            >
+              {action.label}
+            </button>
+          ))}
           <button
             aria-busy={loading}
             disabled={loading}
@@ -364,6 +511,8 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
         <AgentRunHistory error={runError} history={runHistory} />
       </details>
 
+      <AgentTimeline reply={reply} history={runHistory} />
+
       <details className="agent-auxiliary-section">
         <summary>工具状态</summary>
         <AgentToolPolicy error={toolError} tools={toolReadiness} />
@@ -380,20 +529,27 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
         </p>
       ) : null}
 
-      {messages.length ? (
-        <section aria-label="对话上下文" className="agent-history">
-          <h3>对话上下文</h3>
-          {messages.slice(-4).map((item, index) => (
-            <p key={`${item.role}-${index}`}>
-              <strong>{item.role === "user" ? "你" : "Agent"}：</strong>
-              {item.content}
-            </p>
-          ))}
-        </section>
-      ) : null}
+      {messages.length || reply ? (
+        <details className="agent-auxiliary-section agent-deep-dive">
+          <summary>
+            Agent 深度详情
+            <span>{reply ? reply.run_id : `${messages.length} 条上下文`}</span>
+          </summary>
 
-      {reply ? (
-        <section aria-label="Agent 回答" aria-live="polite" className="agent-reply">
+          {messages.length ? (
+            <section aria-label="对话上下文" className="agent-history">
+              <h3>对话上下文</h3>
+              {messages.slice(-4).map((item, index) => (
+                <p key={`${item.role}-${index}`}>
+                  <strong>{item.role === "user" ? "你" : "Agent"}：</strong>
+                  {item.content}
+                </p>
+              ))}
+            </section>
+          ) : null}
+
+          {reply ? (
+            <section aria-label="Agent 回答" className="agent-reply" aria-live="polite">
           <h3>回答</h3>
           <AgentAnswerBody answer={reply.answer} />
           <p className="agent-run-meta">
@@ -561,7 +717,9 @@ export function AgentPanel({ day, onDayChange }: AgentPanelProps) {
             <strong>研究边界：</strong>
             以上回答仅用于研究观察与假设验证，不构成买卖指令。
           </p>
-        </section>
+            </section>
+          ) : null}
+        </details>
       ) : null}
     </aside>
   );

@@ -48,6 +48,16 @@ function traceFromPolicy(name: string, input: Record<string, string>, reason: st
   };
 }
 
+function traceFromToolError(name: string, input: Record<string, string>, reason: string): AgentToolTrace {
+  return {
+    name,
+    reason,
+    input,
+    result_summary: `${name} error: ${reason}`,
+    execution_status: "failed",
+  };
+}
+
 function sourceTypeForTool(tool: string) {
   if (tool === "yfinance_history") return "history" as const;
   if (tool === "news_search") return "news" as const;
@@ -138,14 +148,24 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ policy, tool });
   } catch (error) {
+    const errorTrace = traceFromToolError(
+      toolName,
+      input,
+      error instanceof Error ? error.message : String(error),
+    );
+    await appendEvidenceRun(day, {
+      opportunityId: await opportunityIdForRequest(day, body),
+      toolName,
+      input,
+      summary: errorTrace.result_summary,
+      verdict: "error",
+      sourceType: sourceTypeForTool(toolName),
+      fromCache: false,
+    });
     return NextResponse.json(
       {
         policy,
-        tool: traceFromPolicy(
-          toolName,
-          input,
-          error instanceof Error ? error.message : String(error),
-        ),
+        tool: errorTrace,
       },
       { status: 400 },
     );

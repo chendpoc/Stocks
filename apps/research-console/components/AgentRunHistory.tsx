@@ -1,6 +1,7 @@
 import type { AgentRunEvidenceSummary } from "@stock-summary/summary-core";
 import type { AgentRunHistory as AgentRunHistoryData } from "./agent-panel-types";
 import { formatBoundedPath, providerStatusLabel } from "./agent-panel-types";
+import { cleanAgentTimelineText } from "./research/AgentTimeline";
 
 type AgentRunHistoryProps = {
   error: string;
@@ -23,7 +24,7 @@ export function AgentRunHistory({ error, history }: AgentRunHistoryProps) {
                 <strong>{run.run_id}</strong>
                 <span>{providerStatusLabel(run.provider_status)}</span>
               </div>
-              <p>{run.message_preview}</p>
+              <p>{cleanAgentTimelineText(run.message_preview)}</p>
               <div className="agent-run-tags">
                 {run.tool_names.map((tool) => (
                   <span key={`${run.run_id}-${tool}`}>{tool}</span>

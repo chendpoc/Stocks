@@ -74,6 +74,38 @@ function datedId(prefix: string, day: string, parts: string[]) {
   return `${prefix}_${day}_${crypto.createHash("sha1").update(parts.join("|")).digest("hex").slice(0, 12)}`;
 }
 
+function stableRecordKey(input: Record<string, string>) {
+  return JSON.stringify(Object.fromEntries(Object.entries(input).sort(([left], [right]) => left.localeCompare(right))));
+}
+
+function evidenceRunDuplicateKey(run: Pick<
+  EvidenceRun,
+  "opportunityId" | "toolName" | "input" | "summary" | "sourceType" | "verdict" | "fromCache"
+>) {
+  return JSON.stringify({
+    opportunityId: run.opportunityId,
+    toolName: run.toolName,
+    input: stableRecordKey(run.input),
+    summary: run.summary,
+    sourceType: run.sourceType,
+    verdict: run.verdict,
+    fromCache: run.fromCache,
+  });
+}
+
+function reviewRecordDuplicateKey(record: Pick<
+  ReviewRecord,
+  "opportunityId" | "outcome" | "observedMove" | "failureReason" | "learning"
+>) {
+  return JSON.stringify({
+    opportunityId: record.opportunityId,
+    outcome: record.outcome,
+    observedMove: record.observedMove,
+    failureReason: record.failureReason ?? "",
+    learning: record.learning,
+  });
+}
+
 async function readSessionFile(day: string) {
   try {
     return JSON.parse(await fs.readFile(sessionPath(day), "utf8")) as ResearchSession;
@@ -212,8 +244,9 @@ export async function patchResearchSession(day: string | undefined, patch: Sessi
 
 export async function appendEvidenceRun(day: string, input: EvidenceRunInput): Promise<EvidenceRun> {
   const session = await loadResearchSession(day);
+  const createdAt = nowIso();
   const evidenceRun: EvidenceRun = {
-    id: shortId("ev", [day, input.opportunityId, input.toolName, nowIso(), input.summary]),
+    id: shortId("ev", [day, input.opportunityId, input.toolName, createdAt, input.summary]),
     sessionDay: day,
     opportunityId: input.opportunityId,
     toolName: boundedText(input.toolName, 80),
@@ -223,11 +256,12 @@ export async function appendEvidenceRun(day: string, input: EvidenceRunInput): P
     summary: boundedText(input.summary, 800),
     sourceType: input.sourceType,
     verdict: input.verdict,
-    createdAt: nowIso(),
+    createdAt,
     fromCache: Boolean(input.fromCache),
   };
+  const duplicateKey = evidenceRunDuplicateKey(evidenceRun);
   const opportunities = session.opportunities.map((opportunity) =>
-    opportunity.id === input.opportunityId && input.verdict !== "blocked"
+    opportunity.id === input.opportunityId && input.verdict !== "blocked" && input.verdict !== "error"
       ? { ...opportunity, status: "evidence_ready" as const }
       : opportunity,
   );
@@ -235,7 +269,10 @@ export async function appendEvidenceRun(day: string, input: EvidenceRunInput): P
   await saveResearchSession({
     ...session,
     opportunities,
-    evidenceRuns: [evidenceRun, ...session.evidenceRuns].slice(0, 100),
+    evidenceRuns: [
+      evidenceRun,
+      ...session.evidenceRuns.filter((run) => evidenceRunDuplicateKey(run) !== duplicateKey),
+    ].slice(0, 100),
   });
 
   return evidenceRun;
@@ -243,15 +280,17 @@ export async function appendEvidenceRun(day: string, input: EvidenceRunInput): P
 
 export async function appendReviewRecord(day: string, input: ReviewRecordInput): Promise<ReviewRecord> {
   const session = await loadResearchSession(day);
+  const createdAt = nowIso();
   const reviewRecord: ReviewRecord = {
-    id: shortId("review", [day, input.opportunityId, nowIso(), input.learning]),
+    id: shortId("review", [day, input.opportunityId, createdAt, input.learning]),
     opportunityId: input.opportunityId,
     outcome: input.outcome,
     observedMove: boundedText(input.observedMove, 480),
     failureReason: input.failureReason ? boundedText(input.failureReason, 320) : undefined,
     learning: boundedText(input.learning, 640),
-    createdAt: nowIso(),
+    createdAt,
   };
+  const duplicateKey = reviewRecordDuplicateKey(reviewRecord);
   const opportunities = session.opportunities.map((opportunity) =>
     opportunity.id === input.opportunityId
       ? { ...opportunity, status: "reviewed" as const }
@@ -261,7 +300,10 @@ export async function appendReviewRecord(day: string, input: ReviewRecordInput):
   await saveResearchSession({
     ...session,
     opportunities,
-    reviewRecords: [reviewRecord, ...session.reviewRecords].slice(0, 200),
+    reviewRecords: [
+      reviewRecord,
+      ...session.reviewRecords.filter((record) => reviewRecordDuplicateKey(record) !== duplicateKey),
+    ].slice(0, 200),
   });
 
   return reviewRecord;
@@ -278,6 +320,10 @@ export async function buildMarketInterpretation(day: string): Promise<MarketInte
     ...session.evidenceRuns
       .filter((item) => item.verdict === "contradicting" || item.verdict === "blocked")
       .slice(0, 6)
+      .map((item) => `${item.toolName}: ${item.summary}`),
+    ...session.evidenceRuns
+      .filter((item) => item.verdict === "error")
+      .slice(0, 4)
       .map((item) => `${item.toolName}: ${item.summary}`),
   ].slice(0, 8);
 

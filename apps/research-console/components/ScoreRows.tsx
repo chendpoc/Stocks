@@ -30,6 +30,24 @@ type ScoreRowsProps = {
   onSelect?: (symbol: string) => void;
 };
 
+export function formatScoreReason(row: ScoreRow) {
+  if (!row.reason.trim()) {
+    return "本地评分已生成，仍需要补充触发、流动性和反证证据。";
+  }
+
+  if (!/[a-z_]+=\d+/i.test(row.reason) || !row.components) {
+    return row.reason;
+  }
+
+  return [
+    `理论对齐 ${row.components.thesis_alignment}`,
+    `触发 ${row.components.trigger_clarity}`,
+    `证据 ${row.components.evidence_quality}`,
+    `反证 ${row.components.invalidation_clarity}`,
+    `流动性风险 ${row.components.liquidity_risk}`,
+  ].join(" / ");
+}
+
 export function ScoreRows({ rows, selectedSymbol, onSelect }: ScoreRowsProps) {
   const selectable = Boolean(onSelect);
 
@@ -46,6 +64,7 @@ export function ScoreRows({ rows, selectedSymbol, onSelect }: ScoreRowsProps) {
       {rows.map((row) => {
         const label = row.symbol || row.label || "UNKNOWN";
         const selected = selectedSymbol === label;
+        const readableReason = formatScoreReason(row);
         const rowClassName = selected
           ? "score-row score-row-selected score-blotter-row"
           : "score-row score-blotter-row";
@@ -86,10 +105,10 @@ export function ScoreRows({ rows, selectedSymbol, onSelect }: ScoreRowsProps) {
             </div>
             <div className="score-detail">
               <span className="score-pill">{row.score}</span>
-              <p className="score-reason">{row.reason}</p>
+              <p className="score-reason">{readableReason}</p>
             </div>
             {row.components ? (
-              <dl className="score-components">
+              <dl className="score-components score-components-compact" aria-label={`${label} 评分分解`}>
                 {(Object.keys(COMPONENT_LABELS) as Array<keyof ScoreComponents>).map((key) => (
                   <div key={key}>
                     <dt>{COMPONENT_LABELS[key]}</dt>
