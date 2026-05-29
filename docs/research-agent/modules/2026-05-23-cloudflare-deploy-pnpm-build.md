@@ -1,43 +1,52 @@
-# Cloudflare Deploy PNPM Build
+# Cloudflare Pages Git Integration Boundary
 
 ## Goal
 
-Make the local Cloudflare deploy helper use the same pnpm build path as the rest of the repository.
+Supersede the old local Pages upload helper and keep public-site publishing on Cloudflare Pages Git integration.
 
 ## Why
 
-The repository has moved to a light pnpm monorepo. `package-lock.json` is removed, workflows install with pnpm, and the root `pages:build` script already routes through `scripts/pnpm-workspace.mjs`. If `scripts/deploy-cloudflare-pages.mjs` still shells out to `npm run docs:build`, local deploy behavior can drift from CI and can fail on machines that only installed pnpm dependencies.
+The public site is a static VitePress output. The only local contract needed is a reproducible build plus a public-build audit. Keeping a second local upload path creates drift against the Dashboard configuration and adds a tool dependency that is not needed for daily use.
 
 ## Contract
 
-- `pages:deploy` should build through `scripts/pnpm-workspace.mjs run docs:build` unless `--skip-build` is used.
-- The helper should not require a globally installed `pnpm.cmd` on Windows.
-- Dry run should still print the deployment plan and site URL.
-- The deploy command should continue using `npx wrangler pages deploy ...` for the actual deploy step.
-- No changes to daily summary generation, notification, or Cloudflare project defaults.
+- `pages:build` remains the local static build command.
+- `public:build:audit` remains the local leakage/month-scope gate.
+- Cloudflare Pages project settings own the real deploy configuration:
+  - Build command: `npm run docs:build`
+  - Build output directory: `docs/.vitepress/dist`
+  - Root directory: repository root
+- No local Pages upload helper, Pages deploy script, or standalone Pages config file.
+- No changes to daily summary generation, WeCom notification, or research-console local-only boundaries.
 
 ## Files
 
-- `scripts/deploy-cloudflare-pages.mjs`
+- `package.json`
+- `scripts/release-check.mjs`
 - `test/daily-summary-assets.test.mjs`
 - `docs/research-agent/modules/2026-05-23-cloudflare-deploy-pnpm-build.md`
-- `docs/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md`
+- `CLOUDFLARE_PAGES.md`
+- `docs/research-agent/delivery-readiness-audit.md`
 
 ## Test Plan
 
-- RED: assert the deploy helper invokes the pnpm workspace wrapper instead of `npm run docs:build` or direct global `pnpm`.
-- GREEN: replace the build command with `process.execPath scripts/pnpm-workspace.mjs run docs:build`.
-- Run focused deploy test, `npm run pages:deploy:dry`, `npm run test:summary`, and `git diff --check`.
+- RED: assert the package and release check no longer expose local Pages deploy commands.
+- RED: assert the public guide documents Git integration and no local direct-upload path.
+- GREEN: remove obsolete scripts/config and update current docs.
+- Run focused boundary tests, `npm run pages:build`, `npm run public:build:audit`, and `git diff --check`.
 
 ## Implementation
 
-- Updated the deploy helper to call `process.execPath` with `scripts/pnpm-workspace.mjs run docs:build`.
-- Kept the actual deploy step on `npx wrangler pages deploy ...`.
-- Kept dry-run output unchanged.
+- Removed the obsolete local Pages upload helper and standalone Pages config.
+- Removed local Pages deploy scripts from `package.json`.
+- Removed the deploy dry-run gate from `release:check`.
+- Kept `pages:build` as the static build contract.
 
 ## Verification
 
-- RED verified with `node --test --test-name-pattern "cloudflare deploy helper builds" test\daily-summary-assets.test.mjs`.
-- GREEN verified with `node --test --test-name-pattern "cloudflare deploy helper builds|cloudflare deploy dry run" test\daily-summary-assets.test.mjs`.
-- Real dry-run verified with `npm run pages:deploy:dry`.
-- Full relevant checks passed: `npm run test:summary`, `git diff --check`.
+- Focused tests:
+  - `node --test --test-name-pattern "static Cloudflare Pages build|Cloudflare Pages guide|delivery readiness audit|release check command|deployment boundary document" test\daily-summary-assets.test.mjs`
+- Static site checks:
+  - `npm run pages:build`
+  - `npm run public:build:audit`
+  - `git diff --check`

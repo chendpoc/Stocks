@@ -462,8 +462,8 @@ test("daily publish script generates one summary then publishes card and image",
   assert.match(script, /sendWeWorkImage/);
   assert.doesNotMatch(script, /summary-cards/);
   assert.match(script, /summary-images/);
-  assert.match(script, /const branch = currentGitBranch\(\)/);
-  assert.match(script, /git",\s*\["push",\s*"origin",\s*branch\]/);
+  assert.match(script, /const branch = currentGitBranch\(root\)/);
+  assert.match(script, /run\(root,\s*"git",\s*\["push",\s*"origin",\s*branch\]\)/);
 });
 
 test("daily publish sends image without waiting for a public card cover", async () => {
@@ -499,11 +499,11 @@ test("daily publish rebases onto current remote branch before pushing generated 
   const script = await readFile("scripts/daily-publish.mjs", "utf8");
 
   assert.match(script, /function syncCurrentBranchBeforePush/);
-  assert.match(script, /git",\s*\["fetch",\s*"origin",\s*branch\]/);
-  assert.match(script, /git",\s*\["rebase",\s*`origin\/\$\{branch\}`\]/);
+  assert.match(script, /run\(root,\s*"git",\s*\["fetch",\s*"origin",\s*branch\]\)/);
+  assert.match(script, /run\(root,\s*"git",\s*\["rebase",\s*`origin\/\$\{branch\}`\]\)/);
   assert.ok(
     script.indexOf("syncCurrentBranchBeforePush(branch)") <
-    script.indexOf('run("git", ["push", "origin", branch])'),
+    script.indexOf('run(root, "git", ["push", "origin", branch])'),
     "daily publish should update its checkout before pushing generated docs",
   );
 });
@@ -576,8 +576,9 @@ test("public publish scripts do not stage chat image audit assets", async () => 
 test("publish scripts push the current git branch instead of hardcoded master", async () => {
   const dailyScript = await readFile("scripts/daily-summary.mjs", "utf8");
   const cardScript = await readFile("scripts/notify-card.mjs", "utf8");
+  const commonScript = await readFile("scripts/lib/common.mjs", "utf8");
 
-  for (const script of [dailyScript, cardScript]) {
+  for (const script of [`${dailyScript}\n${commonScript}`, cardScript]) {
     assert.match(script, /branch.*--show-current/);
     assert.doesNotMatch(script, /push["'],\s*\["origin",\s*"master"\]/);
   }
@@ -720,8 +721,8 @@ test("repository declares a light pnpm monorepo without breaking existing root s
   assert.equal(pkg.private, true);
   assert.match(pkg.packageManager, /^pnpm@\d+\.\d+\.\d+$/);
   assert.equal(pkg.engines.node, ">=20 <23");
-  assert.equal(nvmrc.trim(), "20");
-  assert.equal(nodeVersion.trim(), "20");
+  assert.equal(nvmrc.trim(), "22");
+  assert.equal(nodeVersion.trim(), "22");
   await assert.rejects(access("package-lock.json"), /ENOENT/);
   await access("pnpm-lock.yaml");
   assert.match(gitignore, /^\.cache\/$/m);
@@ -744,7 +745,7 @@ test("repository declares a light pnpm monorepo without breaking existing root s
   assert.match(deployWorkflow, /pnpm run docs:build/);
 });
 
-test("node runtime policy keeps CI pinned to Node 20 despite local newer runtimes", async () => {
+test("node runtime policy keeps CI pinned to Node 22", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const nvmrc = await readFile(".nvmrc", "utf8");
   const nodeVersion = await readFile(".node-version", "utf8");
@@ -752,14 +753,14 @@ test("node runtime policy keeps CI pinned to Node 20 despite local newer runtime
   const deployWorkflow = await readFile(".github/workflows/deploy.yml", "utf8");
   const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-node-runtime-policy.md", "utf8");
 
-  assert.equal(nvmrc.trim(), "20");
-  assert.equal(nodeVersion.trim(), "20");
+  assert.equal(nvmrc.trim(), "22");
+  assert.equal(nodeVersion.trim(), "22");
   assert.equal(pkg.engines.node, ">=20 <23");
   assert.match(dailyWorkflow, /node-version-file:\s*\.nvmrc/);
   assert.match(deployWorkflow, /node-version-file:\s*\.nvmrc/);
-  assert.match(moduleDoc, /Canonical CI runtime: Node 20/);
-  assert.match(moduleDoc, /Do not broaden `package\.json` engines only to silence a local warning/);
-  assert.match(moduleDoc, /switch the local shell to Node 20/);
+  assert.match(moduleDoc, /Canonical CI runtime: Node 22/);
+  assert.match(moduleDoc, /Do not broaden `package\.json` engines or move the runtime files only to silence a local warning/);
+  assert.match(moduleDoc, /switch the local shell to Node 22/);
 });
 
 test("research console scaffold provides a React agent workspace with server-side secret boundary", async () => {
@@ -785,7 +786,7 @@ test("research console scaffold provides a React agent workspace with server-sid
   assert.match(page, /<ResearchWorkspace/);
   assert.match(workspace, /aria-label="动态交易研究工作台"/);
   assert.match(workspace, /<AgentPanel/);
-  assert.match(workspace, /requestedDay === "latest"/);
+  assert.match(workspace, /selectedDayLabel/);
   assert.match(panel, /"use client"/);
   assert.match(panel, /\/api\/agent\/chat/);
   assert.doesNotMatch(panel, /useState\("2026-05-22"\)/);
@@ -1254,6 +1255,18 @@ test("research console renders yfinance history traces as metric cards", async (
   assert.match(styles, /\.history-metric/);
 });
 
+test("cleanup removes legacy research console presentation leftovers", async () => {
+  await assert.rejects(access("apps/research-console/components/OpportunityDetail.tsx"));
+  await assert.rejects(access("scripts/run-daily-notify.mjs"));
+
+  const gitignore = await readFile(".gitignore", "utf8");
+  const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
+  const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+
+  assert.match(gitignore, /^\.superpowers\/$/m);
+  assert.doesNotMatch(`${workspace}\n${board}`, /OpportunityDetail|Textarea|run-daily-notify/);
+});
+
 test("research console exposes selected-day context status without raw content", async () => {
   const coreTypes = await readFile("packages/summary-core/src/index.ts", "utf8");
   const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
@@ -1306,7 +1319,7 @@ test("research console exposes a local opportunity board without model or raw co
   const page = await readFile("apps/research-console/app/page.tsx", "utf8");
   const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
   const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
-  const scoreRows = await readFile("apps/research-console/components/ScoreRows.tsx", "utf8");
+  const blotter = await readFile("apps/research-console/components/research/OpportunityBlotter.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
   const { loadOpportunityBoard } = loadResearchConsoleModule("apps/research-console/lib/opportunity-board.ts");
   const { root, day } = await createResearchFixture();
@@ -1347,16 +1360,20 @@ test("research console exposes a local opportunity board without model or raw co
   assert.match(page, /<ResearchWorkspace/);
   assert.match(workspace, /function ResearchMainTabs/);
   assert.match(workspace, /<OpportunityBoard\s+day=\{day\}/);
-  assert.match(workspace, /onDayChange=\{onDayChange\}/);
+  assert.match(workspace, /selectedSymbol=\{selectedSymbol\}/);
+  assert.match(workspace, /filter=\{opportunityFilter\}/);
   assert.match(board, /\/api\/research\/opportunities/);
   assert.match(board, /className="opportunity-board opportunity-blotter"/);
   assert.match(board, /board\?\.reasoning/);
   assert.match(board, /className="reasoning-panel"/);
-  assert.match(board, /<ScoreRows/);
-  assert.match(scoreRows, /export function ScoreRows/);
+  assert.match(board, /<OpportunityBlotter/);
+  assert.match(board, /<ResearchInspector/);
+  assert.match(blotter, /export function OpportunityBlotter/);
   assert.match(styles, /\.opportunity-board/);
   assert.match(styles, /\.opportunity-metrics/);
   assert.match(styles, /\.opportunity-watchlist/);
+  assert.match(styles, /\.opportunity-blotter-table/);
+  assert.match(styles, /\.research-inspector-pro/);
   assert.match(styles, /\.reasoning-panel/);
 });
 
@@ -1367,9 +1384,9 @@ test("OpportunityBoard readable labels avoid garbled Chinese copy", async () => 
   assert.match(board, /机会池/);
   assert.match(board, /所选日期/);
   assert.match(board, /上下文/);
-  assert.match(board, /管理员标的/);
-  assert.match(board, /核心理论/);
-  assert.match(board, /风险条件/);
+  assert.match(board, /机会数量/);
+  assert.match(board, /证据缺口/);
+  assert.match(board, /复盘记录/);
   assert.match(board, /本地确定性研究分流，不是交易指令/);
   assert.match(board, /本地推演计划/);
   assert.match(board, /推理摘要/);
@@ -1440,7 +1457,7 @@ test("Phase 1 opportunity board boundary keeps local scoring off publishing surf
   const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
 
   assert.match(workspace, /function ResearchMainTabs/);
-  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}[\s\S]*onDayChange=\{onDayChange\}/);
+  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}[\s\S]*onSelectedSymbolChange=\{onSelectedSymbolChange\}/);
   assert.match(route, /loadOpportunityBoard/);
   assert.doesNotMatch(opportunityBoardLib, /longbridge|alpha_vantage|yfinance|news_search/i);
   assert.doesNotMatch(opportunityBoardLib, /fetch\(/);
@@ -1454,13 +1471,13 @@ test("Fortress visual refactor keeps opportunity blotter primary and Agent auxil
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
   const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
   const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
-  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
   const agent = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
   const moduleDoc = await readFile(
     "docs/research-agent/modules/2026-05-23-research-workbench-terminal-visual-refactor.md",
     "utf8",
   );
-  const combined = [workspace, board, detail, agent].join("\n");
+  const combined = [workspace, board, inspector, agent].join("\n");
 
   assert.match(moduleDoc, /Fortress Dashboard visual language/i);
   assert.match(moduleDoc, /dark fixed sidebar/i);
@@ -1477,9 +1494,9 @@ test("Fortress visual refactor keeps opportunity blotter primary and Agent auxil
   assert.match(styles, /\.reasoning-panel-head::after/);
   assert.match(styles, /\.reasoning-panel-count/);
   assert.match(workspace, /activeTab.*opportunities/);
-  assert.match(workspace, /className="fortress-brand"/);
-  assert.match(workspace, /className="fortress-nav"/);
-  assert.match(workspace, /className="cockpit-search"/);
+  assert.match(workspace, /bg-slate-950/);
+  assert.match(workspace, /CommandPalette/);
+  assert.match(workspace, /Search research/);
   assert.match(board, /Opportunity Blotter|机会池/);
   assert.match(board, /opportunity-blotter/);
   assert.match(board, /<details className="reasoning-panel">/);
@@ -1489,8 +1506,8 @@ test("Fortress visual refactor keeps opportunity blotter primary and Agent auxil
     "opportunity blotter should appear before auxiliary research plan",
   );
   assert.match(board, /reasoningSignalCount/);
-  assert.match(detail, /Research Inspector|研究详情/);
-  assert.match(detail, /research-inspector/);
+  assert.match(inspector, /Research Inspector/);
+  assert.match(inspector, /research-inspector/);
   assert.match(agent, /agent-panel-auxiliary/);
   assert.match(combined, /仅供研究观察|研究边界/);
   assert.doesNotMatch(moduleDoc, /institutional dark research cockpit/i);
@@ -1499,39 +1516,44 @@ test("Fortress visual refactor keeps opportunity blotter primary and Agent auxil
   assert.doesNotMatch(combined, /daily:publish|notify-card|deploy-cloudflare|scripts\/daily-summary/);
 });
 
-test("OpportunityDetail component renders bounded research detail for a selected score", async () => {
-  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+test("ResearchInspector renders bounded research detail for a selected score", async () => {
+  const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
+  const viewModel = await readFile("apps/research-console/components/research/opportunity-view-model.ts", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
 
-  assert.match(detail, /export function OpportunityDetail/);
-  assert.match(detail, /OpportunityBoardScore/);
-  assert.match(detail, /sourceRefs/);
-  assert.match(detail, /activeScore\.components/);
-  assert.match(detail, /请在上方的评分列表中选择一个机会行/);
-  assert.match(detail, /仅供研究观察，不是交易指令/);
-  assert.match(detail, /className="opportunity-detail research-inspector/);
-  assert.match(styles, /\.opportunity-detail/);
+  assert.match(inspector, /export function ResearchInspector/);
+  assert.match(inspector, /InspectorView/);
+  assert.match(viewModel, /sourceRefs/);
+  assert.match(viewModel, /scoreReason: formatScoreReason/);
+  assert.match(inspector, /请先选择一个机会，查看判断、证据缺口、外部证据动作与复盘入口/);
+  assert.match(inspector, /仅供研究观察，不是交易指令/);
+  assert.match(inspector, /className="research-inspector-pro/);
+  assert.match(styles, /\.research-inspector/);
   assert.match(styles, /\.opportunity-detail-boundary/);
-  assert.doesNotMatch(detail, /process\.env/);
-  assert.doesNotMatch(detail, /# 机会观察/);
-  assert.doesNotMatch(detail, /data\/structured/);
-  assert.doesNotMatch(detail, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing)\b/i);
+  assert.doesNotMatch(inspector, /process\.env/);
+  assert.doesNotMatch(inspector, /# 机会观察/);
+  assert.doesNotMatch(inspector, /data\/structured/);
+  assert.doesNotMatch(inspector, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing)\b/i);
+  await assert.rejects(access("apps/research-console/components/OpportunityDetail.tsx"));
 });
 
-test("OpportunityBoard selected detail wires row selection to OpportunityDetail", async () => {
+test("OpportunityBoard selected detail wires row selection to ResearchInspector", async () => {
   const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
-  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+  const blotter = await readFile("apps/research-console/components/research/OpportunityBlotter.tsx", "utf8");
+  const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
 
-  assert.match(board, /OpportunityDetail/);
+  assert.match(board, /ResearchInspector/);
+  assert.match(board, /OpportunityBlotter/);
   assert.match(board, /selectedSymbol/);
-  assert.match(board, /setSelectedSymbol/);
-  assert.match(board, /selectedScore/);
-  assert.match(board, /onSelect=\{setSelectedSymbol\}/);
-  assert.match(board, /stillExists/);
-  assert.match(board, /setSelectedSymbol\(null\)/);
-  assert.match(board, /evidenceNeeds=\{board\?\.reasoning\.evidenceNeeds\}/);
-  assert.match(board, /candidateOpportunities=\{board\?\.reasoning\.candidateOpportunities\}/);
-  assert.match(board, /score=\{selectedScore\}/);
+  assert.match(board, /onSelectedSymbolChange/);
+  assert.match(board, /selectedRow/);
+  assert.match(blotter, /onSelectedSymbolChange\(row\.symbol\)/);
+  assert.match(board, /firstSelectableSymbol/);
+  assert.match(board, /onSelectedSymbolChange\(null\)/);
+  assert.match(board, /buildOpportunityRows/);
+  assert.match(board, /buildInspectorView/);
+  assert.match(board, /view=\{inspectorView\}/);
+  assert.match(inspector, /EvidenceTimeline/);
   assert.doesNotMatch(board, /localStorage/);
   assert.doesNotMatch(board, /useSearchParams/);
 });
@@ -1557,9 +1579,10 @@ test("ScoreRows selection supports keyboard and accessible selected state", asyn
   assert.doesNotMatch(scoreRows, /XMLHttpRequest/);
 });
 
-test("OpportunityDetail evidence needs and candidate invalidation stay bounded", async () => {
-  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+test("ResearchInspector evidence needs and candidate invalidation stay bounded", async () => {
+  const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
   const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
+  const viewModel = await readFile("apps/research-console/components/research/opportunity-view-model.ts", "utf8");
   const { loadOpportunityBoard } = loadResearchConsoleModule("apps/research-console/lib/opportunity-board.ts");
   const { root, day } = await createResearchFixture();
 
@@ -1583,25 +1606,23 @@ test("OpportunityDetail evidence needs and candidate invalidation stay bounded",
     await rm(root, { recursive: true, force: true });
   }
 
-  assert.match(detail, /evidenceNeeds/);
-  assert.match(detail, /candidateOpportunities/);
-  assert.match(detail, /MAX_EVIDENCE_NEEDS = 5/);
-  assert.match(detail, /MAX_INVALIDATION_LINES = 5/);
-  assert.match(detail, /need\.kind/);
-  assert.match(detail, /need\.question/);
-  assert.match(detail, /need\.preferredTools/);
-  assert.match(detail, /need\.required/);
-  assert.match(detail, /opportunity-detail-evidence-required/);
-  assert.match(detail, /必需/);
-  assert.match(detail, /未记录该标的的明确证据需求/);
-  assert.match(detail, /失效条件/);
-  assert.match(board, /evidenceNeeds=\{board\?\.reasoning\.evidenceNeeds\}/);
-  assert.doesNotMatch(detail, /process\.env/);
-  assert.doesNotMatch(detail, /raw payload/i);
+  assert.match(inspector, /evidenceGaps/);
+  assert.match(viewModel, /reasoningNeedsForSymbol/);
+  assert.match(viewModel, /candidateForSymbol/);
+  assert.match(inspector, /need\.kind/);
+  assert.match(inspector, /need\.question/);
+  assert.match(viewModel, /preferredTools/);
+  assert.match(inspector, /need\.required/);
+  assert.match(inspector, /必需/);
+  assert.match(inspector, /当前机会没有明确证据缺口/);
+  assert.match(inspector, /失效条件/);
+  assert.match(board, /buildInspectorView\(selectedRow,\s*session\)/);
+  assert.doesNotMatch(inspector, /process\.env/);
+  assert.doesNotMatch(inspector, /raw payload/i);
 });
 
-test("OpportunityDetail exposes guarded external evidence actions", async () => {
-  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+test("ResearchInspector exposes guarded external evidence actions", async () => {
+  const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
   const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
   const route = await readFile("apps/research-console/app/api/research/evidence/route.ts", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
@@ -1613,20 +1634,20 @@ test("OpportunityDetail exposes guarded external evidence actions", async () => 
   assert.match(route, /AgentToolTrace/);
   assert.doesNotMatch(route, /process\.env\.[A-Z_]+/);
 
-  assert.match(detail, /onRunEvidenceTool/);
-  assert.match(detail, /evidenceToolResults/);
-  assert.match(detail, /preferredTools/);
-  assert.match(detail, /ExternalEvidenceResult/);
-  assert.match(detail, /补充证据|刷新证据|请求证据/);
-  assert.match(detail, /evidence-action-button/);
-  assert.match(detail, /evidence-result-card/);
-  assert.match(detail, /result\.tool\.result_summary/);
+  assert.match(inspector, /onRunEvidenceTool/);
+  assert.match(inspector, /actionResults/);
+  assert.match(inspector, /actions/);
+  assert.match(inspector, /ExternalEvidenceResult/);
+  assert.match(inspector, /外部证据动作|执行/);
+  assert.match(inspector, /inspector-action-button/);
+  assert.match(inspector, /inspector-action-result/);
+  assert.match(inspector, /actionResult\.tool\.result_summary/);
   assert.match(board, /\/api\/research\/evidence/);
   assert.match(board, /onRunEvidenceTool=\{runEvidenceTool\}/);
-  assert.match(styles, /\.evidence-action-button/);
-  assert.match(styles, /\.evidence-result-card/);
-  assert.doesNotMatch(detail, /process\.env|Authorization|Bearer|api_key|access_token/);
-  assert.doesNotMatch(detail, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing|order)\b/i);
+  assert.match(styles, /\.inspector-action-button/);
+  assert.match(styles, /\.inspector-action-result/);
+  assert.doesNotMatch(inspector, /process\.env|Authorization|Bearer|api_key|access_token/);
+  assert.doesNotMatch(inspector, /\b(buy|sell|long|short|entry|exit|stop loss|target price|position sizing|order)\b/i);
 });
 
 test("research session service creates a bounded dynamic workbench session", async () => {
@@ -1663,6 +1684,16 @@ test("research session service creates a bounded dynamic workbench session", asy
       });
       assert.equal(evidence.verdict, "blocked");
 
+      const repeatedEvidence = await appendEvidenceRun(day, {
+        opportunityId: session.opportunities[0].id,
+        toolName: "yfinance_quote",
+        input: { symbol: session.opportunities[0].symbols[0] },
+        summary: "yfinance quote blocked: missing external-tool opt-in",
+        verdict: "blocked",
+        sourceType: "quote",
+        fromCache: false,
+      });
+
       const review = await appendReviewRecord(day, {
         opportunityId: session.opportunities[0].id,
         outcome: "unclear",
@@ -1671,11 +1702,53 @@ test("research session service creates a bounded dynamic workbench session", asy
       });
       assert.equal(review.outcome, "unclear");
 
+      const repeatedReview = await appendReviewRecord(day, {
+        opportunityId: session.opportunities[0].id,
+        outcome: "unclear",
+        observedMove: "No confirmed follow-through yet.",
+        learning: "Need more evidence before increasing confidence.",
+      });
+
       const updated = await loadResearchSession(day);
       assert.equal(updated.status, "reviewed");
       assert.equal(updated.evidenceRuns.length, 1);
+      assert.equal(updated.evidenceRuns[0].id, repeatedEvidence.id);
       assert.equal(updated.reviewRecords.length, 1);
+      assert.equal(updated.reviewRecords[0].id, repeatedReview.id);
       assert.equal(updated.reviewRecords[0].opportunityId, session.opportunities[0].id);
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("research session records external tool errors without marking the opportunity evidence-ready", async () => {
+  const { loadResearchSession, appendEvidenceRun } = loadResearchConsoleModule(
+    "apps/research-console/lib/research-session.ts",
+  );
+  const { root, day } = await createResearchFixture();
+
+  try {
+    await withEnv({ STOCK_SUMMARY_ROOT: root }, async () => {
+      const session = await loadResearchSession(day);
+      const opportunity = session.opportunities[0];
+      assert.equal(opportunity.status, "needs_evidence");
+
+      const evidence = await appendEvidenceRun(day, {
+        opportunityId: opportunity.id,
+        toolName: "news_search",
+        input: { query: "LITE recent market news" },
+        summary: "news_search failed: upstream timeout",
+        verdict: "error",
+        sourceType: "news",
+        fromCache: false,
+      });
+
+      assert.equal(evidence.verdict, "error");
+      const updated = await loadResearchSession(day);
+      assert.equal(updated.evidenceRuns.length, 1);
+      assert.equal(updated.evidenceRuns[0].verdict, "error");
+      assert.equal(updated.opportunities.find((item) => item.id === opportunity.id)?.status, "needs_evidence");
     });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -1775,25 +1848,26 @@ test("market interpretation uses session evidence and stays research-only", asyn
   }
 });
 
-test("opportunity detail boundary keeps research-only UI off publishing and raw source surfaces", async () => {
-  const detail = await readFile("apps/research-console/components/OpportunityDetail.tsx", "utf8");
+test("research inspector boundary keeps research-only UI off publishing and raw source surfaces", async () => {
+  const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
   const board = await readFile("apps/research-console/components/OpportunityBoard.tsx", "utf8");
   const scoreRows = await readFile("apps/research-console/components/ScoreRows.tsx", "utf8");
   const dailyPublish = await readFile("scripts/daily-publish.mjs", "utf8");
 
-  assert.match(detail, /OpportunityBoardScore/);
+  await assert.rejects(access("apps/research-console/components/OpportunityDetail.tsx"));
+  assert.match(inspector, /InspectorView/);
   assert.match(board, /selectedSymbol/);
-  assert.match(board, /<OpportunityDetail/);
+  assert.match(board, /<ResearchInspector/);
   assert.doesNotMatch(scoreRows, /fetch\(/);
   assert.doesNotMatch(scoreRows, /\.push\(/);
-  assert.doesNotMatch(detail, /daily-publish/);
-  assert.doesNotMatch(detail, /daily-summary/);
-  assert.doesNotMatch(detail, /process\.env/);
-  assert.doesNotMatch(detail, /# 机会观察/);
-  assert.doesNotMatch(detail, /data\/structured/);
-  assert.doesNotMatch(detail, /RESEARCH_CONSOLE_ACCESS_TOKEN/);
-  assert.match(detail, /仅供研究观察，不是交易指令/);
-  assert.doesNotMatch(dailyPublish, /OpportunityDetail/);
+  assert.doesNotMatch(inspector, /daily-publish/);
+  assert.doesNotMatch(inspector, /daily-summary/);
+  assert.doesNotMatch(inspector, /process\.env/);
+  assert.doesNotMatch(inspector, /# 机会观察/);
+  assert.doesNotMatch(inspector, /data\/structured/);
+  assert.doesNotMatch(inspector, /RESEARCH_CONSOLE_ACCESS_TOKEN/);
+  assert.match(inspector, /仅供研究观察，不是交易指令/);
+  assert.doesNotMatch(dailyPublish, /OpportunityDetail|ResearchInspector/);
 });
 
 test("research console agent response includes staged opportunity reasoning without raw content", async () => {
@@ -2228,13 +2302,13 @@ test("research console shares one selected day between opportunity board and age
   assert.match(workspace, /const\s+\[day,\s*setDay\]\s*=\s*useState\(""\)/);
   assert.match(workspace, /\/api\/research\/session";/);
   assert.match(workspace, /setDay\(nextSession\.day\)/);
-  assert.match(workspace, /<ResearchMainTabs[\s\S]*onDayChange=\{setDay\}/);
-  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}[\s\S]*onDayChange=\{onDayChange\}/);
-  assert.match(workspace, /<AgentPanel day=\{day\} onDayChange=\{setDay\}/);
-  assert.match(board, /day,\s*onDayChange/);
+  assert.match(workspace, /<ResearchMainTabs[\s\S]*onSelectedSymbolChange=\{setSelectedSymbol\}/);
+  assert.match(workspace, /<OpportunityBoard\s+day=\{day\}[\s\S]*filter=\{opportunityFilter\}/);
+  assert.match(workspace, /<AgentPanel\s+day=\{day\}[\s\S]*promptCommand=\{agentPrompt\}[\s\S]*selectedSymbol=\{selectedSymbol\}/);
+  assert.match(board, /day,\s*filter/);
   assert.doesNotMatch(board, /useState\(currentBeijingDay\)/);
   assert.match(board, /\/api\/research\/opportunities\?day=\$\{encodeURIComponent\(day\)\}/);
-  assert.match(panel, /day,\s*onDayChange/);
+  assert.match(panel, /day,\s*selectedSymbol,\s*promptCommand/);
   assert.doesNotMatch(panel, /useState\(currentBeijingDay\)/);
   assert.match(panel, /\/api\/research\/context\?day=\$\{encodeURIComponent\(day\)\}/);
   assert.match(panel, /body:\s*JSON\.stringify\(\{ day, message: normalizedMessage, messages \}\)/);
@@ -2254,9 +2328,9 @@ test("research console exposes latest available day and source status contracts"
   assert.match(context, /listAvailableResearchDays/);
   assert.match(context, /每日总结\(\?:-local\)\?/);
   assert.match(context, /latest_with_structured_context/);
-  assert.match(workspace, /SourceReadinessStrip/);
+  assert.match(workspace, /SourceReadinessSummary/);
   assert.match(workspace, /sourceStatuses/);
-  assert.match(board, /opportunity-source-grid/);
+  assert.match(board, /board\?\.status\.missing/);
   assert.match(agentContext, /availableDays\.slice/);
 });
 
@@ -4194,14 +4268,16 @@ test("research console kernel supports bounded multi-round tool planning", async
   }
 });
 
-test("package exposes Cloudflare Pages build and deploy commands", async () => {
+test("package exposes static Cloudflare Pages build without Wrangler deploy commands", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  const wranglerConfig = await readFile("wrangler.toml", "utf8");
+  const releaseCheck = await readFile("scripts/release-check.mjs", "utf8");
 
   assert.equal(pkg.scripts["pages:build"], "node scripts/pnpm-workspace.mjs run docs:build");
-  assert.equal(pkg.scripts["pages:deploy"], "node scripts/deploy-cloudflare-pages.mjs");
-  assert.equal(pkg.scripts["pages:deploy:dry"], "node scripts/deploy-cloudflare-pages.mjs --dry-run");
-  assert.match(wranglerConfig, /pages_build_output_dir\s*=\s*"\.\/docs\/\.vitepress\/dist"/);
+  assert.equal(pkg.scripts["pages:deploy"], undefined);
+  assert.equal(pkg.scripts["pages:deploy:dry"], undefined);
+  await assert.rejects(access("wrangler.toml"));
+  await assert.rejects(access("scripts/deploy-cloudflare-pages.mjs"));
+  assert.doesNotMatch(releaseCheck, /pages:deploy|wrangler|deploy-cloudflare-pages/i);
 });
 
 test("push workflow verifies VitePress without GitHub Pages deployment actions", async () => {
@@ -4382,6 +4458,53 @@ test("phase 1 summary-to-opportunity board module document defines implementatio
   assert.match(doc, /must not produce buy\/sell/i);
 });
 
+test("trader agent target-system docs are centralized outside the repository root", async () => {
+  for (const rootDoc of [
+    "trader_agent_docs_index.md",
+    "trader_agent_00_system_overview.md",
+    "trader_agent_01_agent_core_backend_prd.md",
+    "trader_agent_02_web_agent_cockpit_prd.md",
+    "trader_agent_03_shared_platform_implementation_prd.md",
+  ]) {
+    await assert.rejects(access(rootDoc));
+  }
+
+  const targetDir = "docs/research-agent/target-system/trader-agent";
+  const readme = await readFile(`${targetDir}/README.md`, "utf8");
+  const stagedPlan = await readFile("docs/research-agent/trading-workbench-master-plan.md", "utf8");
+
+  for (const targetDoc of [
+    "README.md",
+    "00-system-overview.md",
+    "01-agent-core-backend-prd.md",
+    "02-web-agent-cockpit-prd.md",
+    "03-shared-platform-roadmap-prd.md",
+  ]) {
+    await access(`${targetDir}/${targetDoc}`);
+  }
+
+  for (const expected of [
+    "最终系统 source of truth",
+    "后续开发唯一依据",
+    "旧阶段路线已放弃",
+    "apps/research-console",
+    "trading-workbench-master-plan.md",
+    "docs/research-agent/modules/",
+    "历史实现记录",
+  ]) {
+    assert.match(readme, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+
+  for (const expected of [
+    "SUPERSEDED",
+    "target-system/trader-agent",
+    "不再作为后续开发路线",
+    "trader-agent 目标系统文档",
+  ]) {
+    assert.match(stagedPlan, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+});
+
 test("cursor opportunity board PRD splits phase work into measurable modules", async () => {
   const doc = await readFile(
     "docs/research-agent/modules/2026-05-23-cursor-opportunity-board-prd.md",
@@ -4393,7 +4516,7 @@ test("cursor opportunity board PRD splits phase work into measurable modules", a
     "Cursor",
     "OpportunityBoard",
     "ScoreRows",
-    "Opportunity Detail",
+    "Research Inspector",
     "Phase 1",
     "Fix garbled Chinese copy",
     "Empty state",
@@ -4470,7 +4593,7 @@ test("external evidence tool actions PRD defines product-level provider integrat
     "Longbridge",
     "Alpha Vantage",
     "news_search",
-    "OpportunityDetail",
+    "ResearchInspector",
     "api/research/evidence",
     "authorizeResearchTool",
     "executeResearchTool",
@@ -4544,7 +4667,7 @@ test("codex review learning records PRD defines local-only review archive", asyn
     "learning_notes",
     "next_review_at",
     "api-auth",
-    "OpportunityDetail",
+    "ResearchInspector",
     "npm run console:lint",
     "npm run console:build",
     "npm run test:summary",
@@ -4571,8 +4694,8 @@ test("cursor opportunity detail PRD splits phase 2 detail work into measurable m
     "PRD",
     "Cursor",
     "Phase 2",
-    "OpportunityDetail",
-    "OpportunityBoardScore",
+    "ResearchInspector",
+    "InspectorView",
     "ScoreRows",
     "evidence needs",
     "candidate invalidation",
@@ -4717,8 +4840,10 @@ test("AgentPanel exposes keyboard focus, live regions, and alert semantics", asy
   const panel = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
 
-  assert.match(panel, /htmlFor="agent-panel-day"/);
-  assert.match(panel, /id="agent-panel-day"/);
+  assert.doesNotMatch(panel, /htmlFor="agent-panel-day"/);
+  assert.doesNotMatch(panel, /id="agent-panel-day"/);
+  assert.match(panel, /agent-readonly-context/);
+  assert.match(panel, /promptCommand/);
   assert.match(panel, /htmlFor="agent-panel-message"/);
   assert.match(panel, /id="agent-panel-message"/);
   assert.match(panel, /aria-busy=\{loading\}/);
@@ -4750,7 +4875,6 @@ test("research console deployment boundary document keeps the workbench off the 
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const publicWorkflow = await readFile(".github/workflows/deploy.yml", "utf8");
   const researchWorkflow = await readFile(".github/workflows/research-console.yml", "utf8");
-  const deployHelper = await readFile("scripts/deploy-cloudflare-pages.mjs", "utf8");
 
   assert.match(doc, /separate deployment/i);
   assert.match(doc, /stocks-emw\.pages\.dev/);
@@ -4768,8 +4892,9 @@ test("research console deployment boundary document keeps the workbench off the 
   assert.doesNotMatch(publicWorkflow, /console:build/);
   assert.doesNotMatch(researchWorkflow, /stocks-emw/);
   assert.doesNotMatch(researchWorkflow, /wrangler|pages deploy/i);
-  assert.match(deployHelper, /docs\/\.vitepress\/dist/);
-  assert.doesNotMatch(deployHelper, /apps\/research-console/);
+  assert.equal(pkg.scripts["pages:deploy"], undefined);
+  assert.equal(pkg.scripts["pages:deploy:dry"], undefined);
+  await assert.rejects(access("scripts/deploy-cloudflare-pages.mjs"));
 });
 
 test("research agent plan treats module document list as representative not exhaustive", async () => {
@@ -4783,30 +4908,14 @@ test("research agent plan treats module document list as representative not exha
   assert.match(plan, /docs\/research-agent\/modules\//);
 });
 
-test("cloudflare deploy dry run prints configured site base url for card notify", () => {
-  const result = spawnSync(process.execPath, [
-    "scripts/deploy-cloudflare-pages.mjs",
-    "--dry-run",
-    "--skip-build",
-    "--site-base-url=https://f79a4b5f.stocks-emw.pages.dev/",
-  ], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-  });
+test("Cloudflare Pages guide documents Git integration instead of Wrangler direct upload", async () => {
+  const guide = await readFile("CLOUDFLARE_PAGES.md", "utf8");
 
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /project_name: stocks-emw/);
-  assert.match(result.stdout, /site_url: https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\//);
-  assert.match(result.stdout, /notify_card_env: SUMMARY_SITE_BASE_URL=https:\/\/f79a4b5f\.stocks-emw\.pages\.dev\//);
-});
-
-test("cloudflare deploy helper builds with pnpm before wrangler deploy", async () => {
-  const script = await readFile("scripts/deploy-cloudflare-pages.mjs", "utf8");
-
-  assert.match(script, /run\(process\.execPath,\s*\["scripts\/pnpm-workspace\.mjs",\s*"run",\s*"docs:build"\]\)/);
-  assert.doesNotMatch(script, /run\(commandName\("pnpm"\),\s*\["run",\s*"docs:build"\]\)/);
-  assert.doesNotMatch(script, /run\(commandName\("npm"\),\s*\["run",\s*"docs:build"\]\)/);
-  assert.match(script, /run\(commandName\("npx"\),\s*\[\s*"wrangler",\s*"pages",\s*"deploy"/);
+  assert.match(guide, /Connect to Git/);
+  assert.match(guide, /Build command:\s*`npm run docs:build`/);
+  assert.match(guide, /Build output directory:\s*`docs\/\.vitepress\/dist`/);
+  assert.match(guide, /SUMMARY_SITE_BASE_URL/);
+  assert.doesNotMatch(guide, /wrangler|pages:deploy|direct upload/i);
 });
 
 test("delivery readiness audit covers the five operational surfaces", async () => {
@@ -4823,7 +4932,8 @@ test("delivery readiness audit covers the five operational surfaces", async () =
   }
 
   assert.match(audit, /npm run daily:publish:dry/);
-  assert.match(audit, /npm run pages:deploy:dry/);
+  assert.match(audit, /Cloudflare Pages Git integration/i);
+  assert.doesNotMatch(audit, /npm run pages:deploy:dry|wrangler/i);
   assert.match(audit, /npm run console:build/);
   assert.match(audit, /GitHub Actions/);
   assert.match(audit, /local-only/i);
@@ -5035,13 +5145,12 @@ test("package exposes a JS release check command for pre-push verification", asy
     '["npm", ["run", "test:summary"]]',
     '["npm", ["run", "console:build"]]',
     '["npm", ["run", "daily:publish:dry"]]',
-    '["npm", ["run", "pages:deploy:dry"]]',
     '["npm", ["run", "public:build:audit"]]',
     '["git", ["diff", "--check"]]',
   ]) {
     assert.match(script, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
-  assert.doesNotMatch(script, /git",\s*\["push"|git",\s*\["commit"|wrangler",\s*"pages",\s*"deploy"/);
+  assert.doesNotMatch(script, /git",\s*\["push"|git",\s*\["commit"|wrangler|pages:deploy|deploy-cloudflare-pages/i);
   assert.match(script, /const cmdShims = new Set\(\["npm", "npx", "pnpm"\]\)/);
   assert.match(script, /cmdShims\.has\(name\)/);
   assert.match(script, /process\.env\.ComSpec \|\| "cmd\.exe"/);

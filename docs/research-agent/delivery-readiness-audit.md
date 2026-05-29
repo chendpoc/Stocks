@@ -30,7 +30,7 @@ Status: usable with configured secrets.
 
 What exists:
 
-- `npm run daily:publish` generates the daily summary, card cover, long image, commits public assets, pushes the current branch, and sends WeCom messages.
+- `npm run daily:publish` generates the daily summary, long image, commits public assets, pushes the current branch, and sends WeCom messages.
 - `npm run daily:publish:dry` validates the rendering and payload path without network side effects.
 - `.github/workflows/daily-publish.yml` runs on GitHub Actions at `30 0 * * *`, which is 08:30 Asia/Shanghai.
 - Required GitHub Secrets: `WHOP_HEADERS_JSON`, `MODEL_KEY_JSON`, `WEWORK_WEBHOOK_URL`.
@@ -57,8 +57,9 @@ What exists:
 - `notify:text` remains available for text summaries.
 - `notify:card` sends a template card.
 - `daily:publish` sends both the template card and image payload path.
-- The image path uses `base64 + md5`; card cover delivery waits for the public cover URL before sending.
-- The optional deploy hook can reduce race conditions between git publish and public asset availability.
+- The image path uses `base64 + md5`.
+- The template card no longer depends on a public cover image, so WeCom image delivery does not wait for Cloudflare asset availability.
+- The optional deploy hook can still trigger public-site deployment after git publish when configured.
 
 Evidence:
 
@@ -71,7 +72,7 @@ Evidence:
 Remaining boundary:
 
 - WeCom delivery is still externally dependent on webhook availability and robot limits.
-- The public card cover URL must be reachable from WeCom clients.
+- Public report links must be reachable from WeCom clients if the user opens the template card.
 
 ## Cloudflare Public Site
 
@@ -80,9 +81,8 @@ Status: usable for the current-month public archive.
 What exists:
 
 - `npm run pages:build` builds the VitePress site through the pnpm workspace wrapper.
-- `npm run pages:deploy:dry` builds locally and prints the Cloudflare Pages deploy plan.
+- Cloudflare Pages Git integration builds the static site from `docs/.vitepress/dist`.
 - `npm run public:build:audit` scans the generated public dist and fails if local-only research, agent, opportunity, raw chat, or old-month summary content leaks into Cloudflare output.
-- `scripts/deploy-cloudflare-pages.mjs` uses `scripts/pnpm-workspace.mjs run docs:build`, so it does not require a globally installed `pnpm.cmd`.
 - Public build excludes local research docs and audit-only records.
 - Public history is intentionally limited to current-month daily summaries.
 
@@ -90,13 +90,12 @@ Evidence:
 
 - `npm run release:check`
 - `npm run pages:build`
-- `npm run pages:deploy:dry`
 - `npm run public:build:audit`
-- `node --test --test-name-pattern "cloudflare deploy helper builds" test\daily-summary-assets.test.mjs`
+- `node --test --test-name-pattern "static Cloudflare Pages build" test\daily-summary-assets.test.mjs`
 
 Remaining boundary:
 
-- Actual Cloudflare deploy still requires Wrangler authentication or Cloudflare Pages integration.
+- Actual Cloudflare deploy still depends on the configured Cloudflare Pages Git integration.
 - The public site is static; it should not receive research-console secrets.
 
 ## Local Research Console

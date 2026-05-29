@@ -4,6 +4,29 @@
 
 Define shared view models, event-like objects, tags, tool-source display, ScenarioPlan, PlaybookTheory and frontend state boundaries for the first-version Agent Market Cockpit.
 
+**Source of truth for implemented types:** `apps/trader-cockpit/lib/cockpit/adapter.ts`
+**Progress snapshot:** [00-implementation-status.md](./00-implementation-status.md)
+
+## Implemented CockpitDataAdapter (2026-05-27)
+
+当前导出 `mockCockpitAdapter as cockpitAdapter`：
+
+| Method | View model / return |
+|---|---|
+| `listSignals` | `SignalListViewModel` |
+| `getMarketIntentExplanation` | `MarketIntentExplanationViewModel` |
+| `listTodayFocus` | `TodayFocusListViewModel` |
+| `getSignal` | `SignalDetail` |
+| `listInboxMessages` | `InboxMessageListViewModel` |
+| `listAgentEvents` | `AgentEventListViewModel` |
+| `listPlaybookTheories` | `PlaybookTheoryListViewModel` |
+| `listLearningItems` | `LearningItemListViewModel` |
+| `getToolSettings` | `ToolSettingsViewModel` |
+| `streamChat` | `AsyncIterable<ChatStreamPart>` |
+| `getAgentConsole` | `AgentConsoleViewModel` |
+
+Phase 1 待补充：`getAgentStatus`、`listAgentRuns`、`getSignalExplanation`、`searchKnowledge` 等（见 gap review）。
+
 ## Source Scope
 
 - `02-web-agent-cockpit-prd.md`
@@ -171,34 +194,36 @@ Structured answers should contain:
 
 ## TanStack Query Boundaries
 
+Implemented in `apps/trader-cockpit/lib/cockpit/query-keys.ts`:
+
 | Data | Query key |
 |---|---|
-| status | `cockpitKeys.status()` |
-| dashboard | `cockpitKeys.dashboard(scope)` |
-| market snapshot | `cockpitKeys.marketSnapshot(scope)` |
+| dashboard scope | `cockpitKeys.dashboard(scope)` |
+| market intent | `cockpitKeys.marketIntentExplanation()` |
+| today focus | `cockpitKeys.todayFocus(filters)` |
 | signal list | `cockpitKeys.signals(filters)` |
 | signal detail | `cockpitKeys.signal(id)` |
-| signal explanation | `cockpitKeys.signalExplanation(id)` |
+| inbox | `cockpitKeys.inbox(filters)` |
 | agent events | `cockpitKeys.agentEvents(filters)` |
-| agent runs | `cockpitKeys.agentRuns(filters)` |
-| agent run detail | `cockpitKeys.agentRun(id)` |
 | theories | `cockpitKeys.playbookTheories(filters)` |
 | learning | `cockpitKeys.learning(filters)` |
-| knowledge search | `cockpitKeys.knowledgeSearch(input)` |
+| settings | `cockpitKeys.settings()` |
+| chat | `cockpitKeys.chat(conversationId)` |
+| agent console | `cockpitKeys.agentConsole(filters)` |
+
+Phase 1 pending：`status`、`marketSnapshot`、`signalExplanation`、`agentRuns`、`knowledgeSearch`。
 
 ## Zustand UI Store Boundary
 
-Allowed:
+Implemented in `use-cockpit-ui-store.ts`. Allowed (current):
 
-- navigation rail collapsed
-- selected symbol id
-- selected signal id
-- selected theory id
-- open drawer ids
-- chart timeframe
-- table density
-- polling interval preference
-- command palette open state
+- `navCollapsed`
+- `connectionState`
+- `selectedMarketContextId`
+- `selectedSymbol` / `selectedSignalId`
+- `chatDockMode`
+- `selectedAgentWorkstreamId` / `selectedActivityNodeId` / `selectedAgentMessageId`
+- polling / density preferences（settings 相关）
 
 Forbidden:
 

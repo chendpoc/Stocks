@@ -18,7 +18,7 @@ The project now has many moving parts: daily publish, Cloudflare Pages, WeCom de
   - no `git push`
   - no `gh run`
   - no webhook
-  - no `wrangler pages deploy`
+  - no direct public-site deploy command
 - Reads:
   - `git status --short`
   - `git rev-parse HEAD`

@@ -17,7 +17,7 @@ The current worktree spans daily publishing, Cloudflare deployment, VitePress, R
   - `npm run test:summary`
   - `npm run console:build`
   - `npm run daily:publish:dry`
-  - `npm run pages:deploy:dry`
+  - `npm run public:build:audit`
   - `git diff --check`
 - It should fail on the first failed gate.
 - It should print the command being run so failures are easy to locate.

@@ -4,6 +4,8 @@
 
 Define the frontend stack, directory shape, state ownership, polling/stream strategy and boundary between Web Cockpit, Agent Core and model calls.
 
+**Implementation status:** see [00-implementation-status.md](./00-implementation-status.md).
+
 ## Non-goals
 
 - Do not define Agent Core strategy logic.
@@ -14,21 +16,26 @@ Define the frontend stack, directory shape, state ownership, polling/stream stra
 
 ## Stack Decision
 
-| Layer | Default |
-|---|---|
-| Runtime | Next.js App Router |
-| Language | TypeScript |
-| UI | shadcn/ui, Radix, Tailwind |
-| Icons | lucide-react |
-| Server state | TanStack Query |
-| UI state | Zustand |
-| Chat/model call | Next.js API route calling DeepSeek direct |
-| Table | TanStack Table |
-| Financial chart | TradingView Lightweight Charts |
-| Statistical chart | Recharts or Tremor |
-| Forms | React Hook Form + Zod |
-| Validation | Zod schemas in API/client adapter layer |
-| Testing | adapter unit tests, component state tests, Playwright route smoke |
+与 `apps/trader-cockpit` 当前实现一致：
+
+| Layer | Default | Status |
+|---|---|---|
+| Runtime | Next.js 15 App Router | done |
+| Language | TypeScript | done |
+| UI | HeroUI v3 (`@heroui/react` + `@heroui/styles`) | done |
+| Icons | lucide-react | done |
+| Server state | TanStack Query | done |
+| UI state | Zustand | done |
+| i18n | react-i18next + `resources.json` | done |
+| Chat/model call | Next.js API route calling DeepSeek direct | **pending** |
+| Table | HeroUI Table | done |
+| Financial chart | Mock chart (`MockMarketChart`) | done（TradingView 后续） |
+| Statistical chart | inline mock / stateless | pending |
+| Forms | local state + HeroUI inputs | done（Settings 轻量） |
+| Validation | adapter types in `adapter.ts` | done |
+| Testing | `test/trader-cockpit-phase0.test.mjs` static checks | done（Playwright pending） |
+
+历史文档曾写 shadcn/ui、TanStack Table、React Hook Form + Zod、TradingView — 第一版实际选用 HeroUI v3，见上表。
 
 ## Architecture Principles
 
@@ -42,44 +49,47 @@ Define the frontend stack, directory shape, state ownership, polling/stream stra
 
 ## Recommended Directory Shape
 
+当前代码结构（已实现部分标注 ✓）：
+
 ```text
 apps/trader-cockpit/
   app/
-    (cockpit)/
-      dashboard/live/page.tsx
-      signals/page.tsx
-      chat/page.tsx
-      inbox/page.tsx
-      playbook-theories/page.tsx
-      learning/page.tsx
-      settings/page.tsx
+    cockpit/                          ✓
+      dashboard/live/page.tsx         ✓
+      signals/page.tsx                  ✓
+      chat/page.tsx                     ✓
+      inbox/page.tsx                    ✓
+      playbook-theories/page.tsx        ✓
+      learning/page.tsx                 ✓
+      settings/page.tsx                 ✓
     api/
-      agent-chat/route.ts
+      agent-chat/route.ts               pending
   components/
     cockpit/
-      shell/
-      dashboard/
-      signals/
-      chat/
-      inbox/
-      timeline/
-      playbook-theories/
-      learning/
-      settings/
-    ui/
+      shell/                            ✓ CockpitShell
+      dashboard/                        ✓ LiveDashboard
+      signals/                          ✓ SignalsWorkspace
+      chat/                             ✓ AgentConsoleWorkspace, AgentChatDock, …
+      inbox/                            ✓ AgentInbox
+      timeline/                         ✓ AgentActionTimeline
+      playbook-theories/                ✓
+      learning/                         ✓
+      settings/                         ✓
+      charts/                           ✓ MockMarketChart
+      states/                           ✓ StateBlock
+      ui/                               ✓ CockpitSelect
+      activity-graph/                   pending (Phase 0D-2)
   lib/
     cockpit/
-      adapter.ts
-      real-readonly-adapter.ts
-      mock-adapter.ts
-      fixtures.ts
-      query-keys.ts
-      polling.ts
-      schemas.ts
-      tool-sources.ts
-      tags.ts
-      errors.ts
-      use-cockpit-ui-store.ts
+      adapter.ts                        ✓
+      mock-adapter.ts                   ✓
+      real-readonly-adapter.ts          pending
+      fixtures.ts + fixtures.json       ✓
+      query-keys.ts                     ✓
+      use-cockpit-ui-store.ts           ✓
+      providers.tsx                     ✓
+      polling.ts                        pending
+    i18n/                               ✓
 ```
 
 ## Dependency Boundaries

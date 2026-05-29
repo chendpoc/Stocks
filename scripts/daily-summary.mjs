@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +8,14 @@ import {
   renderSummaryPng,
   sendWeWorkImage,
 } from "./lib/summary-image.mjs";
+import {
+  pythonPath,
+  run,
+  parseArtifacts,
+  currentGitBranch,
+  readArgValue,
+  loadWebhookUrl,
+} from "./lib/common.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -20,48 +27,9 @@ const skipGitPush = dryRun || args.has("--skip-git-push") || process.env.SKIP_GI
 const themeName = process.env.SUMMARY_IMAGE_THEME || "light_report";
 const rawArgs = process.argv.slice(2);
 
-function readArgValue(name) {
-  const eqArg = rawArgs.find((arg) => arg.startsWith(`${name}=`));
-  if (eqArg) return eqArg.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  if (index >= 0 && rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--")) {
-    return rawArgs[index + 1];
-  }
-  return "";
-}
-
-const targetDate = readArgValue("--date");
+const targetDate = readArgValue(rawArgs, "--date");
 if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
   throw new Error("--date must be formatted as YYYY-MM-DD");
-}
-
-function pythonPath() {
-  const winPy = path.join(root, ".venv", "Scripts", "python.exe");
-  const posixPy = path.join(root, ".venv", "bin", "python3");
-  if (fs.existsSync(winPy)) return winPy;
-  if (fs.existsSync(posixPy)) return posixPy;
-  return process.platform === "win32" ? "python" : "python3";
-}
-
-function run(command, commandArgs, options = {}) {
-  const result = spawnSync(command, commandArgs, {
-    cwd: root,
-    encoding: "utf-8",
-    stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    env: {
-      ...process.env,
-      PYTHONIOENCODING: "utf-8",
-      PYTHONUTF8: "1",
-    },
-  });
-  if (result.status !== 0) {
-    if (options.capture) {
-      process.stderr.write(result.stdout ?? "");
-      process.stderr.write(result.stderr ?? "");
-    }
-    throw new Error(`${command} ${commandArgs.join(" ")} failed with exit ${result.status}`);
-  }
-  return result;
 }
 
 function sampleSummary() {
@@ -88,26 +56,6 @@ function sampleSummary() {
   };
 }
 
-async function loadWebhookUrl(py) {
-  if (process.env.WEWORK_WEBHOOK_URL?.trim()) return process.env.WEWORK_WEBHOOK_URL.trim();
-  const code = String.raw`
-import importlib.util
-from pathlib import Path
-base = Path("utils")
-for name in (".local_secrets.py", "local_secrets.py"):
-    path = base / name
-    if path.is_file():
-        spec = importlib.util.spec_from_file_location("_daily_secret", path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        print((getattr(mod, "wework_webhook_url", "") or "").strip())
-        raise SystemExit(0)
-print("")
-`;
-  const result = run(py, ["-c", code], { capture: true });
-  return (result.stdout ?? "").trim();
-}
-
 async function runDry() {
   const imagePath = path.join(root, "data", "generated", "dry-run-summary.png");
   const rendered = await renderSummaryPng(sampleSummary(), { outputPath: imagePath, themeName });
@@ -129,7 +77,7 @@ assert "## 群聊图片记录" in markdown
 assert "## 群聊内容记录" in markdown
 assert "<details>" in markdown
 `;
-  run(pythonPath(), ["-c", galleryCheck], { capture: true });
+  run(root, pythonPath(root), ["-c", galleryCheck], { capture: true });
   console.log("daily:sync dry run ok");
   console.log(`image: ${rendered.outputPath}`);
   console.log(`image_bytes: ${rendered.sizeBytes}`);
@@ -137,35 +85,10 @@ assert "<details>" in markdown
   console.log("markdown_gallery: ok");
 }
 
-function parseArtifacts(stdout) {
-  const line = stdout
-    .split(/\r?\n/)
-    .reverse()
-    .find((item) => item.startsWith("ARTIFACTS_JSON="));
-  if (!line) {
-    throw new Error("Python summary runner did not emit ARTIFACTS_JSON.");
-  }
-  return JSON.parse(line.slice("ARTIFACTS_JSON=".length));
-}
-
-function currentGitBranch() {
-  const result = spawnSync("git", ["branch", "--show-current"], {
-    cwd: root,
-    encoding: "utf-8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.status !== 0) {
-    throw new Error(`git branch --show-current failed: ${result.stderr ?? ""}`.trim());
-  }
-  const branch = result.stdout.trim();
-  if (!branch) throw new Error("Cannot push from detached HEAD.");
-  return branch;
-}
-
-async function publishWithGit(artifacts, imagePath) {
+function publishWithGit(artifacts, imagePath) {
   const addPaths = ["docs/index.md", "docs/search_index.json", imagePath];
-  run("git", ["add", ...addPaths]);
-  if (artifacts.archive_path) run("git", ["add", "-f", artifacts.archive_path]);
+  run(root, "git", ["add", ...addPaths]);
+  if (artifacts.archive_path) run(root, "git", ["add", "-f", artifacts.archive_path]);
 
   const diff = spawnSync("git", ["diff", "--cached", "--quiet"], { cwd: root });
   if (diff.status === 0) {
@@ -174,15 +97,15 @@ async function publishWithGit(artifacts, imagePath) {
   }
 
   const message = `Auto update: ${artifacts.generated_at_cst ?? new Date().toISOString()}`;
-  run("git", ["commit", "-m", message]);
-  run("git", ["push", "origin", currentGitBranch()]);
+  run(root, "git", ["commit", "-m", message]);
+  run(root, "git", ["push", "origin", currentGitBranch(root)]);
 }
 
 async function runActual() {
-  const py = pythonPath();
+  const py = pythonPath(root);
   const pyArgs = ["daily_summary_structured.py"];
   if (targetDate) pyArgs.push("--date", targetDate);
-  const result = run(py, pyArgs, { capture: true });
+  const result = run(root, py, pyArgs, { capture: true });
   process.stderr.write(result.stderr ?? "");
   const artifacts = parseArtifacts(result.stdout ?? "");
   const summary = JSON.parse(await readFile(path.join(root, artifacts.summary_json_path), "utf-8"));
@@ -194,7 +117,7 @@ async function runActual() {
   console.log(`summary image: ${rendered.outputPath} (${rendered.sizeBytes} bytes)`);
 
   if (!skipWebhook) {
-    const webhookUrl = await loadWebhookUrl(py);
+    const webhookUrl = await loadWebhookUrl(py, root);
     if (!webhookUrl) throw new Error("WEWORK_WEBHOOK_URL or utils/.local_secrets.py wework_webhook_url is required.");
     await sendWeWorkImage(webhookUrl, imagePath);
     console.log("wework image sent");

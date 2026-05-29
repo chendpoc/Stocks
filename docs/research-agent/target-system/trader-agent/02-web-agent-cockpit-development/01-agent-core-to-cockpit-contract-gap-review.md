@@ -17,7 +17,11 @@ Observed in `apps/trader-agent/backend/app/api/agent.py`:
 | `GET /api/agent/runs` | list agent runs |
 | `GET /api/agent/runs/{run_id}` | inspect run detail |
 | `GET /api/agent/events` | list agent events with filters |
+| `GET /api/agent/signals` | list signals (filter by ?symbol=, ?status=) — 2026-05-28 |
+| `GET /api/agent/signals/{signal_id}` | read signal detail — 2026-05-28 |
 | `GET /api/agent/signals/{signal_id}/explanation` | read signal explanation |
+| `GET /api/agent/market/gate` | read market gate (derived from recent signals) — 2026-05-28 |
+| `GET /api/agent/market/snapshot` | read market snapshot (signal counts, latest timestamp) — 2026-05-28 |
 | `POST /api/knowledge/reindex` | reindex local knowledge; not first-version UI default |
 | `GET /api/knowledge/search` | read local knowledge search results |
 
@@ -70,10 +74,13 @@ The first six methods can use real backend endpoints now. The remaining methods 
 
 ## Missing Contracts For Phase 1
 
-1. `GET /api/signals`
-2. `GET /api/signals/{signal_id}`
-3. `GET /api/market/snapshot`
-4. `GET /api/market/gate`
+Resolved (2026-05-28):
+1. ~~`GET /api/signals`~~ → `GET /api/agent/signals`
+2. ~~`GET /api/signals/{signal_id}`~~ → `GET /api/agent/signals/{signal_id}`
+3. ~~`GET /api/market/snapshot`~~ → `GET /api/agent/market/snapshot`
+4. ~~`GET /api/market/gate`~~ → `GET /api/agent/market/gate`
+
+Still pending:
 5. `GET /api/playbook-theories`
 6. `GET /api/playbook-theories/{theory_id}`
 7. `GET /api/learning`

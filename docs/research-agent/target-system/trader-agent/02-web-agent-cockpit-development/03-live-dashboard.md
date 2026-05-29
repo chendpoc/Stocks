@@ -1,8 +1,16 @@
 # 03 Live Dashboard
 
+## 实现状态
+
+**Route：** `/cockpit/dashboard/live`
+**Workspace：** `LiveDashboard.tsx`
+**Status：** done（Dashboard v5，2026-05-27）
+
+快照详见 [00-implementation-status.md](./00-implementation-status.md) §6。
+
 ## 目标与非目标
 
-目标：实现 `/dashboard/live`，作为 Agent Market Cockpit 第一屏。它必须呈现固定股票池、市场意图、机会摘要、图表证据、Agent 状态和最近事件。
+目标：实现 `/cockpit/dashboard/live`，作为 Agent Market Cockpit 第一屏。呈现市场意图、Today Focus Queue、图表证据与详情 Drawer。
 
 非目标：
 
@@ -11,80 +19,73 @@
 - 不编辑规则。
 - 不把 Scenario Plan 呈现成订单表单。
 
-## 页面/组件拆分
+## 当前页面结构（v5）
 
-| Component | Responsibility |
-|---|---|
-| `MarketIntentBar` | market gate, regime, freshness, fallback state |
-| `WatchlistSetupBoard` | fixed watchlist cards and discovered candidates |
-| `EvidenceChartPanel` | K line, volume, signal markers and event markers |
-| `SignalFocusPanel` | selected signal, status, tags, scenario plan |
-| `AgentStateRail` | agent status, last run, tool sources, chat handoff |
-| `DashboardTimeline` | recent agent events and tool calls |
-| `DashboardInboxPreview` | unread opportunity/risk/learning messages |
+Dashboard 已从早期文档中的「WatchlistSetupBoard + SignalFocusPanel 分区」演进为三层结构：
+
+```text
+L1  Market Intent Strip
+    gate badge · summary · whyNow / whyWait · evidence count · refresh
+
+L2  Today Focus Queue（table-first）
+    search · type/status filter · queue lens · pagination
+    row → 跳转 signals/inbox/theories/learning（target.route）
+
+L3  Evidence + Detail
+    MockMarketChart（左）
+    Drawer slide-over（右）：选中 focus item 的 Agent explanation sections
+```
+
+| Component | Responsibility | 文件 |
+|---|---|---|
+| Market Intent Strip | gate, summary, whyNow/whyWait, refresh | `LiveDashboard.tsx` |
+| Today Focus Queue | 统一关注队列 table、filter、pagination | `LiveDashboard.tsx` |
+| MockMarketChart | mock OHLC + markers | `MockMarketChart.tsx` |
+| Focus Detail Drawer | HeroUI Drawer，Agent 解释区块 | `LiveDashboard.tsx` |
+| CockpitSelect | 筛选控件 | `CockpitSelect.tsx` |
+
+**已移除（v5 不再渲染）：** 独立 watchlist board、standalone opportunity panel、standalone next-watch 区域（由 phase0 tests 校验）。
 
 ## 数据输入输出
 
-Inputs:
+Adapter 方法：
 
-- `AgentStatusViewModel`
-- `MarketSnapshotViewModel`
-- `SignalViewModel[]`
-- `AgentEventViewModel[]`
-- `ToolSourceViewModel[]`
+- `getMarketIntentExplanation()` → `MarketIntentExplanationViewModel`
+- `listTodayFocus(input?)` → `TodayFocusListViewModel`
+- `listSignals()` — chart / 上下文（间接）
 
-Outputs:
+`TodayFocusItem` 类型：`opportunity | watchlist | news_event | rule_match | next_watch | outcome_review`
 
-- select symbol
-- select signal
-- open signal detail
-- open chat with current context
-- manually refresh
-- change polling interval
+Outputs：
+
+- 搜索 / 筛选 / 翻页 focus queue
+- 打开 Drawer 查看详情
+- 从 row target 深链到其他 route
+- 手动 refresh（useQuery refetch）
 
 ## API 与更新策略
 
-Real-readonly:
+当前：**全部 mock**（`mockCockpitAdapter`）。
+
+Phase 1 real-readonly 目标：
 
 - `GET /api/agent/status`
 - `GET /api/agent/events`
-- `GET /api/agent/runs`
+- market snapshot / signal list — gap，继续 mock fallback
 
-Mock fallback:
+Update model：
 
-- market snapshot
-- signal list
-- watchlist setup board
-- discovered candidates
+- TanStack Query，key：`cockpitKeys.marketIntentExplanation()`、`cockpitKeys.todayFocus(filters)`
+- 独立 `polling.ts` helper — pending
 
-Update model:
+## 验收标准（当前）
 
-- polling default 1 minute
-- user can switch to 5/15 minutes or manual refresh
-- stale badge shown when polling fails
+- [x] 固定股票池语境下的 market intent strip
+- [x] Today Focus Queue 可搜索、筛选、分页
+- [x] Mock 图表与 Drawer 详情
+- [x] 无交易/订单/审批入口
+- [ ] 真实 Agent Core market snapshot（Phase 1）
 
-## 用户交互流程
+## 后续计划
 
-1. User opens `/dashboard/live`.
-2. Dashboard loads real Agent status/events where available.
-3. Market snapshot and signal list come from adapter; missing contracts use fallback.
-4. User selects a symbol or signal.
-5. Chart and focus panel update.
-6. User opens Chat with selected context.
-
-## 验收标准
-
-- Fixed watchlist and discovered candidates are visually distinct.
-- Market intent is visible in the first viewport.
-- Selected signal shows status, tags, trigger conditions and invalidation conditions.
-- Chart shows price, volume, signal markers and event markers.
-- Agent status and latest events come from real endpoints when available.
-- Missing backend contracts show fallback labels.
-- No order, execution, approval or task action appears.
-
-## 测试场景
-
-- Component test dashboard fallback state.
-- Component test stale polling badge.
-- Component test discovered candidate not automatically added to watchlist.
-- Playwright smoke: open dashboard, select signal, open chat with context.
+变更 Dashboard 行为前，先写 `plans/` 文档，见 [00-development-workflow.md](./00-development-workflow.md)。

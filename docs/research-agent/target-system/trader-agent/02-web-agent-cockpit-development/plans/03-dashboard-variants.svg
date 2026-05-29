@@ -1,0 +1,278 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 960" font-family="system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1440" height="960" fill="url(#bg)"/>
+
+  <!-- ============================================================ -->
+  <!-- VARIANT A: One thing at a time -->
+  <!-- ============================================================ -->
+  <text x="20" y="24" fill="#58a6ff" font-size="14" font-weight="700">A &mdash; 聚焦单一任务：Today Focus Queue = 页面核心</text>
+  <text x="20" y="44" fill="#8b949e" font-size="11">问题：现在页面同时展示 L1 卡片 + L2 意图条 + L3 表格 + Drawer，用户视线分散</text>
+
+  <rect x="20" y="56" width="460" height="580" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Sidebar hint -->
+  <rect x="20" y="56" width="460" height="580" rx="8" fill="none" stroke="#30363d" stroke-width="1"/>
+  <rect x="20" y="56" width="52" height="580" rx="0" fill="#1c2128"/>
+  <text x="32" y="120" fill="#8b949e" font-size="9">Nav</text>
+
+  <!-- Compact status strip -->
+  <rect x="84" y="68" width="384" height="44" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="96" y="87" fill="#c9d1d9" font-size="11">实时市场总控台</text>
+  <text x="240" y="87" fill="#8b949e" font-size="9">SPY</text>
+  <text x="290" y="87" fill="#3fb950" font-size="9">Gate: CAUTION</text>
+  <text x="400" y="87" fill="#8b949e" font-size="9">8 open</text>
+
+  <!-- Main area: table dominates -->
+  <rect x="84" y="124" width="384" height="500" rx="6" fill="none" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="6,3"/>
+
+  <text x="96" y="148" fill="#58a6ff" font-size="12" font-weight="600">Today Focus Queue</text>
+  <text x="96" y="166" fill="#8b949e" font-size="9">唯一主区域。L1/L2 状态压缩到顶栏，不占独立区块</text>
+
+  <!-- Table columns simplified -->
+  <rect x="96" y="180" width="360" height="28" rx="0" fill="#21262d"/>
+  <text x="106" y="198" fill="#8b949e" font-size="9">优先级</text>
+  <text x="160" y="198" fill="#8b949e" font-size="9">标的</text>
+  <text x="220" y="198" fill="#8b949e" font-size="9">观点 / 逻辑</text>
+  <text x="380" y="198" fill="#8b949e" font-size="9">操作</text>
+
+  <!-- Row 1 -->
+  <rect x="96" y="210" width="360" height="32" fill="#1f6feb" opacity="0.08"/>
+  <line x1="96" y1="210" x2="96" y2="242" stroke="#58a6ff" stroke-width="2"/>
+  <text x="110" y="230" fill="#da3633" font-size="9" font-weight="600">P1</text>
+  <text x="160" y="230" fill="#c9d1d9" font-size="10" font-weight="600">NVDA</text>
+  <text x="220" y="230" fill="#c9d1d9" font-size="10">财报前不追高，等待缺口确认</text>
+  <text x="220" y="240" fill="#8b949e" font-size="8">资金从高位标的撤出，观察前低支撑</text>
+  <rect x="390" y="218" width="28" height="16" rx="3" fill="none" stroke="#58a6ff" stroke-width="0.8"/>
+  <text x="396" y="230" fill="#58a6ff" font-size="8">查看</text>
+
+  <line x1="96" y1="243" x2="456" y2="243" stroke="#30363d" stroke-width="0.5"/>
+
+  <!-- Row 2 -->
+  <text x="110" y="262" fill="#d29922" font-size="9" font-weight="600">P2</text>
+  <text x="160" y="262" fill="#c9d1d9" font-size="10" font-weight="600">TSLA</text>
+  <text x="220" y="262" fill="#c9d1d9" font-size="10">观察 385 支撑，缓跌模型持续</text>
+  <rect x="390" y="250" width="28" height="16" rx="3" fill="none" stroke="#58a6ff" stroke-width="0.8"/>
+  <text x="396" y="262" fill="#58a6ff" font-size="8">查看</text>
+
+  <line x1="96" y1="275" x2="456" y2="275" stroke="#30363d" stroke-width="0.5"/>
+
+  <!-- Row 3 -->
+  <text x="110" y="294" fill="#8b949e" font-size="9">P3</text>
+  <text x="160" y="294" fill="#c9d1d9" font-size="10" font-weight="600">MU</text>
+  <text x="220" y="294" fill="#c9d1d9" font-size="10">适合日内做T观察标的</text>
+  <rect x="390" y="282" width="28" height="16" rx="3" fill="none" stroke="#58a6ff" stroke-width="0.8"/>
+  <text x="396" y="294" fill="#58a6ff" font-size="8">查看</text>
+
+  <!-- Annotation -->
+  <text x="96" y="340" fill="#3fb950" font-size="9">→ 核心思路：减少页面同时承载的信息量</text>
+  <text x="96" y="358" fill="#8b949e" font-size="9">  状态卡片和意图条压缩为顶栏，表格 4 列够用</text>
+  <text x="96" y="376" fill="#8b949e" font-size="9">  点击行展开 Drawer，不动时表格占满全屏</text>
+
+  <!-- ============================================================ -->
+  <!-- VARIANT B: Market context first -->
+  <!-- ============================================================ -->
+  <text x="500" y="24" fill="#3fb950" font-size="14" font-weight="700">B &mdash; 市场上下文优先：让 Market Intent 成为视觉锚点</text>
+  <text x="500" y="44" fill="#8b949e" font-size="11">问题：意图条挤在一行里，Gate 状态不够突出。Market Intent 才是用户决策的第一输入</text>
+
+  <rect x="500" y="56" width="460" height="580" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Sidebar hint -->
+  <rect x="500" y="56" width="52" height="580" rx="0" fill="#1c2128"/>
+  <text x="512" y="120" fill="#8b949e" font-size="9">Nav</text>
+
+  <!-- Header -->
+  <rect x="564" y="68" width="384" height="32" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="576" y="88" fill="#c9d1d9" font-size="11">实时市场总控台</text>
+  <text x="800" y="88" fill="#8b949e" font-size="9">SPY · 刷新</text>
+
+  <!-- MARKET INTENT (dominant) -->
+  <rect x="564" y="110" width="384" height="120" rx="6" fill="none" stroke="#d29922" stroke-width="2"/>
+
+  <text x="576" y="132" fill="#d29922" font-size="12" font-weight="700">MARKET GATE: CAUTION</text>
+  <text x="576" y="152" fill="#8b949e" font-size="10">资金从高位标的撤出，等待缺口和前低确认。不追高、不赌财报。</text>
+
+  <!-- Now / Wait / Next chips -->
+  <rect x="576" y="166" width="100" height="22" rx="4" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="582" y="181" fill="#3fb950" font-size="9">Now · 指数缺口回补</text>
+  <rect x="684" y="166" width="100" height="22" rx="4" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="690" y="181" fill="#3fb950" font-size="9">Now · 资金高低切换</text>
+  <rect x="576" y="194" width="100" height="22" rx="4" fill="none" stroke="#d29922" stroke-width="1" opacity="0.4"/>
+  <text x="582" y="209" fill="#d29922" font-size="9">Wait · 等待前低确认</text>
+  <rect x="684" y="194" width="100" height="22" rx="4" fill="none" stroke="#d29922" stroke-width="1" opacity="0.4"/>
+  <text x="690" y="209" fill="#d29922" font-size="9">Wait · 不赌财报</text>
+
+  <!-- Compact status strip -->
+  <rect x="564" y="240" width="384" height="36" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="576" y="262" fill="#c9d1d9" font-size="10">Open: 8</text>
+  <text x="660" y="262" fill="#d29922" font-size="10">Invalidated: 3</text>
+  <text x="770" y="262" fill="#3fb950" font-size="10">Data: Mock live</text>
+
+  <!-- Focus Queue -->
+  <rect x="564" y="286" width="384" height="340" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="576" y="308" fill="#8b949e" font-size="10" font-weight="600">Today Focus Queue</text>
+
+  <rect x="576" y="318" width="360" height="24" rx="0" fill="#21262d"/>
+  <text x="584" y="334" fill="#8b949e" font-size="8">标的</text>
+  <text x="640" y="334" fill="#8b949e" font-size="8">观点</text>
+  <text x="810" y="334" fill="#8b949e" font-size="8">来源</text>
+  <text x="870" y="334" fill="#8b949e" font-size="8">状态</text>
+
+  <text x="584" y="358" fill="#c9d1d9" font-size="9" font-weight="600">NVDA</text>
+  <text x="640" y="358" fill="#c9d1d9" font-size="9">财报前不追高</text>
+  <text x="810" y="358" fill="#8b949e" font-size="8">admin</text>
+  <rect x="870" y="350" width="44" height="14" rx="3" fill="none" stroke="#3fb950" stroke-width="0.8"/>
+  <text x="874" y="360" fill="#3fb950" font-size="7">ACTIVE</text>
+
+  <line x1="576" y1="364" x2="940" y2="364" stroke="#30363d" stroke-width="0.3"/>
+
+  <text x="584" y="384" fill="#c9d1d9" font-size="9" font-weight="600">TSLA</text>
+  <text x="640" y="384" fill="#c9d1d9" font-size="9">观察 385 支撑</text>
+  <text x="810" y="384" fill="#8b949e" font-size="8">admin</text>
+  <rect x="870" y="376" width="44" height="14" rx="3" fill="none" stroke="#d29922" stroke-width="0.8"/>
+  <text x="874" y="386" fill="#d29922" font-size="7">WAITING</text>
+
+  <line x1="576" y1="390" x2="940" y2="390" stroke="#30363d" stroke-width="0.3"/>
+
+  <text x="584" y="410" fill="#c9d1d9" font-size="9" font-weight="600">MU</text>
+  <text x="640" y="410" fill="#c9d1d9" font-size="9">日内做T标的</text>
+  <text x="810" y="410" fill="#8b949e" font-size="8">user</text>
+  <rect x="870" y="402" width="44" height="14" rx="3" fill="none" stroke="#8b949e" stroke-width="0.8"/>
+  <text x="874" y="412" fill="#8b949e" font-size="7">REVIEWED</text>
+
+  <!-- Annotation -->
+  <text x="576" y="450" fill="#3fb950" font-size="9">→ 核心思路：Market Intent 是页面第二视觉锚点</text>
+  <text x="576" y="468" fill="#8b949e" font-size="9">  Gate 状态显眼，Now/Wait chips 直接回答"为什么现在/等待"</text>
+  <text x="576" y="486" fill="#8b949e" font-size="9">  表格缩减到 4 列，"查看"按钮到右侧 Drawer</text>
+
+  <!-- ============================================================ -->
+  <!-- VARIANT C: Split workspace -->
+  <!-- ============================================================ -->
+  <text x="980" y="24" fill="#a371f7" font-size="14" font-weight="700">C &mdash; 分屏工作区：左侧表格 + 右侧永远可见的详情</text>
+  <text x="980" y="44" fill="#8b949e" font-size="11">问题：Drawer 遮住表格，点开就看不到列表上下文。专业终端都是分屏</text>
+
+  <rect x="980" y="56" width="440" height="580" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Split line -->
+  <line x1="980" y1="56" x2="980" y2="636" stroke="#30363d" stroke-width="1"/>
+  <line x1="1240" y1="120" x2="1240" y2="636" stroke="#a371f7" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+  <!-- LEFT: Table -->
+  <text x="996" y="80" fill="#8b949e" font-size="9" font-weight="600">Today Focus</text>
+
+  <rect x="996" y="90" width="230" height="24" fill="#21262d"/>
+  <text x="1004" y="106" fill="#8b949e" font-size="8">标的</text>
+  <text x="1060" y="106" fill="#8b949e" font-size="8">观点</text>
+  <text x="1160" y="106" fill="#8b949e" font-size="8">状态</text>
+
+  <!-- Row 1 selected -->
+  <rect x="996" y="116" width="230" height="24" fill="#1f6feb" opacity="0.1"/>
+  <line x1="996" y1="116" x2="996" y2="140" stroke="#a371f7" stroke-width="2"/>
+  <text x="1004" y="132" fill="#c9d1d9" font-size="9" font-weight="600">NVDA</text>
+  <text x="1060" y="132" fill="#c9d1d9" font-size="9">财报前不追高</text>
+  <rect x="1160" y="124" width="40" height="12" rx="3" fill="none" stroke="#3fb950" stroke-width="0.8"/>
+  <text x="1164" y="133" fill="#3fb950" font-size="7">ACTIVE</text>
+
+  <line x1="996" y1="141" x2="1226" y2="141" stroke="#30363d" stroke-width="0.3"/>
+
+  <text x="1004" y="158" fill="#c9d1d9" font-size="9" font-weight="600">TSLA</text>
+  <text x="1060" y="158" fill="#c9d1d9" font-size="9">观察 385</text>
+  <rect x="1160" y="150" width="40" height="12" rx="3" fill="none" stroke="#d29922" stroke-width="0.8"/>
+  <text x="1164" y="159" fill="#d29922" font-size="7">WAITING</text>
+
+  <line x1="996" y1="165" x2="1226" y2="165" stroke="#30363d" stroke-width="0.3"/>
+
+  <text x="1004" y="182" fill="#c9d1d9" font-size="9" font-weight="600">MU</text>
+  <text x="1060" y="182" fill="#c9d1d9" font-size="9">做T标的</text>
+  <rect x="1160" y="174" width="40" height="12" rx="3" fill="none" stroke="#8b949e" stroke-width="0.8"/>
+  <text x="1164" y="183" fill="#8b949e" font-size="7">REVIEWED</text>
+
+  <!-- RIGHT: Inspector (always visible) -->
+  <rect x="1252" y="78" width="156" height="544" rx="6" fill="none" stroke="#a371f7" stroke-width="1" opacity="0.3"/>
+
+  <text x="1264" y="100" fill="#a371f7" font-size="10" font-weight="600">NVDA</text>
+  <text x="1264" y="116" fill="#8b949e" font-size="8">财报前不追高，等待缺口确认</text>
+
+  <rect x="1264" y="132" width="132" height="60" rx="4" fill="none" stroke="#58a6ff" stroke-width="0.5" opacity="0.2"/>
+  <text x="1272" y="148" fill="#58a6ff" font-size="8" font-weight="600">Agent 解释</text>
+  <text x="1272" y="162" fill="#8b949e" font-size="7">资金从高位标的撤出</text>
+  <text x="1272" y="174" fill="#8b949e" font-size="7">等待前低确认</text>
+  <text x="1272" y="186" fill="#8b949e" font-size="7">不追高、不赌财报</text>
+
+  <rect x="1264" y="200" width="132" height="44" rx="4" fill="none" stroke="#30363d" stroke-width="0.5"/>
+  <text x="1272" y="216" fill="#8b949e" font-size="8" font-weight="600">触发条件</text>
+  <text x="1272" y="232" fill="#8b949e" font-size="7">SPX 缺口回补确认后</text>
+
+  <rect x="1264" y="252" width="132" height="44" rx="4" fill="none" stroke="#30363d" stroke-width="0.5"/>
+  <text x="1272" y="268" fill="#8b949e" font-size="8" font-weight="600">失效条件</text>
+  <text x="1272" y="284" fill="#8b949e" font-size="7">当前只读观察</text>
+
+  <rect x="1264" y="304" width="132" height="36" rx="4" fill="none" stroke="#30363d" stroke-width="0.5"/>
+  <text x="1272" y="320" fill="#8b949e" font-size="8">market_intent</text>
+  <text x="1272" y="332" fill="#8b949e" font-size="8">opportunity_watch</text>
+
+  <!-- Annotation -->
+  <text x="1264" y="370" fill="#a371f7" font-size="9">→ 核心思路：左右分屏</text>
+  <text x="1264" y="388" fill="#8b949e" font-size="9">  左侧表始终可见</text>
+  <text x="1264" y="406" fill="#8b949e" font-size="9">  右侧详情永远在位</text>
+  <text x="1264" y="424" fill="#8b949e" font-size="9">  不需要 Drawer 遮挡</text>
+
+  <!-- ============================================================ -->
+  <!-- Bottom: comparison table -->
+  <!-- ============================================================ -->
+  <text x="20" y="668" fill="#c9d1d9" font-size="13" font-weight="700">选哪个？</text>
+
+  <rect x="20" y="682" width="1400" height="260" rx="8" fill="none" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Column headers -->
+  <rect x="20" y="682" width="1400" height="32" rx="0" fill="#21262d"/>
+  <text x="36" y="702" fill="#8b949e" font-size="10" font-weight="600">对比维度</text>
+  <text x="160" y="702" fill="#58a6ff" font-size="10" font-weight="600">A / 聚焦单一任务</text>
+  <text x="560" y="702" fill="#3fb950" font-size="10" font-weight="600">B / 市场上下文优先</text>
+  <text x="960" y="702" fill="#a371f7" font-size="10" font-weight="600">C / 分屏工作区</text>
+
+  <line x1="20" y1="714" x2="1420" y2="714" stroke="#30363d" stroke-width="0.5"/>
+
+  <!-- Row 1: 解决什么问题 -->
+  <text x="36" y="734" fill="#c9d1d9" font-size="10">解决什么问题</text>
+  <text x="160" y="734" fill="#c9d1d9" font-size="10">页面承载太多信息，每次</text>
+  <text x="160" y="748" fill="#c9d1d9" font-size="10">都要扫 4 个区域才能理解</text>
+  <text x="160" y="762" fill="#c9d1d9" font-size="10">当前状态</text>
+  <text x="560" y="734" fill="#c9d1d9" font-size="10">Gate 和意图不够突出，</text>
+  <text x="560" y="748" fill="#c9d1d9" font-size="10">用户先看到数据再找</text>
+  <text x="560" y="762" fill="#c9d1d9" font-size="10">判断依据</text>
+  <text x="960" y="734" fill="#c9d1d9" font-size="10">Drawer 遮住表格，</text>
+  <text x="960" y="748" fill="#c9d1d9" font-size="10">点开详情就丢了列表</text>
+  <text x="960" y="762" fill="#c9d1d9" font-size="10">上下文</text>
+
+  <line x1="20" y1="776" x2="1420" y2="776" stroke="#30363d" stroke-width="0.3"/>
+
+  <!-- Row 2: 改动量 -->
+  <text x="36" y="796" fill="#c9d1d9" font-size="10">改动量</text>
+  <text x="160" y="796" fill="#c9d1d9" font-size="10">小。主要是删减：L1/L2</text>
+  <text x="160" y="810" fill="#c9d1d9" font-size="10">压缩到 header strip，</text>
+  <text x="160" y="824" fill="#c9d1d9" font-size="10">表格减列</text>
+  <text x="560" y="796" fill="#c9d1d9" font-size="10">中。重构 Intent 区域为</text>
+  <text x="560" y="810" fill="#c9d1d9" font-size="10">页面级模块，状态卡片</text>
+  <text x="560" y="824" fill="#c9d1d9" font-size="10">移到它下面</text>
+  <text x="960" y="796" fill="#c9d1d9" font-size="10">中。把 Drawer 逻辑改</text>
+  <text x="960" y="810" fill="#c9d1d9" font-size="10">为固定右侧面板，</text>
+  <text x="960" y="824" fill="#c9d1d9" font-size="10">布局从单栏变双栏</text>
+
+  <line x1="20" y1="838" x2="1420" y2="838" stroke="#30363d" stroke-width="0.3"/>
+
+  <!-- Row 3: 风险 -->
+  <text x="36" y="858" fill="#c9d1d9" font-size="10">风险</text>
+  <text x="160" y="858" fill="#c9d1d9" font-size="10">太简洁可能感觉"不够像</text>
+  <text x="160" y="872" fill="#c9d1d9" font-size="10">专业终端"</text>
+  <text x="560" y="858" fill="#c9d1d9" font-size="10">Intent 区域数据依赖强，</text>
+  <text x="560" y="872" fill="#c9d1d9" font-size="10">Mock 阶段可能显得空</text>
+  <text x="960" y="858" fill="#c9d1d9" font-size="10">窄屏无法分两栏，需要</text>
+  <text x="960" y="872" fill="#c9d1d9" font-size="10">fallback 方案</text>
+
+</svg>

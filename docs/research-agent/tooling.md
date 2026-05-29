@@ -57,7 +57,7 @@ All research-console API routes use the shared `apps/research-console/lib/api-au
 
 Provider configuration alone is not readiness. Longbridge, Alpha Vantage, yfinance, and news search are executable only when `RESEARCH_ENABLE_EXTERNAL_TOOLS=1` is present and each provider's required server-side configuration is complete.
 
-The selected opportunity detail can request evidence through `/api/research/evidence`. That route calls `authorizeResearchTool(...)` before `executeResearchTool(...)`, so UI actions and direct API calls cannot bypass the same policy used by the agent kernel.
+The selected Research Inspector can request evidence through `/api/research/evidence`. That route calls `authorizeResearchTool(...)` before `executeResearchTool(...)`, so UI actions and direct API calls cannot bypass the same policy used by the agent kernel.
 
 Agent run evidence stores one sanitized JSON object per line. It records `run_id`, selected day, provider status, bounded user-message preview, context counts, used context paths, tool trace summaries, policy decisions, opportunity reasoning, and the answer preview. It does not store raw Markdown, raw structured JSON, absolute local paths, authorization headers, or secret values.
 

@@ -1,5 +1,14 @@
 # 16 Agent Console D-lite v3
 
+## Implementation Status (2026-05-27)
+
+| Phase | Status | Notes |
+|---|---|---|
+| 0D-1 Agent Console breadth skeleton | **done** | `AgentConsoleWorkspace` + 6 子组件 + `getAgentConsole` |
+| 0D-2 Read-only AgentActivityGraph | **pending** | plan: [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md) |
+
+代码：`apps/trader-cockpit/app/cockpit/chat/page.tsx` → `AgentConsoleWorkspace`。
+
 ## 1. 目标
 
 把 `/cockpit/chat` 从普通聊天页升级为 Agent Console：用户可以和 Agent 对话，也能看到 Agent 主动推送、当前 workstream、只读上下文、活动节点和节点详情。
@@ -32,6 +41,8 @@
 
 ### 3.2 页面结构
 
+Route：`/cockpit/chat`
+
 ```text
 /cockpit/chat
   Header context from CockpitShell
@@ -39,19 +50,17 @@
   Workstreams rail
   Conversation main
   Read-only Activity Preview
-  Node Inspector
+  Node Inspector + Context Used
 ```
 
-建议布局：
+**当前实现布局**（`AgentConsoleWorkspace.tsx`）：
 
-| Region | Role |
-|---|---|
-| Priority Push | 展示 1-3 条高信息量主动推送摘要，完整列表转到 Inbox |
-| Workstreams | 多个并发 conversation / market topic 的入口 |
-| Context Used | 当前回答注入了哪些只读 context，不提供管理能力 |
-| Conversation | 用户消息、Agent 回复、Agent 主动推送 |
-| Activity Preview | 0D-1 用 compact trace chips 或静态列表表达节点链路 |
-| Node Inspector | 展示选中节点的摘要、证据、相关 learning refs 和追问入口 |
+```text
+[ PriorityPushStrip ]
+[ WorkstreamRail ]
+[ Conversation | ActivityTracePreview | NodeInspector + ContextUsed ]
+  xl+: 三列 grid；Inspector 与 Context 为右侧上下分栏
+```
 
 ### 3.3 组件建议
 
@@ -173,14 +182,14 @@ interface CockpitDataAdapter {
 
 ### 3.7 0D-1 验收标准
 
-- `/cockpit/chat` 显示 Agent Console，而不是旧单一聊天页。
-- 页面有 Priority Push、Workstreams、Conversation、Context Used、Activity Preview、Node Inspector。
-- Agent push message 能绑定 activity node。
-- 点击 activity trace item 或 push message 可以更新 Node Inspector。
-- Context Used 只读展示，不提供管理入口。
-- 不出现 workflow builder、任务下发、节点编辑、交易、订单、审批。
-- 组件和页面不直接 import fixtures，必须通过 `CockpitDataAdapter`。
-- 新文案进入 `resources.json`，中英文完整。
+- [x] `/cockpit/chat` 显示 Agent Console，而不是旧单一聊天页。
+- [x] 页面有 Priority Push、Workstreams、Conversation、Context Used、Activity Preview、Node Inspector。
+- [x] Agent push message 能绑定 activity node。
+- [x] 点击 activity trace item 或 push message 可以更新 Node Inspector。
+- [x] Context Used 只读展示，不提供管理入口。
+- [x] 不出现 workflow builder、任务下发、节点编辑、交易、订单、审批。
+- [x] 组件和页面不直接 import fixtures，必须通过 `CockpitDataAdapter`。
+- [x] 新文案进入 `resources.json`，中英文完整。
 
 ### 3.8 0D-1 测试场景
 

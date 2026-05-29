@@ -23,17 +23,16 @@
    - 预检查：`npm run notify:card:dry`
    - 真实推送：`npm run notify:card`
 
-## 本地直接上传
+## 本地验证
 
-如果不想先接 Git 集成，可以用 Wrangler 直接上传构建产物：
+本地只需要验证静态构建产物：
 
 ```bash
-npm run pages:deploy:dry
-npx wrangler login
-npm run pages:deploy
+npm run pages:build
+npm run public:build:audit
 ```
 
-直接上传适合快速试验；长期建议用 Git 集成，让每次 push 自动构建。
+实际发布交给 Cloudflare Pages 的 Git 集成。仓库不再保留本地上传命令或单独的 Pages 配置文件，避免本地发布路径和 Dashboard 配置漂移。
 
 ## 与现有通知的关系
 

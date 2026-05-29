@@ -9,7 +9,6 @@ const checks = [
   ["npm", ["run", "test:summary"]],
   ["npm", ["run", "console:build"]],
   ["npm", ["run", "daily:publish:dry"]],
-  ["npm", ["run", "pages:deploy:dry"]],
   ["npm", ["run", "public:build:audit"]],
   ["git", ["diff", "--check"]],
 ];

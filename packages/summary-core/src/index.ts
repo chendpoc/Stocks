@@ -224,7 +224,8 @@ export type EvidenceRunVerdict =
   | "supporting"
   | "contradicting"
   | "neutral"
-  | "blocked";
+  | "blocked"
+  | "error";
 
 export interface EvidenceRun {
   id: string;

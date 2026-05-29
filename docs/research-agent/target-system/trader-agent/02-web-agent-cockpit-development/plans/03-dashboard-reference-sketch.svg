@@ -1,0 +1,313 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" font-family="system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c2128"/>
+      <stop offset="100%" stop-color="#1c2128"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="url(#bg)"/>
+
+  <!-- Grid overlay -->
+  <g opacity="0.03">
+    <line x1="0" y1="28" x2="1440" y2="28" stroke="#fff"/>
+    <line x1="0" y1="56" x2="1440" y2="56" stroke="#fff"/>
+    <line x1="28" y1="0" x2="28" y2="900" stroke="#fff"/>
+  </g>
+
+  <!-- ======== SIDEBAR ======== -->
+  <rect x="0" y="0" width="240" height="900" fill="#161b22" opacity="0.6"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Sidebar brand -->
+  <text x="20" y="36" fill="#58a6ff" font-size="14" font-weight="600">Agent Market Cockpit</text>
+  <text x="20" y="56" fill="#8b949e" font-size="11">市场观察 · Personal Quant</text>
+
+  <!-- Context switcher -->
+  <rect x="12" y="76" width="216" height="52" rx="6" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="20" y="95" fill="#c9d1d9" font-size="11" font-weight="500">Core Watchlist · SPY</text>
+  <text x="20" y="114" fill="#8b949e" font-size="10">SPY, QQQ, AAPL, NVDA</text>
+
+  <!-- Runtime strip -->
+  <circle cx="20" cy="148" r="3" fill="#3fb950"/>
+  <text x="28" y="152" fill="#8b949e" font-size="10">LIVE · Mock local · Agent observing</text>
+
+  <!-- Nav items -->
+  <rect x="8" y="174" width="224" height="32" rx="6" fill="#1f6feb" opacity="0.15"/>
+  <text x="20" y="195" fill="#58a6ff" font-size="12" font-weight="500">实时</text>
+
+  <text x="20" y="230" fill="#8b949e" font-size="12">信号</text>
+  <text x="20" y="266" fill="#8b949e" font-size="12">对话</text>
+  <text x="20" y="302" fill="#8b949e" font-size="12">收件箱</text>
+  <text x="20" y="338" fill="#8b949e" font-size="12">规律库</text>
+  <text x="20" y="374" fill="#8b949e" font-size="12">学习</text>
+  <text x="20" y="410" fill="#8b949e" font-size="12">设置</text>
+
+  <!-- Sidebar footer -->
+  <rect x="12" y="680" width="216" height="100" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="20" y="702" fill="#8b949e" font-size="10">RUNTIME STATUS</text>
+  <text x="20" y="722" fill="#8b949e" font-size="10">Data: mock local  |  Agent: observing</text>
+  <text x="20" y="742" fill="#8b949e" font-size="10">Write: blocked    |  Display: read only</text>
+  <text x="20" y="766" fill="#d29922" font-size="10">DeepSeek available · inactive</text>
+
+  <!-- ======== MAIN CONTENT ======== -->
+
+  <!-- DASHBOARD HEADER -->
+  <text x="264" y="32" fill="#c9d1d9" font-size="20" font-weight="600">实时市场总控台</text>
+  <text x="264" y="52" fill="#8b949e" font-size="12">Live Market Command</text>
+
+  <!-- Header right: SPY pill + refresh + search -->
+  <rect x="950" y="14" width="56" height="28" rx="6" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="965" y="33" fill="#c9d1d9" font-size="12" font-weight="500">SPY</text>
+  <text x="1016" y="33" fill="#8b949e" font-size="11">数据: 1m</text>
+  <rect x="1070" y="14" width="56" height="28" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1084" y="33" fill="#8b949e" font-size="11">刷新</text>
+  <rect x="1140" y="14" width="280" height="28" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1154" y="33" fill="#484f58" font-size="11">搜索符号 / 事件 / 主题...</text>
+
+  <line x1="264" y1="60" x2="1420" y2="60" stroke="#30363d" stroke-width="1"/>
+
+  <!-- L1: STATUS CARDS -->
+  <text x="264" y="86" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">MARKET STATUS</text>
+
+  <!-- Card 1: Market Gate -->
+  <rect x="264" y="96" width="274" height="64" rx="6" fill="none" stroke="#d29922" stroke-width="1" opacity="0.5"/>
+  <text x="280" y="118" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">MARKET GATE</text>
+  <text x="280" y="144" fill="#d29922" font-size="18" font-weight="700">CAUTION</text>
+
+  <!-- Card 2: Open Signals -->
+  <rect x="550" y="96" width="274" height="64" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="566" y="118" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">OPEN SIGNALS</text>
+  <text x="566" y="144" fill="#c9d1d9" font-size="18" font-weight="700">8</text>
+
+  <!-- Card 3: Invalidated -->
+  <rect x="836" y="96" width="274" height="64" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="852" y="118" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">INVALIDATED</text>
+  <text x="852" y="144" fill="#d29922" font-size="18" font-weight="700">3</text>
+
+  <!-- Card 4: Freshness -->
+  <rect x="1122" y="96" width="298" height="64" rx="6" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="1138" y="118" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">DATA FRESHNESS</text>
+  <text x="1138" y="144" fill="#3fb950" font-size="14" font-weight="600">Mock 实时</text>
+
+  <!-- L2: MARKET INTENT STRIP -->
+  <text x="264" y="186" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">MARKET INTENT</text>
+
+  <rect x="264" y="196" width="1156" height="64" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Gate indicator -->
+  <rect x="276" y="206" width="100" height="44" rx="4" fill="none" stroke="#d29922" stroke-width="1" opacity="0.15"/>
+  <text x="286" y="224" fill="#8b949e" font-size="8" letter-spacing="1">GATE</text>
+  <text x="286" y="242" fill="#d29922" font-size="13" font-weight="600">CAUTION</text>
+
+  <!-- Symbol info -->
+  <line x1="390" y1="208" x2="390" y2="248" stroke="#30363d" stroke-width="1"/>
+  <text x="404" y="224" fill="#8b949e" font-size="9">核心标的</text>
+  <text x="404" y="242" fill="#c9d1d9" font-size="12" font-weight="500">SPY · 12 + 3</text>
+
+  <line x1="570" y1="208" x2="570" y2="248" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Intent chips -->
+  <rect x="584" y="208" width="120" height="20" rx="4" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.3"/>
+  <text x="592" y="222" fill="#3fb950" font-size="9">Now · 指数缺口回补</text>
+
+  <rect x="712" y="208" width="120" height="20" rx="4" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.3"/>
+  <text x="720" y="222" fill="#3fb950" font-size="9">Now · 资金从高位撤出</text>
+
+  <rect x="584" y="234" width="140" height="20" rx="4" fill="none" stroke="#d29922" stroke-width="1" opacity="0.3"/>
+  <text x="592" y="248" fill="#d29922" font-size="9">Wait · 等待前低确认</text>
+
+  <rect x="732" y="234" width="140" height="20" rx="4" fill="none" stroke="#d29922" stroke-width="1" opacity="0.3"/>
+  <text x="740" y="248" fill="#d29922" font-size="9">Wait · 不赌财报</text>
+
+  <rect x="884" y="234" width="160" height="20" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="892" y="248" fill="#8b949e" font-size="9">Next · 等待缺口和前低确认</text>
+
+  <!-- L3: TODAY FOCUS QUEUE -->
+  <text x="264" y="286" fill="#8b949e" font-size="9" font-weight="600" letter-spacing="1">TODAY FOCUS</text>
+
+  <rect x="264" y="296" width="1156" height="436" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Focus header -->
+  <text x="280" y="318" fill="#c9d1d9" font-size="13" font-weight="600">Today Focus Queue</text>
+
+  <!-- Pagination -->
+  <text x="1250" y="318" fill="#8b949e" font-size="10">显示 1-5 / 12</text>
+
+  <!-- Queue lens buttons -->
+  <rect x="280" y="338" width="80" height="24" rx="4" fill="#1f6feb" opacity="0.15"/>
+  <text x="296" y="355" fill="#58a6ff" font-size="10">全部焦点</text>
+
+  <rect x="368" y="338" width="90" height="24" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="380" y="355" fill="#8b949e" font-size="10">Top Watchlist</text>
+
+  <rect x="466" y="338" width="100" height="24" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="478" y="355" fill="#8b949e" font-size="10">Top Opportunities</text>
+
+  <rect x="574" y="338" width="80" height="24" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="586" y="355" fill="#8b949e" font-size="10">Next Watch</text>
+
+  <!-- Filter row -->
+  <rect x="280" y="376" width="260" height="28" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="312" y="395" fill="#484f58" font-size="10">搜索标题、摘要、标的或标签</text>
+
+  <rect x="552" y="376" width="120" height="28" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="564" y="395" fill="#8b949e" font-size="10">全部类型 ▾</text>
+
+  <rect x="684" y="376" width="120" height="28" rx="4" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="696" y="395" fill="#8b949e" font-size="10">全部状态 ▾</text>
+
+  <!-- Table header -->
+  <rect x="280" y="416" width="1128" height="28" rx="0" fill="#21262d"/>
+  <text x="290" y="435" fill="#8b949e" font-size="10" font-weight="600">优先级</text>
+  <text x="380" y="435" fill="#8b949e" font-size="10" font-weight="600">状态</text>
+  <text x="470" y="435" fill="#8b949e" font-size="10" font-weight="600">标的</text>
+  <text x="550" y="435" fill="#8b949e" font-size="10" font-weight="600">标题</text>
+  <text x="860" y="435" fill="#8b949e" font-size="10" font-weight="600">Agent 近因</text>
+  <text x="1070" y="435" fill="#8b949e" font-size="10" font-weight="600">本地状态</text>
+  <text x="1170" y="435" fill="#8b949e" font-size="10" font-weight="600">更新时间</text>
+  <text x="1270" y="435" fill="#8b949e" font-size="10" font-weight="600">操作</text>
+
+  <!-- Table rows -->
+  <!-- Row 1 (selected) -->
+  <rect x="280" y="446" width="1128" height="36" rx="0" fill="#1f6feb" opacity="0.06"/>
+  <line x1="280" y1="446" x2="280" y2="482" stroke="#58a6ff" stroke-width="2"/>
+  <rect x="290" y="453" width="40" height="18" rx="3" fill="none" stroke="#da3633" stroke-width="1" opacity="0.4"/>
+  <text x="300" y="466" fill="#da3633" font-size="9" font-weight="600">P1</text>
+  <rect x="380" y="453" width="50" height="18" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="388" y="466" fill="#3fb950" font-size="9">ACTIVE</text>
+  <text x="470" y="466" fill="#c9d1d9" font-size="11" font-weight="600">NVDA</text>
+  <text x="550" y="461" fill="#c9d1d9" font-size="11">财报前不追高，等待缺口确认</text>
+  <text x="550" y="474" fill="#8b949e" font-size="9">资金在财报窗口前从高位标的撤出</text>
+  <text x="860" y="466" fill="#8b949e" font-size="10" opacity="0.8">管理员强调用可重复的幅度和时间条件过滤噪音</text>
+  <rect x="1070" y="453" width="60" height="18" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.3"/>
+  <text x="1076" y="466" fill="#3fb950" font-size="9">已关注</text>
+  <text x="1170" y="466" fill="#8b949e" font-size="10">10:30</text>
+  <rect x="1270" y="453" width="36" height="18" rx="3" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.4"/>
+  <text x="1278" y="466" fill="#58a6ff" font-size="9">查看</text>
+  <rect x="1310" y="453" width="36" height="18" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="1316" y="466" fill="#3fb950" font-size="9">关注</text>
+  <rect x="1350" y="453" width="36" height="18" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1356" y="466" fill="#8b949e" font-size="9">忽略</text>
+
+  <!-- Row 2 -->
+  <rect x="290" y="489" width="40" height="18" rx="3" fill="none" stroke="#d29922" stroke-width="1" opacity="0.4"/>
+  <text x="300" y="502" fill="#d29922" font-size="9" font-weight="600">P2</text>
+  <rect x="380" y="489" width="50" height="18" rx="3" fill="none" stroke="#d29922" stroke-width="1" opacity="0.4"/>
+  <text x="388" y="502" fill="#d29922" font-size="9">WAITING</text>
+  <text x="470" y="502" fill="#c9d1d9" font-size="11" font-weight="600">TSLA</text>
+  <text x="550" y="497" fill="#c9d1d9" font-size="11">观察 385 一线支撑</text>
+  <text x="550" y="510" fill="#8b949e" font-size="9">等待回调确认支撑位有效</text>
+  <text x="860" y="502" fill="#8b949e" font-size="10" opacity="0.8">缓跌模型继续按节奏运行</text>
+  <text x="1070" y="502" fill="#8b949e" font-size="10">-</text>
+  <text x="1170" y="502" fill="#8b949e" font-size="10">09:45</text>
+  <rect x="1270" y="489" width="36" height="18" rx="3" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.4"/>
+  <text x="1278" y="502" fill="#58a6ff" font-size="9">查看</text>
+  <rect x="1310" y="489" width="36" height="18" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="1316" y="502" fill="#3fb950" font-size="9">关注</text>
+  <rect x="1350" y="489" width="36" height="18" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1356" y="502" fill="#8b949e" font-size="9">忽略</text>
+
+  <line x1="280" y1="483" x2="1408" y2="483" stroke="#30363d" stroke-width="0.5"/>
+
+  <!-- Row 3 -->
+  <rect x="290" y="525" width="40" height="18" rx="3" fill="none" stroke="#8b949e" stroke-width="1" opacity="0.4"/>
+  <text x="300" y="538" fill="#8b949e" font-size="9" font-weight="600">P3</text>
+  <rect x="380" y="525" width="50" height="18" rx="3" fill="none" stroke="#8b949e" stroke-width="1" opacity="0.4"/>
+  <text x="388" y="538" fill="#8b949e" font-size="9">REVIEWED</text>
+  <text x="470" y="538" fill="#c9d1d9" font-size="11" font-weight="600">MU</text>
+  <text x="550" y="533" fill="#c9d1d9" font-size="11">适合作为日内做T观察标的</text>
+  <text x="860" y="538" fill="#8b949e" font-size="10" opacity="0.8">-</text>
+  <text x="1070" y="538" fill="#8b949e" font-size="10">-</text>
+  <text x="1170" y="538" fill="#8b949e" font-size="10">昨天</text>
+  <rect x="1270" y="525" width="36" height="18" rx="3" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.4"/>
+  <text x="1278" y="538" fill="#58a6ff" font-size="9">查看</text>
+  <rect x="1310" y="525" width="36" height="18" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="1316" y="538" fill="#3fb950" font-size="9">关注</text>
+  <rect x="1350" y="525" width="36" height="18" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1356" y="538" fill="#8b949e" font-size="9">忽略</text>
+
+  <line x1="280" y1="519" x2="1408" y2="519" stroke="#30363d" stroke-width="0.5"/>
+
+  <!-- ======== DRAWER (partially visible on right) ======== -->
+  <rect x="1080" y="0" width="360" height="900" fill="#1c2128" opacity="0.95"/>
+  <line x1="1080" y1="0" x2="1080" y2="900" stroke="#30363d" stroke-width="1"/>
+
+  <text x="1100" y="36" fill="#8b949e" font-size="9" letter-spacing="1">FOCUS DETAIL</text>
+  <text x="1100" y="60" fill="#c9d1d9" font-size="15" font-weight="600">NVDA 财报前不追高</text>
+
+  <!-- Meta row -->
+  <rect x="1100" y="76" width="50" height="20" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="1106" y="90" fill="#3fb950" font-size="9">ACTIVE</text>
+  <text x="1160" y="90" fill="#8b949e" font-size="9">10:30 · 更新</text>
+
+  <!-- Chips -->
+  <rect x="1100" y="108" width="60" height="20" rx="3" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.4"/>
+  <text x="1106" y="122" fill="#58a6ff" font-size="9">OPPORTUNITY</text>
+  <rect x="1168" y="108" width="64" height="20" rx="3" fill="none" stroke="#c9d1d9" stroke-width="1" opacity="0.3"/>
+  <text x="1174" y="122" fill="#c9d1d9" font-size="9">NVDA</text>
+
+  <!-- Agent reason -->
+  <rect x="1100" y="144" width="320" height="80" rx="6" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.2"/>
+  <text x="1112" y="164" fill="#58a6ff" font-size="9" font-weight="600">Agent 解释</text>
+  <text x="1112" y="182" fill="#8b949e" font-size="10">资金在财报窗口前从高位标的撤出，</text>
+  <text x="1112" y="198" fill="#8b949e" font-size="10">等待缺口和前低确认。不追高、不赌</text>
+  <text x="1112" y="214" fill="#8b949e" font-size="10">财报是当前阶段核心纪律。</text>
+
+  <!-- Trigger conditions -->
+  <rect x="1100" y="236" width="320" height="80" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1112" y="256" fill="#8b949e" font-size="9" font-weight="600">触发条件</text>
+  <text x="1112" y="274" fill="#8b949e" font-size="10">SPX 缺口回补确认后，NVDA 回踩前低</text>
+  <text x="1112" y="290" fill="#8b949e" font-size="10">不破可观察试错窗口</text>
+
+  <!-- Invalidation -->
+  <rect x="1100" y="328" width="320" height="60" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1112" y="348" fill="#8b949e" font-size="9" font-weight="600">失效条件</text>
+  <text x="1112" y="366" fill="#8b949e" font-size="10">当前只读：保留为观察、解释和跳转上下文</text>
+
+  <!-- Evidence tags -->
+  <rect x="1100" y="400" width="320" height="60" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1112" y="420" fill="#8b949e" font-size="9" font-weight="600">证据</text>
+  <rect x="1112" y="430" width="60" height="18" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1118" y="443" fill="#8b949e" font-size="9">market_intent</text>
+  <rect x="1180" y="430" width="70" height="18" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1186" y="443" fill="#8b949e" font-size="9">opportunity_watch</text>
+
+  <!-- Agent nodes -->
+  <rect x="1100" y="472" width="320" height="50" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1112" y="492" fill="#8b949e" font-size="9" font-weight="600">关联 Agent 节点</text>
+  <text x="1112" y="510" fill="#8b949e" font-size="9">市场快照 → 信号识别 → 本节点</text>
+
+  <!-- Footer -->
+  <rect x="1100" y="700" width="320" height="52" rx="6" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1112" y="718" fill="#8b949e" font-size="9">仅本地状态，不影响 Agent 决策与执行</text>
+  <rect x="1112" y="728" width="44" height="20" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1120" y="742" fill="#8b949e" font-size="9">关闭</text>
+  <rect x="1164" y="728" width="44" height="20" rx="3" fill="none" stroke="#3fb950" stroke-width="1" opacity="0.4"/>
+  <text x="1170" y="742" fill="#3fb950" font-size="9">关注</text>
+  <rect x="1216" y="728" width="44" height="20" rx="3" fill="none" stroke="#30363d" stroke-width="1"/>
+  <text x="1222" y="742" fill="#8b949e" font-size="9">忽略</text>
+
+  <!-- Annotations -->
+  <!-- L1 annotation -->
+  <line x1="252" y1="128" x2="240" y2="128" stroke="#d29922" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="10" y="132" fill="#d29922" font-size="9">L1: 状态卡片</text>
+  <text x="10" y="144" fill="#8b949e" font-size="8">一目了然的市场快照</text>
+
+  <!-- L2 annotation -->
+  <line x1="252" y1="228" x2="240" y2="228" stroke="#58a6ff" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="10" y="232" fill="#58a6ff" font-size="9">L2: 市场意图条</text>
+  <text x="10" y="244" fill="#8b949e" font-size="8">Gate + 核心标的 + Now/Wait chips</text>
+
+  <!-- L3 annotation -->
+  <line x1="252" y1="400" x2="240" y2="400" stroke="#3fb950" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="10" y="404" fill="#3fb950" font-size="9">L3: Today Focus Queue</text>
+  <text x="10" y="416" fill="#8b949e" font-size="8">页面视觉锚点，可搜索/筛选/分页</text>
+  <text x="10" y="428" fill="#8b949e" font-size="8">点击行打开右侧 Drawer 详情</text>
+
+</svg>
