@@ -1,8 +1,10 @@
 # 07 — 03 Shared Agent Memory M0: Artifact Catalog
 
-Status: draft
+Status: done
 Owner: cursor-composer
 Created: 2026-05-28
+Completed: 2026-05-29
+Implemented in: `27c9b3f`
 
 Source PRD:
 - [03-shared-agent-memory-prd.md](../../03-shared-agent-memory-prd.md)
@@ -168,12 +170,12 @@ def build_artifact_catalog(settings: Settings, docs_root: Path | None = None) ->
 
 ## 7. 任务清单
 
-- [ ] Task 1: `db/models.py` 新增 `source_artifacts` 表定义。
-- [ ] Task 2: 新建/修订 `artifact_catalog.py`，实现 scanner、classification、upsert、event buffering。
-- [ ] Task 3: `api/agent.py` 在 existing `knowledge_router` 新增 `POST /api/knowledge/scan-artifacts`。
-- [ ] Task 4: 新建/修订 `test_artifact_catalog.py`，覆盖 markdown、excluded、hash change、prd ineligible、image、jsonl、audit event、API。
-- [ ] Task 5: 检查 `bootstrap_database(settings)` 是否通过 `metadata.create_all()` 自动建表；只有必要时才改 `migrations.py`。
-- [ ] Task 6: pytest + ruff 验证。
+- [x] Task 1: `db/models.py` 新增 `source_artifacts` 表定义。
+- [x] Task 2: 新建/修订 `artifact_catalog.py`，实现 scanner、classification、upsert、event buffering。
+- [x] Task 3: `api/agent.py` 在 existing `knowledge_router` 新增 `POST /api/knowledge/scan-artifacts`。
+- [x] Task 4: 新建/修订 `test_artifact_catalog.py`，覆盖 markdown、excluded、hash change、prd ineligible、image、jsonl、audit event、API。
+- [x] Task 5: 检查 `bootstrap_database(settings)` 是否通过 `metadata.create_all()` 自动建表；只有必要时才改 `migrations.py`。
+- [x] Task 6: pytest + ruff 验证。
 
 ## 8. 测试与断言
 
@@ -280,5 +282,5 @@ Final response:
 
 ## 12. 完成后文档更新
 
-- [ ] 更新 `00-implementation-status.md`（若本项目将 Shared Memory M0 纳入 status）。
-- [ ] 本 plan `Status: done`。
+- [x] 不更新 Cockpit `00-implementation-status.md`：Shared Memory M0 属于 backend memory slice，不属于 Web Cockpit status。
+- [x] 本 plan `Status: done`。

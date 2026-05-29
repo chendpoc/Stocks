@@ -78,7 +78,7 @@ apps/trader-cockpit/
       charts/                           ✓ MockMarketChart
       states/                           ✓ StateBlock
       ui/                               ✓ CockpitSelect
-      activity-graph/                   pending (Phase 0D-2)
+      activity-graph/                   partial AgentActivityGraphPanel scaffold; not wired
   lib/
     cockpit/
       adapter.ts                        ✓
@@ -99,7 +99,7 @@ apps/trader-cockpit/
 | `app/(cockpit)` | route composition only |
 | `app/api/agent-chat` | read-only context aggregation and DeepSeek direct call |
 | `components/cockpit/*` | UI composition, query hooks and local interactions |
-| `components/ui/*` | reusable shadcn primitives |
+| `components/ui/*` | reusable UI primitives when present |
 | `lib/cockpit/adapter.ts` | stable view-model interface |
 | `lib/cockpit/real-readonly-adapter.ts` | existing Agent Core read endpoints only |
 | `lib/cockpit/mock-adapter.ts` | fallback for missing read contracts |

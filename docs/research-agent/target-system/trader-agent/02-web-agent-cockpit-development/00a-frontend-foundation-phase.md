@@ -138,7 +138,7 @@ Phase 0 **core UI criteria met**. Remaining gaps:
 - Real-readonly adapter not wired.
 - `POST /api/agent-chat` not implemented.
 - Playwright smoke not added.
-- 3 phase0 test assertions out of sync with layout refactor（见 [plans/00-fix-phase0-test-drift.md](./plans/00-fix-phase0-test-drift.md)）.
+- Phase 0 static test assertions have been synchronized with the layout refactor（历史记录见 [plans/00-fix-phase0-test-drift.md](./plans/00-fix-phase0-test-drift.md)）.
 
 ## Exit Criteria
 

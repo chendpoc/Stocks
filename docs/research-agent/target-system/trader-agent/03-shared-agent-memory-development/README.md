@@ -64,6 +64,13 @@ Phase M6: Audit + Rebuild
 
 M0-M2 先解决资料检索。M3-M5 再解决长期记忆。不要在资料索引还没有稳定前实现复杂 memory UI。
 
+当前执行状态（2026-05-29）：
+
+| Phase | 状态 | 实施计划 |
+|---|---|---|
+| M0 Artifact Catalog | done | [../02-web-agent-cockpit-development/plans/07-shared-memory-m0-artifact-catalog.md](../02-web-agent-cockpit-development/plans/07-shared-memory-m0-artifact-catalog.md) |
+| M1 Markdown Section Index + FTS5 | draft | [../02-web-agent-cockpit-development/plans/08-shared-memory-m1-markdown-section-index.md](../02-web-agent-cockpit-development/plans/08-shared-memory-m1-markdown-section-index.md) |
+
 每个阶段进入代码前必须产出：
 
 - source-of-truth links

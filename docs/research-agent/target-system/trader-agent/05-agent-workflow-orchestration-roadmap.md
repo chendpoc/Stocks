@@ -16,7 +16,7 @@ Workflow 编排不是一个前端图组件问题。
 
 | Track | Meaning | Current status |
 |---|---|---|
-| AgentActivityGraph | 只读展示 Agent 一次分析或一次对话背后的活动节点 | 可作为 Phase 0D-2 开发 |
+| AgentActivityGraph | 只读展示 Agent 一次分析或一次对话背后的活动节点 | Cockpit Phase 0D-2 scaffold 已存在但未接入；未来 workflow 只能在其完成后复用展示基础 |
 | AgentWorkflowOrchestrator | 真正调度、运行、恢复和审计 Agent 工作流 | 后续 Agent Core / Shared Platform 能力 |
 | WorkflowBuilder | 人工或 Agent 生成 workflow draft 后，由用户确认、编辑、启用 | 后续 Cockpit 能力 |
 

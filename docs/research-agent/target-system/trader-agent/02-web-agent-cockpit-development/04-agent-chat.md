@@ -7,7 +7,7 @@
 | Agent Console 全页 | `/cockpit/chat` → `AgentConsoleWorkspace` | done（Phase 0D-1） |
 | 浮动 Chat Dock | `AgentChatDock`（Shell 嵌入） | done（mock stream） |
 | DeepSeek API route | `app/api/agent-chat/route.ts` | **pending** |
-| Read-only DAG | `AgentActivityGraphPanel` | **pending**（Phase 0D-2） |
+| Read-only DAG | `AgentActivityGraphPanel` | in_progress（scaffold exists, not wired） |
 
 详细规格：[16-agent-console-dlite-v3.md](./16-agent-console-dlite-v3.md)
 
@@ -32,7 +32,8 @@
 | `PriorityPushStrip` | 1–3 条高价值主动推送 |
 | `WorkstreamRail` | workstream 切换 |
 | `AgentConversationPanel` | 消息列表、composer、quick prompts |
-| `ActivityTracePreview` | compact trace list（0D-2 将替换为 DAG） |
+| `ActivityChainPanel` | 当前 chat 使用的轻量 activity chain |
+| `AgentActivityGraphPanel` | 只读 DAG scaffold，尚未接入 chat |
 | `NodeInspectorPanel` | 选中节点详情 / 无选中时 workstream 摘要 |
 | `ContextUsedPanel` | 只读 context 摘要 |
 
@@ -77,9 +78,9 @@ The route may（Phase 1）：
 
 The route must not mutate Agent Core objects.
 
-## Phase 0D-2 下一步
+## Phase 0D-2 状态
 
-只读 `@xyflow/react` DAG — 见 [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md)。
+只读 `@xyflow/react` DAG 尚未完成接入。当前代码已有 `components/cockpit/activity-graph/**` scaffold，但 `/cockpit/chat` 仍使用 `ActivityChainPanel`，且 `@xyflow/react` 未在 `apps/trader-cockpit/package.json` 声明依赖。见 [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md)。
 
 ## 验收标准
 
@@ -90,10 +91,12 @@ The route must not mutate Agent Core objects.
 - [x] adapter + fixtures + i18n
 - [x] 无 React Flow
 
-0D-2（pending）：
+0D-2（**in_progress**）：
 
-- [ ] `AgentActivityGraphPanel` 只读 DAG
-- [ ] 节点点击更新 Inspector
+- [x] `AgentActivityGraphPanel` scaffold
+- [ ] 声明 `@xyflow/react` 依赖
+- [ ] 将 chat route 从 `ActivityChainPanel` 切到 `AgentActivityGraphPanel`
+- [ ] 更新测试，验证只读 React Flow props 与节点点击联动
 
 ## 开发流程
 

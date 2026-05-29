@@ -1,8 +1,10 @@
 # 04 — 01 Agent Core API Gap Fix
 
-Status: draft
+Status: done
 Owner: main-agent
 Created: 2026-05-28
+Completed: 2026-05-29
+Implemented in: `27c9b3f`
 Source: [01-agent-core-to-cockpit-contract-gap-review.md](../01-agent-core-to-cockpit-contract-gap-review.md)
 
 ## 1. 目标

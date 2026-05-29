@@ -8,7 +8,7 @@
 - **Cockpit 局部路由：** [00e-workflow-and-skill-routing.md](./00e-workflow-and-skill-routing.md)（只处理 Cockpit 前端任务）
 - **Plan Contract：** [00-development-workflow.md](./00-development-workflow.md)（plan 模板、worker prompt、状态回写）
 
-## Current Progress (2026-05-27)
+## Current Progress (2026-05-29)
 
 | 里程碑 | 状态 |
 |---|---|
@@ -17,7 +17,7 @@
 | Phase 0C Dashboard v5 + Today Focus Queue | done |
 | Phase 0D-1 Agent Console breadth skeleton | done |
 | Frontend quality reset + Dashboard reference page | active → [00d-cockpit-frontend-quality-reset.md](./00d-cockpit-frontend-quality-reset.md), [plans/02-dashboard-reference-page-quality-reset.md](./plans/02-dashboard-reference-page-quality-reset.md) |
-| Phase 0D-2 Read-only Activity DAG | pending → [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md) |
+| Phase 0D-2 Read-only Activity DAG | in_progress（graph scaffold exists, chat still uses ActivityChain） → [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md) |
 | Real-readonly Agent Core adapter | pending |
 | DeepSeek `POST /api/agent-chat` | pending |
 

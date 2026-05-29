@@ -1,6 +1,6 @@
 # 01 — Phase 0D-2 Read-only Agent Activity Graph
 
-Status: draft
+Status: in_progress
 Created: 2026-05-27
 Source PRD: [16-agent-console-dlite-v3.md](../16-agent-console-dlite-v3.md) §4
 
@@ -17,7 +17,9 @@ Source PRD: [16-agent-console-dlite-v3.md](../16-agent-console-dlite-v3.md) §4
 ## 3. 背景与现状
 
 - Phase 0D-1 **已完成**：`getAgentConsole`、`AgentConsoleWorkspace`、`ActivityTracePreview`（compact list）
-- `@xyflow/react` **未安装**
+- `components/cockpit/activity-graph/**` scaffold 已存在
+- `@xyflow/react` **未在 package.json 声明**
+- `AgentConsoleWorkspace` 当前仍使用 `ActivityChainPanel`
 - fixtures 已有 `nodes` / `edges` 满足 DAG 场景
 
 ## 4. 方案摘要
@@ -53,8 +55,8 @@ Props：`nodes`, `edges`, `selectedNodeId`, `onSelectNode`
 
 ## 7. 任务清单
 
-- [ ] 安装 `@xyflow/react`
-- [ ] 实现 graph module（只读）
+- [ ] 安装并声明 `@xyflow/react`
+- [x] 实现 graph module scaffold（只读）
 - [ ] 在 `AgentConsoleWorkspace` 替换 preview
 - [ ] 扩展 phase0 tests：dependency 隔离、read-only props、无 banned controls
 - [ ] lint + build + test
@@ -76,5 +78,5 @@ node --test test/trader-cockpit-phase0.test.mjs
 
 ## 10. 完成后文档更新
 
-- [ ] `00-implementation-status.md` — 0D-2 done
-- [ ] `16-agent-console-dlite-v3.md` — 标记 Phase 0D-2 完成
+- [x] `00-implementation-status.md` — 0D-2 标记为 in_progress，并记录 scaffold 未接入
+- [x] `16-agent-console-dlite-v3.md` — 标记 Phase 0D-2 in_progress

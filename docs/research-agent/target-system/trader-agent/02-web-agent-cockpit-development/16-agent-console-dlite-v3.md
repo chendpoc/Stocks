@@ -5,7 +5,7 @@
 | Phase | Status | Notes |
 |---|---|---|
 | 0D-1 Agent Console breadth skeleton | **done** | `AgentConsoleWorkspace` + 6 子组件 + `getAgentConsole` |
-| 0D-2 Read-only AgentActivityGraph | **pending** | plan: [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md) |
+| 0D-2 Read-only AgentActivityGraph | **in_progress** | graph scaffold exists; chat route still uses `ActivityChainPanel`; plan: [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md) |
 
 代码：`apps/trader-cockpit/app/cockpit/chat/page.tsx` → `AgentConsoleWorkspace`。
 
@@ -183,7 +183,7 @@ interface CockpitDataAdapter {
 ### 3.7 0D-1 验收标准
 
 - [x] `/cockpit/chat` 显示 Agent Console，而不是旧单一聊天页。
-- [x] 页面有 Priority Push、Workstreams、Conversation、Context Used、Activity Preview、Node Inspector。
+- [x] 页面有 Priority Push、Workstreams、Conversation、Context Used、Activity Chain、Node Inspector。
 - [x] Agent push message 能绑定 activity node。
 - [x] 点击 activity trace item 或 push message 可以更新 Node Inspector。
 - [x] Context Used 只读展示，不提供管理入口。
