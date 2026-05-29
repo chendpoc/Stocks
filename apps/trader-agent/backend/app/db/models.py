@@ -240,6 +240,32 @@ memory_candidates = Table(
     Column("review_note", Text),
 )
 
+memory_items = Table(
+    "memory_items",
+    metadata,
+    uuid_column("id", primary_key=True, nullable=False),
+    Column("memory_type", Text, nullable=False),
+    Column("title", Text, nullable=False),
+    Column("summary", Text),
+    Column("rule_text", Text),
+    Column("applicability", Text),
+    Column("invalidation", Text),
+    json_column("evidence_refs_json"),
+    json_column("symbols_json"),
+    json_column("related_symbols_json"),
+    json_column("asset_classes_json"),
+    json_column("tags_json"),
+    Column("market_scope", Text),
+    Column("confidence", Numeric),
+    Column("status", Text, nullable=False, default="active"),
+    Column("updated_by", Text, nullable=False, default="human"),
+    timestamp_column("valid_from"),
+    timestamp_column("valid_until"),
+    timestamp_column("last_reviewed_at"),
+    timestamp_column("created_at"),
+    timestamp_column("updated_at"),
+)
+
 document_sections = Table(
     "document_sections",
     metadata,

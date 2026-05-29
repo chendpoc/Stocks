@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -26,10 +27,23 @@ from app.modules.candidate_service import (
 from app.modules.candidate_service import (
     list_candidates as fetch_candidates,
 )
+from app.modules.conflict_detector import mark_conflict
 from app.modules.corpus_search import MAX_SEARCH_LIMIT, search_corpus
 from app.modules.document_indexer import index_local_knowledge
 from app.modules.evidence_ref import EvidenceRef
 from app.modules.explanation import build_signal_explanation
+from app.modules.extract_preview import extract_preview
+from app.modules.memory_service import (
+    activate_candidate,
+    batch_process,
+    create_memory_item,
+    deprecate_memory_item,
+    get_memory_item,
+    list_memory_items,
+    merge_candidate,
+    reject_candidate,
+    update_memory_item,
+)
 from app.modules.runtime_orchestrator import (
     EmptyScanUniverseError,
     RuntimeOrchestrator,
@@ -277,6 +291,220 @@ def get_candidate_endpoint(request: Request, candidate_id: str) -> dict:
     row["evidence_refs"] = resolved_refs
 
     return row
+
+
+class ExtractPreviewRequest(BaseModel):
+    text: str
+    context_note: str | None = None
+
+
+@knowledge_router.post("/extract-preview")
+def extract_preview_endpoint(request: Request, payload: ExtractPreviewRequest) -> dict:
+    settings = _settings(request)
+    result = extract_preview(settings, payload.text, context_note=payload.context_note)
+    if result is None:
+        raise HTTPException(status_code=422, detail="Could not extract memory from text")
+    return asdict(result)
+
+
+class CreateMemoryItemRequest(BaseModel):
+    memory_type: str
+    title: str
+    summary: str | None = None
+    rule_text: str | None = None
+    applicability: str | None = None
+    invalidation: str | None = None
+    symbols_json: list[str] | None = None
+    related_symbols_json: list[str] | None = None
+    asset_classes_json: list[str] | None = None
+    tags_json: list[str] | None = None
+    market_scope: str | None = None
+    confidence: float | None = None
+    evidence_refs_json: list[dict] | None = None
+
+
+@knowledge_router.post("/memory-items")
+def create_memory_item_endpoint(request: Request, payload: CreateMemoryItemRequest) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    item = create_memory_item(settings, payload.model_dump(exclude_none=True))
+    record_agent_event(
+        settings,
+        event_type="memory_candidate_activated",
+        status="completed",
+        input_summary={"memory_item_id": item["id"]},
+    )
+    return item
+
+
+@knowledge_router.get("/memory-items")
+def list_memory_items_endpoint(
+    request: Request,
+    status: str | None = None,
+    memory_type: str | None = None,
+    symbol: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    rows = list_memory_items(
+        settings,
+        status=status,
+        memory_type=memory_type,
+        symbol=symbol,
+        limit=limit,
+        offset=offset,
+    )
+    return {"results": rows, "limit": limit, "offset": offset}
+
+
+@knowledge_router.get("/memory-items/{item_id}")
+def get_memory_item_endpoint(request: Request, item_id: str) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    row = get_memory_item(settings, item_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="memory item not found")
+
+    engine = create_sqlite_engine(settings)
+    evidence_refs = row.get("evidence_refs_json") or []
+    resolved_refs = []
+    for ref_dict in evidence_refs:
+        ref = EvidenceRef.from_dict(ref_dict)
+        resolved = ref.resolve(engine)
+        resolved_refs.append(resolved.as_dict())
+    row["evidence_refs"] = resolved_refs
+
+    return row
+
+
+class UpdateMemoryItemRequest(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    rule_text: str | None = None
+    applicability: str | None = None
+    invalidation: str | None = None
+    symbols_json: list[str] | None = None
+    tags_json: list[str] | None = None
+    market_scope: str | None = None
+    confidence: float | None = None
+    updated_by: str = "human"
+
+
+@knowledge_router.patch("/memory-items/{item_id}")
+def update_memory_item_endpoint(
+    request: Request,
+    item_id: str,
+    payload: UpdateMemoryItemRequest,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    updates = payload.model_dump(exclude_none=True, exclude={"updated_by"})
+    item = update_memory_item(
+        settings,
+        item_id,
+        updates,
+        updated_by=payload.updated_by,
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="memory item not found")
+    return item
+
+
+@knowledge_router.post("/candidates/{candidate_id}/activate")
+def activate_candidate_endpoint(request: Request, candidate_id: str) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    try:
+        result = activate_candidate(settings, candidate_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "memory_item_id": result.memory_item_id,
+        "conflicts_found": result.conflicts_found,
+    }
+
+
+@knowledge_router.post("/candidates/{candidate_id}/reject")
+def reject_candidate_endpoint(request: Request, candidate_id: str) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    try:
+        return reject_candidate(settings, candidate_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+class MergeRequest(BaseModel):
+    target_memory_item_id: str
+
+
+@knowledge_router.post("/candidates/{candidate_id}/merge")
+def merge_candidate_endpoint(
+    request: Request,
+    candidate_id: str,
+    payload: MergeRequest,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    try:
+        return merge_candidate(settings, candidate_id, payload.target_memory_item_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+class BatchRequest(BaseModel):
+    candidate_ids: list[str]
+    action: str
+
+
+@knowledge_router.post("/candidates/batch")
+def batch_candidates_endpoint(request: Request, payload: BatchRequest) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    if payload.action not in {"activate", "reject"}:
+        raise HTTPException(status_code=422, detail="action must be activate or reject")
+    result = batch_process(settings, payload.candidate_ids, payload.action)
+    return {
+        "activated": result.activated,
+        "rejected": result.rejected,
+        "skipped": result.skipped,
+    }
+
+
+@knowledge_router.post("/memory-items/{item_id}/deprecate")
+def deprecate_memory_item_endpoint(request: Request, item_id: str) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    item = deprecate_memory_item(settings, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="memory item not found")
+    return item
+
+
+class MarkConflictRequest(BaseModel):
+    conflicting_item_id: str
+
+
+@knowledge_router.post("/memory-items/{item_id}/mark-conflict")
+def mark_conflict_endpoint(
+    request: Request,
+    item_id: str,
+    payload: MarkConflictRequest,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    if get_memory_item(settings, item_id) is None:
+        raise HTTPException(status_code=404, detail="memory item not found")
+    if get_memory_item(settings, payload.conflicting_item_id) is None:
+        raise HTTPException(status_code=404, detail="conflicting memory item not found")
+    mark_conflict(settings, item_id, payload.conflicting_item_id)
+    return {
+        "memory_item_id": item_id,
+        "conflicting_item_id": payload.conflicting_item_id,
+        "status": "conflicted",
+    }
 
 
 # ── Signals (read-only) ──────────────────────────────────────────
