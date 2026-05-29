@@ -9,7 +9,8 @@
 | Plan | Status | 说明 | 规格状态 |
 |---|---|---|---|
 | [00-m0-artifact-catalog.md](./00-m0-artifact-catalog.md) | done | M0 Artifact Catalog | revised to spec-gate format |
-| [01-m1-markdown-section-index.md](./01-m1-markdown-section-index.md) | draft | M1 Markdown Section Index + FTS5 reconciliation | spec-gated draft |
+| [01-m1-markdown-section-index.md](./01-m1-markdown-section-index.md) | done | M1 Markdown Section Index + FTS5 reconciliation | 12/12 tests pass, M0 regression clean |
+| [02-m2-corpus-search-api.md](./02-m2-corpus-search-api.md) | done | M2 Local Corpus Search API reconciliation | 12/12 tests + 22 regression pass |
 
 ## 规格状态说明
 

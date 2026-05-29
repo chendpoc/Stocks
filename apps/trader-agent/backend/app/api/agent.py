@@ -11,9 +11,9 @@ from app.db.models import signals
 from app.db.session import create_sqlite_engine
 from app.modules import _json
 from app.modules.artifact_catalog import build_artifact_catalog
+from app.modules.corpus_search import MAX_SEARCH_LIMIT, search_corpus
 from app.modules.document_indexer import index_local_knowledge
 from app.modules.explanation import build_signal_explanation
-from app.modules.local_search import MAX_SEARCH_LIMIT, search_local_knowledge
 from app.modules.runtime_orchestrator import (
     EmptyScanUniverseError,
     RuntimeOrchestrator,
@@ -151,7 +151,7 @@ def search_knowledge(
     settings = _settings(request)
     bootstrap_database(settings)
     try:
-        results = search_local_knowledge(
+        results = search_corpus(
             settings,
             query=q,
             symbol=symbol,

@@ -54,21 +54,34 @@
 
 ## 4. Specification Gate
 
-所有非平凡实现任务在写代码或派发 worker 前，必须满足：
+所有非平凡实现任务在写代码或派发 worker 前，必须在 plan 或 prompt 文档顶部完成以下检查。不通过不派发 worker。
 
-| 检查项 | 通过条件 |
-|---|---|
-| Source checked | 已读取当前 PRD、development doc、status、相关代码/测试 |
-| Decisions frozen | 产品、架构、API、事件、路径、存储、验收标准没有阻塞性未决项 |
-| Scope bounded | 允许文件、禁止文件、非目标明确 |
-| Verification mapped | 每条验收标准都有测试或命令 |
-| Prompt self-contained | worker 不需要猜测来源、路径、事件名、接口或最终输出 |
+```markdown
+## Specification Gate Check
 
-不满足时，不派发 worker，不进入实现。
+- [ ] Source checked — 已读取 PRD、dev doc、当前代码/测试、关联 plan
+- [ ] Decisions frozen — 无阻塞性未决项（产品、架构、API、事件、路径、存储）
+- [ ] Scope bounded — allowed files、forbidden files、非目标已明确列出
+- [ ] Verification mapped — 每条验收标准映射到具体测试或命令
+- [ ] Prompt self-contained — worker 不需要猜测来源、路径、事件名、接口
+- [ ] Behavior preserved（仅 reconciliation/migration 类 plan） — 旧实现的每个行为都被追踪：保留/增强/移除。移除项在 confirmed decisions 中有 conscious rationale。默认假定旧行为有存在理由
+
+未全部 [x] → 不准派发 worker，不准进入实现。
+```
 
 ## 5. Plan And Prompt Rules
 
 计划文档负责单次任务契约，不负责重复通用流程。
+
+### 5.0 强制前置步骤：决策归属
+
+**在创建 plan 文件之前**，列出本次 plan 涉及的每一个决策点。判断标准只有一条：
+
+> 这个决策有超过一种合理答案吗？有 → 它是用户的决策。先问，再写 plan。
+
+没有完成此步骤，不准创建 plan 文件，不准写 worker prompt。
+
+### 5.1 Plan 内容要求
 
 每个可执行 plan 应包含：
 

@@ -1,8 +1,10 @@
 # 01 — 03 Shared Agent Memory M1: Markdown Section Index + FTS5 Reconciliation
 
-Status: draft
+Status: done
 Owner: codex
 Created: 2026-05-29
+Confirmed: 2026-05-29 (pre-implementation audit passed, 11/11 assumptions verified)
+Completed: 2026-05-29 (Composer 2.5 via worker prompt)
 
 Source PRD:
 - [03-shared-agent-memory-prd.md](../../03-shared-agent-memory-prd.md)
@@ -413,97 +415,9 @@ Reviewer 必须优先找以下问题：
 
 ## 16. Worker Prompt
 
-```text
-Implement plan 01 from docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/01-m1-markdown-section-index.md.
+自包含的 worker prompt 位于独立文件：[01-m1-worker-prompt.md](./01-m1-worker-prompt.md)。
 
-Goal:
-Implement Shared Agent Memory M1 Markdown Section Index + FTS5 reconciliation. Read Markdown-class artifacts from source_artifacts, split them into heading-based document_sections, build document_sections_fts, update artifact index status, and write canonical audit events.
-
-Repository:
-D:\workspace\01-products\stock-community-summary
-
-Source of truth:
-- docs/research-agent/target-system/trader-agent/03-shared-agent-memory-prd.md
-- docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/01-source-artifact-catalog.md
-- docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/02-markdown-chunking-and-fts5.md
-- docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md
-- docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/00-m0-artifact-catalog.md
-- this plan
-
-Confirmed decisions:
-- M1 must read source_artifacts rows, not rescan docs/ directly.
-- Eligible source_type values: markdown, generated_summary, prd, engineering_doc.
-- Eligible index_status values: pending, stale.
-- Add document_sections and document_sections_fts alongside existing document_chunks/document_chunks_fts.
-- Do not modify local_search.py or the public GET /api/knowledge/search contract in M1.
-- PRD and engineering docs may be indexed for retrieval, but source_artifacts.memory_eligible must remain 0.
-- Use canonical event names only: markdown_sections_indexed and artifact_index_failed.
-- Buffer event writes and call record_agent_event after the document_sections/source_artifacts DB transaction closes.
-- Resolve artifact paths relative to settings.repo_root and reject repo-outside paths.
-
-Allowed files:
-- apps/trader-agent/backend/app/db/models.py
-- apps/trader-agent/backend/app/modules/markdown_section_indexer.py
-- apps/trader-agent/backend/tests/test_markdown_section_indexer.py
-- apps/trader-agent/backend/app/db/migrations.py only if metadata.create_all() is not enough for document_sections
-
-Forbidden files:
-- apps/trader-cockpit/**
-- apps/trader-agent/backend/config.json
-- apps/trader-agent/backend/app/modules/document_indexer.py
-- apps/trader-agent/backend/app/modules/local_search.py
-- apps/trader-agent/backend/app/modules/knowledge_source_registry.py
-- apps/trader-agent/backend/app/api/agent.py
-- existing document_chunks schema
-- existing document_chunks_fts virtual table
-- package manager files
-- frontend files
-
-Implementation requirements:
-1. Add document_sections table to app/db/models.py with the schema in this plan.
-2. Create app/modules/markdown_section_indexer.py.
-3. Define:
-   - MarkdownSectionIndexResult
-   - index_markdown_sections(settings: Settings) -> MarkdownSectionIndexResult
-   - search_document_sections(settings: Settings, query: str, *, limit: int = 10) -> list[SectionSearchResult]
-4. Create document_sections_fts with raw SQLite FTS5 SQL.
-5. Parse ATX headings only.
-6. Preserve heading_path, start_line, end_line.
-7. For no-heading markdown, create one section_type=document section.
-8. Split oversized sections by paragraph groups without splitting Markdown table rows.
-9. Generate text_digest with sha256(section text).
-10. Generate stable section_key with sha256(artifact path, heading_path, section_index, split_index).
-11. Extract minimal symbols_json, tags_json, speaker_refs_json.
-12. Reindex stale artifacts by deleting old sections and FTS rows for that artifact before inserting new rows.
-13. On success, update source_artifacts.index_status='indexed', indexed_at=utc_now_iso(), updated_at=utc_now_iso().
-14. On failure, set source_artifacts.index_status='failed' and record error metadata.
-15. Write record_agent_event after DB transaction closes.
-16. Do not commit.
-
-Required tests:
-- indexes heading sections with heading_path and line ranges
-- indexes no-heading markdown as one document section
-- updates artifact indexed status
-- reindexes stale artifact idempotently
-- keeps PRD artifact memory_eligible=0
-- writes markdown_sections_indexed audit event
-- records artifact_index_failed on failure
-- searches ASCII/ticker via FTS5
-- searches Chinese text via LIKE fallback
-- does not touch old document_chunks rows
-
-Verification:
-- .venv\Scripts\python.exe -m pytest apps/trader-agent/backend/tests/test_markdown_section_indexer.py -v --tb=short
-- .venv\Scripts\python.exe -m ruff check apps/trader-agent/backend/app/modules/markdown_section_indexer.py
-- .venv\Scripts\python.exe -m ruff check apps/trader-agent/backend/tests/test_markdown_section_indexer.py
-- .venv\Scripts\python.exe -m pytest apps/trader-agent/backend/tests/test_artifact_catalog.py -v --tb=short
-
-Final response:
-- changed files
-- commands run
-- failed command output, if any
-- known gaps or risks
-```
+执行前必须从当前 plan 重新生成 worker prompt，确保基线一致。禁止复用旧 prompt 后局部替换。
 
 ## 17. 完成后文档更新
 

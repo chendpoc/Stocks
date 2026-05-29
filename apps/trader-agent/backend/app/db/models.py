@@ -215,6 +215,29 @@ source_artifacts = Table(
     UniqueConstraint("path"),
 )
 
+document_sections = Table(
+    "document_sections",
+    metadata,
+    uuid_column("id", primary_key=True, nullable=False),
+    Column("artifact_id", Text, nullable=False),
+    Column("section_key", Text, nullable=False),
+    Column("text_digest", Text, nullable=False),
+    Column("section_index", Integer, nullable=False),
+    Column("heading_path", Text, nullable=False),
+    Column("section_type", Text, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("start_line", Integer),
+    Column("end_line", Integer),
+    Column("source_date", Text),
+    json_column("symbols_json"),
+    json_column("tags_json"),
+    json_column("speaker_refs_json"),
+    json_column("metadata_json"),
+    timestamp_column("created_at"),
+    timestamp_column("updated_at"),
+    UniqueConstraint("artifact_id", "section_key"),
+)
+
 agent_messages = Table(
     "agent_messages",
     metadata,
