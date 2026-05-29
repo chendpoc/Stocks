@@ -54,6 +54,11 @@ class BatchResult:
     skipped: list[str]
 
 
+RESOLVE_CONFLICT_ACTIONS = frozenset(
+    {"keep_mine", "keep_other", "merge", "deprecate_both"}
+)
+
+
 def _deserialize_memory_row(row: dict[str, Any]) -> dict[str, Any]:
     payload = dict(row)
     for field_name in _JSON_FIELDS:
@@ -387,6 +392,157 @@ def deprecate_memory_item(settings: Settings, item_id: str) -> dict[str, Any] | 
         input_summary={"memory_item_id": item_id},
     )
     return _deserialize_memory_row(dict(row))
+
+
+def _merge_evidence_refs(
+    left: list[Any] | None, right: list[Any] | None
+) -> list[Any]:
+    merged: list[Any] = list(left or [])
+    for ref in right or []:
+        if ref not in merged:
+            merged.append(ref)
+    return merged
+
+
+def resolve_memory_conflict(
+    settings: Settings,
+    item_id: str,
+    *,
+    other_item_id: str,
+    resolution: str,
+    review_note: str | None = None,
+    merged_fields: dict[str, Any] | None = None,
+    updated_by: str = "human",
+) -> dict[str, Any]:
+    if resolution not in RESOLVE_CONFLICT_ACTIONS:
+        raise ValueError("invalid resolution")
+    if item_id == other_item_id:
+        raise ValueError("memory items must be different")
+
+    engine = create_sqlite_engine(settings)
+    now = utc_now_iso()
+
+    with engine.begin() as conn:
+        left_row = (
+            conn.execute(select(memory_items).where(memory_items.c.id == item_id))
+            .mappings()
+            .one_or_none()
+        )
+        right_row = (
+            conn.execute(select(memory_items).where(memory_items.c.id == other_item_id))
+            .mappings()
+            .one_or_none()
+        )
+        if left_row is None or right_row is None:
+            raise ValueError("memory item not found")
+
+        left = _deserialize_memory_row(dict(left_row))
+        right = _deserialize_memory_row(dict(right_row))
+        if left.get("status") not in {"conflicted", "active"} or right.get("status") not in {
+            "conflicted",
+            "active",
+        }:
+            raise ValueError("memory items are not eligible for conflict resolution")
+
+        winner_id = item_id
+        loser_id = other_item_id
+        if resolution == "keep_other":
+            winner_id, loser_id = other_item_id, item_id
+        elif resolution == "deprecate_both":
+            winner_id = ""
+            loser_id = ""
+
+        if resolution == "deprecate_both":
+            for memory_id in (item_id, other_item_id):
+                conn.execute(
+                    memory_items.update()
+                    .where(memory_items.c.id == memory_id)
+                    .values(
+                        status="deprecated",
+                        updated_at=now,
+                        updated_by=updated_by,
+                        last_reviewed_at=now,
+                    )
+                )
+        else:
+            updates: dict[str, Any] = {
+                "status": "active",
+                "updated_at": now,
+                "updated_by": updated_by,
+                "last_reviewed_at": now,
+            }
+            if resolution == "merge":
+                updates["evidence_refs_json"] = _merge_evidence_refs(
+                    left.get("evidence_refs_json"),
+                    right.get("evidence_refs_json"),
+                )
+                if merged_fields:
+                    allowed = {
+                        "title",
+                        "summary",
+                        "rule_text",
+                        "applicability",
+                        "invalidation",
+                        "symbols_json",
+                        "related_symbols_json",
+                        "asset_classes_json",
+                        "tags_json",
+                        "market_scope",
+                        "confidence",
+                    }
+                    for key, value in merged_fields.items():
+                        if key in allowed:
+                            updates[key] = value
+            conn.execute(
+                memory_items.update()
+                .where(memory_items.c.id == winner_id)
+                .values(**_serialize_json_fields(updates))
+            )
+            conn.execute(
+                memory_items.update()
+                .where(memory_items.c.id == loser_id)
+                .values(
+                    status="deprecated",
+                    updated_at=now,
+                    updated_by=updated_by,
+                    last_reviewed_at=now,
+                )
+            )
+
+    record_agent_event(
+        settings,
+        event_type="memory_conflict_resolved",
+        status="completed",
+        input_summary={
+            "memory_item_id": item_id,
+            "other_item_id": other_item_id,
+            "resolution": resolution,
+            "review_note": review_note,
+            "winner_id": winner_id if winner_id else None,
+        },
+    )
+
+    if resolution == "deprecate_both":
+        with engine.connect() as conn:
+            rows = conn.execute(
+                select(memory_items).where(
+                    memory_items.c.id.in_([item_id, other_item_id])
+                )
+            ).mappings().all()
+        return {
+            "resolution": resolution,
+            "items": [_deserialize_memory_row(dict(row)) for row in rows],
+        }
+
+    result_id = winner_id if winner_id else item_id
+    item = get_memory_item(settings, result_id)
+    assert item is not None
+    return {
+        "resolution": resolution,
+        "memory_item_id": result_id,
+        "deprecated_item_id": loser_id,
+        "item": item,
+    }
 
 
 def activate_candidate(settings: Settings, candidate_id: str) -> ActivateResult:

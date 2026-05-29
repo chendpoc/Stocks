@@ -20,6 +20,7 @@ from app.modules.memory_service import (
     list_memory_items,
     merge_candidate,
     reject_candidate,
+    resolve_memory_conflict,
     update_memory_item,
 )
 
@@ -350,3 +351,96 @@ def test_mark_conflict_sets_both_items_conflicted(tmp_path: Path) -> None:
     assert statuses[left["id"]] == "conflicted"
     assert statuses[right["id"]] == "conflicted"
     assert "memory_conflict_marked" in _event_types(settings)
+
+
+def test_resolve_conflict_keep_mine(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    left = create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Keep me",
+            "symbols_json": ["AAPL"],
+            "status": "conflicted",
+        },
+    )
+    right = create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Deprecate me",
+            "symbols_json": ["AAPL"],
+            "status": "conflicted",
+        },
+    )
+    result = resolve_memory_conflict(
+        settings,
+        left["id"],
+        other_item_id=right["id"],
+        resolution="keep_mine",
+        review_note="prefer left rule",
+    )
+    assert result["memory_item_id"] == left["id"]
+    assert result["item"]["status"] == "active"
+    engine = create_sqlite_engine(settings)
+    with engine.connect() as conn:
+        deprecated = conn.execute(
+            select(memory_items).where(memory_items.c.id == right["id"])
+        ).mappings().one()
+    assert deprecated["status"] == "deprecated"
+    assert "memory_conflict_resolved" in _event_types(settings)
+
+
+def test_resolve_conflict_merge_combines_evidence(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    left = create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Left",
+            "evidence_refs_json": [{"ref_type": "document_section", "ref_id": "a"}],
+            "status": "conflicted",
+        },
+    )
+    right = create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Right",
+            "evidence_refs_json": [{"ref_type": "document_section", "ref_id": "b"}],
+            "status": "conflicted",
+        },
+    )
+    result = resolve_memory_conflict(
+        settings,
+        left["id"],
+        other_item_id=right["id"],
+        resolution="merge",
+        merged_fields={"title": "Merged title"},
+    )
+    refs = result["item"]["evidence_refs_json"]
+    assert len(refs) == 2
+    assert result["item"]["title"] == "Merged title"
+
+
+def test_resolve_conflict_deprecate_both(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    left = create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "Left", "status": "conflicted"},
+    )
+    right = create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "Right", "status": "conflicted"},
+    )
+    result = resolve_memory_conflict(
+        settings,
+        left["id"],
+        other_item_id=right["id"],
+        resolution="deprecate_both",
+    )
+    statuses = {item["status"] for item in result["items"]}
+    assert statuses == {"deprecated"}

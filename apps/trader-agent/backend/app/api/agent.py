@@ -42,6 +42,7 @@ from app.modules.memory_service import (
     list_memory_items,
     merge_candidate,
     reject_candidate,
+    resolve_memory_conflict,
     update_memory_item,
 )
 from app.modules.runtime_orchestrator import (
@@ -512,6 +513,44 @@ def mark_conflict_endpoint(
         "conflicting_item_id": payload.conflicting_item_id,
         "status": "conflicted",
     }
+
+
+class ResolveConflictRequest(BaseModel):
+    other_item_id: str
+    resolution: str
+    review_note: str | None = None
+    merged_fields: dict[str, Any] | None = None
+
+
+@knowledge_router.post("/memory-items/{item_id}/resolve-conflict")
+def resolve_conflict_endpoint(
+    request: Request,
+    item_id: str,
+    payload: ResolveConflictRequest,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    if payload.resolution not in {
+        "keep_mine",
+        "keep_other",
+        "merge",
+        "deprecate_both",
+    }:
+        raise HTTPException(status_code=422, detail="invalid resolution")
+    try:
+        return resolve_memory_conflict(
+            settings,
+            item_id,
+            other_item_id=payload.other_item_id,
+            resolution=payload.resolution,
+            review_note=payload.review_note,
+            merged_fields=payload.merged_fields,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        if detail == "memory item not found":
+            raise HTTPException(status_code=404, detail=detail) from exc
+        raise HTTPException(status_code=422, detail=detail) from exc
 
 
 # ── Signals (read-only) ──────────────────────────────────────────

@@ -299,3 +299,30 @@ def test_post_mark_conflict_returns_conflicted_status(tmp_path: Path) -> None:
     )
     assert response.status_code == 200
     assert response.json()["status"] == "conflicted"
+
+
+def test_post_resolve_conflict_keep_mine(tmp_path: Path) -> None:
+    tmp_repo = tmp_path / "repo"
+    settings = _settings(tmp_repo)
+    bootstrap_database(settings)
+    left = create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "Left", "status": "conflicted"},
+    )
+    right = create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "Right", "status": "conflicted"},
+    )
+    client = _client(tmp_repo)
+    response = client.post(
+        f"/api/knowledge/memory-items/{left['id']}/resolve-conflict",
+        json={
+            "other_item_id": right["id"],
+            "resolution": "keep_mine",
+            "review_note": "keep left",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["resolution"] == "keep_mine"
+    assert payload["item"]["status"] == "active"
