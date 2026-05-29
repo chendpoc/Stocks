@@ -21,6 +21,23 @@ _JSON_FIELDS = (
     "asset_classes_json",
     "tags_json",
 )
+_SYMBOL_FETCH_MULTIPLIER = 5
+_CANDIDATE_JSON_FIELDS = (
+    "trigger_conditions_json",
+    "invalidation_conditions_json",
+    "evidence_refs_json",
+    "symbols_json",
+    "related_symbols_json",
+    "asset_classes_json",
+    "review_flags_json",
+)
+
+
+@dataclass(frozen=True)
+class _PendingEvent:
+    event_type: str
+    status: str
+    input_summary: dict[str, Any]
 
 
 @dataclass
@@ -111,6 +128,109 @@ def _should_skip_batch_candidate(candidate: dict[str, Any]) -> bool:
     return "possible_conflict" in flags
 
 
+def _deserialize_candidate_row(row: dict[str, Any]) -> dict[str, Any]:
+    candidate = dict(row)
+    for field_name in _CANDIDATE_JSON_FIELDS:
+        if field_name in candidate:
+            candidate[field_name] = loads(candidate[field_name], default=None)
+    if candidate.get("confidence") is not None:
+        candidate["confidence"] = float(candidate["confidence"])
+    return candidate
+
+
+def _require_pending_candidate(candidate: dict[str, Any]) -> None:
+    if candidate.get("candidate_status") != "candidate":
+        raise ValueError("candidate already processed")
+
+
+def _memory_item_has_symbol(item: dict[str, Any], symbol: str) -> bool:
+    symbols = item.get("symbols_json") or []
+    if isinstance(symbols, str):
+        symbols = loads(symbols, [])
+    target = symbol.strip().upper()
+    return target in {str(value).upper() for value in symbols if value}
+
+
+def _flush_pending_events(settings: Settings, events: list[_PendingEvent]) -> None:
+    for event in events:
+        record_agent_event(
+            settings,
+            event_type=event.event_type,
+            status=event.status,
+            input_summary=event.input_summary,
+        )
+
+
+def _activate_candidate_in_conn(
+    conn,
+    *,
+    candidate_id: str,
+    candidate: dict[str, Any],
+    active_items: list[dict[str, Any]],
+    now: str,
+) -> tuple[str, list[str]]:
+    _require_pending_candidate(candidate)
+    memory_item_id = str(uuid4())
+    memory_payload = _candidate_to_memory_item(candidate)
+    conflicts_found = find_conflicts(memory_payload, active_items)
+    review_flags: list[str] | None = None
+    if conflicts_found:
+        review_flags = _candidate_review_flags(candidate)
+        if "possible_conflict" not in review_flags:
+            review_flags.append("possible_conflict")
+
+    row = {
+        "id": memory_item_id,
+        **memory_payload,
+        "created_at": now,
+        "updated_at": now,
+    }
+    conn.execute(memory_items.insert().values(**_serialize_json_fields(row)))
+    active_items.append(_deserialize_memory_row(row))
+
+    candidate_updates: dict[str, Any] = {
+        "candidate_status": "activated",
+        "reviewed_at": now,
+    }
+    if review_flags is not None:
+        candidate_updates["review_flags_json"] = dumps(review_flags)
+    conn.execute(
+        memory_candidates.update()
+        .where(memory_candidates.c.id == candidate_id)
+        .values(**candidate_updates)
+    )
+    return memory_item_id, conflicts_found
+
+
+def _activate_pending_events(
+    candidate_id: str,
+    memory_item_id: str,
+    conflicts_found: list[str],
+) -> list[_PendingEvent]:
+    events = [
+        _PendingEvent(
+            event_type="memory_candidate_activated",
+            status="completed",
+            input_summary={
+                "candidate_id": candidate_id,
+                "memory_item_id": memory_item_id,
+            },
+        )
+    ]
+    events.extend(
+        _PendingEvent(
+            event_type="memory_conflict_marked",
+            status="completed",
+            input_summary={
+                "memory_item_id": memory_item_id,
+                "conflicting_item_id": conflicting_id,
+            },
+        )
+        for conflicting_id in conflicts_found
+    )
+    return events
+
+
 def create_memory_item(settings: Settings, item: dict[str, Any]) -> dict[str, Any]:
     engine = create_sqlite_engine(settings)
     now = utc_now_iso()
@@ -162,12 +282,18 @@ def list_memory_items(
     if memory_type:
         stmt = stmt.where(memory_items.c.memory_type == memory_type)
     if symbol:
-        stmt = stmt.where(memory_items.c.symbols_json.like(f'%{symbol.strip().upper()}%'))
-    stmt = stmt.offset(offset).limit(limit)
+        normalized_symbol = symbol.strip().upper()
+        stmt = stmt.where(memory_items.c.symbols_json.like(f'%{normalized_symbol}%'))
+    fetch_limit = limit * _SYMBOL_FETCH_MULTIPLIER if symbol else limit
+    stmt = stmt.offset(offset).limit(fetch_limit)
 
     with engine.connect() as conn:
         rows = conn.execute(stmt).mappings().all()
-    return [_deserialize_memory_row(dict(row)) for row in rows]
+    items = [_deserialize_memory_row(dict(row)) for row in rows]
+    if symbol:
+        normalized_symbol = symbol.strip().upper()
+        items = [item for item in items if _memory_item_has_symbol(item, normalized_symbol)]
+    return items[:limit]
 
 
 def get_memory_item(settings: Settings, item_id: str) -> dict[str, Any] | None:
@@ -266,9 +392,7 @@ def deprecate_memory_item(settings: Settings, item_id: str) -> dict[str, Any] | 
 def activate_candidate(settings: Settings, candidate_id: str) -> ActivateResult:
     engine = create_sqlite_engine(settings)
     now = utc_now_iso()
-    memory_item_id = str(uuid4())
-    conflicts_found: list[str] = []
-    review_flags: list[str] | None = None
+    pending_events: list[_PendingEvent] = []
 
     with engine.begin() as conn:
         candidate_row = (
@@ -280,71 +404,20 @@ def activate_candidate(settings: Settings, candidate_id: str) -> ActivateResult:
         )
         if candidate_row is None:
             raise ValueError("candidate not found")
-        candidate = dict(candidate_row)
-        for field_name in (
-            "trigger_conditions_json",
-            "invalidation_conditions_json",
-            "evidence_refs_json",
-            "symbols_json",
-            "related_symbols_json",
-            "asset_classes_json",
-            "review_flags_json",
-        ):
-            if field_name in candidate:
-                candidate[field_name] = loads(candidate[field_name], default=None)
-        if candidate.get("confidence") is not None:
-            candidate["confidence"] = float(candidate["confidence"])
-
-        if candidate.get("candidate_status") != "candidate":
-            raise ValueError("candidate already processed")
-
-        memory_payload = _candidate_to_memory_item(candidate)
+        candidate = _deserialize_candidate_row(dict(candidate_row))
         active_items = _load_active_memory_items(conn)
-        conflicts_found = find_conflicts(memory_payload, active_items)
-        if conflicts_found:
-            review_flags = _candidate_review_flags(candidate)
-            if "possible_conflict" not in review_flags:
-                review_flags.append("possible_conflict")
-
-        row = {
-            "id": memory_item_id,
-            **memory_payload,
-            "created_at": now,
-            "updated_at": now,
-        }
-        conn.execute(memory_items.insert().values(**_serialize_json_fields(row)))
-
-        candidate_updates: dict[str, Any] = {
-            "candidate_status": "activated",
-            "reviewed_at": now,
-        }
-        if review_flags is not None:
-            candidate_updates["review_flags_json"] = dumps(review_flags)
-        conn.execute(
-            memory_candidates.update()
-            .where(memory_candidates.c.id == candidate_id)
-            .values(**candidate_updates)
+        memory_item_id, conflicts_found = _activate_candidate_in_conn(
+            conn,
+            candidate_id=candidate_id,
+            candidate=candidate,
+            active_items=active_items,
+            now=now,
         )
 
-    record_agent_event(
-        settings,
-        event_type="memory_candidate_activated",
-        status="completed",
-        input_summary={
-            "candidate_id": candidate_id,
-            "memory_item_id": memory_item_id,
-        },
+    pending_events.extend(
+        _activate_pending_events(candidate_id, memory_item_id, conflicts_found)
     )
-    for conflicting_id in conflicts_found:
-        record_agent_event(
-            settings,
-            event_type="memory_conflict_marked",
-            status="completed",
-            input_summary={
-                "memory_item_id": memory_item_id,
-                "conflicting_item_id": conflicting_id,
-            },
-        )
+    _flush_pending_events(settings, pending_events)
 
     return ActivateResult(
         memory_item_id=memory_item_id,
@@ -366,6 +439,8 @@ def reject_candidate(settings: Settings, candidate_id: str) -> dict[str, Any]:
         )
         if candidate_row is None:
             raise ValueError("candidate not found")
+        candidate = _deserialize_candidate_row(dict(candidate_row))
+        _require_pending_candidate(candidate)
         conn.execute(
             memory_candidates.update()
             .where(memory_candidates.c.id == candidate_id)
@@ -398,10 +473,8 @@ def merge_candidate(
         )
         if candidate_row is None:
             raise ValueError("candidate not found")
-        candidate = dict(candidate_row)
-        candidate["evidence_refs_json"] = loads(
-            candidate.get("evidence_refs_json"), default=[]
-        )
+        candidate = _deserialize_candidate_row(dict(candidate_row))
+        _require_pending_candidate(candidate)
 
         target_row = (
             conn.execute(
@@ -458,10 +531,13 @@ def batch_process(
     activated: list[str] = []
     rejected: list[str] = []
     skipped: list[str] = []
+    pending_events: list[_PendingEvent] = []
+    engine = create_sqlite_engine(settings)
+    now = utc_now_iso()
 
-    for candidate_id in candidate_ids:
-        engine = create_sqlite_engine(settings)
-        with engine.connect() as conn:
+    with engine.begin() as conn:
+        active_items = _load_active_memory_items(conn)
+        for candidate_id in candidate_ids:
             candidate_row = (
                 conn.execute(
                     select(memory_candidates).where(memory_candidates.c.id == candidate_id)
@@ -469,28 +545,51 @@ def batch_process(
                 .mappings()
                 .one_or_none()
             )
-        if candidate_row is None:
-            skipped.append(candidate_id)
-            continue
-
-        candidate = dict(candidate_row)
-        candidate["review_flags_json"] = loads(
-            candidate.get("review_flags_json"), default=[]
-        )
-        if _should_skip_batch_candidate(candidate):
-            skipped.append(candidate_id)
-            continue
-
-        try:
-            if action == "activate":
-                activate_candidate(settings, candidate_id)
-                activated.append(candidate_id)
-            elif action == "reject":
-                reject_candidate(settings, candidate_id)
-                rejected.append(candidate_id)
-            else:
+            if candidate_row is None:
                 skipped.append(candidate_id)
-        except ValueError:
-            skipped.append(candidate_id)
+                continue
 
+            candidate = _deserialize_candidate_row(dict(candidate_row))
+            if _should_skip_batch_candidate(candidate):
+                skipped.append(candidate_id)
+                continue
+
+            try:
+                if action == "activate":
+                    memory_item_id, conflicts_found = _activate_candidate_in_conn(
+                        conn,
+                        candidate_id=candidate_id,
+                        candidate=candidate,
+                        active_items=active_items,
+                        now=now,
+                    )
+                    activated.append(candidate_id)
+                    pending_events.extend(
+                        _activate_pending_events(
+                            candidate_id,
+                            memory_item_id,
+                            conflicts_found,
+                        )
+                    )
+                elif action == "reject":
+                    _require_pending_candidate(candidate)
+                    conn.execute(
+                        memory_candidates.update()
+                        .where(memory_candidates.c.id == candidate_id)
+                        .values(candidate_status="rejected", reviewed_at=now)
+                    )
+                    rejected.append(candidate_id)
+                    pending_events.append(
+                        _PendingEvent(
+                            event_type="memory_candidate_rejected",
+                            status="completed",
+                            input_summary={"candidate_id": candidate_id},
+                        )
+                    )
+                else:
+                    skipped.append(candidate_id)
+            except ValueError:
+                skipped.append(candidate_id)
+
+    _flush_pending_events(settings, pending_events)
     return BatchResult(activated=activated, rejected=rejected, skipped=skipped)

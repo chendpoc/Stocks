@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from sqlalchemy import select
 
 from app.core.config import Settings
@@ -16,6 +17,7 @@ from app.modules.memory_service import (
     batch_process,
     create_memory_item,
     deprecate_memory_item,
+    list_memory_items,
     merge_candidate,
     reject_candidate,
     update_memory_item,
@@ -263,6 +265,39 @@ def test_activate_candidate_marks_possible_conflict_on_overlap(tmp_path: Path) -
         ).mappings().one()
     flags = json.loads(candidate["review_flags_json"])
     assert "possible_conflict" in flags
+
+
+def test_reject_and_merge_require_pending_candidate(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    target = create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "Merge target"},
+    )
+    created = create_candidates(settings, [_sample_candidate()])
+    candidate_id = created.created[0]
+    activate_candidate(settings, candidate_id)
+
+    with pytest.raises(ValueError, match="candidate already processed"):
+        reject_candidate(settings, candidate_id)
+    with pytest.raises(ValueError, match="candidate already processed"):
+        merge_candidate(settings, candidate_id, target["id"])
+
+
+def test_list_memory_items_symbol_filter_exact_match(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "AAPL rule", "symbols_json": ["AAPL"]},
+    )
+    create_memory_item(
+        settings,
+        {"memory_type": "trading_rule", "title": "TSLA rule", "symbols_json": ["TSLA"]},
+    )
+
+    assert len(list_memory_items(settings, symbol="AAPL")) == 1
+    assert list_memory_items(settings, symbol="AP") == []
 
 
 def test_audit_events_written_for_transitions(tmp_path: Path) -> None:

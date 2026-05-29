@@ -72,6 +72,13 @@ def _settings(request: Request):
     return request.app.state.settings
 
 
+def _raise_candidate_http_error(exc: ValueError) -> None:
+    detail = str(exc)
+    if detail == "candidate already processed":
+        raise HTTPException(status_code=409, detail=detail) from exc
+    raise HTTPException(status_code=404, detail=detail) from exc
+
+
 @router.get("/status")
 def status(request: Request) -> dict:
     return get_runtime_status(_settings(request))
@@ -419,7 +426,7 @@ def activate_candidate_endpoint(request: Request, candidate_id: str) -> dict:
     try:
         result = activate_candidate(settings, candidate_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_candidate_http_error(exc)
     return {
         "memory_item_id": result.memory_item_id,
         "conflicts_found": result.conflicts_found,
@@ -433,7 +440,7 @@ def reject_candidate_endpoint(request: Request, candidate_id: str) -> dict:
     try:
         return reject_candidate(settings, candidate_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_candidate_http_error(exc)
 
 
 class MergeRequest(BaseModel):
@@ -451,7 +458,7 @@ def merge_candidate_endpoint(
     try:
         return merge_candidate(settings, candidate_id, payload.target_memory_item_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_candidate_http_error(exc)
 
 
 class BatchRequest(BaseModel):

@@ -157,6 +157,20 @@ def test_post_candidates_activate_returns_200(tmp_path: Path) -> None:
     assert isinstance(payload["conflicts_found"], list)
 
 
+def test_post_candidates_activate_already_processed_returns_409(tmp_path: Path) -> None:
+    tmp_repo = tmp_path / "repo"
+    _write_summary_md(tmp_repo, body="# 2026-05-27 每日总结\n## 核心理论\ntheory\n")
+    settings = _settings(tmp_repo)
+    bootstrap_database(settings)
+    _catalog_and_index(settings)
+    client = _client(tmp_repo)
+    candidate_id = _create_candidate_via_api(client)
+    first = client.post(f"/api/knowledge/candidates/{candidate_id}/activate")
+    assert first.status_code == 200
+    second = client.post(f"/api/knowledge/candidates/{candidate_id}/activate")
+    assert second.status_code == 409
+
+
 def test_post_candidates_reject_returns_200(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"
     _write_summary_md(tmp_repo, body="# 2026-05-28 每日总结\n## 核心理论\ntheory\n")
