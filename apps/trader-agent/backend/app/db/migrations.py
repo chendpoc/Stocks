@@ -10,6 +10,7 @@ from app.db.session import create_sqlite_engine
 # creates missing tables; it does not ALTER existing tables when columns are added.
 _SCHEMA_COLUMN_PATCHES: tuple[tuple[str, str, str], ...] = (
     ("memory_candidates", "tags_json", "TEXT"),
+    ("memory_items", "review_flags_json", "TEXT"),
 )
 
 

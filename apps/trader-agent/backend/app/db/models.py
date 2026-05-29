@@ -260,6 +260,7 @@ memory_items = Table(
     Column("confidence", Numeric),
     Column("status", Text, nullable=False, default="active"),
     Column("updated_by", Text, nullable=False, default="human"),
+    json_column("review_flags_json"),
     timestamp_column("valid_from"),
     timestamp_column("valid_until"),
     timestamp_column("last_reviewed_at"),

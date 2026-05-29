@@ -20,6 +20,7 @@ _JSON_FIELDS = (
     "related_symbols_json",
     "asset_classes_json",
     "tags_json",
+    "review_flags_json",
 )
 _SYMBOL_FETCH_MULTIPLIER = 5
 _CANDIDATE_JSON_FIELDS = (

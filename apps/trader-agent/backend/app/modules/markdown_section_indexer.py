@@ -131,7 +131,11 @@ class _PendingEvent:
     error: str | None = None
 
 
-def index_markdown_sections(settings: Settings) -> MarkdownSectionIndexResult:
+def index_markdown_sections(
+    settings: Settings,
+    *,
+    artifact_ids: list[str] | None = None,
+) -> MarkdownSectionIndexResult:
     engine = create_sqlite_engine(settings)
     indexed_artifacts = 0
     indexed_sections = 0
@@ -141,12 +145,13 @@ def index_markdown_sections(settings: Settings) -> MarkdownSectionIndexResult:
 
     with engine.begin() as conn:
         ensure_sections_fts(conn)
-        rows = conn.execute(
-            select(source_artifacts).where(
-                source_artifacts.c.source_type.in_(ELIGIBLE_SOURCE_TYPES),
-                source_artifacts.c.index_status.in_(("pending", "stale")),
-            )
-        ).mappings().all()
+        stmt = select(source_artifacts).where(
+            source_artifacts.c.source_type.in_(ELIGIBLE_SOURCE_TYPES),
+            source_artifacts.c.index_status.in_(("pending", "stale")),
+        )
+        if artifact_ids is not None:
+            stmt = stmt.where(source_artifacts.c.id.in_(artifact_ids))
+        rows = conn.execute(stmt).mappings().all()
 
         for row in rows:
             artifact_id = row["id"]

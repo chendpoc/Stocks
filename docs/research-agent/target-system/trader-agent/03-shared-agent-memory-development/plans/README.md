@@ -14,6 +14,7 @@
 | [03-m3-memory-candidate.md](./03-m3-memory-candidate.md) | done | M3 Memory Candidate Schema + Extraction | 23/23 tests + 34 regression pass |
 | [04-m4-review-activation.md](./04-m4-review-activation.md) | done | M4 Candidate Review + Active Memory | **主流程 Path B**；M3 API 备用 |
 | [05-m5-context-injection.md](./05-m5-context-injection.md) | done | M5 Active Memory Context Injection | 17/17 tests + 101 regression pass |
+| [06-m6-audit-rebuild.md](./06-m6-audit-rebuild.md) | done | M6 Audit + Rebuild | 16/16 tests + 82 regression pass |
 
 ## M4 主流程说明
 

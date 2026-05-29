@@ -44,3 +44,32 @@ def test_bootstrap_adds_missing_tags_json_column(tmp_path: Path) -> None:
             for row in conn.execute(text("PRAGMA table_info(memory_candidates)"))
         }
     assert "tags_json" in columns
+
+
+def test_bootstrap_adds_missing_review_flags_json_column(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    engine = create_sqlite_engine(settings)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE memory_items (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    updated_by TEXT NOT NULL DEFAULT 'human'
+                )
+                """
+            )
+        )
+
+    bootstrap_database(settings)
+
+    with engine.connect() as conn:
+        columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(memory_items)"))
+        }
+    assert "review_flags_json" in columns

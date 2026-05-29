@@ -47,6 +47,13 @@ from app.modules.memory_service import (
     resolve_memory_conflict,
     update_memory_item,
 )
+from app.modules.rebuild import (
+    backup_database,
+    get_last_rebuild_status,
+    incremental_rebuild,
+    rebuild_artifacts,
+    scan_evidence_health,
+)
 from app.modules.runtime_orchestrator import (
     EmptyScanUniverseError,
     RuntimeOrchestrator,
@@ -571,6 +578,92 @@ class SelectContextRequest(BaseModel):
     page_context: str | None = None
     max_memories: int = 5
     max_total_chars: int = 3000
+
+
+class IncrementalRebuildResponse(BaseModel):
+    catalog_discovered: int
+    catalog_updated: int
+    catalog_excluded: int
+    catalog_failed: int
+    sections_indexed_artifacts: int
+    sections_indexed: int
+    sections_skipped: int
+    sections_failed: int
+    evidence_total_items: int
+    evidence_total_refs: int
+    evidence_resolved: int
+    evidence_stale: int
+    evidence_unresolved: int
+    evidence_affected_ids: list[str]
+    duration_ms: int
+
+
+class RebuildArtifactsRequest(BaseModel):
+    artifact_ids: list[str]
+
+
+def _incremental_rebuild_response(report) -> IncrementalRebuildResponse:
+    return IncrementalRebuildResponse(
+        catalog_discovered=report.catalog.discovered,
+        catalog_updated=report.catalog.updated,
+        catalog_excluded=report.catalog.excluded,
+        catalog_failed=report.catalog.failed,
+        sections_indexed_artifacts=report.sections.indexed_artifacts,
+        sections_indexed=report.sections.indexed_sections,
+        sections_skipped=report.sections.skipped,
+        sections_failed=report.sections.failed,
+        evidence_total_items=report.evidence.total_memory_items,
+        evidence_total_refs=report.evidence.total_evidence_refs,
+        evidence_resolved=report.evidence.resolved,
+        evidence_stale=report.evidence.stale,
+        evidence_unresolved=report.evidence.unresolved,
+        evidence_affected_ids=report.evidence.affected_memory_ids,
+        duration_ms=report.duration_ms,
+    )
+
+
+@knowledge_router.post("/backup")
+def backup_database_endpoint(request: Request) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    try:
+        return backup_database(settings)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@knowledge_router.post("/incremental-rebuild")
+def incremental_rebuild_endpoint(request: Request) -> IncrementalRebuildResponse:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    report = incremental_rebuild(settings)
+    return _incremental_rebuild_response(report)
+
+
+@knowledge_router.post("/rebuild-artifacts")
+def rebuild_artifacts_endpoint(
+    request: Request,
+    payload: RebuildArtifactsRequest,
+) -> IncrementalRebuildResponse:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    report = rebuild_artifacts(settings, payload.artifact_ids)
+    return _incremental_rebuild_response(report)
+
+
+@knowledge_router.get("/rebuild-status")
+def rebuild_status_endpoint(request: Request) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    return get_last_rebuild_status(settings)
+
+
+@knowledge_router.get("/evidence-health")
+def evidence_health_endpoint(request: Request) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    report = scan_evidence_health(settings)
+    return asdict(report)
 
 
 @knowledge_router.post("/select-context")
