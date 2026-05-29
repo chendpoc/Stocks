@@ -2,6 +2,27 @@
 
 本文档包是 `02-web-agent-cockpit-prd.md` 的实施拆解层。当前版本服务 Layer 2 Agent Market Cockpit，目标是把 Agent Core 的只读市场判断、signal、证据、工具来源、学习结果和对话能力组织成可开发的前端工作台。
 
+- **代码位置：** `apps/trader-cockpit`
+- **实现快照：** [00-implementation-status.md](./00-implementation-status.md)（与代码同步的真值来源）
+- **全局 Workflow 入口：** [../00-workflow-router.md](../00-workflow-router.md)（先判断任务类型、source-of-truth 和 spec gate）
+- **Cockpit 局部路由：** [00e-workflow-and-skill-routing.md](./00e-workflow-and-skill-routing.md)（只处理 Cockpit 前端任务）
+- **Plan Contract：** [00-development-workflow.md](./00-development-workflow.md)（plan 模板、worker prompt、状态回写）
+
+## Current Progress (2026-05-27)
+
+| 里程碑 | 状态 |
+|---|---|
+| Phase 0A mock adapter + 7 routes + shell + i18n | done |
+| Phase 0B signals/inbox/theories/learning deep-link | done |
+| Phase 0C Dashboard v5 + Today Focus Queue | done |
+| Phase 0D-1 Agent Console breadth skeleton | done |
+| Frontend quality reset + Dashboard reference page | active → [00d-cockpit-frontend-quality-reset.md](./00d-cockpit-frontend-quality-reset.md), [plans/02-dashboard-reference-page-quality-reset.md](./plans/02-dashboard-reference-page-quality-reset.md) |
+| Phase 0D-2 Read-only Activity DAG | pending → [plans/01-agent-activity-graph-readonly.md](./plans/01-agent-activity-graph-readonly.md) |
+| Real-readonly Agent Core adapter | pending |
+| DeepSeek `POST /api/agent-chat` | pending |
+
+下一批任务见 [plans/README.md](./plans/README.md)。
+
 ## First Principles
 
 1. Cockpit 的本质是市场意图解释和 Agent 协作工作台，不是交易执行系统。
@@ -22,11 +43,16 @@
 
 ## Development Defaults
 
+与当前代码一致（2026-05-27）：
+
 | Area | Decision |
 |---|---|
+| App package | `apps/trader-cockpit` |
+| Route prefix | `/cockpit/*` |
 | Product form | Agent Market Cockpit |
 | App framework | Next.js App Router + React + TypeScript |
-| UI system | HeroUI + Tailwind v4 semantic tokens |
+| UI system | HeroUI v3 + Tailwind v4 semantic tokens |
+| Data layer | `mockCockpitAdapter` only（real-readonly 待 Phase 1） |
 | AI call boundary | Next.js API route for DeepSeek direct, read-only context only |
 | Server state | TanStack Query |
 | UI state | Zustand, only for local UI state |
@@ -38,15 +64,15 @@
 
 ## First-Version Routes
 
-| Route | Development doc | Scope |
-|---|---|---|
-| `/dashboard/live` | [03-live-dashboard.md](./03-live-dashboard.md) | market intent, watchlist, active signals, evidence canvas, Agent state |
-| `/signals` | [11-signals.md](./11-signals.md) | opportunity signals, scenario plans, tags, triggers, invalidation |
-| `/chat` | [04-agent-chat.md](./04-agent-chat.md) | DeepSeek-backed explanation with read-only context and tool sources |
-| `/inbox` | [05-agent-inbox.md](./05-agent-inbox.md) | signal, market gate, risk/invalidation and learning notifications |
-| `/playbook-theories` | [08-playbook-theories.md](./08-playbook-theories.md) | PlaybookTheory, PlaybookRule array, current matched signals |
-| `/learning` | [14-learning-center.md](./14-learning-center.md) | new theory/rule candidates, low-confidence items, reflection |
-| `/settings` | [15-settings-and-tool-sources.md](./15-settings-and-tool-sources.md) | local preferences and lightweight Tool Settings |
+| Route | Workspace | Development doc | Status |
+|---|---|---|---|
+| `/cockpit/dashboard/live` | `LiveDashboard` | [03-live-dashboard.md](./03-live-dashboard.md) | done (v5) |
+| `/cockpit/signals` | `SignalsWorkspace` | [11-signals.md](./11-signals.md) | done |
+| `/cockpit/chat` | `AgentConsoleWorkspace` | [04-agent-chat.md](./04-agent-chat.md) + [16-agent-console-dlite-v3.md](./16-agent-console-dlite-v3.md) | done (0D-1) |
+| `/cockpit/inbox` | `AgentInbox` | [05-agent-inbox.md](./05-agent-inbox.md) | done |
+| `/cockpit/playbook-theories` | `PlaybookTheoriesWorkspace` | [08-playbook-theories.md](./08-playbook-theories.md) | done |
+| `/cockpit/learning` | `LearningWorkspace` | [14-learning-center.md](./14-learning-center.md) | done |
+| `/cockpit/settings` | `SettingsWorkspace` | [15-settings-and-tool-sources.md](./15-settings-and-tool-sources.md) | done |
 
 ## Embedded Component Docs
 
@@ -114,8 +140,16 @@ Any first-version component depending on missing APIs must have mock fallback.
 
 | Document | Purpose |
 |---|---|
+| [00-implementation-status.md](./00-implementation-status.md) | 代码进展快照（维护真值） |
+| [../00-workflow-router.md](../00-workflow-router.md) | trader-agent 全局 workflow 入口、source-of-truth 顺序和 spec gate |
+| [00e-workflow-and-skill-routing.md](./00e-workflow-and-skill-routing.md) | Cockpit 局部 workflow / skill 路由 |
+| [00-development-workflow.md](./00-development-workflow.md) | Cockpit plan contract、worker prompt 和状态回写规则 |
+| [plans/README.md](./plans/README.md) | 可执行计划索引 |
 | [00-tech-stack-and-frontend-architecture.md](./00-tech-stack-and-frontend-architecture.md) | Tech stack, state boundaries, polling/stream strategy |
 | [00a-frontend-foundation-phase.md](./00a-frontend-foundation-phase.md) | Real-readonly + mock fallback frontend foundation |
+| [00b-visual-design-review-workflow.md](./00b-visual-design-review-workflow.md) | Required sketch-first workflow for page structure, visual hierarchy and interaction changes |
+| [00c-review-agent-brief.md](./00c-review-agent-brief.md) | Standard read-only reviewer context for `02-web-agent-cockpit` review agents and review conversations |
+| [00d-cockpit-frontend-quality-reset.md](./00d-cockpit-frontend-quality-reset.md) | Frontend quality reset: design system first, Dashboard reference page first, visual review as hard gate |
 | [01-design-style-and-interaction-principles.md](./01-design-style-and-interaction-principles.md) | Market cockpit design language and interaction principles |
 | [01-agent-core-to-cockpit-contract-gap-review.md](./01-agent-core-to-cockpit-contract-gap-review.md) | Current API gap review |
 | [02-shared-cockpit-contracts.md](./02-shared-cockpit-contracts.md) | View models, tags, ScenarioPlan, PlaybookTheory, tool sources |

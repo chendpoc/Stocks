@@ -6,6 +6,8 @@
 
 本目录只定义 Shared Agent Memory 的开发文档，不直接实现代码。实现时应优先保持本地、轻量、可审计，不引入 SaaS 向量库或重型 Agent 框架。
 
+进入实现前必须先按 [../00-workflow-router.md](../00-workflow-router.md) 选择 workflow。任何 M0-M6 worker prompt 或实现计划都必须通过 `module-spec-quality-gate`，尤其要核对 canonical event registry、路径语义、允许文件、排除文件和验收命令。
+
 ## 1. 模块目标
 
 Shared Agent Memory 的目标是把本地资料库转成可检索、可引用、可人工确认、可注入上下文的金融记忆层。
@@ -61,6 +63,15 @@ Phase M6: Audit + Rebuild
 ```
 
 M0-M2 先解决资料检索。M3-M5 再解决长期记忆。不要在资料索引还没有稳定前实现复杂 memory UI。
+
+每个阶段进入代码前必须产出：
+
+- source-of-truth links
+- confirmed decisions
+- allowed / forbidden files
+- event names from the canonical registry
+- acceptance-to-verification map
+- self-contained worker prompt
 
 如果 `apps/trader-agent/backend` 已存在 local knowledge、FTS5、`/api/knowledge/*` 或类似实现，本目录任务不是 greenfield 重写，而是 reconciliation：
 

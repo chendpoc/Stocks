@@ -104,7 +104,7 @@ docs/search_index.json                # 现有轻量搜索索引雏形
 ### 4.2 Out of Scope
 
 - 不做通用个人记忆系统。
-- 不存工程开发偏好、代码协作偏好或项目架构决策；这些仍由 PRD、AGENTS.md、开发文档管理。
+- 不存工程开发偏好、代码协作偏好或项目架构决策；这些仍由 PRD、真实存在或会话注入的项目规则、开发文档管理。
 - 不把所有原始 Markdown 或图片直接作为 active memory。
 - 不把外部新闻、公告、X 内容直接长期记忆；只有被总结成可复用规律时才生成 candidate。
 - 不自动覆盖 active memory。
