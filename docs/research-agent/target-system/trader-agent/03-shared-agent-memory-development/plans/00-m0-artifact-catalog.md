@@ -1,4 +1,4 @@
-# 07 — 03 Shared Agent Memory M0: Artifact Catalog
+# 00 — 03 Shared Agent Memory M0: Artifact Catalog
 
 Status: done
 Owner: cursor-composer
@@ -8,8 +8,8 @@ Implemented in: `27c9b3f`
 
 Source PRD:
 - [03-shared-agent-memory-prd.md](../../03-shared-agent-memory-prd.md)
-- [03-shared-agent-memory-development/01-source-artifact-catalog.md](../../03-shared-agent-memory-development/01-source-artifact-catalog.md)
-- [03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md](../../03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md)
+- [01-source-artifact-catalog.md](../01-source-artifact-catalog.md)
+- [07-audit-and-rebuild-workflow.md](../07-audit-and-rebuild-workflow.md)
 
 Required Workflow / Skills:
 - [../../00-workflow-router.md](../../00-workflow-router.md)
@@ -215,7 +215,7 @@ def build_artifact_catalog(settings: Settings, docs_root: Path | None = None) ->
 ## 11. Worker Prompt
 
 ```text
-Implement plan 07 from docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-development/plans/07-shared-memory-m0-artifact-catalog.md.
+Implement plan 00 from docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/00-m0-artifact-catalog.md.
 
 Goal: implement Shared Agent Memory M0 Artifact Catalog. Scan local docs/ and data/ artifacts, register included and excluded files in SQLite source_artifacts, track content_hash/source_type/index_status/memory_eligible, and write canonical audit events.
 

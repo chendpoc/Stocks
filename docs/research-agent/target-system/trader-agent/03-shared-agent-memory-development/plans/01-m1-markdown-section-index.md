@@ -1,4 +1,4 @@
-# 08 — 03 Shared Agent Memory M1: Markdown Section Index + FTS5 Reconciliation
+# 01 — 03 Shared Agent Memory M1: Markdown Section Index + FTS5 Reconciliation
 
 Status: draft
 Owner: codex
@@ -6,10 +6,10 @@ Created: 2026-05-29
 
 Source PRD:
 - [03-shared-agent-memory-prd.md](../../03-shared-agent-memory-prd.md)
-- [03-shared-agent-memory-development/01-source-artifact-catalog.md](../../03-shared-agent-memory-development/01-source-artifact-catalog.md)
-- [03-shared-agent-memory-development/02-markdown-chunking-and-fts5.md](../../03-shared-agent-memory-development/02-markdown-chunking-and-fts5.md)
-- [03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md](../../03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md)
-- [07-shared-memory-m0-artifact-catalog.md](./07-shared-memory-m0-artifact-catalog.md)
+- [01-source-artifact-catalog.md](../01-source-artifact-catalog.md)
+- [02-markdown-chunking-and-fts5.md](../02-markdown-chunking-and-fts5.md)
+- [07-audit-and-rebuild-workflow.md](../07-audit-and-rebuild-workflow.md)
+- [00-m0-artifact-catalog.md](./00-m0-artifact-catalog.md)
 
 Required Workflow / Skills:
 - [../../00-workflow-router.md](../../00-workflow-router.md)
@@ -414,7 +414,7 @@ Reviewer 必须优先找以下问题：
 ## 16. Worker Prompt
 
 ```text
-Implement plan 08 from docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-development/plans/08-shared-memory-m1-markdown-section-index.md.
+Implement plan 01 from docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/01-m1-markdown-section-index.md.
 
 Goal:
 Implement Shared Agent Memory M1 Markdown Section Index + FTS5 reconciliation. Read Markdown-class artifacts from source_artifacts, split them into heading-based document_sections, build document_sections_fts, update artifact index status, and write canonical audit events.
@@ -427,7 +427,7 @@ Source of truth:
 - docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/01-source-artifact-catalog.md
 - docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/02-markdown-chunking-and-fts5.md
 - docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md
-- docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-development/plans/07-shared-memory-m0-artifact-catalog.md
+- docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/00-m0-artifact-catalog.md
 - this plan
 
 Confirmed decisions:
@@ -508,5 +508,5 @@ Final response:
 ## 17. 完成后文档更新
 
 - [ ] 本 plan `Status: done`。
-- [ ] 更新 [03-shared-agent-memory-development/README.md](../../03-shared-agent-memory-development/README.md) 中 M1 状态。
+- [ ] 更新 [03-shared-agent-memory-development/README.md](../README.md) 中 M1 状态。
 - [ ] 若 M2 plan 已存在，确认其输入从 `document_sections` / `document_sections_fts` 开始，而不是旧 `document_chunks`。

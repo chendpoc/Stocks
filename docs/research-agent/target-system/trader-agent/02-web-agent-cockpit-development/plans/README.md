@@ -18,8 +18,6 @@
 | [04-agent-core-api-gap-fix.md](./04-agent-core-api-gap-fix.md) | done | 01 Agent Core 补 API endpoint（signals、market gate/snapshot） | legacy |
 | [05-real-readonly-adapter.md](./05-real-readonly-adapter.md) | draft | Cockpit 接入真实 Agent Core 数据（real-readonly-adapter + env 开关） | needs spec gate before worker |
 | [06-settings-data-source-toggle.md](./06-settings-data-source-toggle.md) | draft | Settings 页面 Mock/Real 数据源切换 | needs spec gate before worker |
-| [07-shared-memory-m0-artifact-catalog.md](./07-shared-memory-m0-artifact-catalog.md) | done | Shared Agent Memory M0 Artifact Catalog | revised to spec-gate format |
-| [08-shared-memory-m1-markdown-section-index.md](./08-shared-memory-m1-markdown-section-index.md) | draft | Shared Agent Memory M1 Markdown Section Index + FTS5 reconciliation | spec-gated draft |
 
 新增 plan 时请在此表登记。完成后将 Status 改为 `done`，并在对应 status/module doc 回写。
 
@@ -38,7 +36,6 @@
 | `prompt artifact` | 不是实现计划，只是生成或评审提示文件 |
 | `needs spec gate before worker` | 不能直接交给 worker；先用 `module-spec-quality-gate` |
 | `revised to spec-gate format` | 已按新规格门禁修订，可继续审查或执行 |
-| `spec-gated draft` | 已按规格门禁撰写，但执行前仍需最新代码盘点 |
 
 ## 快速创建
 

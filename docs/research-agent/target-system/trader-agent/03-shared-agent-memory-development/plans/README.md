@@ -1,0 +1,26 @@
+# Shared Agent Memory Development Plans
+
+本目录存放 `03 Shared Agent Memory` 的可执行实施计划。
+
+不要把 Shared Memory 的 M0-M6 实施计划放到 `02-web-agent-cockpit-development/plans/`。Cockpit 目录只承载 Web Cockpit 前端和其直接 API 接入计划。
+
+## 状态索引
+
+| Plan | Status | 说明 | 规格状态 |
+|---|---|---|---|
+| [00-m0-artifact-catalog.md](./00-m0-artifact-catalog.md) | done | M0 Artifact Catalog | revised to spec-gate format |
+| [01-m1-markdown-section-index.md](./01-m1-markdown-section-index.md) | draft | M1 Markdown Section Index + FTS5 reconciliation | spec-gated draft |
+
+## 规格状态说明
+
+| 状态 | 含义 |
+|---|---|
+| `revised to spec-gate format` | 已按新规格门禁修订，可继续审查或执行 |
+| `spec-gated draft` | 已按规格门禁撰写，但执行前仍需最新代码盘点 |
+
+## 创建规则
+
+1. 先按 [../../00-workflow-router.md](../../00-workflow-router.md) 选择主 workflow。
+2. 非平凡任务先使用 `module-spec-quality-gate`。
+3. 每个 plan 必须包含 source-of-truth links、confirmed decisions、allowed/forbidden files、tests、acceptance-to-verification map。
+4. worker prompt 必须自包含，不得引用不存在的文件、状态或路径。
