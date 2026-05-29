@@ -1,18 +1,34 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
+from app.core.events import record_agent_event
 from app.db.migrations import bootstrap_database
 from app.db.models import signals
 from app.db.session import create_sqlite_engine
 from app.modules import _json
 from app.modules.artifact_catalog import build_artifact_catalog
+from app.modules.candidate_extractor import (
+    draft_candidates_with_llm,
+    extract_candidates_from_sections,
+    fetch_sections_for_llm,
+)
+from app.modules.candidate_service import (
+    create_candidates as persist_candidates,
+)
+from app.modules.candidate_service import (
+    get_candidate as fetch_candidate,
+)
+from app.modules.candidate_service import (
+    list_candidates as fetch_candidates,
+)
 from app.modules.corpus_search import MAX_SEARCH_LIMIT, search_corpus
 from app.modules.document_indexer import index_local_knowledge
+from app.modules.evidence_ref import EvidenceRef
 from app.modules.explanation import build_signal_explanation
 from app.modules.runtime_orchestrator import (
     EmptyScanUniverseError,
@@ -163,6 +179,104 @@ def search_knowledge(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"query": q, "results": [result.as_dict() for result in results]}
+
+
+class CreateCandidatesRequest(BaseModel):
+    section_ids: list[str] | None = None
+    extraction_mode: str = "rule_based"
+    source_date_from: str | None = None
+    source_date_to: str | None = None
+
+
+@knowledge_router.post("/candidates")
+def create_candidates_endpoint(request: Request, payload: CreateCandidatesRequest) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+
+    raw_candidates: list[dict[str, Any]] = []
+    if payload.extraction_mode in ("rule_based", "both"):
+        raw_candidates.extend(
+            extract_candidates_from_sections(
+                settings,
+                section_ids=payload.section_ids,
+                source_date_from=payload.source_date_from,
+                source_date_to=payload.source_date_to,
+            )
+        )
+    if payload.extraction_mode in ("llm_draft", "both"):
+        section_texts, section_metadata = fetch_sections_for_llm(
+            settings,
+            section_ids=payload.section_ids,
+            source_date_from=payload.source_date_from,
+            source_date_to=payload.source_date_to,
+        )
+        raw_candidates.extend(
+            draft_candidates_with_llm(
+                settings,
+                section_texts=section_texts,
+                section_metadata=section_metadata,
+            )
+        )
+
+    if not raw_candidates:
+        return {"created": [], "flagged": []}
+
+    result = persist_candidates(settings, raw_candidates)
+
+    for candidate_id in result.created:
+        record_agent_event(
+            settings,
+            event_type="memory_candidate_created",
+            status="completed",
+            input_summary={
+                "candidate_id": candidate_id,
+                "extraction_mode": payload.extraction_mode,
+            },
+        )
+
+    return {"created": result.created, "flagged": result.flagged}
+
+
+@knowledge_router.get("/candidates")
+def list_candidates_endpoint(
+    request: Request,
+    status: str | None = None,
+    candidate_type: str | None = None,
+    symbol: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    rows = fetch_candidates(
+        settings,
+        status=status,
+        candidate_type=candidate_type,
+        symbol=symbol,
+        limit=limit,
+        offset=offset,
+    )
+    return {"results": rows, "limit": limit, "offset": offset}
+
+
+@knowledge_router.get("/candidates/{candidate_id}")
+def get_candidate_endpoint(request: Request, candidate_id: str) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+    row = fetch_candidate(settings, candidate_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="candidate not found")
+
+    engine = create_sqlite_engine(settings)
+    evidence_refs = row.get("evidence_refs_json") or []
+    resolved_refs = []
+    for ref_dict in evidence_refs:
+        ref = EvidenceRef.from_dict(ref_dict)
+        resolved = ref.resolve(engine)
+        resolved_refs.append(resolved.as_dict())
+    row["evidence_refs"] = resolved_refs
+
+    return row
 
 
 # ── Signals (read-only) ──────────────────────────────────────────

@@ -215,6 +215,31 @@ source_artifacts = Table(
     UniqueConstraint("path"),
 )
 
+memory_candidates = Table(
+    "memory_candidates",
+    metadata,
+    uuid_column("id", primary_key=True, nullable=False),
+    Column("candidate_type", Text, nullable=False),
+    Column("title", Text, nullable=False),
+    Column("summary", Text),
+    Column("normalized_rule", Text),
+    Column("applicability", Text),
+    json_column("trigger_conditions_json"),
+    json_column("invalidation_conditions_json"),
+    json_column("evidence_refs_json"),
+    json_column("symbols_json"),
+    json_column("related_symbols_json"),
+    json_column("asset_classes_json"),
+    Column("market_scope", Text),
+    Column("confidence", Numeric),
+    Column("candidate_status", Text, nullable=False, default="candidate"),
+    json_column("review_flags_json"),
+    Column("created_by", Text, nullable=False),
+    timestamp_column("created_at"),
+    timestamp_column("reviewed_at"),
+    Column("review_note", Text),
+)
+
 document_sections = Table(
     "document_sections",
     metadata,
