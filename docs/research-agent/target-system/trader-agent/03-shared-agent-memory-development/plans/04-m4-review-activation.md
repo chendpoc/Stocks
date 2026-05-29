@@ -264,7 +264,9 @@ POST /api/knowledge/candidates/batch
 | conflict detection on activate | 同 symbol + 相似 tag → review_flags 含 possible_conflict |
 | POST memory-items/{id}/deprecate | status→deprecated |
 | memory_item → conflicted | status→conflicted, 审计事件写入 |
-| audit events for all transitions | memory_candidate_activated/rejected/merged + memory_conflict_marked + memory_item_deprecated |
+| audit events for all transitions | memory_item_created + memory_candidate_activated/rejected/merged + memory_conflict_marked + memory_conflict_resolved + memory_item_deprecated |
+| POST memory-items conflict + confirm | 409 with confirm_required; confirm=true succeeds |
+| extract-preview memory_type validation | 非法 memory_type 返回空/错误，不写入 |
 | M0/M1/M2/M3 regression | 全部已有测试通过 |
 
 ## 10. 验收命令

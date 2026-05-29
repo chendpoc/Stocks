@@ -238,6 +238,8 @@ memory_candidate_removed
 memory_candidate_merged
 memory_update_candidate_created
 memory_conflict_marked
+memory_item_created
+memory_conflict_resolved
 memory_item_deprecated
 memory_context_selected
 ```
@@ -365,6 +367,7 @@ evidence_refs_json
 symbols_json
 related_symbols_json
 asset_classes_json
+tags_json
 market_scope
 confidence
 candidate_status: candidate | activated | rejected | removed | merged | conflicted

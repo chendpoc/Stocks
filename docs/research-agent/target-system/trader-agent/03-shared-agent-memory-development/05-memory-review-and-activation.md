@@ -177,21 +177,39 @@ memory_items
 
 `evidence_refs_json` 使用统一 EvidenceRef，不限于 Markdown section。
 
-## 9. 审计事件
+## 9. Path B 主流程（extract-preview → memory-items）
+
+对话文本经 `POST /extract-preview` 结构化后，人工确认再 `POST /memory-items` 写入 active memory。
+
+冲突检测在 create 时执行。若与已有 active memory 冲突：
+
+```text
+409 Conflict
+  confirm_required: true
+  conflicts: [...]
+```
+
+用户确认后可带 `confirm: true` 重试同一请求，系统写入新 memory 并记录 `memory_item_created`；若需人工裁决旧条与新条，使用 `POST /memory-items/{id}/resolve-conflict`，写入 `memory_conflict_resolved`。
+
+Path A（M3 candidate → activate/reject/merge）保留为批量备用，审计仍用 `memory_candidate_*` 事件。
+
+## 10. 审计事件
 
 必须记录：
 
 ```text
+memory_item_created
 memory_candidate_activated
 memory_candidate_rejected
 memory_candidate_removed
 memory_candidate_merged
 memory_conflict_marked
+memory_conflict_resolved
 memory_update_candidate_created
 memory_item_deprecated
 ```
 
-## 10. 验收标准
+## 11. 验收标准
 
 - Candidate 可以单条和批量确认。
 - Candidate 可以单条和批量拒绝。

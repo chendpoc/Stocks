@@ -270,6 +270,38 @@ def test_post_memory_items_returns_409_on_conflict(tmp_path: Path) -> None:
     assert payload["detail"]["conflicts"]
 
 
+def test_post_memory_items_confirm_true_after_conflict(tmp_path: Path) -> None:
+    tmp_repo = tmp_path / "repo"
+    client = _client(tmp_repo)
+    bootstrap_database(_settings(tmp_repo))
+    conflict_body = {
+        "memory_type": "trading_rule",
+        "title": "Conflicting short",
+        "rule_text": "Sell AAPL short on breakdown",
+        "symbols_json": ["AAPL"],
+        "tags_json": ["breakout"],
+    }
+    client.post(
+        "/api/knowledge/memory-items",
+        json={
+            "memory_type": "trading_rule",
+            "title": "Existing long",
+            "rule_text": "Buy AAPL long on breakout",
+            "symbols_json": ["AAPL"],
+            "tags_json": ["breakout"],
+        },
+    )
+    blocked = client.post("/api/knowledge/memory-items", json=conflict_body)
+    assert blocked.status_code == 409
+    confirmed = client.post(
+        "/api/knowledge/memory-items",
+        json={**conflict_body, "confirm": True},
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "active"
+    assert confirmed.json()["title"] == "Conflicting short"
+
+
 def test_path_b_extract_preview_to_memory_items_e2e(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"
     client = _client(tmp_repo)

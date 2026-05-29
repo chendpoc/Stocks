@@ -7,6 +7,10 @@ from dataclasses import dataclass
 
 from app.core.config import Settings
 
+ALLOWED_MEMORY_TYPES = frozenset(
+    {"market_mechanism", "trading_rule", "source_pattern_summary"}
+)
+
 
 @dataclass
 class ExtractPreviewResult:
@@ -105,6 +109,8 @@ def extract_preview(
 
     memory_type = parsed.get("memory_type")
     if memory_type in (None, "none"):
+        return None
+    if memory_type not in ALLOWED_MEMORY_TYPES:
         return None
 
     title = parsed.get("title")

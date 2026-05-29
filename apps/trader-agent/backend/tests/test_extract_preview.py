@@ -88,3 +88,15 @@ def test_extract_preview_returns_none_when_memory_type_is_none(tmp_path: Path) -
         return_value={"memory_type": "none"},
     ):
         assert extract_preview(settings, "random chat") is None
+
+
+def test_extract_preview_rejects_invalid_memory_type(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    with patch(
+        "app.modules.extract_preview._call_deepseek_json",
+        return_value={
+            "memory_type": "personal_preference",
+            "title": "Bad type",
+        },
+    ):
+        assert extract_preview(settings, "some text") is None
