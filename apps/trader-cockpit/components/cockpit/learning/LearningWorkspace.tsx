@@ -6,13 +6,8 @@ import { useTranslation } from "react-i18next";
 import type { LearningItem } from "@/lib/cockpit/adapter";
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
+import { confidenceClass } from "@/lib/cockpit/style-utils";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
-
-function confidenceClass(confidence: string) {
-  if (confidence === "high") return "text-success";
-  if (confidence === "medium") return "text-warning";
-  return "text-muted";
-}
 
 function reviewDetail(item: LearningItem) {
   return {

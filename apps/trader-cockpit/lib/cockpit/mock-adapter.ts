@@ -61,7 +61,12 @@ function filterSignals(input?: SignalListInput): SignalDetail[] {
   return mockSignals.filter((signal) => {
     const statusMatch = !input?.status || input.status === "all" || signal.status === input.status;
     const symbolMatch = !input?.symbol || signal.symbol === input.symbol;
-    return statusMatch && symbolMatch;
+    const query = input?.query?.trim().toLowerCase();
+    const queryMatch =
+      !query ||
+      signal.symbol.toLowerCase().includes(query) ||
+      signal.setup.toLowerCase().includes(query);
+    return statusMatch && symbolMatch && queryMatch;
   });
 }
 
@@ -109,9 +114,39 @@ function getFixtureContextUsed(workstreamId: string): ContextUsedSummary {
 
 export const mockCockpitAdapter: CockpitDataAdapter = {
   async listSignals(input?: SignalListInput): Promise<SignalListViewModel> {
+    const filtered = filterSignals(input);
+    if (input?.page !== undefined || input?.pageSize !== undefined) {
+      const page = Math.max(1, input?.page ?? 1);
+      const pageSize = Math.max(1, input?.pageSize ?? 5);
+      const startIndex = (page - 1) * pageSize;
+      return {
+        signals: filtered.slice(startIndex, startIndex + pageSize),
+        watchlist: mockWatchlist,
+        total: filtered.length,
+        page,
+        pageSize,
+      };
+    }
+
     return {
-      signals: filterSignals(input),
+      signals: filtered,
       watchlist: mockWatchlist,
+    };
+  },
+
+  async getMarketSnapshot() {
+    const openStatuses = new Set([
+      "watching",
+      "waiting_trigger",
+      "near_trigger",
+      "triggered_for_attention",
+      "needs_more_evidence",
+    ]);
+    return {
+      totalSignals: mockSignals.length,
+      openSignalCount: mockSignals.filter((signal) => openStatuses.has(signal.status)).length,
+      invalidatedSignalCount: mockSignals.filter((signal) => signal.status === "invalidated").length,
+      latestSignalAt: mockSignals[0]?.updatedAt ?? null,
     };
   },
 

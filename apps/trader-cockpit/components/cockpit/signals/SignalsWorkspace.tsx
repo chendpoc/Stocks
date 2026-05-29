@@ -9,35 +9,9 @@ import type { CockpitTag, SignalStatus, SignalSummary } from "@/lib/cockpit/adap
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
+import { signalStatusClass, riskClass, tagClass } from "@/lib/cockpit/style-utils";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
 import { CockpitSelect } from "@/components/cockpit/ui/CockpitSelect";
-
-function riskClass(value: string) {
-  if (value === "critical" || value === "high" || value === "block") return "text-danger";
-  if (value === "medium" || value === "caution" || value === "watching" || value === "waiting_trigger" || value === "near_trigger") {
-    return "text-warning";
-  }
-  return "text-success";
-}
-
-function statusClass(status: SignalStatus) {
-  if (status === "invalidated") return "border-danger/50 bg-danger/10 text-danger";
-  if (status === "triggered_for_attention") return "border-danger/50 bg-danger/10 text-danger";
-  if (status === "near_trigger" || status === "waiting_trigger") {
-    return "border-warning/50 bg-warning/10 text-warning";
-  }
-  if (status === "needs_more_evidence") return "border-accent/50 bg-accent/10 text-accent";
-  return "border-success/50 bg-success/10 text-success";
-}
-
-function tagClass(tag: CockpitTag) {
-  if (tag === "opportunity_watch") return "border-danger/40 bg-danger/10 text-danger";
-  if (tag === "market_intent") return "border-success/40 bg-success/10 text-success";
-  if (tag === "rule_learning") return "border-accent/40 bg-accent/10 text-accent";
-  if (tag === "risk_or_invalidation") return "border-warning/50 bg-warning/10 text-warning";
-  if (tag === "news_event") return "border-warning/40 bg-warning/10 text-warning";
-  return "border-border bg-background/60 text-muted";
-}
 
 type SignalColumn = {
   key: string;
@@ -104,7 +78,7 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
         key: "status",
         header: t("common.status"),
         render: (signal) => (
-          <span className={`rounded border px-1.5 py-0.5 text-[11px] ${statusClass(signal.status)}`}>
+          <span className={`rounded border px-1.5 py-0.5 text-[11px] ${signalStatusClass(signal.status)}`}>
             {signal.status}
           </span>
         ),
@@ -234,7 +208,7 @@ export function SignalsWorkspace({ initialSignalId }: { initialSignalId?: string
               {detailQuery.data.symbol} / {detailQuery.data.setup}
             </h2>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className={`rounded border px-2 py-1 text-xs ${statusClass(detailQuery.data.status)}`}>
+              <span className={`rounded border px-2 py-1 text-xs ${signalStatusClass(detailQuery.data.status)}`}>
                 {detailQuery.data.status}
               </span>
               {detailQuery.data.tags.map((tag) => (

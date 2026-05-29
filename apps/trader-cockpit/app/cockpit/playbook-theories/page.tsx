@@ -1,16 +1,25 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { PlaybookTheoriesWorkspace } from "@/components/cockpit/playbook-theories/PlaybookTheoriesWorkspace";
+import { CockpitPageFallback } from "@/components/cockpit/shell/CockpitPageFallback";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+function PlaybookTheoriesPageContent() {
+  const searchParams = useSearchParams();
+  const initialTheoryId = searchParams.get("theoryId") ?? undefined;
 
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function PlaybookTheoriesPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
   return (
     <div className="h-full min-h-0 overflow-y-auto">
-      <PlaybookTheoriesWorkspace initialTheoryId={firstParam(params["theoryId"])} />
+      <PlaybookTheoriesWorkspace initialTheoryId={initialTheoryId} />
     </div>
+  );
+}
+
+export default function PlaybookTheoriesPage() {
+  return (
+    <Suspense fallback={<CockpitPageFallback />}>
+      <PlaybookTheoriesPageContent />
+    </Suspense>
   );
 }

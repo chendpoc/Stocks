@@ -145,12 +145,12 @@ export type PlaybookRule = {
   name: string;
   condition: string;
   effect:
-    | "create_signal"
-    | "update_status"
-    | "increase_confidence"
-    | "decrease_confidence"
-    | "invalidate_signal"
-    | "add_explanation";
+  | "create_signal"
+  | "update_status"
+  | "increase_confidence"
+  | "decrease_confidence"
+  | "invalidate_signal"
+  | "add_explanation";
   explainText: string;
 };
 
@@ -230,12 +230,12 @@ export type AgentActivityNode = {
   id: string;
   workstreamId: string;
   kind:
-    | "user_question"
-    | "market_snapshot"
-    | "news_scan"
-    | "rule_match"
-    | "risk_check"
-    | "learning_candidate";
+  | "user_question"
+  | "market_snapshot"
+  | "news_scan"
+  | "rule_match"
+  | "risk_check"
+  | "learning_candidate";
   status: "pending" | "running" | "completed" | "warning" | "failed";
   title: string;
   summary: string;
@@ -273,6 +273,9 @@ export type ContextUsedSummary = {
 export type SignalListInput = {
   status?: string;
   symbol?: string;
+  query?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type SignalDetailInput = {
@@ -321,6 +324,16 @@ export type AgentConsoleInput = {
 export type SignalListViewModel = {
   signals: SignalSummary[];
   watchlist: WatchlistItem[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+};
+
+export type MarketSnapshotViewModel = {
+  totalSignals: number;
+  openSignalCount: number;
+  invalidatedSignalCount: number;
+  latestSignalAt: string | null;
 };
 
 export type MarketIntentExplanationViewModel = {
@@ -371,6 +384,7 @@ export type AgentConsoleViewModel = {
 
 export interface CockpitDataAdapter {
   listSignals(input?: SignalListInput): Promise<SignalListViewModel>;
+  getMarketSnapshot(): Promise<MarketSnapshotViewModel>;
   getMarketIntentExplanation(): Promise<MarketIntentExplanationViewModel>;
   listTodayFocus(input?: TodayFocusListInput): Promise<TodayFocusListViewModel>;
   getSignal(input: SignalDetailInput): Promise<SignalDetail>;
@@ -383,4 +397,23 @@ export interface CockpitDataAdapter {
   getAgentConsole(input?: AgentConsoleInput): Promise<AgentConsoleViewModel>;
 }
 
-export { mockCockpitAdapter as cockpitAdapter } from "./mock-adapter";
+import { readStoredDataSource } from "./data-source";
+import { mockCockpitAdapter } from "./mock-adapter";
+import { realReadonlyAdapter } from "./real-readonly-adapter";
+
+function resolveAdapter(): CockpitDataAdapter {
+  return readStoredDataSource() === "real" ? realReadonlyAdapter : mockCockpitAdapter;
+}
+
+export const cockpitAdapter = new Proxy({} as CockpitDataAdapter, {
+  get(_target, prop) {
+    const adapter = resolveAdapter();
+    const value = adapter[prop as keyof CockpitDataAdapter];
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(adapter);
+    }
+    return value;
+  },
+});
+
+export { mockCockpitAdapter };

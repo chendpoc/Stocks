@@ -1,19 +1,22 @@
 ﻿"use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
-import type { CockpitLanguage } from "@/lib/cockpit/use-cockpit-ui-store";
+import type { CockpitDataSource, CockpitLanguage } from "@/lib/cockpit/use-cockpit-ui-store";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
 
 export function SettingsWorkspace() {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const density = useCockpitUiStore((state) => state.density);
   const setDensity = useCockpitUiStore((state) => state.setDensity);
   const language = useCockpitUiStore((state) => state.language);
   const setLanguage = useCockpitUiStore((state) => state.setLanguage);
+  const dataSource = useCockpitUiStore((state) => state.dataSource);
+  const setDataSource = useCockpitUiStore((state) => state.setDataSource);
   const chartTimeframe = useCockpitUiStore((state) => state.chartTimeframe);
   const setChartTimeframe = useCockpitUiStore((state) => state.setChartTimeframe);
 
@@ -35,6 +38,11 @@ export function SettingsWorkspace() {
   function handleLanguageChange(nextLanguage: CockpitLanguage) {
     setLanguage(nextLanguage);
     void i18n.changeLanguage(nextLanguage);
+  }
+
+  function handleDataSourceChange(nextDataSource: CockpitDataSource) {
+    setDataSource(nextDataSource);
+    void queryClient.invalidateQueries({ queryKey: ["cockpit"] });
   }
 
   return (
@@ -63,6 +71,17 @@ export function SettingsWorkspace() {
             >
               <option value="compact">compact</option>
               <option value="comfortable">comfortable</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs text-muted">{t("settings.dataSource")}</span>
+            <select
+              value={dataSource}
+              onChange={(event) => handleDataSourceChange(event.target.value as CockpitDataSource)}
+              className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2"
+            >
+              <option value="mock">{t("settings.dataSourceMock")}</option>
+              <option value="real">{t("settings.dataSourceReal")}</option>
             </select>
           </label>
           <label className="block">

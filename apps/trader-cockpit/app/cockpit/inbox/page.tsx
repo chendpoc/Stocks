@@ -1,16 +1,25 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AgentInbox } from "@/components/cockpit/inbox/AgentInbox";
+import { CockpitPageFallback } from "@/components/cockpit/shell/CockpitPageFallback";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+function AgentInboxPageContent() {
+  const searchParams = useSearchParams();
+  const initialEventId = searchParams.get("eventId") ?? undefined;
 
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function AgentInboxPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
   return (
     <div className="h-full min-h-0 overflow-y-auto">
-      <AgentInbox initialEventId={firstParam(params["eventId"])} />
+      <AgentInbox initialEventId={initialEventId} />
     </div>
+  );
+}
+
+export default function AgentInboxPage() {
+  return (
+    <Suspense fallback={<CockpitPageFallback />}>
+      <AgentInboxPageContent />
+    </Suspense>
   );
 }

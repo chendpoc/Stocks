@@ -1,16 +1,25 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { LearningWorkspace } from "@/components/cockpit/learning/LearningWorkspace";
+import { CockpitPageFallback } from "@/components/cockpit/shell/CockpitPageFallback";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+function LearningPageContent() {
+  const searchParams = useSearchParams();
+  const initialReviewId = searchParams.get("reviewId") ?? undefined;
 
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function LearningPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
   return (
     <div className="h-full min-h-0 overflow-y-auto">
-      <LearningWorkspace initialReviewId={firstParam(params["reviewId"])} />
+      <LearningWorkspace initialReviewId={initialReviewId} />
     </div>
+  );
+}
+
+export default function LearningPage() {
+  return (
+    <Suspense fallback={<CockpitPageFallback />}>
+      <LearningPageContent />
+    </Suspense>
   );
 }

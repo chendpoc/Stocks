@@ -25,6 +25,28 @@ function assertMissing(...segments) {
   assert.equal(fs.existsSync(target), false, `Expected file to be absent: ${path.relative(repoRoot, target)}`);
 }
 
+function readDashboardSources() {
+  return [
+    ["components", "cockpit", "dashboard", "LiveDashboard.tsx"],
+    ["components", "cockpit", "dashboard", "DashboardHeader.tsx"],
+    ["components", "cockpit", "dashboard", "DashboardMarketIntentStrip.tsx"],
+    ["components", "cockpit", "dashboard", "DashboardSignalsQueue.tsx"],
+    ["components", "cockpit", "dashboard", "DashboardStatusCards.tsx"],
+    ["components", "cockpit", "dashboard", "DashboardTodayFocus.tsx"],
+  ]
+    .map((segments) => readText("apps", "trader-cockpit", ...segments))
+    .join("\n");
+}
+
+function readSignalsSources() {
+  return [
+    ["components", "cockpit", "signals", "SignalsWorkspace.tsx"],
+    ["lib", "cockpit", "style-utils.ts"],
+  ]
+    .map((segments) => readText("apps", "trader-cockpit", ...segments))
+    .join("\n");
+}
+
 function walkFiles(root) {
   const entries = fs.readdirSync(root, { withFileTypes: true });
   const files = [];
@@ -49,17 +71,17 @@ test("trader-cockpit package declares HeroUI cockpit dependencies", () => {
   const dependencies = pkg.dependencies ?? {};
   const devDependencies = pkg.devDependencies ?? {};
   const expected = [
-    "@tanstack/react-query",
     "@heroui/react",
     "@heroui/styles",
+    "@tanstack/react-query",
     "framer-motion",
-    "zustand",
+    "i18next",
     "lucide-react",
     "next",
     "react",
     "react-dom",
-    "i18next",
     "react-i18next",
+    "zustand",
   ];
 
   assert.deepEqual(Object.keys(dependencies).sort(), expected.sort());
@@ -120,8 +142,8 @@ test("trader-cockpit cockpit UI consumes HeroUI semantic tokens instead of legac
     }
   }
 
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
-  const signals = readText("apps", "trader-cockpit", "components", "cockpit", "signals", "SignalsWorkspace.tsx");
+  const dashboard = readDashboardSources();
+  const signals = readSignalsSources();
   assert.match(dashboard, /bg-surface/);
   assert.match(dashboard, /bg-surface-secondary/);
   assert.match(dashboard, /text-success/);
@@ -218,7 +240,7 @@ test("trader-cockpit shell exposes chat as both workspace route and floating doc
   assert.match(dock, /chat\.dockMinimize/);
 });
 
-test("trader-cockpit shell pins viewport and delegates scrolling to workspaces", () => {
+test("trader-cockpit shell pins sidebar while allowing workspace page scroll", () => {
   const shell = readText("apps", "trader-cockpit", "components", "cockpit", "shell", "CockpitShell.tsx");
 
   assert.match(shell, /grid h-dvh min-h-0 grid-cols-\[auto_1fr\] overflow-hidden/);
@@ -230,8 +252,8 @@ test("trader-cockpit shell pins viewport and delegates scrolling to workspaces",
   assert.match(shell, /aria-busy=\{routePending\}/);
   assert.match(shell, /prefetch=\{true\}/);
   assert.match(shell, /setPendingHref\(item\.href\)/);
-  assert.match(shell, /<main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden p-4"/);
-  assert.doesNotMatch(shell, /<main className="[^"]*overflow-y-auto/);
+  assert.match(shell, /<main className="relative flex h-dvh min-h-0 min-w-0 flex-col overflow-y-auto p-4"/);
+  assert.doesNotMatch(shell, /<main className="[^"]*overflow-hidden/);
 });
 
 test("trader-cockpit v5 shell exposes identity, context switcher, and read-only runtime status", () => {
@@ -314,7 +336,7 @@ test("trader-cockpit settings exposes zh-CN and en-US language switching", () =>
 });
 
 test("trader-cockpit dashboard uses v5 L1 L2 L3 structure", () => {
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const dashboard = readDashboardSources();
   const marketChart = readText("apps", "trader-cockpit", "components", "cockpit", "charts", "MockMarketChart.tsx");
 
   assert.match(dashboard, /flex h-full min-h-0 flex-col gap-3 overflow-hidden/);
@@ -323,12 +345,15 @@ test("trader-cockpit dashboard uses v5 L1 L2 L3 structure", () => {
   assert.match(dashboard, /dashboard\.headerSearchPlaceholder/);
   assert.match(dashboard, /headerSearchDraft/);
   assert.match(dashboard, /commitHeaderSearch/);
-  assert.match(dashboard, /onKeyDown=\{\(event\) => \{[\s\S]*event\.key === "Enter"[\s\S]*commitHeaderSearch\(\)/);
-  assert.match(dashboard, /signalsQuery\.refetch/);
+  assert.match(dashboard, /onCommitSearch=\{commitHeaderSearch\}/);
+  assert.match(dashboard, /onKeyDown=\{\(event\) => \{[\s\S]*event\.key === "Enter"[\s\S]*onCommitSearch\(\)/);
+  assert.match(dashboard, /mockSignalsQuery\.refetch/);
+  assert.match(dashboard, /signalsQueueQueryResult\.refetch/);
   assert.match(dashboard, /marketIntentQuery\.refetch/);
   assert.match(dashboard, /todayFocusQueryResult\.refetch/);
   assert.match(dashboard, /value=\{headerSearchDraft\}/);
-  assert.match(dashboard, /setHeaderSearchDraft\(event\.target\.value\)/);
+  assert.match(dashboard, /onHeaderSearchDraftChange=\{setHeaderSearchDraft\}/);
+  assert.match(dashboard, /onHeaderSearchDraftChange\(event\.target\.value\)/);
   assert.doesNotMatch(dashboard, /headerSearchPlaceholder[\s\S]{0,500}setTodayFocusQuery\(event\.target\.value\)/);
   assert.match(dashboard, /dashboardL1StatusRow/);
   assert.match(dashboard, /dashboardL1StatusRow" className="shrink-0/);
@@ -343,10 +368,10 @@ test("trader-cockpit dashboard uses v5 L1 L2 L3 structure", () => {
   assert.match(dashboard, /data-testid="dashboardTodayFocusScrollRegion"[\s\S]*overflow-y-auto/);
   assert.match(dashboard, /dashboardTodayFocusSearch[\s\S]*aria-label=\{t\("dashboard\.todayFocusSearchPlaceholder"\)\}/);
   assert.match(dashboard, /dashboard\.nextWatchCondition/);
-  assert.match(dashboard, /marketIntentExplanation\?\.nextWatchCondition/);
+  assert.match(dashboard, /(?:marketIntentExplanation|explanation)\?\.nextWatchCondition/);
   assert.match(dashboard, /dashboardL2MarketIntentStrip/);
-  assert.match(dashboard, /marketIntentExplanation\?\.whyNow\.slice\(0, 3\)/);
-  assert.match(dashboard, /marketIntentExplanation\?\.whyWait\.slice\(0, 2\)/);
+  assert.match(dashboard, /(?:marketIntentExplanation|explanation)\?\.whyNow\.slice\(0, 3\)/);
+  assert.match(dashboard, /(?:marketIntentExplanation|explanation)\?\.whyWait\.slice\(0, 2\)/);
   assert.match(marketChart, /h-28/);
   assert.doesNotMatch(dashboard, /xl:col-span-3 grid gap-3 md:grid-cols-4/);
   assert.doesNotMatch(dashboard, /dashboardStatusStack/);
@@ -356,7 +381,7 @@ test("trader-cockpit dashboard uses v5 L1 L2 L3 structure", () => {
 });
 
 test("trader-cockpit dashboard v5 renders compact market intent strip and table-first focus queue", () => {
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const dashboard = readDashboardSources();
   const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
 
   assert.match(dashboard, /dashboardL2MarketIntentStrip/);
@@ -364,8 +389,8 @@ test("trader-cockpit dashboard v5 renders compact market intent strip and table-
   assert.match(dashboard, /flex-wrap/);
   assert.doesNotMatch(dashboard, /dashboardL2MarketIntentStrip" className="[^"]*overflow-x-auto/);
   assert.match(dashboard, /activeMarketIntentChip/);
-  assert.match(dashboard, /marketIntentExplanation\?\.whyNow\.slice\(0, 3\)/);
-  assert.match(dashboard, /marketIntentExplanation\?\.whyWait\.slice\(0, 2\)/);
+  assert.match(dashboard, /(?:marketIntentExplanation|explanation)\?\.whyNow\.slice\(0, 3\)/);
+  assert.match(dashboard, /(?:marketIntentExplanation|explanation)\?\.whyWait\.slice\(0, 2\)/);
   assert.match(dashboard, /dashboard\.whyNowShort/);
   assert.match(dashboard, /dashboard\.whyWaitShort/);
   assert.match(dashboard, /SPY/);
@@ -400,7 +425,7 @@ test("trader-cockpit dashboard v5 renders compact market intent strip and table-
   assert.match(dashboard, /dashboardTodayFocusEffectiveLens/);
   assert.match(dashboard, /dashboard\.todayFocusLensActive/);
   assert.match(dashboard, /priorityClass\(item\.priority\)/);
-  assert.match(dashboard, /statusClass\(item\.status\)/);
+  assert.match(dashboard, /focusStatusClass\(item\.status\)/);
   assert.match(dashboard, /line-clamp-2/);
 
   for (const locale of ["zh-CN", "en-US"]) {
@@ -436,7 +461,7 @@ test("trader-cockpit dashboard reads market intent explanation from adapter data
   const adapter = readText("apps", "trader-cockpit", "lib", "cockpit", "adapter.ts");
   const mockAdapter = readText("apps", "trader-cockpit", "lib", "cockpit", "mock-adapter.ts");
   const fixtures = JSON.parse(readText("apps", "trader-cockpit", "lib", "cockpit", "fixtures.json"));
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const dashboard = readDashboardSources();
   const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
 
   assert.match(adapter, /MarketIntentExplanation/);
@@ -483,7 +508,7 @@ test("trader-cockpit exposes Today Focus Queue data contract and query key", () 
 });
 
 test("trader-cockpit dashboard renders Today Focus Queue controls and drawer detail entry", () => {
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const dashboard = readDashboardSources();
   const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
 
   assert.match(dashboard, /dashboardTodayFocusSearch/);
@@ -508,7 +533,8 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
   assert.match(dashboard, /<Button/);
   assert.match(dashboard, /<Chip/);
   assert.match(dashboard, /function\s+openTodayFocusDetail/);
-  assert.match(dashboard, /onClick=\{\(\) => openTodayFocusDetail\(item\)\}/);
+  assert.match(dashboard, /onOpenDetail=\{openTodayFocusDetail\}/);
+  assert.match(dashboard, /onClick=\{\(\) => onOpenDetail\(item\)\}/);
   assert.doesNotMatch(dashboard, /<Link\s+key=\{item\.id\}/);
   assert.match(dashboard, /todayFocusLocalFollow/);
   assert.match(dashboard, /todayFocusLocalIgnore/);
@@ -522,7 +548,7 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
   assert.match(dashboard, /setSelectedSignalId\(null\)/);
   assert.match(dashboard, /item\.target\.queryKey/);
   assert.match(dashboard, /item\.target\.queryValue/);
-  assert.match(dashboard, /selectedTodayFocusItem\.target\.label/);
+  assert.match(dashboard, /selectedItem\.target\.label/);
   assert.match(dashboard, /item\.summary/);
   assert.match(dashboard, /item\.reason/);
   assert.match(dashboard, /item\.symbol/);
@@ -575,7 +601,7 @@ test("trader-cockpit dashboard renders Today Focus Queue controls and drawer det
 });
 
 test("trader-cockpit dashboard v5 drawer is a right slide-over with Agent explanation sections", () => {
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const dashboard = readDashboardSources();
   const resources = JSON.parse(readText("apps", "trader-cockpit", "lib", "i18n", "resources.json"));
 
   assert.match(dashboard, /dashboardTodayFocusDrawer/);
@@ -590,10 +616,10 @@ test("trader-cockpit dashboard v5 drawer is a right slide-over with Agent explan
   assert.match(dashboard, /dashboard\.todayFocusRelatedAgentNodes/);
   assert.match(dashboard, /dashboard\.todayFocusReadOnlyNote/);
   assert.match(dashboard, /dashboard\.todayFocusLocalStateNote/);
-  assert.match(dashboard, /selectedTodayFocusItem\.updatedAt/);
-  assert.match(dashboard, /selectedTodayFocusItem\.reason/);
-  assert.match(dashboard, /selectedTodayFocusItem\.summary/);
-  assert.match(dashboard, /selectedTodayFocusItem\.target\.label/);
+  assert.match(dashboard, /selectedItem\.updatedAt/);
+  assert.match(dashboard, /selectedItem\.reason/);
+  assert.match(dashboard, /selectedItem\.summary/);
+  assert.match(dashboard, /selectedItem\.target\.label/);
   assert.doesNotMatch(dashboard, /buildTodayFocusHref/);
   assert.doesNotMatch(dashboard, /approval/i);
   assert.doesNotMatch(dashboard, /order execution/i);
@@ -608,7 +634,7 @@ test("trader-cockpit dashboard v5 drawer is a right slide-over with Agent explan
 });
 
 test("trader-cockpit dashboard no longer renders old standalone watchlist opportunity next-watch areas", () => {
-  const dashboard = readText("apps", "trader-cockpit", "components", "cockpit", "dashboard", "LiveDashboard.tsx");
+  const dashboard = readDashboardSources();
 
   assert.doesNotMatch(dashboard, /watchlistTitle/);
   assert.doesNotMatch(dashboard, /watchlistKicker/);
@@ -689,7 +715,11 @@ test("trader-cockpit detail pages pass supported search params into workspaces",
   for (const contract of routeContracts) {
     const page = readText(...contract.route);
     assert.match(page, /searchParams/);
-    assert.match(page, new RegExp(`${contract.param}["']\\]`), `${contract.route.join("/")} should read ${contract.param}`);
+    assert.match(
+      page,
+      new RegExp(`searchParams\\.get\\("${contract.param}"\\)|${contract.param}["']\\]`),
+      `${contract.route.join("/")} should read ${contract.param}`,
+    );
     assert.match(
       page,
       new RegExp(`<${contract.component}\\s+${contract.prop}=\\{`),
@@ -824,9 +854,9 @@ test("trader-cockpit mock Today Focus Queue supports search filters and paginati
 });
 
 test("trader-cockpit signals express status and semantic tag color mapping", () => {
-  const signals = readText("apps", "trader-cockpit", "components", "cockpit", "signals", "SignalsWorkspace.tsx");
+  const signals = readSignalsSources();
 
-  assert.match(signals, /function statusClass/);
+  assert.match(signals, /function signalStatusClass/);
   assert.match(signals, /function tagClass/);
   assert.match(signals, /opportunity_watch[\s\S]*border-danger/);
   assert.match(signals, /market_intent[\s\S]*border-success/);
@@ -952,7 +982,7 @@ test("trader-cockpit Agent Console fixtures cover breadth skeleton data", () => 
   );
 });
 
-test("trader-cockpit chat route renders Agent Console workspace without React Flow", () => {
+test("trader-cockpit chat route renders D-lite v3.3 Agent Console workspace", () => {
   const page = readText("apps", "trader-cockpit", "app", "cockpit", "chat", "page.tsx");
   const workspace = readText(
     "apps",
@@ -962,13 +992,13 @@ test("trader-cockpit chat route renders Agent Console workspace without React Fl
     "chat",
     "AgentConsoleWorkspace.tsx",
   );
-  const tracePreview = readText(
+  const priorityPushStrip = readText(
     "apps",
     "trader-cockpit",
     "components",
     "cockpit",
     "chat",
-    "ActivityTracePreview.tsx",
+    "PriorityPushStrip.tsx",
   );
   const conversationPanel = readText(
     "apps",
@@ -978,21 +1008,13 @@ test("trader-cockpit chat route renders Agent Console workspace without React Fl
     "chat",
     "AgentConversationPanel.tsx",
   );
-  const workstreamRail = readText(
+  const activityChainPanel = readText(
     "apps",
     "trader-cockpit",
     "components",
     "cockpit",
     "chat",
-    "WorkstreamRail.tsx",
-  );
-  const contextPanel = readText(
-    "apps",
-    "trader-cockpit",
-    "components",
-    "cockpit",
-    "chat",
-    "ContextUsedPanel.tsx",
+    "ActivityChainPanel.tsx",
   );
   const inspectorPanel = readText(
     "apps",
@@ -1006,22 +1028,20 @@ test("trader-cockpit chat route renders Agent Console workspace without React Fl
 
   assert.match(page, /AgentConsoleWorkspace/);
   assert.doesNotMatch(page, /AgentChatShell/);
-  assert.match(workspace, /flex h-full min-h-0 flex-col gap-3 overflow-hidden/);
-  assert.match(workspace, /shrink-0/);
-  assert.match(workspace, /grid min-h-0 flex-1 gap-3 overflow-hidden/);
-  assert.match(workspace, /xl:grid-cols-\[minmax\(250px,0\.82fr\)_minmax\(300px,1fr\)_minmax\(260px,0\.88fr\)\]/);
-  assert.match(workspace, /2xl:grid-cols-\[minmax\(330px,0\.92fr\)_minmax\(360px,1fr\)_minmax\(340px,0\.9fr\)\]/);
-  assert.match(workspace, /<WorkstreamRail/);
+  assert.match(workspace, /min-h-\[760px\]/);
+  assert.doesNotMatch(workspace, /max-h-full/);
+  assert.doesNotMatch(workspace, /h-\[(?:96|104|112|136)px\]\s+shrink-0\s+overflow-hidden/);
+  assert.match(workspace, /grid min-h-0 flex-1 gap-3/);
+  assert.match(workspace, /xl:grid-cols-\[34%_30%_36%\]/);
+  assert.doesNotMatch(workspace, /<WorkstreamRail/);
+  assert.doesNotMatch(workspace, /WorkstreamRail/);
+  assert.doesNotMatch(workspace, /<AgentActivityGraphPanel/);
+  assert.doesNotMatch(workspace, /AgentActivityGraphPanel/);
   assert.match(workspace, /<section className="min-h-0 overflow-hidden">/);
-  assert.doesNotMatch(workspace, /grid min-h-0 grid-rows-\[150px_minmax\(0,1fr\)\]/);
-  assert.match(workspace, /grid min-h-0 grid-rows-\[minmax\(0,1fr\)_180px\]/);
-  assert.match(workspace, /2xl:grid-rows-\[minmax\(0,1fr\)_220px\]/);
   for (const componentName of [
     "PriorityPushStrip",
-    "WorkstreamRail",
-    "ContextUsedPanel",
     "AgentConversationPanel",
-    "ActivityTracePreview",
+    "ActivityChainPanel",
     "NodeInspectorPanel",
   ]) {
     assert.match(workspace, new RegExp(componentName), `Agent Console missing ${componentName}`);
@@ -1031,16 +1051,24 @@ test("trader-cockpit chat route renders Agent Console workspace without React Fl
   assert.match(workspace, /getAgentConsole/);
   assert.match(workspace, /setSelectedActivityNodeId/);
   assert.match(workspace, /setSelectedAgentWorkstreamId\(message\.workstreamId\)/);
-  assert.match(tracePreview, /onSelectNode/);
-  assert.match(tracePreview, /<Card/);
-  assert.match(tracePreview, /<ScrollShadow/);
-  assert.match(tracePreview, /flex h-full min-h-0 flex-col/);
-  assert.match(tracePreview, /min-h-0 flex-1 space-y-2 overflow-y-auto/);
+  assert.match(workspace, /setSelectedAgentMessageId\(message\.id\)/);
+  assert.match(priorityPushStrip, /slice\(0,\s*3\)|pushes\.map/);
+  assert.match(priorityPushStrip, /<Card/);
+  assert.match(priorityPushStrip, /<Button/);
+  assert.match(priorityPushStrip, /<Chip/);
+  assert.match(priorityPushStrip, /lg:grid-cols-3/);
+  assert.match(priorityPushStrip, /min-h-\[92px\]/);
+  assert.match(priorityPushStrip, /shrink-0 border border-border/);
+  assert.doesNotMatch(workspace, /@xyflow\/react/);
+  assert.doesNotMatch(conversationPanel, /@xyflow\/react/);
   assert.match(conversationPanel, /<Card/);
   assert.match(conversationPanel, /<TextArea/);
   assert.match(conversationPanel, /<Button/);
+  assert.match(conversationPanel, /workstreams:\s*AgentWorkstream\[\]/);
+  assert.match(conversationPanel, /selectedWorkstreamId:\s*string/);
+  assert.match(conversationPanel, /onSelectWorkstream:\s*\(workstreamId: string\) => void/);
+  assert.match(conversationPanel, /data-testid="workstreamTabs"/);
   assert.match(conversationPanel, /workstream:\s*AgentWorkstream \| null/);
-  assert.match(conversationPanel, /workstream \? `\$\{workstream\.title\} · \$\{workstream\.symbols\.join\(" \/ "\)\}`/);
   assert.doesNotMatch(conversationPanel, /chat\.consoleTitle/);
   assert.doesNotMatch(conversationPanel, /common\.mockFallback/);
   assert.match(conversationPanel, /role="button"/);
@@ -1049,21 +1077,23 @@ test("trader-cockpit chat route renders Agent Console workspace without React Fl
   assert.match(conversationPanel, /min-h-0 flex-1 space-y-3 overflow-y-auto/);
   assert.doesNotMatch(conversationPanel, /min-h-\[640px\]/);
   assert.doesNotMatch(conversationPanel, /<Button[\s\S]{0,800}relatedNodeIds/);
-  assert.match(workstreamRail, /<Card/);
-  assert.match(workstreamRail, /md:grid-cols-3/);
-  assert.match(workstreamRail, /role="button"/);
-  assert.match(workstreamRail, /onKeyDown/);
-  assert.doesNotMatch(workstreamRail, /<Button/);
-  assert.doesNotMatch(workstreamRail, /min-h-0 flex-1 space-y-2 overflow-y-auto/);
-  assert.match(contextPanel, /flex h-full min-h-0 flex-col/);
-  assert.match(contextPanel, /<Card/);
-  assert.match(contextPanel, /<ScrollShadow/);
-  assert.match(contextPanel, /min-h-0 flex-1 space-y-4 overflow-y-auto/);
+  assert.match(activityChainPanel, /ActivityChainPanel/);
+  assert.match(activityChainPanel, /<ScrollShadow/);
+  assert.match(activityChainPanel, /nodes\.map/);
+  assert.match(activityChainPanel, /statusChipClass/);
+  assert.match(activityChainPanel, /onSelectNode\(node\.id\)/);
+  assert.match(activityChainPanel, /selectedNodeId/);
+  assert.match(activityChainPanel, /chat\.activityChain/);
+  assert.doesNotMatch(activityChainPanel, /@xyflow\/react|ReactFlow|ReactFlowProvider/);
   assert.match(inspectorPanel, /flex h-full min-h-0 flex-col/);
   assert.match(inspectorPanel, /<Card/);
   assert.match(inspectorPanel, /<Button/);
+  assert.match(inspectorPanel, /<TextArea/);
+  assert.match(inspectorPanel, /askDraft/);
+  assert.match(inspectorPanel, /setAskDraft\(prompt\)/);
+  assert.match(inspectorPanel, /contextUsed:\s*ContextUsedSummary \| null/);
+  assert.match(inspectorPanel, /chat\.contextUsed/);
   assert.match(inspectorPanel, /min-h-0 flex-1 overflow-y-auto/);
-  assert.doesNotMatch(tracePreview, /@xyflow\/react/);
   assert.doesNotMatch(conversationPanel, /<form\b/);
   assert.doesNotMatch(conversationPanel, /onSubmit/);
   assert.match(conversationPanel, /chat\.send/);
@@ -1074,17 +1104,34 @@ test("trader-cockpit chat route renders Agent Console workspace without React Fl
     for (const key of [
       "priorityPush",
       "workstreams",
+      "workstreamTabs",
       "contextUsed",
       "conversation",
-      "activityPreview",
+      "activityChain",
       "nodeInspector",
       "noSelectedNodeTitle",
       "askPrompts",
+      "nodeQuestion",
+      "nodeQuestionDescription",
       "promptPreview",
       "promptPreviewDescription",
     ]) {
       assert.equal(typeof chatCopy[key], "string", `${locale} missing chat.${key}`);
     }
+  }
+});
+
+test("trader-cockpit chat Agent Console uses lightweight Activity Chain instead of React Flow", () => {
+  const chatFiles = walkFiles(path.join(cockpitRoot, "components", "cockpit", "chat")).filter((file) =>
+    /\.tsx?$/.test(file),
+  );
+
+  for (const file of chatFiles) {
+    assert.doesNotMatch(
+      fs.readFileSync(file, "utf8"),
+      /@xyflow\/react|ReactFlow|ReactFlowProvider|Background|Controls/,
+      `${path.relative(repoRoot, file)} must keep the chat console on the lightweight Activity Chain`,
+    );
   }
 });
 

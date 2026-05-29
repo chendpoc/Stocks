@@ -8,12 +8,10 @@ import { cockpitAdapter } from "@/lib/cockpit/adapter";
 import { cockpitKeys } from "@/lib/cockpit/query-keys";
 import { useCockpitUiStore } from "@/lib/cockpit/use-cockpit-ui-store";
 import { StateBlock } from "@/components/cockpit/states/StateBlock";
-import { ActivityTracePreview } from "@/components/cockpit/chat/ActivityTracePreview";
+import { ActivityChainPanel } from "@/components/cockpit/chat/ActivityChainPanel";
 import { AgentConversationPanel } from "@/components/cockpit/chat/AgentConversationPanel";
-import { ContextUsedPanel } from "@/components/cockpit/chat/ContextUsedPanel";
 import { NodeInspectorPanel } from "@/components/cockpit/chat/NodeInspectorPanel";
 import { PriorityPushStrip } from "@/components/cockpit/chat/PriorityPushStrip";
-import { WorkstreamRail } from "@/components/cockpit/chat/WorkstreamRail";
 
 export function AgentConsoleWorkspace() {
   const { t } = useTranslation();
@@ -79,7 +77,7 @@ export function AgentConsoleWorkspace() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+    <div className="flex min-h-[760px] flex-col gap-3 xl:min-h-[calc(100dvh-2rem)]">
       <div className="shrink-0">
         <PriorityPushStrip
           pushes={consoleData.priorityPushes}
@@ -87,37 +85,37 @@ export function AgentConsoleWorkspace() {
           onSelectPush={selectMessage}
         />
       </div>
-      <div className="shrink-0">
-        <WorkstreamRail
-          workstreams={consoleData.workstreams}
-          selectedWorkstreamId={effectiveWorkstreamId}
-          onSelectWorkstream={selectWorkstream}
-        />
-      </div>
-      <div className="grid min-h-0 flex-1 gap-3 overflow-hidden xl:grid-cols-[minmax(250px,0.82fr)_minmax(300px,1fr)_minmax(260px,0.88fr)] 2xl:grid-cols-[minmax(330px,0.92fr)_minmax(360px,1fr)_minmax(340px,0.9fr)]">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[34%_30%_36%]">
         <section className="min-h-0 overflow-hidden">
           <AgentConversationPanel
+            workstreams={consoleData.workstreams}
             workstream={selectedWorkstream}
+            selectedWorkstreamId={effectiveWorkstreamId}
             messages={consoleData.messages}
             nodes={consoleData.trace.nodes}
             selectedMessageId={selectedAgentMessageId}
             selectedNodeId={effectiveNodeId}
             activePrompt={activePrompt}
+            onSelectWorkstream={selectWorkstream}
             onSelectMessage={selectMessage}
             onSelectNode={setSelectedActivityNodeId}
             onUsePrompt={usePrompt}
           />
         </section>
         <section className="min-h-0 overflow-hidden">
-          <ActivityTracePreview
-            trace={consoleData.trace}
+          <ActivityChainPanel
+            nodes={consoleData.trace.nodes}
             selectedNodeId={effectiveNodeId}
             onSelectNode={setSelectedActivityNodeId}
           />
         </section>
-        <aside className="grid min-h-0 grid-rows-[minmax(0,1fr)_180px] gap-3 overflow-hidden 2xl:grid-rows-[minmax(0,1fr)_220px]">
-          <NodeInspectorPanel selectedNode={selectedNode} workstream={selectedWorkstream} onAskPrompt={usePrompt} />
-          <ContextUsedPanel contextUsed={consoleData.contextUsed} />
+        <aside className="min-h-0 overflow-hidden">
+          <NodeInspectorPanel
+            selectedNode={selectedNode}
+            workstream={selectedWorkstream}
+            contextUsed={consoleData.contextUsed}
+            onAskPrompt={usePrompt}
+          />
         </aside>
       </div>
     </div>

@@ -5,6 +5,9 @@ export type DashboardScope = {
 export type SignalFilters = {
   status?: string;
   symbol?: string;
+  query?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type InboxFilters = {
@@ -42,6 +45,7 @@ export const cockpitKeys = {
   todayFocus: (filters: TodayFocusFilters = {}) => ["cockpit", "today-focus", filters] as const,
   signals: (filters: SignalFilters = {}) => ["cockpit", "signals", filters] as const,
   signal: (id: string) => ["cockpit", "signal", id] as const,
+  marketSnapshot: () => ["cockpit", "market-snapshot"] as const,
   inbox: (filters: InboxFilters = {}) => ["cockpit", "inbox", filters] as const,
   agentEvents: (filters: AgentEventFilters = {}) => ["cockpit", "agent-events", filters] as const,
   playbookTheories: (filters: TheoryFilters = {}) => ["cockpit", "playbook-theories", filters] as const,

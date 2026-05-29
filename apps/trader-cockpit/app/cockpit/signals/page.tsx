@@ -1,12 +1,21 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { SignalsWorkspace } from "@/components/cockpit/signals/SignalsWorkspace";
+import { CockpitPageFallback } from "@/components/cockpit/shell/CockpitPageFallback";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+function SignalsPageContent() {
+  const searchParams = useSearchParams();
+  const initialSignalId = searchParams.get("signalId") ?? undefined;
 
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
+  return <SignalsWorkspace initialSignalId={initialSignalId} />;
 }
 
-export default async function SignalsPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
-  return <SignalsWorkspace initialSignalId={firstParam(params["signalId"])} />;
+export default function SignalsPage() {
+  return (
+    <Suspense fallback={<CockpitPageFallback />}>
+      <SignalsPageContent />
+    </Suspense>
+  );
 }

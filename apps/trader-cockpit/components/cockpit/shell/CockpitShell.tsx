@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   BookOpen,
@@ -71,6 +71,7 @@ const readOnlyRuntimePill = [
 export function CockpitShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const router = useRouter();
   const navCollapsed = useCockpitUiStore((state) => state.navCollapsed);
   const setNavCollapsed = useCockpitUiStore((state) => state.setNavCollapsed);
   const connectionState = useCockpitUiStore((state) => state.connectionState);
@@ -189,6 +190,8 @@ export function CockpitShell({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   prefetch={true}
+                  onMouseEnter={() => router.prefetch(item.href)}
+                  onFocus={() => router.prefetch(item.href)}
                   onClick={() => {
                     if (item.href !== pathname) {
                       setPendingHref(item.href);
@@ -236,7 +239,7 @@ export function CockpitShell({ children }: { children: ReactNode }) {
             </div>
           )}
         </aside>
-        <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden p-4" aria-busy={routePending}>
+        <main className="relative flex h-dvh min-h-0 min-w-0 flex-col overflow-y-auto p-4" aria-busy={routePending}>
           {routePending ? (
             <div
               data-testid="cockpitRouteLoading"

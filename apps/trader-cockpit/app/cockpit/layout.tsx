@@ -1,3 +1,5 @@
+"use client";
+
 import { CockpitProviders } from "@/lib/cockpit/providers";
 import { CockpitShell } from "@/components/cockpit/shell/CockpitShell";
 
