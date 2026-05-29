@@ -205,3 +205,23 @@ def test_signal_explanation_endpoint_returns_persisted_signal_context(tmp_path: 
     )
     forbidden = ("automatic buy", "automatic sell", "place order", "execute trade", "ticket_ready")
     assert not any(term in str(payload).lower() for term in forbidden)
+
+
+def test_list_signals_supports_server_side_pagination(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.post(
+        "/api/agent/run-scan",
+        json={"start": "2026-05-20", "end": "2026-05-22", "symbols": ["SPY", "TSLA", "NVDA"]},
+    )
+
+    page_one = client.get("/api/agent/signals", params={"page": 1, "page_size": 1, "status": "all"})
+    page_two = client.get("/api/agent/signals", params={"page": 2, "page_size": 1, "status": "all"})
+
+    assert page_one.status_code == 200
+    assert page_two.status_code == 200
+    payload_one = page_one.json()
+    payload_two = page_two.json()
+    assert payload_one["total"] >= 2
+    assert len(payload_one["signals"]) == 1
+    assert len(payload_two["signals"]) == 1
+    assert payload_one["signals"][0]["id"] != payload_two["signals"][0]["id"]

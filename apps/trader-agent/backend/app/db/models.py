@@ -192,6 +192,29 @@ trade_tickets = Table(
     timestamp_column("rejected_at"),
 )
 
+source_artifacts = Table(
+    "source_artifacts",
+    metadata,
+    uuid_column("id", primary_key=True, nullable=False),
+    Column("source_type", Text, nullable=False),
+    Column("path", Text, nullable=False),
+    Column("content_hash", Text),
+    Column("title", Text),
+    Column("source_date", Text),
+    Column("market_session", Text),
+    Column("mime_type", Text),
+    Column("byte_size", Integer),
+    Column("indexed_at", Text),
+    Column("index_status", Text, nullable=False, default="pending"),
+    Column("memory_eligible", Integer, nullable=False, default=1),
+    Column("memory_eligible_reason", Text),
+    Column("excluded_reason", Text),
+    json_column("metadata_json"),
+    timestamp_column("created_at"),
+    timestamp_column("updated_at"),
+    UniqueConstraint("path"),
+)
+
 agent_messages = Table(
     "agent_messages",
     metadata,
