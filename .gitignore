@@ -6,7 +6,12 @@ apps/*/.next
 apps/*/out
 .env
 .obsidian/workspace.json
+.codex-temp/
+.superpowers/
 .wrangler/
+.codex-artifacts/
+apps/*/.codex-temp/
+apps/trader-agent/backend/config.json
 docs/.vitepress/cache
 docs/.vitepress/dist
 docs/summaries/*
