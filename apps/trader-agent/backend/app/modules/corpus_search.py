@@ -10,7 +10,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
 from app.db.session import create_sqlite_engine
-from app.modules._json import loads
+from app.modules._json import json_array_like_pattern, loads
 from app.modules.markdown_section_indexer import ensure_sections_fts
 
 MAX_SEARCH_LIMIT = 50
@@ -210,7 +210,7 @@ def _filter_conditions(
     params: dict[str, Any] = {}
     if symbol:
         conditions.append('ds.symbols_json LIKE :symbol_pattern')
-        params["symbol_pattern"] = f'%"{symbol.strip().upper()}"%'
+        params["symbol_pattern"] = json_array_like_pattern(symbol.strip().upper())
     if source_type:
         conditions.append("sa.source_type = :source_type")
         params["source_type"] = source_type

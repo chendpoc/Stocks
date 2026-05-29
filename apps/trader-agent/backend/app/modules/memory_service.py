@@ -11,7 +11,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import memory_candidates, memory_items
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, loads
+from app.modules._json import dumps, json_array_contains, loads
 from app.modules.conflict_detector import find_conflicts
 
 _JSON_FIELDS = (
@@ -366,7 +366,9 @@ def list_memory_items(
         stmt = stmt.where(memory_items.c.memory_type == memory_type)
     if symbol:
         normalized_symbol = symbol.strip().upper()
-        stmt = stmt.where(memory_items.c.symbols_json.like(f'%{normalized_symbol}%'))
+        stmt = stmt.where(
+            json_array_contains(memory_items.c.symbols_json, normalized_symbol)
+        )
     fetch_limit = limit * _SYMBOL_FETCH_MULTIPLIER if symbol else limit
     stmt = stmt.offset(offset).limit(fetch_limit)
 

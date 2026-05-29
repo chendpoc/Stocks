@@ -10,7 +10,7 @@ from app.core.config import Settings
 from app.core.time import utc_now_iso
 from app.db.models import memory_candidates
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, loads
+from app.modules._json import dumps, json_array_contains, loads
 
 _JSON_FIELDS = (
     "trigger_conditions_json",
@@ -176,7 +176,9 @@ def list_candidates(
     if candidate_type:
         stmt = stmt.where(memory_candidates.c.candidate_type == candidate_type)
     if symbol:
-        stmt = stmt.where(memory_candidates.c.symbols_json.like(f'%"{symbol.strip().upper()}"%'))
+        stmt = stmt.where(
+            json_array_contains(memory_candidates.c.symbols_json, symbol.strip().upper())
+        )
     stmt = stmt.offset(offset).limit(limit)
 
     with engine.connect() as conn:

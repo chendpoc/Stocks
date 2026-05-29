@@ -28,6 +28,7 @@ from app.modules.candidate_service import (
     list_candidates as fetch_candidates,
 )
 from app.modules.conflict_detector import mark_conflict
+from app.modules.context_selector import select_context
 from app.modules.corpus_search import MAX_SEARCH_LIMIT, search_corpus
 from app.modules.document_indexer import index_local_knowledge
 from app.modules.evidence_ref import EvidenceRef
@@ -560,6 +561,63 @@ def resolve_conflict_endpoint(
         if detail == "memory item not found":
             raise HTTPException(status_code=404, detail=detail) from exc
         raise HTTPException(status_code=422, detail=detail) from exc
+
+
+class SelectContextRequest(BaseModel):
+    task_type: str
+    symbols: list[str] | None = None
+    tags: list[str] | None = None
+    market_scope: str | None = None
+    page_context: str | None = None
+    max_memories: int = 5
+    max_total_chars: int = 3000
+
+
+@knowledge_router.post("/select-context")
+def select_context_endpoint(request: Request, payload: SelectContextRequest) -> dict:
+    settings = _settings(request)
+    bootstrap_database(settings)
+
+    result = select_context(
+        settings,
+        task_type=payload.task_type,
+        symbols=payload.symbols,
+        tags=payload.tags,
+        market_scope=payload.market_scope,
+        page_context=payload.page_context,
+        max_memories=payload.max_memories,
+        max_total_chars=payload.max_total_chars,
+    )
+
+    record_agent_event(
+        settings,
+        event_type="memory_context_selected",
+        status="completed",
+        input_summary={
+            "selector_version": result.selector_version,
+            "task_type": payload.task_type,
+            "symbols": payload.symbols,
+            "tags": payload.tags,
+            "selected_memory_ids": [memory.memory_id for memory in result.memories],
+            "selected_count": len(result.memories),
+            "pool_count": result.pool_count,
+            "candidate_count": result.candidate_count,
+            "excluded_count": result.excluded_count,
+            "total_chars": result.total_chars,
+            "excluded_reasons": result.excluded_reasons,
+        },
+    )
+
+    return {
+        "memories": [asdict(memory) for memory in result.memories],
+        "total_chars": result.total_chars,
+        "pool_count": result.pool_count,
+        "candidate_count": result.candidate_count,
+        "excluded_count": result.excluded_count,
+        "selector_version": result.selector_version,
+        "selected_reasons": result.selected_reasons,
+        "excluded_reasons": result.excluded_reasons,
+    }
 
 
 # ── Signals (read-only) ──────────────────────────────────────────
