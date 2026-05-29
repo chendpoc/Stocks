@@ -230,6 +230,7 @@ memory_candidates = Table(
     json_column("symbols_json"),
     json_column("related_symbols_json"),
     json_column("asset_classes_json"),
+    json_column("tags_json"),
     Column("market_scope", Text),
     Column("confidence", Numeric),
     Column("candidate_status", Text, nullable=False, default="candidate"),

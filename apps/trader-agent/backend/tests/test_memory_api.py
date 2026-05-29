@@ -240,7 +240,83 @@ def test_get_memory_item_by_id_resolves_evidence_refs(tmp_path: Path) -> None:
     assert payload["evidence_refs"]
 
 
-def test_post_memory_items_writes_activation_event(tmp_path: Path) -> None:
+def test_post_memory_items_returns_409_on_conflict(tmp_path: Path) -> None:
+    tmp_repo = tmp_path / "repo"
+    client = _client(tmp_repo)
+    bootstrap_database(_settings(tmp_repo))
+    client.post(
+        "/api/knowledge/memory-items",
+        json={
+            "memory_type": "trading_rule",
+            "title": "Existing long",
+            "rule_text": "Buy AAPL long on breakout",
+            "symbols_json": ["AAPL"],
+            "tags_json": ["breakout"],
+        },
+    )
+    response = client.post(
+        "/api/knowledge/memory-items",
+        json={
+            "memory_type": "trading_rule",
+            "title": "Conflicting short",
+            "rule_text": "Sell AAPL short on breakdown",
+            "symbols_json": ["AAPL"],
+            "tags_json": ["breakout"],
+        },
+    )
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["detail"]["confirm_required"] is True
+    assert payload["detail"]["conflicts"]
+
+
+def test_path_b_extract_preview_to_memory_items_e2e(tmp_path: Path) -> None:
+    tmp_repo = tmp_path / "repo"
+    client = _client(tmp_repo)
+    bootstrap_database(_settings(tmp_repo))
+    mock_response = {
+        "memory_type": "trading_rule",
+        "title": "AAPL breakout rule",
+        "summary": "Buy AAPL on breakout",
+        "rule_text": "Enter long when AAPL breaks above VWAP",
+        "applicability": "US equities",
+        "invalidation": "Close below VWAP",
+        "symbols": ["AAPL"],
+        "tags": ["breakout", "momentum"],
+        "confidence": 0.72,
+    }
+    with patch(
+        "app.modules.extract_preview._call_deepseek_json",
+        return_value=mock_response,
+    ):
+        preview = client.post(
+            "/api/knowledge/extract-preview",
+            json={"text": "Remember this AAPL breakout setup"},
+        )
+    assert preview.status_code == 200
+    preview_payload = preview.json()
+    create_response = client.post(
+        "/api/knowledge/memory-items",
+        json={
+            "memory_type": preview_payload["memory_type"],
+            "title": preview_payload["title"],
+            "summary": preview_payload["summary"],
+            "rule_text": preview_payload["rule_text"],
+            "applicability": preview_payload["applicability"],
+            "invalidation": preview_payload["invalidation"],
+            "symbols_json": preview_payload["symbols"],
+            "tags_json": preview_payload["tags"],
+            "confidence": preview_payload["confidence"],
+        },
+    )
+    assert create_response.status_code == 200
+    item = create_response.json()
+    assert item["status"] == "active"
+    assert item["tags_json"] == ["breakout", "momentum"]
+    assert item["symbols_json"] == ["AAPL"]
+
+
+def test_post_memory_items_writes_created_event(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"
     settings = _settings(tmp_repo)
     bootstrap_database(settings)
@@ -253,7 +329,7 @@ def test_post_memory_items_writes_activation_event(tmp_path: Path) -> None:
     with engine.connect() as conn:
         events = conn.execute(
             select(agent_events).where(
-                agent_events.c.event_type == "memory_candidate_activated"
+                agent_events.c.event_type == "memory_item_created"
             )
         ).mappings().all()
     assert events

@@ -30,6 +30,7 @@ _CANDIDATE_JSON_FIELDS = (
     "related_symbols_json",
     "asset_classes_json",
     "review_flags_json",
+    "tags_json",
 )
 
 
@@ -52,6 +53,13 @@ class BatchResult:
     activated: list[str]
     rejected: list[str]
     skipped: list[str]
+
+
+class MemoryItemConflictError(ValueError):
+    def __init__(self, conflicts: list[dict[str, Any]]) -> None:
+        self.conflicts = conflicts
+        titles = "、".join(conflict["title"] for conflict in conflicts)
+        super().__init__(f"与已有 memory 冲突：{titles}")
 
 
 RESOLVE_CONFLICT_ACTIONS = frozenset(
@@ -102,7 +110,7 @@ def _candidate_to_memory_item(candidate: dict[str, Any]) -> dict[str, Any]:
         "symbols_json": candidate.get("symbols_json") or [],
         "related_symbols_json": candidate.get("related_symbols_json") or [],
         "asset_classes_json": candidate.get("asset_classes_json") or [],
-        "tags_json": [],
+        "tags_json": candidate.get("tags_json") or [],
         "market_scope": candidate.get("market_scope"),
         "confidence": candidate.get("confidence"),
         "status": "active",
@@ -236,7 +244,48 @@ def _activate_pending_events(
     return events
 
 
-def create_memory_item(settings: Settings, item: dict[str, Any]) -> dict[str, Any]:
+def _conflict_summaries(conn, conflict_ids: list[str]) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    for conflict_id in conflict_ids:
+        row = (
+            conn.execute(select(memory_items).where(memory_items.c.id == conflict_id))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            continue
+        item = _deserialize_memory_row(dict(row))
+        summaries.append(
+            {
+                "memory_item_id": conflict_id,
+                "title": item.get("title") or "",
+                "memory_type": item.get("memory_type"),
+            }
+        )
+    return summaries
+
+
+def _memory_item_probe(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "memory_type": item["memory_type"],
+        "title": item["title"],
+        "summary": item.get("summary"),
+        "rule_text": item.get("rule_text"),
+        "applicability": item.get("applicability"),
+        "invalidation": item.get("invalidation"),
+        "symbols_json": item.get("symbols_json") or [],
+        "tags_json": item.get("tags_json") or [],
+        "market_scope": item.get("market_scope"),
+        "status": "active",
+    }
+
+
+def create_memory_item(
+    settings: Settings,
+    item: dict[str, Any],
+    *,
+    confirm: bool = False,
+) -> dict[str, Any]:
     engine = create_sqlite_engine(settings)
     now = utc_now_iso()
     item_id = str(uuid4())
@@ -264,11 +313,40 @@ def create_memory_item(settings: Settings, item: dict[str, Any]) -> dict[str, An
         "updated_at": now,
     }
     serialized = _serialize_json_fields(row)
+    pending_events: list[_PendingEvent] = []
+    conflict_ids: list[str] = []
 
     with engine.begin() as conn:
+        active_items = _load_active_memory_items(conn)
+        conflict_ids = find_conflicts(_memory_item_probe(item), active_items)
+        if conflict_ids and not confirm:
+            raise MemoryItemConflictError(_conflict_summaries(conn, conflict_ids))
         conn.execute(memory_items.insert().values(**serialized))
 
-    return _deserialize_memory_row(row)
+    pending_events.append(
+        _PendingEvent(
+            event_type="memory_item_created",
+            status="completed",
+            input_summary={"memory_item_id": item_id},
+        )
+    )
+    for conflicting_id in conflict_ids:
+        pending_events.append(
+            _PendingEvent(
+                event_type="memory_conflict_marked",
+                status="completed",
+                input_summary={
+                    "memory_item_id": item_id,
+                    "conflicting_item_id": conflicting_id,
+                },
+            )
+        )
+    _flush_pending_events(settings, pending_events)
+
+    result = _deserialize_memory_row(row)
+    if conflict_ids:
+        result["conflicts_found"] = conflict_ids
+    return result
 
 
 def list_memory_items(

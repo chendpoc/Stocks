@@ -20,6 +20,7 @@ _JSON_FIELDS = (
     "related_symbols_json",
     "asset_classes_json",
     "review_flags_json",
+    "tags_json",
 )
 
 
@@ -105,6 +106,7 @@ def _serialize_candidate_row(
         "symbols_json": dumps(candidate.get("symbols_json")),
         "related_symbols_json": dumps(candidate.get("related_symbols_json")),
         "asset_classes_json": dumps(candidate.get("asset_classes_json")),
+        "tags_json": dumps(candidate.get("tags_json")),
         "market_scope": candidate.get("market_scope"),
         "confidence": candidate.get("confidence"),
         "candidate_status": candidate.get("candidate_status", "candidate"),

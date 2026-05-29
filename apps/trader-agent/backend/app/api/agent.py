@@ -34,6 +34,7 @@ from app.modules.evidence_ref import EvidenceRef
 from app.modules.explanation import build_signal_explanation
 from app.modules.extract_preview import extract_preview
 from app.modules.memory_service import (
+    MemoryItemConflictError,
     activate_candidate,
     batch_process,
     create_memory_item,
@@ -329,20 +330,28 @@ class CreateMemoryItemRequest(BaseModel):
     market_scope: str | None = None
     confidence: float | None = None
     evidence_refs_json: list[dict] | None = None
+    confirm: bool = False
 
 
 @knowledge_router.post("/memory-items")
 def create_memory_item_endpoint(request: Request, payload: CreateMemoryItemRequest) -> dict:
     settings = _settings(request)
     bootstrap_database(settings)
-    item = create_memory_item(settings, payload.model_dump(exclude_none=True))
-    record_agent_event(
-        settings,
-        event_type="memory_candidate_activated",
-        status="completed",
-        input_summary={"memory_item_id": item["id"]},
-    )
-    return item
+    try:
+        return create_memory_item(
+            settings,
+            payload.model_dump(exclude_none=True, exclude={"confirm"}),
+            confirm=payload.confirm,
+        )
+    except MemoryItemConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(exc),
+                "conflicts": exc.conflicts,
+                "confirm_required": True,
+            },
+        ) from exc
 
 
 @knowledge_router.get("/memory-items")

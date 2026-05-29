@@ -77,6 +77,26 @@ def test_rule_based_extracts_core_theory_as_market_mechanism(tmp_path: Path) -> 
     assert "核心理论" in candidates[0]["title"]
 
 
+def test_rule_based_extracts_tags_from_section(tmp_path: Path) -> None:
+    tmp_repo = tmp_path / "repo"
+    _write_summary_md(
+        tmp_repo,
+        body=(
+            "# 2026-05-15 每日总结\n"
+            "## 核心理论\n"
+            "theory with #breakout tag\n"
+        ),
+    )
+
+    settings = _settings(tmp_repo)
+    bootstrap_database(settings)
+    _catalog_and_index(settings)
+
+    candidates = extract_candidates_from_sections(settings)
+    assert len(candidates) == 1
+    assert "breakout" in candidates[0]["tags_json"]
+
+
 def test_rule_based_extracts_entry_condition_as_trading_rule(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"
     _write_summary_md(

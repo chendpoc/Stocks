@@ -13,6 +13,7 @@ from app.db.session import create_sqlite_engine
 from app.modules.candidate_service import create_candidates
 from app.modules.conflict_detector import mark_conflict
 from app.modules.memory_service import (
+    MemoryItemConflictError,
     activate_candidate,
     batch_process,
     create_memory_item,
@@ -266,6 +267,62 @@ def test_activate_candidate_marks_possible_conflict_on_overlap(tmp_path: Path) -
         ).mappings().one()
     flags = json.loads(candidate["review_flags_json"])
     assert "possible_conflict" in flags
+
+
+def test_create_memory_item_detects_conflict_without_confirm(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Existing long",
+            "rule_text": "Buy AAPL long on breakout",
+            "symbols_json": ["AAPL"],
+            "tags_json": ["breakout"],
+        },
+    )
+    with pytest.raises(MemoryItemConflictError):
+        create_memory_item(
+            settings,
+            {
+                "memory_type": "trading_rule",
+                "title": "Conflicting short",
+                "rule_text": "Sell AAPL short on breakdown",
+                "symbols_json": ["AAPL"],
+                "tags_json": ["breakout"],
+            },
+        )
+
+
+def test_create_memory_item_confirm_writes_created_and_conflict_events(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    bootstrap_database(settings)
+    existing = create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Existing long",
+            "rule_text": "Buy AAPL long on breakout",
+            "symbols_json": ["AAPL"],
+            "tags_json": ["breakout"],
+        },
+    )
+    created = create_memory_item(
+        settings,
+        {
+            "memory_type": "trading_rule",
+            "title": "Conflicting short",
+            "rule_text": "Sell AAPL short on breakdown",
+            "symbols_json": ["AAPL"],
+            "tags_json": ["breakout"],
+        },
+        confirm=True,
+    )
+    assert created["conflicts_found"] == [existing["id"]]
+    events = _event_types(settings)
+    assert "memory_item_created" in events
+    assert "memory_conflict_marked" in events
 
 
 def test_reject_and_merge_require_pending_candidate(tmp_path: Path) -> None:
