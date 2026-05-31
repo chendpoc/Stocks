@@ -3,34 +3,34 @@ import { z } from "zod";
 import { fetchIntel } from "../api/client";
 import { auditHypothesis } from "./auditor";
 
-export const SYSTEM_PROMPT = `?? Forward Market Intelligence Agent????????????
+export const SYSTEM_PROMPT = `你是 Forward Market Intelligence Agent，面向交易研究的市场情报助手。
 
-?????
-- ???????????????????????????
-- ??????????????11 ???
-- ???????????
-- ???????????????????????????????
+工作流程：
+- 行情 ingest → 特征扫描 → 信号 → LLM 假设 → 复盘 → Lesson → 反哺上下文
+- MVP universe 为 8 个标的（TSLA、TSLL、QQQ、SPY、ARKK、NVDA、COIN、BMNR），共 11 个工具
+- 所有数据必须通过 tool 拉取，禁止凭记忆或臆测
+- 推理必须可审计：claim、正反证据、失效条件、可验证预测必须齐全
 
-?????
-- ????????????????
-- ???????????????
-- ???????????
-- ?? 13F ???????????
+工作原则：
+- 区分专业解释（professional_explanation）与白话解释（plain_language_explanation）
+- 不使用「必涨／必跌／绝对／100%／保证」等绝对化语言
+- 相对强弱（跑赢／跑输）必须对比基准（QQQ / SPY / 大盘）
+- 含 13F／ARK 等 smart money 数据时必须标注季度延迟与价格确认
 
-????"????"?"??"??? saveHypothesis ??????
-saveHypothesis ???????claim?evidence_for ??????? hypothesis ?????? JSON ????`;
+当用户要求"分析某标的"或"复盘"时，调用 saveHypothesis 工具保存结论；
+saveHypothesis 的字段（claim、evidence_for 等）即 hypotheses 表的必填 JSON 字段。`;
 
 export const INTEL_TOOLS = {
   ingestMarketData: tool({
-    description: "???????????+5m????????",
+    description: "触发后端拉取 universe 的行情数据（日线 + 5m），写入 market_intel.db",
     parameters: z.object({}),
     execute: async () => fetchIntel("/market/ingest", { method: "POST" }),
   }),
 
   getMarketBars: tool({
-    description: "?????????K?",
+    description: "查询某标的的历史 K 线",
     parameters: z.object({
-      symbol: z.string().describe("?????? TSLA"),
+      symbol: z.string().describe("标的代码，如 TSLA"),
       timeframe: z.enum(["1d", "5m"]).default("1d"),
       limit: z.number().default(20),
     }),
@@ -41,7 +41,7 @@ export const INTEL_TOOLS = {
   }),
 
   getSignals: tool({
-    description: "???????????",
+    description: "查询已生成的信号列表，可按标的与状态过滤",
     parameters: z.object({
       symbol: z.string().optional(),
       status: z.enum(["new", "explained", "verified", "invalidated"]).optional(),
@@ -57,16 +57,16 @@ export const INTEL_TOOLS = {
   }),
 
   scanSignals: tool({
-    description: "?????????8?????????????????????",
+    description: "对全 universe（8 个标的）跑一次特征扫描，生成最新候选信号",
     parameters: z.object({}),
     execute: async () => fetchIntel("/signals/scan", { method: "POST" }),
   }),
 
   buildContext: tool({
     description:
-      "??LLM??????????????????????????????????????????????JSON??",
+      "为 LLM 组装结构化上下文包，包含行情、信号、复盘 lesson、事件、语料检索结果的统一 JSON 视图",
     parameters: z.object({
-      symbols: z.array(z.string()).describe("??????? ['TSLA','TSLL']"),
+      symbols: z.array(z.string()).describe("标的列表，如 ['TSLA','TSLL']"),
       taskType: z
         .enum([
           "signal_explanation",
@@ -74,9 +74,9 @@ export const INTEL_TOOLS = {
           "agent_conversation",
           "learning_review",
         ])
-        .describe("?????????????"),
-      query: z.string().optional().describe("????????????"),
-      signalId: z.string().optional().describe("????ID"),
+        .describe("任务类型，决定上下文组装策略"),
+      query: z.string().optional().describe("可选自然语言查询，用于语料检索"),
+      signalId: z.string().optional().describe("关联的信号 ID"),
     }),
     execute: async (params) =>
       fetchIntel("/context/build", {
@@ -86,7 +86,7 @@ export const INTEL_TOOLS = {
   }),
 
   searchCorpus: tool({
-    description: "??????????????????",
+    description: "在 Whop 群聊与文档语料中做全文检索",
     parameters: z.object({
       query: z.string(),
       symbol: z.string().optional(),
@@ -100,7 +100,7 @@ export const INTEL_TOOLS = {
   }),
 
   getEvents: tool({
-    description: "????????????????",
+    description: "查询某标的近期的新闻、宏观与社群事件",
     parameters: z.object({
       symbol: z.string().optional(),
       days: z.number().default(7),
@@ -114,7 +114,7 @@ export const INTEL_TOOLS = {
   }),
 
   getLessons: tool({
-    description: "????????",
+    description: "查询历史复盘 lesson",
     parameters: z.object({
       symbol: z.string().optional(),
       limit: z.number().default(20),
@@ -128,9 +128,9 @@ export const INTEL_TOOLS = {
 
   saveHypothesis: tool({
     description:
-      "???????????????????????signalId ?? getSignals/scanSignals",
+      "审计通过后写入交易假设（同时生成 predictions），signalId 来自 getSignals/scanSignals",
     parameters: z.object({
-      signalId: z.string().describe("?? ID?? TSLA_2026_05_31_08_higher_low_candidate"),
+      signalId: z.string().describe("信号 ID，如 TSLA_2026_05_31_08_higher_low_candidate"),
       claim: z.string(),
       professional_explanation: z.string(),
       plain_language_explanation: z.string(),
