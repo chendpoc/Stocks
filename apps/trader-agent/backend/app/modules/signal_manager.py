@@ -5,8 +5,9 @@ from typing import Any
 from uuid import uuid4
 
 from app.core.config import Settings
+from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
-from app.db.models import agent_events, signals
+from app.db.models import signals
 from app.db.session import create_sqlite_engine
 from app.modules import _json
 from app.modules.market_snapshot import MarketSnapshot
@@ -16,7 +17,6 @@ from app.modules.scoring import ScoreResult
 from app.modules.setup_detection import SetupCandidate
 
 AGENT_VERSION = "phase-1c-2"
-SIGNAL_PERSISTED = "signal_manager.signal_persisted"
 
 
 def persist_signal(
@@ -61,23 +61,43 @@ def persist_signal(
     }
 
     engine = create_sqlite_engine(settings)
-    with engine.begin() as conn:
-        conn.execute(signals.insert().values(**payload))
-        conn.execute(
-            agent_events.insert().values(
-                **_event_payload(
-                    signal_id=signal_id,
-                    timestamp=timestamp,
-                    status=status,
-                    candidate=candidate,
-                    rule_result=rule_result,
-                    serialized_signal=_serialize_signal(payload),
-                    run_id=run_id,
-                )
-            )
+    try:
+        with engine.begin() as conn:
+            conn.execute(signals.insert().values(**payload))
+        record_agent_event(
+            settings,
+            event_type="signal_persisted",
+            status="completed",
+            title=f"Signal: {candidate.symbol} {candidate.setup_type}",
+            input_summary={
+                "signal_id": signal_id,
+                "symbol": candidate.symbol,
+                "setup_type": candidate.setup_type,
+                "score": risk_result.final_score,
+                "total_score": score_result.total_score,
+                "risk_level": status,
+                "rule_name": rule_result.rule_name,
+            },
+            output_summary=_serialize_signal(payload),
+            run_id=run_id,
+            signal_id=signal_id,
+            symbol=candidate.symbol,
         )
+    except Exception:
+        with engine.begin() as conn:
+            conn.execute(signals.delete().where(signals.c.id == signal_id))
+        raise
 
     serialized = _serialize_signal(payload)
+    serialized["total_score"] = score_result.total_score
+    serialized["score_weights"] = score_result.weights
+    evidence_payload = serialized.get("evidence", {})
+    if isinstance(evidence_payload, dict):
+        candidate_payload = evidence_payload.get("candidate", {})
+        if isinstance(candidate_payload, dict):
+            serialized["evidence_refs"] = candidate_payload.get("evidence_refs", [])
+    serialized["explanation"] = candidate.reason
+    serialized["rule_text"] = candidate.trigger_condition
     return serialized
 
 
@@ -109,7 +129,7 @@ def _evidence(
             "symbol": snapshot.symbol,
             "start": snapshot.start,
             "end": snapshot.end,
-            "evidence_refs": list(snapshot.evidence_refs),
+            "evidence_refs": [ref.as_dict() for ref in snapshot.evidence_refs],
         },
     }
 
@@ -137,40 +157,4 @@ def _serialize_signal(payload: dict[str, Any]) -> dict[str, Any]:
         "evidence": _json.loads(payload["evidence"], {}),
         "risk_flags": _json.loads(payload["risk_flags"], []),
         "tool_outputs": _json.loads(payload["tool_outputs"], {}),
-    }
-
-
-def _event_payload(
-    *,
-    signal_id: str,
-    timestamp: str,
-    status: str,
-    candidate: SetupCandidate,
-    rule_result: RuleEvaluation,
-    serialized_signal: dict[str, Any],
-    run_id: str | None,
-) -> dict[str, Any]:
-    return {
-        "id": str(uuid4()),
-        "timestamp": timestamp,
-        "run_id": run_id,
-        "task_id": None,
-        "signal_id": signal_id,
-        "symbol": candidate.symbol,
-        "event_type": SIGNAL_PERSISTED,
-        "status": status,
-        "title": "Signal persisted",
-        "summary": None,
-        "input_summary": _json.dumps(
-            {
-                "module": "signal_manager",
-                "symbol": candidate.symbol,
-                "setup_type": candidate.setup_type,
-                "rule_name": rule_result.rule_name,
-            }
-        ),
-        "output_summary": _json.dumps(serialized_signal),
-        "tool_name": None,
-        "duration_ms": None,
-        "error": None,
     }

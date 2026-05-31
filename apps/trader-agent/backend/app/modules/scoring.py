@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.evidence_ref import RefType, ResolverStatus
 from app.modules.market_snapshot import MarketSnapshot
 from app.modules.rule_engine import RuleEvaluation
 from app.modules.setup_detection import SetupCandidate
@@ -151,7 +152,15 @@ def _setup_strength(candidate: SetupCandidate, max_score: float) -> float:
 
 
 def _evidence_quality(candidate: SetupCandidate, max_score: float) -> float:
-    return min(max_score, len(candidate.evidence_refs) * (max_score / 3))
+    # R0 fixtures use EvidenceRef with empty artifact_id; resolve-based scoring is deferred to R3.
+    resolved_count = len(
+        {
+            ref.artifact_id
+            for ref in candidate.evidence_refs
+            if ref.artifact_id and ref.resolver_status == ResolverStatus.RESOLVED
+        }
+    )
+    return min(max_score, max(1, resolved_count) * (max_score / 3))
 
 
 def _catalyst_score(
@@ -159,15 +168,17 @@ def _catalyst_score(
     snapshot: MarketSnapshot | None,
     max_score: float,
 ) -> float:
-    refs = set(candidate.evidence_refs)
-    if any("news" in ref or "filing" in ref for ref in refs):
+    if any(ref.ref_type == RefType.NEWS_ARCHIVE for ref in candidate.evidence_refs):
+        return max_score
+    if any(ref.ref_type == RefType.FILING_ARCHIVE for ref in candidate.evidence_refs):
         return max_score
     if snapshot is None:
         return 0
-    context_refs = {
+    candidate_ref_ids = {ref.ref_id for ref in candidate.evidence_refs}
+    context_ref_ids = {
         str(item["evidence_ref"]) for item in [*snapshot.news, *snapshot.filings]
     }
-    return max_score if refs & context_refs else 0
+    return max_score if candidate_ref_ids & context_ref_ids else 0
 
 
 def _volume_score(

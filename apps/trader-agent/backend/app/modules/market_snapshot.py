@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.modules.evidence_ref import EvidenceRef, RefType
 from app.rulepack.loader import load_rulepack
 from app.tools.local_adapter import (
     CapabilityDisabledError,
@@ -19,7 +20,7 @@ class EvidenceGap:
     capability: str | None = None
     source: str | None = None
     setup_type: str | None = None
-    evidence_refs: tuple[str, ...] = field(default_factory=tuple)
+    evidence_refs: tuple[EvidenceRef, ...] = field(default_factory=tuple)
 
 
 class EvidenceGapError(RuntimeError):
@@ -37,7 +38,7 @@ class MarketSnapshot:
     news: list[dict[str, Any]]
     filings: list[dict[str, Any]]
     calendar: list[dict[str, Any]]
-    evidence_refs: list[str]
+    evidence_refs: list[EvidenceRef]
 
 
 def build_market_snapshot(
@@ -108,6 +109,7 @@ def build_market_snapshot(
         )
 
     evidence = [*bars, *calendar, *news, *filings]
+    evidence_refs = [_evidence_ref_for_item(item) for item in evidence]
     return MarketSnapshot(
         symbol=bars[0].symbol,
         start=start,
@@ -116,22 +118,36 @@ def build_market_snapshot(
         news=[_evidence_to_record(item) for item in news],
         filings=[_evidence_to_record(item) for item in filings],
         calendar=[_evidence_to_record(item) for item in calendar],
-        evidence_refs=[
-            _evidence_ref(item.provider, item.symbol, item.timestamp) for item in evidence
-        ],
+        evidence_refs=evidence_refs,
+    )
+
+
+def _evidence_ref_for_item(evidence: Any) -> EvidenceRef:
+    provider = str(evidence.provider)
+    ref_id = f"{provider}:{evidence.symbol}:{evidence.timestamp}"
+    if provider == "fixture.news_events":
+        ref_type = RefType.NEWS_ARCHIVE
+    elif provider == "fixture.filing_events":
+        ref_type = RefType.FILING_ARCHIVE
+    else:
+        ref_type = RefType.RAW_CHAT_MESSAGE
+    return EvidenceRef(
+        ref_type=ref_type,
+        ref_id=ref_id,
+        artifact_id="",
+        artifact_path=f"{provider}:{evidence.symbol}",
+        source_date=str(evidence.timestamp),
     )
 
 
 def _evidence_to_record(evidence: Any) -> dict[str, Any]:
+    ref = _evidence_ref_for_item(evidence)
     return {
         "provider": evidence.provider,
         "timestamp": evidence.timestamp,
         "symbol": evidence.symbol,
         "payload": evidence.payload,
         "cost_category": evidence.cost_category,
-        "evidence_ref": _evidence_ref(evidence.provider, evidence.symbol, evidence.timestamp),
+        "evidence_ref": ref.ref_id,
+        "ref_type": ref.ref_type.value,
     }
-
-
-def _evidence_ref(provider: str, symbol: str, timestamp: str) -> str:
-    return f"{provider}:{symbol}:{timestamp}"

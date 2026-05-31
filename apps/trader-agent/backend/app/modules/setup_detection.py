@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from app.modules.evidence_ref import EvidenceRef, RefType
 from app.modules.market_snapshot import EvidenceGap, MarketSnapshot
 
 
@@ -14,7 +15,7 @@ class SetupCandidate:
     reason: str
     trigger_condition: str
     invalidation: str
-    evidence_refs: list[str]
+    evidence_refs: list[EvidenceRef]
     symbol: str
 
 
@@ -263,8 +264,30 @@ def _volume(bar: dict[str, Any]) -> int:
     return int(bar["payload"]["volume"])
 
 
-def _refs(records: list[dict[str, Any]]) -> list[str]:
-    return [str(item["evidence_ref"]) for item in records]
+def _refs(records: list[dict[str, Any]]) -> list[EvidenceRef]:
+    refs: list[EvidenceRef] = []
+    for item in records:
+        provider = str(item["provider"])
+        ref_id = str(item["evidence_ref"])
+        raw_type = item.get("ref_type")
+        if isinstance(raw_type, str):
+            ref_type = RefType(raw_type)
+        elif provider == "fixture.news_events":
+            ref_type = RefType.NEWS_ARCHIVE
+        elif provider == "fixture.filing_events":
+            ref_type = RefType.FILING_ARCHIVE
+        else:
+            ref_type = RefType.RAW_CHAT_MESSAGE
+        refs.append(
+            EvidenceRef(
+                ref_type=ref_type,
+                ref_id=ref_id,
+                artifact_id="",
+                artifact_path=f"{provider}:{item['symbol']}",
+                source_date=str(item["timestamp"]),
+            )
+        )
+    return refs
 
 
 def _text_blob(record: dict[str, Any]) -> str:

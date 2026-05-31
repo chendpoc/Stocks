@@ -79,11 +79,12 @@ def test_run_symbol_builds_fixture_snapshot_detects_setups_and_records_events(
         for item in symbol_result["signals"]
     )
     assert symbol_result["evidence_refs"]
+    assert symbol_result["evidence_refs"][0]["ref_type"]
 
     rows = _event_rows(settings)
     assert [row["event_type"] for row in rows] == [
         "runtime_orchestrator.run_started",
-        "signal_manager.signal_persisted",
+        "signal_persisted",
         "runtime_orchestrator.symbol_completed",
         "runtime_orchestrator.run_completed",
     ]

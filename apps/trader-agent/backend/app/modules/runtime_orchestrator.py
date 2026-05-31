@@ -14,6 +14,7 @@ from app.core.time import utc_now_iso
 from app.db.migrations import bootstrap_database
 from app.db.models import agent_events
 from app.db.session import create_sqlite_engine
+from app.modules.evidence_ref import EvidenceRef
 from app.modules.market_snapshot import EvidenceGap, EvidenceGapError, build_market_snapshot
 from app.modules.risk_engine import assess_signal_risk
 from app.modules.rule_engine import evaluate_candidate_rule
@@ -103,12 +104,10 @@ class RuntimeOrchestrator:
             "signal_count": sum(len(item["signals"]) for item in symbol_results),
             "gap_count": sum(len(item["gaps"]) for item in symbol_results),
             "error_count": sum(len(item["errors"]) for item in symbol_results),
-            "evidence_refs": sorted(
-                {
-                    evidence_ref
-                    for item in symbol_results
-                    for evidence_ref in item["evidence_refs"]
-                }
+            "evidence_refs": _dedupe_evidence_ref_dicts(
+                ref
+                for item in symbol_results
+                for ref in item.get("evidence_refs", [])
             ),
             "rulepack_version": rulepack.version,
         }
@@ -194,12 +193,10 @@ class RuntimeOrchestrator:
             if persisted is not None:
                 signals.append(persisted)
         gaps = [_serialize_gap(gap) for gap in detection.gaps]
-        evidence_refs = sorted(
-            {
-                evidence_ref
-                for item in [*candidates, *gaps]
-                for evidence_ref in item.get("evidence_refs", [])
-            }
+        evidence_refs = _dedupe_evidence_ref_dicts(
+            ref
+            for item in [*candidates, *gaps]
+            for ref in item.get("evidence_refs", [])
         )
         result = {
             "symbol": detection.symbol,
@@ -259,12 +256,8 @@ class RuntimeOrchestrator:
             "signals": [],
             "gaps": [],
             "errors": errors,
-            "evidence_refs": sorted(
-                {
-                    evidence_ref
-                    for error in errors
-                    for evidence_ref in error.get("evidence_refs", [])
-                }
+            "evidence_refs": _dedupe_evidence_ref_dicts(
+                ref for error in errors for ref in error.get("evidence_refs", [])
             ),
         }
         record_agent_event(
@@ -453,8 +446,21 @@ def _serialize_candidate(candidate: Any) -> dict[str, Any]:
 
 def _serialize_gap(gap: EvidenceGap) -> dict[str, Any]:
     payload = asdict(gap)
-    payload["evidence_refs"] = list(gap.evidence_refs)
+    payload["evidence_refs"] = [ref.as_dict() for ref in gap.evidence_refs]
     return payload
+
+
+def _dedupe_evidence_ref_dicts(refs: Any) -> list[dict[str, Any]]:
+    seen: dict[str, dict[str, Any]] = {}
+    for ref in refs:
+        if isinstance(ref, EvidenceRef):
+            payload = ref.as_dict()
+        elif isinstance(ref, dict):
+            payload = ref
+        else:
+            payload = {"ref_id": str(ref)}
+        seen[payload.get("ref_id", str(payload))] = payload
+    return sorted(seen.values(), key=lambda item: item.get("source_date", "") or "")
 
 
 def _serialize_event(row: Any) -> dict[str, Any]:

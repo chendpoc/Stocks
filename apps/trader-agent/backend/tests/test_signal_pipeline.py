@@ -12,7 +12,10 @@ from app.db.migrations import bootstrap_database
 from app.db.models import agent_events, signals
 from app.db.session import create_sqlite_engine
 from app.modules import signal_manager as signal_manager_module
+from app.db.models import memory_candidates
+from app.modules.evidence_ref import EvidenceRef, RefType
 from app.modules.market_snapshot import EvidenceGapError, build_market_snapshot
+from app.modules.memory_service import create_memory_item
 from app.modules.risk_engine import assess_signal_risk
 from app.modules.rule_engine import evaluate_candidate_rule
 from app.modules.scoring import score_candidate
@@ -112,6 +115,7 @@ def test_sharp_drop_volume_contraction_produces_waiting_trigger_without_trade_ac
 
     assert payload["status"] == "waiting_trigger"
     assert payload["evidence_refs"]
+    assert payload["evidence_refs"][0]["ref_type"] == RefType.RAW_CHAT_MESSAGE.value
     assert payload["reason"]
     assert payload["trigger_condition"]
     assert payload["invalidation"]
@@ -225,7 +229,15 @@ def test_rule_engine_maps_supported_candidate_to_enabled_rule_and_blocks_disallo
         reason="Fixture candidate used to verify RulePack symbol bounds.",
         trigger_condition="Wait for local confirmation.",
         invalidation="Invalidate on failed confirmation.",
-        evidence_refs=["fixture:AAPL:2026-05-22"],
+        evidence_refs=[
+            EvidenceRef(
+                ref_type=RefType.RAW_CHAT_MESSAGE,
+                ref_id="fixture:AAPL:2026-05-22",
+                artifact_id="",
+                artifact_path="fixture:AAPL",
+                source_date="2026-05-22",
+            )
+        ],
     )
 
     blocked = evaluate_candidate_rule(candidate=disallowed, rulepack=rulepack)
@@ -244,7 +256,15 @@ def test_rule_engine_includes_symbol_specific_required_conditions(tmp_path: Path
         reason="Fixture candidate used to verify BMNR-specific RulePack gates.",
         trigger_condition="Observe local confirmation.",
         invalidation="Invalidate if crypto context weakens.",
-        evidence_refs=["fixture.news_events:BMNR:2026-05-22"],
+        evidence_refs=[
+            EvidenceRef(
+                ref_type=RefType.NEWS_ARCHIVE,
+                ref_id="fixture.news_events:BMNR:2026-05-22",
+                artifact_id="",
+                artifact_path="fixture.news_events:BMNR",
+                source_date="2026-05-22",
+            )
+        ],
     )
 
     result = evaluate_candidate_rule(candidate=candidate, rulepack=rulepack)
@@ -356,9 +376,24 @@ def test_risk_engine_applies_pending_condition_downgrade_for_full_multiplier_sym
     )
 
 
-def test_signal_manager_persists_auditable_signal_and_signal_event(tmp_path: Path) -> None:
+def test_signal_manager_persists_auditable_signal_and_signal_event(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     settings = _settings(tmp_path)
     bootstrap_database(settings)
+    recorded_events: list[dict[str, object]] = []
+    original_record = signal_manager_module.record_agent_event
+
+    def capture_record_agent_event(*args, **kwargs):
+        recorded_events.append({"args": args, "kwargs": kwargs})
+        return original_record(*args, **kwargs)
+
+    monkeypatch.setattr(
+        signal_manager_module,
+        "record_agent_event",
+        capture_record_agent_event,
+    )
     snapshot = _snapshot(tmp_path, "TSLA")
     candidate = _tsla_sharp_drop_candidate(tmp_path)
     rulepack = load_rulepack(settings.rulepack_path)
@@ -408,9 +443,12 @@ def test_signal_manager_persists_auditable_signal_and_signal_event(tmp_path: Pat
     assert any(
         flag["type"] == "high_beta_symbol" for flag in json.loads(signal_row["risk_flags"])
     )
-    assert event_row["event_type"] == "signal_manager.signal_persisted"
+    assert event_row["event_type"] == "signal_persisted"
     assert event_row["symbol"] == "TSLA"
     assert event_row["run_id"] == "test-run-id"
+    assert len(recorded_events) == 1
+    assert recorded_events[0]["kwargs"]["event_type"] == "signal_persisted"
+    assert recorded_events[0]["kwargs"]["signal_id"] == persisted["id"]
     forbidden = ("buy", "sell", "order", "execution")
     assert not any(word in str(dict(signal_row)).lower() for word in forbidden)
 
@@ -437,10 +475,10 @@ def test_signal_manager_rolls_back_signal_when_audit_event_cannot_be_created(
         rulepack=rulepack,
     )
 
-    def fail_event_payload(**_kwargs):
+    def fail_event_record(*_args, **_kwargs):
         raise RuntimeError("audit insert failed")
 
-    monkeypatch.setattr(signal_manager_module, "_event_payload", fail_event_payload)
+    monkeypatch.setattr(signal_manager_module, "record_agent_event", fail_event_record)
 
     with pytest.raises(RuntimeError, match="audit insert failed"):
         persist_signal(

@@ -71,7 +71,7 @@ def _insert_signal(
                 task_id=None,
                 signal_id=signal_id,
                 symbol="TSLA",
-                event_type="signal_manager.signal_persisted",
+                event_type="signal_persisted",
                 status=status,
                 title="Signal persisted",
                 summary="Persisted from deterministic signal manager",
@@ -133,7 +133,7 @@ def test_waiting_trigger_explanation_names_required_trigger_and_persisted_eviden
     assert explanation["current_status"] == "waiting_trigger"
     assert "wait until TSLA reclaims VWAP" in explanation["trigger"]
     assert "before action consideration" in explanation["next_human_decision_point"]
-    assert explanation["evidence_timeline"][0]["event_type"] == "signal_manager.signal_persisted"
+    assert explanation["evidence_timeline"][0]["event_type"] == "signal_persisted"
     assert explanation["rule_hits"][0]["name"] == "market_gate"
     assert explanation["rule_hits"][1]["passed"] is False
     assert explanation["risk_flags"] == risk_flags

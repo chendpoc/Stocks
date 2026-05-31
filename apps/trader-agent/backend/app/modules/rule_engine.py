@@ -150,7 +150,7 @@ def _rule_evidence(
         "setup_type": candidate.setup_type,
         "candidate_status": candidate.status,
         "candidate_reason": candidate.reason,
-        "candidate_evidence_refs": list(candidate.evidence_refs),
+        "candidate_evidence_refs": [ref.as_dict() for ref in candidate.evidence_refs],
         "mapped_rule": None if rule is None else rule.name,
         "required_conditions": [] if rule is None else list(rule.config.get("required", [])),
         "condition_results": condition_results,
@@ -293,9 +293,9 @@ def _candidate_relative_volume(
     if snapshot is None:
         return None
 
-    candidate_refs = set(candidate.evidence_refs)
+    candidate_ref_ids = {ref.ref_id for ref in candidate.evidence_refs}
     candidate_bars = [
-        item for item in snapshot.bars if str(item["evidence_ref"]) in candidate_refs
+        item for item in snapshot.bars if str(item["evidence_ref"]) in candidate_ref_ids
     ]
     if not candidate_bars:
         return None
@@ -317,7 +317,7 @@ def _candidate_relative_volume(
     baseline_candidates = [
         _float_or_none(item["payload"].get("volume"))
         for item in snapshot.bars
-        if str(item["evidence_ref"]) not in candidate_refs
+        if str(item["evidence_ref"]) not in candidate_ref_ids
     ]
     baselines = [value for value in baseline_candidates if value is not None and value > 0]
     candidate_volumes = [
