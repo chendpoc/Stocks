@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest apps/trader-agent/backend/tests/test_markdown_section_indexer.py -v --tb=short)",
+      "Bash(.venv/Scripts/python.exe -m ruff check apps/trader-agent/backend/tests/test_markdown_section_indexer.py)",
+      "Bash(.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_artifact_catalog.py -v --tb=short)",
+      "Bash(.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_corpus_search.py -v --tb=short)",
+      "Bash(.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_evidence_ref.py apps/trader-agent/backend/tests/test_candidate_extractor.py apps/trader-agent/backend/tests/test_candidate_api.py -v --tb=short)",
+      "Bash(.venv/Scripts/python.exe -m ruff check apps/trader-agent/backend/app/modules/evidence_ref.py apps/trader-agent/backend/app/modules/candidate_extractor.py apps/trader-agent/backend/app/modules/candidate_service.py apps/trader-agent/backend/app/api/agent.py)",
+      "Bash(.venv/Scripts/python.exe -c ':*)"
+    ]
+  }
+}
