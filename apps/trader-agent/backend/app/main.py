@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.agent import knowledge_router
 from app.api.agent import router as agent_router
 from app.core.config import Settings
+from app.intel.api import intel_router
+from app.intel.db.schema import init_intel_db
 
 _DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
@@ -28,11 +30,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
+    def health() -> dict[str, str | int]:
+        intel_route_count = sum(
+            1
+            for route in app.routes
+            if getattr(route, "path", None) and "/api/intel" in route.path
+        )
+        return {"status": "ok", "intel_route_count": intel_route_count}
 
     app.include_router(agent_router)
     app.include_router(knowledge_router)
+    app.include_router(intel_router, prefix="/api/intel")
+    init_intel_db(app.state.settings)
     return app
 
 

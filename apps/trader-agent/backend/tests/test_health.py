@@ -11,7 +11,9 @@ def test_health_returns_ok() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["intel_route_count"] >= 14
 
 
 def test_cors_preflight_allows_local_cockpit_origin() -> None:
