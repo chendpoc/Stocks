@@ -1,1255 +1,889 @@
-# Forward Market Intelligence — MVP Worker Prompt
+# CLI TUI V2 — Worker Prompt
 
-Target model: Cursor Composer 2.5
-Source plan: [03-forward-market-intel-mvp-plan.md](./03-forward-market-intel-mvp-plan.md)
-Source design: `docs/01-forward-market-intelligence-system-design.md`, `docs/02-mvp-module-development-plan.md`
-Generated: 2026-05-30
-Updated: 2026-05-30 (architecture decision: LLM in CLI only, Python backend = pure data/tool layer)
-
----
-
-## Architecture Decision (Confirmed)
-
-```
-┌─────────────────────────────────────────────────┐
-│  CLI (Agent Layer) — TypeScript + Vercel AI SDK  │
-│                                                   │
-│  LLM 在这里运行。通过 tool call 调用后端能力：      │
-│    buildContext / getSignals / searchCorpus /      │
-│    getLessons / saveHypothesis / ...               │
-│                                                   │
-│  ✅ LLM API key 配置在 CLI 侧 (.env)               │
-│  ✅ Auditor 在 CLI 侧运行（TS）                    │
-└───────────────┬─────────────────────────────────┘
-                │ HTTP POST /api/intel/*
-                ▼
-┌─────────────────────────────────────────────────┐
-│  Python FastAPI 后端 (Tool Layer)                  │
-│                                                   │
-│  只做数据检索和结构化输出。不做推理，不调 LLM。     │
-│    /api/intel/context/build     ← 核心端点         │
-│    /api/intel/market/ingest                        │
-│    /api/intel/signals/scan                         │
-│    /api/intel/hypotheses (CRUD)                    │
-│    /api/intel/lessons (CRUD)                       │
-│    /api/intel/jobs/premarket                       │
-│    /api/intel/jobs/close                           │
-│                                                   │
-│  内部依赖: select_context() / search_corpus()      │
-│           market_bars / events / patterns DB       │
-│                                                   │
-│  ❌ 不需要 LLM API key                             │
-│  ❌ 不包含 app/intel/llm/ 目录                     │
-└─────────────────────────────────────────────────┘
-```
+Target: Cursor Composer 2.5
+Spec: `.agent-dev/specs/cli-tui-v2/spec.json`
+Decisions: `.agent-dev/specs/cli-tui-v2/decision-record.json` (D101-D114)
+Context: `.agent-dev/context/code_map.md`
 
 ---
 
-Implement the Forward Market Intelligence MVP. This is a new system built as a subdirectory
-`app/intel/` inside the existing `apps/trader-agent/backend/` project.
-
-## What stays vs what's new
+## 架构约束
 
 ```
-KEEP (read-only import):
-  app/modules/evidence_ref.py        → EvidenceRef, RefType, ResolverStatus
-  app/modules/corpus_search.py       → search_corpus(settings, query, symbol=..., limit=...)
-  app/modules/_json.py               → dumps(), loads()
-  app/core/events.py                 → record_agent_event()
-  app/core/time.py                   → utc_now_iso()
-  app/core/config.py                 → Settings
-  app/db/session.py                  → create_sqlite_engine()
+CLI 层:
+  Commander.js（路由）→ ink v7（TUI 入口：trader 默认 / trader chat 无 --eval）
+                       → 文本输出（analyze / scan / report / chart / data / config / server / chat --eval）
 
-NOTE: context_selector.py and memory_service.py are NOT imported.
-The new system uses its own context/intel/selector.py (reads from market_intel.db's lessons table).
-
-DO NOT MODIFY any file under app/modules/ or app/core/.
-
-NEW:
-  app/intel/                          → Python 后端（纯数据层，不包括 LLM）
-  data/market_intel.db                → 新 SQLite 数据库
-  apps/trader-cli/                    → TypeScript CLI（包含 LLM + tool use）
+后端层:
+  FastAPI :8000
+    /api/intel/context/build       — 新增 related_hypotheses 注入（D102）
+    /api/intel/report/check + save — 新增 report_cache 路由（D105/D113）
+    /api/intel/news/ingest         — 新增 news_crawler 路由（D103）
+    /api/intel/signals/scan        — 响应新增 anomaly_dashboard / pattern_alerts / cross_asset（D111）
+    /api/intel/hypotheses          — 扩 SELECT 字段补 professional_explanation（D102 配套）
 ```
 
-## Repository root
+## What NOT to do
 
-D:\workspace\01-products\stock-community-summary
+- 不修改 `apps/trader-agent/backend/app/modules/`, `apps/trader-agent/backend/app/core/`, `apps/trader-cockpit/`
+- 不废弃 Commander.js
+- 不为 TUI 和命令行各维护一份业务逻辑（共享 `api/client.ts`）
+- 不新建 `app/intel/db/migrations_v2.py`（D114 — 所有 schema 演进进 `schema.py` 单文件 + `_migrate_*_columns`）
+- 不把 `cross_asset` / `pattern_matcher` 塞进 `SCANNERS` registry（D111 — 类型不匹配，作为独立 pass）
 
 ---
 
-## Cross-Cutting Requirements (ALL Phases)
+## Step 0：前置 — 修 tools.ts 编码 mojibake
 
-### Logging
-
-Python 后端使用 `logging` 模块。在 `app/intel/__init__.py` 中创建 logger：
-
-```python
-import logging
-import os
-import sys
-
-logger = logging.getLogger("intel")
-_level = os.getenv("INTEL_LOG_LEVEL", "INFO").upper()
-logger.setLevel(getattr(logging, _level, logging.INFO))
-_handler = logging.StreamHandler(sys.stderr)
-_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s %(name)s:%(lineno)d — %(message)s"))
-logger.addHandler(_handler)
-logger.propagate = False
-```
-
-每个 `app/intel/` 下的模块导入 `from app.intel import logger` 并记录关键操作。
-
-### Error Handling
-
-所有外部调用（yfinance、HTTP fetch、DB write）必须包裹 try/except：
-
-- **yfinance 超时/无数据**: 返回空列表，log warning，继续下一个 symbol
-- **DB 写入失败**: log error，raise（让 FastAPI 返回 500）
-- **select_context / search_corpus 失败**: 返回空结果，log warning，继续（优雅降级）
-
-### API Authentication
-
-MVP（单用户、本机部署）不做认证。所有 `/api/intel/*` 端点开放。
-**已知缺口** — 网络部署前必须解决。
-
-### Testing
-
-每个 Phase 至少一个集成测试：
+现状 `apps/trader-cli/src/llm/tools.ts` 所有中文都是 `?`（GBK→UTF-8 解码错误），P1 必须先修这个文件再 modify，否则在乱码基础上 modify 会越改越乱。
 
 ```bash
-.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_phase{N}_{feature}.py -v --tb=short
+# 1. 用 git 查最近一次正确编码的版本（如有）
+git log --oneline apps/trader-cli/src/llm/tools.ts
+
+# 2. 如果远端无正确版本，按 spec 重写以下中文字段（保留所有 import / 函数结构 / tool 名称不变）：
+#    - SYSTEM_PROMPT 多行中文
+#    - 每个 tool 的 description 字段
+#    - 每个 z.string().describe(...) 中的中文
 ```
 
-CLI 侧不需要测试（MVP 阶段 CLI 通过手动词法验证）。
+如有疑问参考 `.agent-dev/specs/forward-market-intel/spec.md` 中关于 LLM 系统提示词的描述，**不要凭空编**。修完后保存为 UTF-8 BOM-less，确认 `Get-Content -Encoding UTF8 tools.ts | Select-String "Forward"` 输出可读。
 
 ---
 
-## Phase 0: Project Init + Schema
+## Phase 0: ink TUI 框架搭建
 
-### Files
-- `apps/trader-agent/backend/app/intel/__init__.py`（含 logger 配置）
-- `apps/trader-agent/backend/app/intel/db/__init__.py`
-- `apps/trader-agent/backend/app/intel/db/connection.py`
-- `apps/trader-agent/backend/app/intel/db/schema.py`
+### 依赖
 
-### `intel/db/connection.py`
-
-```python
-from sqlalchemy import create_engine, event
-from pathlib import Path
-
-INTEL_DB_PATH = Path("data/market_intel.db")
-
-def get_intel_engine():
-    engine = create_engine(f"sqlite:///{INTEL_DB_PATH}", echo=False)
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA busy_timeout=5000")
-        cursor.close()
-    return engine
+```bash
+cd apps/trader-cli
+npm install ink@7 ink-ui react asciichart
+npm install --save-dev @types/react
 ```
 
-### `intel/db/schema.py`
+### 文件结构
 
-11 张表，基于 `docs/02-mvp-module-development-plan.md` §5.1-5.12 的 SQL，做以下调整：
-
-1. **`events.affected_symbols`**: JSON 数组 `'["TSLA","TSLL"]'`（不用逗号分隔 TEXT），查询用 `_json.json_array_like_pattern`
-2. **`predictions`**: 增加 `reference_price REAL` 列（prediction 创建时的收盘价，Phase 6 评估必需）
-3. **`signal_id` 格式**: `{SYMBOL}_{YYYY}_{MM}_{DD}_{HH}_{signal_type}`（小时粒度，允许同日多次触发）
-4. **`lessons` 表扩展**（见下方 §5.11 修订）
-
-Tables: `symbols`, `market_bars`, `events`, `smart_money_actions`, `patterns`, `signals`, `hypotheses`, `predictions`, `outcomes`, `lessons`, `trade_ideas`.
-
-#### lessons 表扩展
-
-基于 02-mvp-plan §5.11 的原始定义，新增以下列以支持 context injection：
-
-```sql
-CREATE TABLE IF NOT EXISTS lessons (
-  lesson_id TEXT PRIMARY KEY,
-  ts TEXT NOT NULL,
-  symbol TEXT,
-  symbols_json TEXT,          -- NEW: 多 symbol JSON 数组 '["TSLA","TSLL"]'
-  pattern_id TEXT,
-  explanation_type TEXT,
-  market_regime TEXT,
-  lesson_text TEXT NOT NULL,
-  summary TEXT,               -- NEW: 200 字摘要，供 context injection 截断
-  rule_text TEXT,             -- NEW: 提炼后的规则文本
-  tags_json TEXT,             -- NEW: 标签数组 '["lesson","postmortem","supported"]'
-  confidence REAL DEFAULT 0.5,-- NEW: 0-1，复盘 verdict="supported"→0.7-0.9
-  source_type TEXT,           -- NEW: seed / postmortem / manual
-  when_to_apply TEXT,
-  when_not_to_apply TEXT,
-  weight_update TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
+```
+apps/trader-cli/src/tui/
+  app.tsx              ← ink 主入口 <App> 组件
+  components/
+    Sidebar.tsx        ← 左侧菜单（dashboard / chat / signals / lessons / settings）
+    ContentArea.tsx    ← 右侧内容区（根据选中菜单渲染 page）
+    StatusBar.tsx      ← 顶部状态栏（price / signal_count / health）
+    HotkeyBar.tsx      ← 底部快捷键栏
+  pages/
+    DashboardPage.tsx
+    ChatPage.tsx       ← P1 实现
+    SignalsPage.tsx
+    LessonsPage.tsx
+    SettingsPage.tsx
 ```
 
-### Seed Data
+### Commander.js 集成（D101 + D112）
 
-**8 个 MVP 标的**:
+```typescript
+// src/index.ts
+program
+  .command("tui", { isDefault: true })  // trader 无参数 → TUI
+  .action(async () => { /* render <App /> */ });
 
-```python
-MVP_SYMBOLS = [
-    ("TSLA", "Tesla Inc", "stock", "Consumer Discretionary", "QQQ", None),
-    ("TSLL", "Direxion Daily TSLA Bull 2X", "leveraged_etf", None, "QQQ", "TSLA"),
-    ("QQQ", "Invesco QQQ Trust", "etf", None, None, None),
-    ("SPY", "SPDR S&P 500 ETF", "etf", None, None, None),
-    ("ARKK", "ARK Innovation ETF", "etf", None, "QQQ", None),
-    ("NVDA", "NVIDIA Corp", "stock", "Technology", "QQQ", None),
-    ("COIN", "Coinbase Global", "stock", "Financials", "QQQ", None),
-    ("BMNR", "Bitcoin Miner", "stock", "Crypto", "QQQ", None),
-]
+program
+  .command("chat")
+  .option("--eval <prompt>", "Non-interactive one-shot prompt (CI smoke)")
+  .action(async (opts: { eval?: string }) => {
+    if (opts.eval) {
+      // D112: --eval 走旧 readline / chatEval 路径，保留 CI 兼容
+      await chatEval(opts.eval);
+      return;
+    }
+    // 无 --eval → 进 ink TUI ChatPage
+    const { render } = await import("ink");
+    const { ChatPage } = await import("./tui/pages/ChatPage");
+    render(<ChatPage />);
+  });
+
+// 以下保持命令行文本输出
+program.command("analyze <symbol>").action(analyze);
+program.command("scan").action(scan);
+program.command("report <symbol>").action(report);
+program.command("chart <symbol>").action(chart);
+program.command("server <action>").action(server);
+program.command("data <action>").action(data);
+program.command("config <action>").action(config);
 ```
 
-**5 条初始 patterns**:
+ink 渲染：
 
-```python
-MVP_PATTERNS = [
-    ("higher_low_accumulation", "technical",
-     "更高低点+下跌缩量=卖压可能衰竭。确认需反弹放量或站回关键位。风险：缩量也可能是无人买入。",
-     "回踩→低点高于前低→成交量低于前次下跌",
-     "回踩不破前低+下跌缩量", "放量跌破前低且无收回",
-     '["TSLA","TSLL","NVDA"]', 0.65, 0),
-    ("volume_contraction_pullback", "technical",
-     "缩量回踩支撑位是潜在吸筹信号。必须等放量反弹确认，不能单独作为入场依据。",
-     "下跌→缩量→触及支撑区域",
-     "触及支撑+缩量+未破位", "放量跌破支撑且无收回",
-     '["TSLA","TSLL","QQQ"]', 0.60, 0),
-    ("vwap_reclaim", "technical",
-     "价格站回VWAP上方且放量=盘中买方重新控盘。风险：无量站回VWAP后快速回落。",
-     "盘中跌破VWAP→反弹→站回VWAP",
-     "站回VWAP+放量+QQQ配合", "无量站回或QQQ反向破位",
-     '["TSLA","TSLL","NVDA","QQQ"]', 0.70, 0),
-    ("relative_strength_divergence", "technical",
-     "个股在QQQ下跌时抗跌=有独立买盘支撑。需区分真实强势vs滞后补跌。",
-     "QQQ下跌→个股不跟跌或跌幅明显更小",
-     "QQQ跌>1%且个股跌<0.3%或上涨", "个股补跌且放量跌破前低",
-     '["TSLA","NVDA","COIN","BMNR"]', 0.60, 0),
-    ("taco_pattern", "macro",
-     "Trump强硬威胁→市场恐慌下跌→政策软化/延期→反弹。宏观节奏模式，非精确入场信号。风险：政策可能不软化。",
-     "政策威胁→市场Risk-off→后续软化信号",
-     "威胁言论+VIX上升+后续出现软化迹象", "政策升级而非软化，或VIX持续上行",
-     '["QQQ","SPY","TSLA","TSLL","ARKK"]', 0.55, 0),
-]
+```typescript
+import { render } from "ink";
+render(<App />);
 ```
 
-### Seed Lessons（冷启动）
+### P0 验收
 
-Phase 0 通过 `app/intel/ingestion/seed_lessons.py` 批量扫描 `docs/summaries/`，用 LLM 提取 3-5 条典型交易规律，写入 `lessons` 表。
-
-```python
-# app/intel/ingestion/seed_lessons.py
-"""扫描 docs/summaries/ 中最近的总结文档，用 LLM 提取可复用交易规律，
-作为 seed lessons 写入新 DB。Phase 0 运行一次。"""
-
-def extract_seed_lessons(settings) -> int:
-    """返回写入的 lesson 数量。LLM 不可用时返回 0（不阻塞 Phase 0）。"""
-    ...
-```
-
-输出格式（写入 lessons 表）：
-```json
-{
-  "lesson_id": "seed_001",
-  "symbols_json": "[\"TSLA\",\"TSLL\"]",
-  "summary": "TSLL 回踩高于前低且缩量=卖压衰减信号",
-  "rule_text": "回踩低点高于前低 + 下跌成交量低于前次 → 观察。确认需反弹放量站回关键位。",
-  "tags_json": "[\"seed\",\"technical\",\"higher_low\"]",
-  "confidence": 0.7,
-  "source_type": "seed"
-}
-```
-
-### API 路由注册
-
-在 `app/main.py` 中：
-
-```python
-from app.intel.api import intel_router
-app.include_router(intel_router, prefix="/api/intel")
+```bash
+cd apps/trader-cli && npx tsx src/index.ts
+# → 终端清屏，显示左侧菜单 + 右侧空白内容区 + 底部快捷键栏
+# → Ctrl+C 正常退出
 ```
 
 ---
 
-## Phase 1: Market Data Ingestion
+## Phase 1: chat TUI + related_hypotheses 注入
 
-### Files
-- `apps/trader-agent/backend/app/intel/ingestion/__init__.py`
-- `apps/trader-agent/backend/app/intel/ingestion/market_data.py`
+### 关键决策
 
-### `market_data.py`
+- **D102** — context/build 注入 related_hypotheses（业务记录层，来自 hypotheses 表 SQL）
+- **D108** — chat 对话历史是客户端 messages 内存（最近 20 轮），跟 D102 完全独立
+- **D112** — `chat --eval` 走旧 readline 路径
+
+### D102 实施 — `app/intel/api/context.py` 加 helper
+
+在 `build_context()` 末尾追加：
 
 ```python
-import yfinance as yf
-import pandas as pd
-import time
-from dataclasses import dataclass
-from app.intel import logger
+context["related_hypotheses"] = _list_related_hypotheses(engine, symbols, limit=3)
+```
 
-@dataclass
-class Bar:
-    symbol: str; timeframe: str; ts: str
-    open: float; high: float; low: float; close: float; volume: float
-    vwap: float | None; source: str
+新增 helper（放在 `_list_signals_for_symbols` 旁边）：
 
-def _estimate_vwap(row) -> float:
-    """VWAP 降级：yfinance 不提供时用 (H+L+C)/3 近似。"""
-    return round((row.get("High", 0) + row.get("Low", 0) + row.get("Close", 0)) / 3, 2)
-
-def fetch_daily_bars(symbol: str, lookback_days: int = 120) -> list[Bar]:
-    """拉取日线 OHLCV。yfinance 错误时返回空列表，不崩溃。"""
-    try:
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=f"{lookback_days}d")
-        if df.empty:
-            logger.warning(f"No daily data for {symbol}")
-            return []
-        bars = []
-        for ts, row in df.iterrows():
-            vwap = row.get("VWAP") if "VWAP" in df.columns and pd.notna(row.get("VWAP")) else None
-            if vwap is None:
-                vwap = _estimate_vwap(row)
-            bars.append(Bar(symbol=symbol, timeframe="1d", ts=ts.isoformat(),
-                open=float(row["Open"]), high=float(row["High"]),
-                low=float(row["Low"]), close=float(row["Close"]),
-                volume=float(row["Volume"]), vwap=vwap, source="yfinance"))
-        return bars
-    except Exception as e:
-        logger.warning(f"Failed daily bars for {symbol}: {e}")
+```python
+def _list_related_hypotheses(engine, symbols: list[str], limit: int = 3) -> list[dict]:
+    """同 symbol 最近 N 条 hypothesis，按 created_at 倒序。D102。"""
+    if not symbols:
         return []
-
-def fetch_minute_bars(symbol: str, interval: str = "5m", lookback_days: int = 30) -> list[Bar]:
-    """拉取分钟线。同上错误处理。"""
-    ...
-
-def ingest_mvp_symbols() -> dict:
-    """8 个标的全量导入。返回 {symbol: (daily_count, minute_count)}。
-    增量逻辑：先查 DB 最新 ts，只拉新数据。yfinance 调用间隔 2s 防限流。"""
-    ...
+    placeholders = ",".join(f":sym{i}" for i in range(len(symbols)))
+    params = {f"sym{i}": s.upper() for i, s in enumerate(symbols)}
+    params["limit"] = limit
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                f"""
+                SELECT created_at, claim, professional_explanation, confidence,
+                       tradability, symbol
+                FROM hypotheses
+                WHERE symbol IN ({placeholders})
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            ),
+            params,
+        ).mappings().all()
+    return [
+        {
+            "date": r["created_at"],
+            "claim": r["claim"],
+            "professional_explanation": r["professional_explanation"],
+            "confidence": r["confidence"],
+            "tradability": r["tradability"],
+            "symbol": r["symbol"],
+        }
+        for r in rows
+    ]
 ```
 
-关键要求：
-- **VWAP 降级**: `_estimate_vwap()` 确保 `distance_to_vwap` / `reclaim_vwap` feature 不因数据缺失而失效
-- **去重**: `INSERT OR IGNORE` on `UNIQUE(symbol, timeframe, ts)`
-- **增量**: 查 DB 最新 ts → 只拉新数据
-- **限流**: `time.sleep(2)` between yfinance calls
+### D102 配套 — `app/intel/api/hypotheses.py` 扩 SELECT
 
-### API
+现有 `list_hypotheses` 的 SELECT 没拿 `professional_explanation`。改为：
 
 ```python
-# intel/api/market.py
-@router.post("/market/ingest")
-def ingest_market_data():
-    result = ingest_mvp_symbols()
-    return {"status": "ok", "results": result}
+SELECT hypothesis_id, signal_id, ts, symbol, claim,
+       professional_explanation, plain_language_explanation,
+       confidence, tradability, invalidation_condition, status, created_at
+FROM hypotheses
 ```
 
----
+这一步同时让 `GET /api/intel/hypotheses?symbol=X` 端点也能返回详细字段，CLI 的 `getRelatedHypotheses` tool 可直接复用。
 
-## Phase 2: Feature Scanner
-
-### Files
-- `apps/trader-agent/backend/app/intel/features/__init__.py`
-- `apps/trader-agent/backend/app/intel/features/scanner.py`
-
-### Features (10)
-
-```python
-def calc_relative_return_vs_qqq(symbol, bars_daily, qqq_bars): ...
-def calc_volume_vs_20d_avg(symbol, bars_daily): ...
-def calc_distance_to_vwap(symbol, bars_minute): ...
-def detect_higher_low(symbol, bars_daily): ...
-def detect_lower_high(symbol, bars_daily): ...
-def detect_pullback_to_support(symbol, bars_daily): ...
-def detect_break_previous_low(symbol, bars_daily): ...
-def detect_reclaim_vwap(symbol, bars_minute): ...
-def calc_trend_strength(symbol, bars_daily): ...
-def detect_volume_contraction(symbol, bars_daily): ...
-```
-
-### Scanner registry
-
-```python
-SCANNERS = [
-    ("relative_weakness", calc_relative_return_vs_qqq, "relative_weakness", "{symbol} 相对 QQQ 表现异常"),
-    ("volume_vs_avg", calc_volume_vs_20d_avg, "volume_anomaly", "{symbol} 成交量异于 20 日均量"),
-    ("distance_to_vwap", calc_distance_to_vwap, "vwap_distance", "{symbol} 价格远离 VWAP"),
-    ("higher_low", detect_higher_low, "higher_low_candidate", "{symbol} 可能形成更高低点"),
-    ("lower_high", detect_lower_high, "lower_high_candidate", "{symbol} 可能形成更低高点"),
-    ("pullback", detect_pullback_to_support, "pullback_to_support", "{symbol} 回踩支撑位"),
-    ("break_low", detect_break_previous_low, "break_previous_low", "{symbol} 跌破前低"),
-    ("reclaim_vwap", detect_reclaim_vwap, "reclaim_vwap", "{symbol} 站回 VWAP"),
-    ("trend_strength", calc_trend_strength, "trend_strength_change", "{symbol} 趋势强度变化"),
-    ("volume_contraction", detect_volume_contraction, "volume_contraction", "{symbol} 下跌缩量"),
-]
-```
-
-### Signal format
-
-```json
-{
-  "signal_id": "TSLL_2026_05_30_10_higher_low_candidate",
-  "ts": "2026-05-30T10:30:00",
-  "symbol": "TSLL",
-  "signal_type": "higher_low_candidate",
-  "raw_description": "TSLL 回踩低点高于前低，成交量低于上次下跌",
-  "severity": 0.7,
-  "feature_snapshot": "{\"higher_low\": true, \"volume_contraction\": true}",
-  "status": "new"
-}
-```
-
-- **signal_id**: `{SYMBOL}_{YYYY}_{MM}_{DD}_{HH}_{signal_type}` — 小时粒度
-- **去重**: `INSERT OR IGNORE` on UNIQUE(signal_id)
-- **状态流**: `new` → (LLM 解释后) → `explained` → (outcome 后) → `verified` / `invalidated`
-
-### API
-
-```python
-@router.post("/signals/scan")
-def scan_signals(): ...
-
-@router.get("/signals")
-def list_signals(symbol: str | None = None, limit: int = 50): ...
-```
-
----
-
-## Phase 3: Events & Smart Money
-
-### Files
-- `apps/trader-agent/backend/app/intel/ingestion/events_ingest.py`
-- `apps/trader-agent/backend/app/intel/api/market.py`（增加 event 端点）
-
-### API
-
-```python
-@router.post("/events")
-def create_event(ts: str, event_type: str, title: str, raw_text: str,
-                 actor: str | None = None, affected_symbols: str | None = None,
-                 source: str = "manual"):
-    """
-    affected_symbols: JSON 数组 '["TSLA","TSLL"]'（不用逗号分隔）
-    """
-    ...
-
-@router.get("/events")
-def list_events(symbol: str | None = None, days: int = 7, limit: int = 20): ...
-```
-
-### Smart Money (ARK)
-
-```python
-def fetch_ark_trades(symbol: str | None = None):
-    """https://arkfunds.io/api/ (免费，无需 key)。不可用时 log warning，返回空。"""
-    ...
-```
-
----
-
-## Phase 4: Context Assembly Endpoint（核心）
-
-### 背景
-
-**Python 后端不调用 LLM。** 后端只负责检索和组装上下文，以结构化 JSON 返回。
-CLI 中的 LLM 通过 tool call 调用此端点，拿到上下文后自己做推理。
-
-### Files
-- `apps/trader-agent/backend/app/intel/api/__init__.py`
-- `apps/trader-agent/backend/app/intel/api/context.py`
-- `apps/trader-agent/backend/app/intel/context/__init__.py`
-- `apps/trader-agent/backend/app/intel/context/selector.py`  ← NEW
-
-### `context/selector.py` — 新 context selector
-
-```python
-# app/intel/context/selector.py
-"""从新 DB 的 lessons 表按 symbol/tags/confidence 评分选取上下文记忆。
-替代旧的 select_context（只读旧 DB 的 memory_items），只读新 DB。
-预算：10 条 / 600 字符每条 / 6000 字符总。
-
-评分权重：
-  - symbol 匹配: 30
-  - tag 匹配: 25
-  - confidence: 20
-  - source_type (postmortem > seed > manual): 10
-  - recency: 15
-"""
-from app.intel.db.connection import get_intel_engine
-from app.intel import logger
-
-def select_lessons(engine, *, symbols, tags=None, max_items=10, 
-                   max_chars_per=600, max_total=6000) -> list[dict]:
-    """返回按评分排序的 lessons，用于上下文注入。"""
-    ...
-```
-
-### `context.py` — `POST /api/intel/context/build`
-
-```python
-from app.modules.corpus_search import search_corpus
-from app.intel.context.selector import select_lessons
-from app.intel.db.connection import get_intel_engine
-from app.intel import logger
-from app.core.config import Settings
-
-@router.post("/context/build")
-def build_context(
-    symbols: list[str],
-    task_type: str,
-    query: str | None = None,
-    signal_id: str | None = None,
-):
-    """
-    组装 LLM 分析所需的全量上下文。不做推理，不做总结，只做检索和组装。
-
-    输入:
-      symbols:   关注的标的列表，e.g. ["TSLA", "TSLL"]
-      task_type: 任务类型 — "signal_explanation" | "market_intent_explanation" 
-                 | "agent_conversation" | "learning_review"
-      query:     可选搜索查询（用于 corpus search）
-      signal_id: 可选，如果指定则只返回该信号
-
-    返回:
-      {
-        "market_data": {symbol: {daily: [...], minute: [...]}},
-        "benchmark": {"QQQ": [...], "SPY": [...]},
-        "signals": [{...}],
-        "events": [{...}],
-        "memory": [{title, summary, rule_text, symbols, confidence}],
-        "corpus": [{section_id, heading_path, snippet, symbols}],
-        "patterns": [{name, description, trigger_conditions}],
-        "lessons": [{lesson_text, verdict, symbol}]
-      }
-    """
-    settings: Settings = request.app.state.settings
-    engine = get_intel_engine()
-    context = {}
-
-    # 1. Market bars（每个 symbol 20 条日线 + 50 条 5m 线）
-    context["market_data"] = {}
-    for s in symbols:
-        context["market_data"][s] = _fetch_recent_bars(engine, s)
-
-    # 2. Benchmark（QQQ/SPY 最近 5 条日线）
-    context["benchmark"] = {
-        "QQQ": _fetch_recent_bars(engine, "QQQ", limit=5, timeframe="1d"),
-        "SPY": _fetch_recent_bars(engine, "SPY", limit=5, timeframe="1d"),
-    }
-
-    # 3. Signals
-    if signal_id:
-        context["signals"] = [_get_signal(engine, signal_id)]
-    else:
-        context["signals"] = _list_signals(engine, symbols, days=3)
-
-    # 4. Events（最近 7 天）
-    context["events"] = _list_events(engine, symbols, days=7)
-
-    # 5. 经验上下文（intel context selector）
-    #    从新 DB 的 lessons 表选取。预算：10 条 / 600 字符每条 / 6000 字符总
-    try:
-        engine = get_intel_engine()
-        lessons = select_lessons(engine, symbols=symbols)
-        context["lessons"] = [
-            {"lesson_id": l["lesson_id"], "symbols": l.get("symbols_json"),
-             "summary": l.get("summary"), "rule_text": l.get("rule_text"),
-             "tags": l.get("tags_json"), "confidence": l.get("confidence"),
-             "source_type": l.get("source_type")}
-            for l in lessons
-        ]
-        context["lessons_meta"] = {"selected_count": len(lessons)}
-    except Exception as e:
-        logger.warning(f"select_lessons failed: {e}")
-        context["lessons"] = []
-
-    # 6. 赵哥语料（M2 search_corpus）
-    try:
-        search_query = query or " ".join(symbols)
-        corpus_results = search_corpus(settings, query=search_query,
-                                       symbol=symbols[0] if symbols else None, limit=3)
-        context["corpus"] = [
-            {"section_id": r.section_id, "heading_path": r.heading_path,
-             "snippet": r.snippet, "source_path": r.source_path,
-             "symbols": r.symbols, "source_date": r.source_date}
-            for r in corpus_results
-        ]
-    except Exception as e:
-        logger.warning(f"search_corpus failed: {e}")
-        context["corpus"] = []
-
-    # 7. Patterns（匹配 symbol 的规律）
-    context["patterns"] = _list_patterns(engine, symbols)
-
-    # 8. Lessons（最近 5 条相关经验）
-    context["lessons"] = _list_lessons(engine, symbols, limit=5)
-
-    return context
-
-
-def _fetch_recent_bars(engine, symbol: str, limit: int = 20, timeframe: str = "1d") -> list[dict]:
-    """查询 market_bars。用于 market_data (limit=20) 和 benchmark (limit=5)。"""
-    ...
-
-def _list_events(engine, symbols: list[str], days: int = 7) -> list[dict]:
-    ...
-
-def _list_patterns(engine, symbols: list[str]) -> list[dict]:
-    ...
-
-def _list_lessons(engine, symbols: list[str], limit: int = 5) -> list[dict]:
-    ...
-```
-
-**关键设计决策**：
-- 返回**结构化 JSON**，不是组装好的 prompt 文本。LLM 拿到结构化数据自己决定怎么用。
-- `select_lessons` 和 `search_corpus` 的调用放在 try/except 中，失败时返回空数组——LLM 仍然能工作（只是缺少经验和语料上下文）。
-
-### 其他 API 端点（为 CLI tool use 提供）
-
-```python
-# intel/api/signals.py
-@router.get("/signals")
-def list_signals(symbol: str | None = None, status: str | None = None, limit: int = 50): ...
-@router.post("/signals/scan")
-def scan_signals(): ...
-@router.put("/signals/{signal_id}/status")
-def update_signal_status(signal_id: str, status: str): ...
-
-# intel/api/market.py  
-@router.post("/market/ingest")
-def ingest_market_data(): ...
-@router.get("/market/bars")
-def get_market_bars(symbol: str, timeframe: str = "1d", limit: int = 20): ...
-
-# intel/api/events.py
-@router.post("/events")
-def create_event(...): ...
-@router.get("/events")
-def list_events(symbol: str | None = None, days: int = 7): ...
-
-# intel/api/hypotheses.py
-@router.post("/hypotheses")
-def save_hypothesis(hypothesis: dict): ...
-@router.get("/hypotheses")
-def list_hypotheses(symbol: str | None = None, limit: int = 20): ...
-
-# intel/api/lessons.py
-@router.get("/lessons")
-def list_lessons(symbol: str | None = None, limit: int = 20): ...
-@router.post("/lessons")
-def create_lesson(lesson: dict): ...
-
-# intel/api/trade_ideas.py
-@router.post("/trade-ideas")
-def create_trade_idea(trade_idea: dict): ...
-@router.get("/trade-ideas")
-def list_trade_ideas(symbol: str | None = None, status: str | None = None): ...
-
-# intel/api/jobs.py
-@router.post("/jobs/premarket")
-def run_premarket_brief(): ...
-@router.post("/jobs/close")
-def run_close_postmortem(): ...
-```
-
-**重要**: 所有端点都在 `app/intel/api/` 下。**不要创建 `app/intel/llm/` 目录。**
-Python 后端零 LLM 依赖。
-
----
-
-## Phase 5: Trade Ideas（后端）
-
-### Files
-- `apps/trader-agent/backend/app/intel/trade/__init__.py`
-- `apps/trader-agent/backend/app/intel/trade/ideas.py`
-
-```python
-def generate_trade_idea_from_hypothesis(hypothesis: dict) -> dict | None:
-    """从 hypothesis 生成 trade_idea。
-    如果 hypothesis.tradability == "no_trade" → 返回 None。
-    如果同一 symbol + 日期已有 trade_idea → 合并条件。
-    """
-    ...
-
-TRADE_IDEA_STATUSES = ["no_trade", "watchlist", "setup_forming", "trade_candidate", "invalidated", "closed"]
-```
-
----
-
-## Phase 6: Postmortem（后端）
-
-### Files
-- `apps/trader-agent/backend/app/intel/postmortem/__init__.py`
-- `apps/trader-agent/backend/app/intel/postmortem/evaluator.py`
-- `apps/trader-agent/backend/app/intel/postmortem/lessons.py`
-
-### `evaluator.py`
-
-```python
-def evaluate_due_predictions(settings) -> dict:
-    """查询所有 due_at <= now() 且 status='pending' 的 predictions。
-    用 prediction.reference_price 作为基线计算 return/MFE/MAE。
-    写入 outcome。返回 {supported: N, rejected: N, mixed: N, inconclusive: N}。
-    """
-    ...
-```
-
-### `lessons.py`
-
-```python
-def create_lesson_from_outcome(outcome: dict, hypothesis: dict, settings) -> dict:
-"""从已验证的 outcome 创建 lesson。存入 lessons 表。
-    
-    只写新 DB 的 lessons 表。
-    lessons 表已扩展为同时支持复盘存储和上下文注入。
-    不调旧的 create_memory_item（旧模块已从 readonly_import 中移除）。
-    """
-    ...
-```
-
----
-
-## Phase 7: Pre-market + Close Jobs（后端）
-
-### Files
-- `apps/trader-agent/backend/app/intel/jobs/premarket.py`
-- `apps/trader-agent/backend/app/intel/jobs/close.py`
-
-这些 jobs **只准备数据**，不调用 LLM。返回结构化数据给 CLI 的 LLM 使用。
-
-```python
-# premarket.py
-@router.post("/jobs/premarket")
-def run_premarket_brief():
-    """准备盘前数据包：overnight futures 估值、最近 events、active lessons、watchlist。
-    返回结构化 JSON。不生成文本——文本由 CLI 的 LLM 生成。"""
-    ...
-
-# close.py  
-@router.post("/jobs/close")
-def run_close_postmortem():
-    """准备收盘数据包：今日 signals、hypotheses、trade_ideas、market_bars。
-    同时触发 evaluate_due_predictions()。
-    返回结构化 JSON。"""
-    ...
-```
-
----
-
-## Phase 8: TypeScript CLI（Agent Layer）
-
-### 目录
-
-```
-apps/trader-cli/
-  package.json
-  tsconfig.json
-  src/
-    index.ts              # CLI entry (Commander.js)
-    api/client.ts         # fetch wrapper → localhost:8000/api/intel
-    llm/
-      provider.ts         # Vercel AI SDK 配置
-      auditor.ts          # 10 条禁止规则审计（TS 侧）
-      tools.ts            # tool definitions (给 LLM 的 function schema)
-    commands/
-      scan.ts
-      analyze.ts
-      brief.ts
-      review.ts
-      signals.ts
-      hypotheses.ts
-      lessons.ts
-      memory.ts
-      chat.ts             # 交互对话（LLM + tool use）
-    ui/
-      display.ts          # 终端格式化输出
-```
-
-### `package.json`
-
-```json
-{
-  "name": "trader-cli",
-  "version": "0.1.0",
-  "type": "module",
-  "dependencies": {
-    "commander": "^12.0.0",
-    "ai": "^4.0.0",
-    "@ai-sdk/openai": "^1.0.0",
-    "@ai-sdk/anthropic": "^1.0.0",
-    "chalk": "^5.3.0",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "tsx": "^4.0.0",
-    "typescript": "^5.4.0"
-  }
-}
-```
-
-**不是** pnpm workspace 成员（避免污染 monorepo 的 lockfile）。CLI 独立安装依赖。
-
-### `src/llm/provider.ts`
+### CLI tool 新增 `getRelatedHypotheses` — `src/llm/tools.ts`
 
 ```typescript
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-
-const provider = process.env.LLM_PROVIDER ?? "deepseek";
-
-export function getModel() {
-  const model = process.env.LLM_MODEL ?? "deepseek-chat";
-  switch (provider) {
-    case "deepseek":
-      return createOpenAI({
-        baseURL: normalizeBaseUrl(process.env.LLM_BASE_URL ?? "https://api.deepseek.com/v1"),
-        apiKey: process.env.LLM_API_KEY,
-      })(model);
-    case "openrouter":
-      return createOpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: process.env.LLM_API_KEY,
-      })(model);
-    case "anthropic":
-      return createAnthropic({ apiKey: process.env.LLM_API_KEY })(model);
-    default:
-      throw new Error(`Unknown LLM provider: ${provider}`);
-  }
-}
-
-function normalizeBaseUrl(url: string): string {
-  // 兼容 "https://api.deepseek.com/chat/completions" 和 "https://api.deepseek.com/v1"
-  let base = url.replace(/\/+$/, "");
-  if (base.endsWith("/chat/completions")) {
-    base = base.slice(0, -"/chat/completions".length);
-  }
-  return base;
-}
+getRelatedHypotheses: tool({
+  description: "获取同标的的历史假设（最近 N 条），用于连续跟踪分析",
+  parameters: z.object({
+    symbol: z.string(),
+    limit: z.number().default(3),
+  }),
+  execute: async ({ symbol, limit }) =>
+    fetchIntel(`/hypotheses?symbol=${encodeURIComponent(symbol)}&limit=${limit}`),
+}),
 ```
 
-### `src/llm/tools.ts` — LLM Tool Definitions
+### ChatPage.tsx（D108）
 
 ```typescript
-import { tool } from "ai";
-import { z } from "zod";
-import { fetchIntel } from "../api/client";
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
+import TextInput from "ink-text-input";
+import { generateText } from "ai";
+import { getModel } from "../../llm/provider";
+import { INTEL_TOOLS, SYSTEM_PROMPT } from "../../llm/tools";
 
-/**
- * LLM 可用的工具清单。
- * 每个工具对应后端的一个 API 端点。
- * LLM 通过 tool call 调用这些工具来获取数据、写入结果。
- */
-export const INTEL_TOOLS = {
-  // ── 数据获取 ──
-  ingestMarketData: tool({
-    description: "拉取最新行情数据（日线+5m分钟线）到数据库",
-    parameters: z.object({}),
-    execute: async () => fetchIntel("/market/ingest", { method: "POST" }),
-  }),
+const MAX_HISTORY = 20;
 
-  getMarketBars: tool({
-    description: "查询指定标的的行情K线",
-    parameters: z.object({
-      symbol: z.string().describe("标的代码，如 TSLA"),
-      timeframe: z.enum(["1d", "5m"]).default("1d"),
-      limit: z.number().default(20),
-    }),
-    execute: async ({ symbol, timeframe, limit }) =>
-      fetchIntel(`/market/bars?symbol=${symbol}&timeframe=${timeframe}&limit=${limit}`),
-  }),
+export const ChatPage: React.FC = () => {
+  const [messages, setMessages] = useState<{role: "user"|"assistant"; content: string}[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  // ── 信号 ──
-  getSignals: tool({
-    description: "查询指定标的的交易信号",
-    parameters: z.object({
-      symbol: z.string().optional(),
-      status: z.enum(["new", "explained", "verified", "invalidated"]).optional(),
-      limit: z.number().default(50),
-    }),
-    execute: async (params) => {
-      const qs = new URLSearchParams(params as Record<string, string>).toString();
-      return fetchIntel(`/signals?${qs}`);
-    },
-  }),
-
-  scanSignals: tool({
-    description: "触发全量信号扫描（8个标的），扫描结果写入数据库。返回信号数量",
-    parameters: z.object({}),
-    execute: async () => fetchIntel("/signals/scan", { method: "POST" }),
-  }),
-
-  // ── 上下文（核心） ──
-  buildContext: tool({
-    description: "组装LLM分析所需的全部上下文：行情数据、基准表现、信号、事件、历史记忆、赵哥语料、规律、经验。结构化JSON返回",
-    parameters: z.object({
-      symbols: z.array(z.string()).describe("关注的标的，如 ['TSLA','TSLL']"),
-      taskType: z.enum(["signal_explanation", "market_intent_explanation", "agent_conversation", "learning_review"])
-        .describe("任务类型，决定记忆选择策略"),
-      query: z.string().optional().describe("搜索查询（用于语料检索）"),
-      signalId: z.string().optional().describe("特定信号ID"),
-    }),
-    execute: async (params) =>
-      fetchIntel("/context/build", {
-        method: "POST",
-        body: JSON.stringify(params),
-      }),
-  }),
-
-  searchCorpus: tool({
-    description: "搜索赵哥语料库（交易总结、复盘文档）",
-    parameters: z.object({
-      query: z.string(),
-      symbol: z.string().optional(),
-      limit: z.number().default(5),
-    }),
-    execute: async ({ query, symbol, limit }) =>
-      fetchIntel(`/corpus/search?query=${encodeURIComponent(query)}&symbol=${symbol ?? ""}&limit=${limit}`),
-  }),
-
-  // ── 事件 ──
-  getEvents: tool({
-    description: "查询相关事件（新闻、政策、宏观）",
-    parameters: z.object({
-      symbol: z.string().optional(),
-      days: z.number().default(7),
-      limit: z.number().default(20),
-    }),
-    execute: async ({ symbol, days, limit }) =>
-      fetchIntel(`/events?symbol=${symbol ?? ""}&days=${days}&limit=${limit}`),
-  }),
-
-  // ── 经验 ──
-  getLessons: tool({
-    description: "查询历史经验教训",
-    parameters: z.object({
-      symbol: z.string().optional(),
-      limit: z.number().default(20),
-    }),
-    execute: async ({ symbol, limit }) =>
-      fetchIntel(`/lessons?symbol=${symbol ?? ""}&limit=${limit}`),
-  }),
-
-  // ── 写入 ──
-  saveHypothesis: tool({
-    description: "保存LLM生成的假说到数据库。保存前会做禁止规则审计",
-    parameters: z.object({
-      signalId: z.string(),
-      hypothesis: z.object({
-        claim: z.string(),
-        professional_explanation: z.string(),
-        plain_language_explanation: z.string(),
-        candidate_explanations: z.array(z.string()),
-        evidence_for: z.array(z.string()),
-        evidence_against: z.array(z.string()),
-        reasoning_gap: z.string().optional()
-          .describe("如果无反方证据，必须说明推理链路和为什么没有找到"),
-        missing_evidence: z.array(z.string()),
-        confidence: z.number().min(0).max(1),
-        tradability: z.enum(["no_trade", "watchlist", "setup_forming", "trade_candidate"]),
-        invalidation_condition: z.string(),
-        predictions: z.array(z.object({
-          window: z.string(),
-          expected_outcome: z.string(),
-          invalid_if: z.string(),
-        })),
-      }),
-    }),
-    execute: async ({ signalId, hypothesis }) => {
-      // 先审计
-      const issues = auditHypothesis(hypothesis);
-      if (issues.blockers.length > 0) {
-        return { error: "audit_blocked", blockers: issues.blockers };
-      }
-      return fetchIntel("/hypotheses", {
-        method: "POST",
-        body: JSON.stringify({
-          signal_id: signalId,
-          ...hypothesis,
-          audit_warnings: issues.warnings,
-        }),
-      });
-    },
-  }),
-};
-```
-
-### `src/llm/auditor.ts` — 禁止规则审计（TS 侧）
-
-```typescript
-/**
- * 10 条禁止规则审计（01-design §8）。
- * 规则调整：无反方证据 → 检查是否说明了推理过程（reasoning_gap 字段），
- * 不强制要求编造反方证据。
- */
-
-interface AuditIssues {
-  blockers: string[];   // 硬违规 → 阻止 DB 写入
-  warnings: string[];   // 软违规 → 标记但不阻止
-}
-
-export function auditHypothesis(h: Record<string, any>): AuditIssues {
-  const blockers: string[] = [];
-  const warnings: string[] = [];
-  const allText = `${h.claim || ""} ${h.professional_explanation || ""} ${h.plain_language_explanation || ""}`;
-
-  // ── BLOCKERS ──
-
-  // 规则 2: 绝对语言
-  if (/必涨|必跌|绝对|100%|保证|肯定能|板上钉钉|guarantee|certainly|definitely/i.test(allText)) {
-    blockers.push("prohibited_absolute_language");
-  }
-
-  // 规则 3: 13F 用于日内解释（未标注延迟）
-  if (/13F/i.test(allText) && !/季度|quarterly|延迟|delay|lag/i.test(allText)) {
-    blockers.push("13f_without_delay_context");
-  }
-
-  // ── WARNINGS ──
-
-  // 规则 6: 无反方证据 → 检查是否说明了推理过程
-  const evidenceAgainst = h.evidence_against || [];
-  const reasoningGap = h.reasoning_gap || "";
-  if (evidenceAgainst.length === 0 && reasoningGap.length < 20) {
-    warnings.push("no_counter_evidence_and_no_reasoning");
-    // NOT a blocker — LLM 可以说"未发现直接反方证据，推导逻辑如下..."
-  }
-
-  // 规则 7: 无失效条件
-  if (!h.invalidation_condition || h.invalidation_condition.length < 10) {
-    warnings.push("missing_or_weak_invalidation_condition");
-  }
-
-  // 规则 1: 对手盘声明（启发式）
-  if (/主力在|庄家在|机构正在|大户在|Smart Money 在|明显是|显然是/i.test(allText)) {
-    warnings.push("possible_unverified_counterparty_claim");
-  }
-
-  // 规则 4: call flow 无价格确认
-  if (/call.*flow|call.*volume|call.*大增/i.test(allText) && /看多|看涨|bullish|买入/i.test(allText)) {
-    if (!/确认|验证|confirm|verify|price.*action/i.test(allText)) {
-      warnings.push("call_flow_without_price_confirmation");
-    }
-  }
-
-  // 规则 5: ARK 买入无确认
-  if (/ARK.*(?:买入|buy|增持|加仓)/i.test(allText)) {
-    if (!/确认|验证|confirm|verify|price.*action/i.test(allText)) {
-      warnings.push("ark_buy_without_price_confirmation");
-    }
-  }
-
-  // 规则 8: 通俗化写实
-  if (/肯定是|绝对是|必然是|一定是|毫无疑问|毋庸置疑|铁定/i.test(allText)) {
-    warnings.push("colloquial_as_fact");
-  }
-
-  // 规则 9: 相对声明无 benchmark
-  if (/跑赢|跑输|outperform|underperform|强势|弱势/i.test(allText)) {
-    if (!/QQQ|SPY|benchmark|基准|大盘|指数/i.test(allText)) {
-      warnings.push("relative_claim_without_benchmark");
-    }
-  }
-
-  // 规则 10: 杠杆/期权无风险提示
-  if (/TSLL|ARKK|leveraged?|杠杆|call|put|option/i.test(allText)) {
-    if (!/损耗|decay|theta|波动.*风险|杠杆.*风险|时间.*风险/i.test(allText)) {
-      warnings.push("leveraged_or_options_without_risk_warning");
-    }
-  }
-
-  return { blockers, warnings };
-}
-```
-
-### `src/commands/chat.ts` — 交互对话
-
-```typescript
-import { generateText, streamText } from "ai";
-import { getModel } from "../llm/provider";
-import { INTEL_TOOLS } from "../llm/tools";
-import * as readline from "node:readline";
-
-const SYSTEM_PROMPT = `你是 Forward Market Intelligence Agent，一个交易市场研究助手。
-
-你的能力：
-- 通过工具调用获取行情数据、信号、事件、语料库、历史经验
-- 生成符合输出合同的市场假说（11 字段）
-- 提供专业解释和通俗解释
-- 审计自己的输出（禁止绝对语言、禁止无反方证据不说明推理过程等）
-
-你的限制：
-- 不自动下单，不喊单，不做价格预测
-- 所有假设必须有验证点和失效条件
-- 不把低置信叙事写成事实
-- 不把 13F 等延迟数据用于日内解释
-
-当用户说"记住这个"或"保存"，调用 saveHypothesis 写入数据库。`;
-
-export async function chat() {
-  console.log("Forward Market Intelligence — Agent Chat");
-  console.log("输入 /help 查看命令，/quit 退出\n");
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const history: { role: "user" | "assistant"; content: string }[] = [];
-
-  const ask = (prompt: string): Promise<string> =>
-    new Promise(resolve => rl.question(prompt, resolve));
-
-  while (true) {
-    const input = await ask("\n> ");
-    if (!input) continue;
-    if (input === "/quit") break;
-
-    // 处理 slash 命令
-    if (input.startsWith("/")) {
-      await handleSlashCommand(input, rl);
-      continue;
-    }
-
-    // LLM 对话
-    history.push({ role: "user", content: input });
+  const handleSubmit = async (value: string) => {
+    if (!value) return;
+    setBusy(true);
+    const next = [...messages, { role: "user" as const, content: value }].slice(-MAX_HISTORY);
+    setMessages(next);
+    setInput("");
 
     const result = await generateText({
       model: getModel(),
       system: SYSTEM_PROMPT,
-      messages: history,
-      tools: INTEL_TOOLS,
-      maxSteps: 10,  // 最多 10 轮 tool call + 推理
-    });
-
-    // 显示推理过程（如果有）
-    if (result.reasoning) {
-      console.log(`\n[思考] ${result.reasoning.slice(0, 200)}...`);
-    }
-
-    // 显示使用的工具
-    for (const step of result.toolCalls || []) {
-      console.log(`[工具调用] ${step.toolName}`);
-    }
-
-    // 显示回复
-    console.log(`\n${result.text}`);
-    history.push({ role: "assistant", content: result.text });
-  }
-
-  rl.close();
-}
-
-async function handleSlashCommand(input: string, rl: readline.Interface) {
-  if (input === "/scan") {
-    console.log("触发扫描...");
-    const result = await fetchIntel("/signals/scan", { method: "POST" });
-    console.log(`扫描完成: ${result.signal_count} 个信号`);
-  } else if (input.startsWith("/analyze ")) {
-    const symbol = input.split(" ")[1];
-    // 走完整的 LLM tool use 流程
-    const result = await generateText({
-      model: getModel(),
-      system: SYSTEM_PROMPT,
-      prompt: `请深度分析 ${symbol}。调用 buildContext 获取上下文，然后生成假说。`,
+      messages: next,
       tools: INTEL_TOOLS,
       maxSteps: 10,
     });
-    console.log(`\n${result.text}`);
-  } else if (input === "/lessons") {
-    const result = await fetchIntel("/lessons?limit=10");
-    // 格式化显示...
-  }
-  // ... 其他命令
-}
+
+    setMessages([...next, { role: "assistant", content: result.text }].slice(-MAX_HISTORY));
+    setBusy(false);
+  };
+
+  return (
+    <Box flexDirection="column">
+      {/* 对话历史 */}
+      {messages.map((m, i) => (
+        <Box key={i} marginBottom={1}>
+          <Text color={m.role === "user" ? "cyan" : "white"}>
+            {m.role === "user" ? "> " : ""}
+            {m.content}
+          </Text>
+        </Box>
+      ))}
+      {/* 输入区 */}
+      <Box>
+        <Text>{busy ? "..." : ">"} </Text>
+        <TextInput value={input} onChange={setInput} onSubmit={handleSubmit} />
+      </Box>
+    </Box>
+  );
+};
 ```
 
-### `src/commands/analyze.ts`
+**重点**：
+
+- `messages` 始终保持最近 20 轮（`.slice(-MAX_HISTORY)`），每次 generateText 都把完整 messages 传进去
+- `related_hypotheses` 不在 messages 里，由 LLM 自主决定要不要调 `getRelatedHypotheses` tool 或 `buildContext` tool 拿
+- 业务记录注入（D102）和会话连贯性（D108）完全解耦
+
+### P1 验收
+
+```bash
+trader chat --eval "看一下 TSLA 之前的假设"
+# → LLM 调 buildContext 或 getRelatedHypotheses，输出文本包含至少 1 条历史 claim
+trader chat
+# → 进 ink ChatPage，多轮对话上下文连贯
+```
+
+---
+
+## Phase 2: 报表缓存 + 市场数据 TTL
+
+### 关键决策
+
+- **D105** — `UNIQUE(symbol, report_date, latest_signal_ts)` 唯一键
+- **D113** — `/report/check` 服务端实时 SELECT MAX(ts) FROM signals 注入 latest_signal_ts
+- **D109** — `ingest_symbol` 在 TTL 内 **short-circuit HTTP**（不调 yfinance）
+- **D114** — schema 改动进 `schema.py` 单文件 + `_migrate_*_columns`
+
+### report_cache 表（D114）
+
+在 `apps/trader-agent/backend/app/intel/db/schema.py` 的 `_SCHEMA_STATEMENTS` 追加：
+
+```python
+"""
+CREATE TABLE IF NOT EXISTS report_cache (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  report_date TEXT NOT NULL,
+  latest_signal_ts TEXT,
+  report_json TEXT NOT NULL,
+  content_hash TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(symbol, report_date, latest_signal_ts)
+)
+""",
+"CREATE INDEX IF NOT EXISTS idx_report_cache_symbol_date ON report_cache(symbol, report_date)",
+```
+
+### market_bars.ingested_at 列（D114）
+
+在 `schema.py` 加 `_MARKET_BARS_COLUMN_MIGRATIONS`，仿照现有 `_LESSON_COLUMN_MIGRATIONS`：
+
+```python
+_MARKET_BARS_COLUMN_MIGRATIONS = (
+    ("ingested_at", "TEXT"),
+)
+
+def _migrate_market_bars_columns(conn) -> None:
+    existing = {row[1] for row in conn.execute(text("PRAGMA table_info(market_bars)")).fetchall()}
+    for column, ddl in _MARKET_BARS_COLUMN_MIGRATIONS:
+        if column not in existing:
+            conn.execute(text(f"ALTER TABLE market_bars ADD COLUMN {column} {ddl}"))
+```
+
+然后在 `init_intel_db` 内 `_migrate_lessons_columns(conn)` 旁边调用 `_migrate_market_bars_columns(conn)`。
+
+### TTL short-circuit（D109）— `app/intel/ingestion/market_data.py`
+
+修改 `ingest_symbol`：
+
+```python
+TTL_DAILY_HOURS = 24
+TTL_MINUTE_HOURS = 1
+
+def _is_within_ttl(engine, symbol: str, timeframe: str, ttl_hours: int) -> bool:
+    """检查最新 bar 的 ingested_at 是否在 TTL 内。命中返回 True，调用方应跳过 HTTP。D109。"""
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT ingested_at FROM market_bars
+                WHERE symbol=:symbol AND timeframe=:timeframe AND ingested_at IS NOT NULL
+                ORDER BY ts DESC LIMIT 1
+                """
+            ),
+            {"symbol": symbol, "timeframe": timeframe},
+        ).fetchone()
+    if not row or not row[0]:
+        return False
+    last_ingested = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
+    return (datetime.now(UTC) - last_ingested) < timedelta(hours=ttl_hours)
+
+def ingest_symbol(engine, symbol, *, settings=None, daily_lookback=120, minute_lookback=30):
+    # D109: 先查 TTL，命中则 short-circuit HTTP
+    daily_fresh = _is_within_ttl(engine, symbol, "1d", TTL_DAILY_HOURS)
+    minute_fresh = _is_within_ttl(engine, symbol, "5m", TTL_MINUTE_HOURS)
+
+    if daily_fresh and minute_fresh:
+        logger.info("Skipping %s ingest (TTL hit)", symbol)
+        return (0, 0)
+
+    daily_count = 0
+    minute_count = 0
+    now_iso = utc_now_iso()
+
+    if not daily_fresh:
+        daily_latest = _latest_bar_ts(engine, symbol, "1d")
+        daily_bars = fetch_daily_bars(symbol, lookback_days=daily_lookback, settings=settings)
+        if daily_latest:
+            daily_bars = [b for b in daily_bars if b.ts > daily_latest]
+        daily_count = _insert_bars(engine, daily_bars, ingested_at=now_iso)
+
+    if not minute_fresh:
+        minute_latest = _latest_bar_ts(engine, symbol, "5m")
+        minute_bars = fetch_minute_bars(symbol, interval="5m", lookback_days=minute_lookback, settings=settings)
+        if minute_latest:
+            minute_bars = [b for b in minute_bars if b.ts > minute_latest]
+        minute_count = _insert_bars(engine, minute_bars, ingested_at=now_iso)
+
+    return daily_count, minute_count
+```
+
+`_insert_bars` 加 `ingested_at` 参数，写入新列。
+
+### `/api/intel/report/check` 端点（D113）
+
+新建 `app/intel/api/report_cache.py`：
+
+```python
+from fastapi import APIRouter, Request
+from pydantic import BaseModel
+from sqlalchemy import text
+from app.intel.db.connection import get_intel_engine
+
+router = APIRouter()
+
+class CheckRequest(BaseModel):
+    symbol: str
+    date: str  # YYYY-MM-DD
+
+@router.post("/check")
+def check_report(request: Request, payload: CheckRequest) -> dict:
+    engine = get_intel_engine(request.app.state.settings)
+    sym = payload.symbol.upper()
+    with engine.connect() as conn:
+        # D113: 实时算 latest_signal_ts
+        lts_row = conn.execute(
+            text("SELECT MAX(ts) FROM signals WHERE symbol=:symbol"),
+            {"symbol": sym},
+        ).fetchone()
+        latest_signal_ts = lts_row[0] if lts_row else None
+
+        row = conn.execute(
+            text(
+                """
+                SELECT report_json, created_at FROM report_cache
+                WHERE symbol=:symbol AND report_date=:date AND latest_signal_ts IS :lts
+                LIMIT 1
+                """
+            ) if latest_signal_ts is None else text(
+                """
+                SELECT report_json, created_at FROM report_cache
+                WHERE symbol=:symbol AND report_date=:date AND latest_signal_ts=:lts
+                LIMIT 1
+                """
+            ),
+            {"symbol": sym, "date": payload.date, "lts": latest_signal_ts},
+        ).mappings().fetchone()
+
+    if row:
+        return {"hit": True, "report": row["report_json"], "cached_at": row["created_at"]}
+    return {"hit": False, "latest_signal_ts": latest_signal_ts}
+
+class SaveRequest(BaseModel):
+    symbol: str
+    date: str
+    latest_signal_ts: str | None = None
+    report_json: str
+    content_hash: str | None = None
+```
+
+`/save` 端点 INSERT OR REPLACE 到 report_cache。
+
+### 挂载路由 — `app/intel/api/__init__.py`
+
+```python
+from app.intel.api import context, corpus, events, hypotheses, jobs, lessons, market, news, report_cache, signals, trade_ideas
+
+intel_router.include_router(report_cache.router, prefix="/report", tags=["intel-report"])
+intel_router.include_router(news.router, prefix="/news", tags=["intel-news"])
+```
+
+### CLI report 命令 — `src/commands/report.ts`
 
 ```typescript
-/**
- * trader analyze <symbol> — 对单个标的做深度分析。
- * 
- * 流程:
- * 1. 调 buildContext({symbols:[symbol], taskType:"signal_explanation"})
- * 2. 调 LLM generateText (with tools)
- * 3. LLM 自主决定是否调更多工具（getSignals, searchCorpus, getLessons...）
- * 4. 调 saveHypothesis 写入结果
- * 5. 终端显示分析结论
- */
-export async function analyze(symbol: string) {
-  const result = await generateText({
-    model: getModel(),
-    system: SYSTEM_PROMPT,
-    prompt: `对 ${symbol} 做深度分析。先获取上下文，然后基于数据生成市场假说。`,
-    tools: INTEL_TOOLS,
-    maxSteps: 10,
+export async function report(symbol: string) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const check = await fetchIntel("/report/check", {
+    method: "POST",
+    body: JSON.stringify({ symbol, date: today }),
   });
+
+  if (check.hit) {
+    console.log(`[缓存命中] ${symbol} ${today}（cached_at: ${check.cached_at}）`);
+    console.log(check.report);
+    return;
+  }
+
+  // miss → context/build + LLM → /report/save
+  const context = await fetchIntel("/context/build", {
+    method: "POST",
+    body: JSON.stringify({ symbols: [symbol], taskType: "signal_explanation" }),
+  });
+  const result = await generateText({ model: getModel(), system: REPORT_SYSTEM, prompt: JSON.stringify(context), tools: INTEL_TOOLS });
+
+  await fetchIntel("/report/save", {
+    method: "POST",
+    body: JSON.stringify({
+      symbol,
+      date: today,
+      latest_signal_ts: check.latest_signal_ts,
+      report_json: result.text,
+    }),
+  });
+
   console.log(result.text);
 }
 ```
 
----
-
-## Phase 9: Environment Config
+### P2 验收
 
 ```bash
-# .env（项目根目录，CLI 读取）
-LLM_PROVIDER=deepseek          # deepseek | openrouter | anthropic
-LLM_MODEL=deepseek-chat        # 模型名
-LLM_API_KEY=sk-xxx             # API key
-LLM_BASE_URL=https://api.deepseek.com/v1  # 可选
+trader report TSLA   # 第一次调 LLM
+trader report TSLA   # 第二次 <1s 返回，控制台显示 [缓存命中]
+trader scan          # 新信号入库
+trader report TSLA   # latest_signal_ts 变了，cache miss 重算
 
-# CLI
-TRADER_API_BASE=http://localhost:8000/api/intel
+# pytest（V105 + V108）
+.venv/Scripts/python.exe -m pytest \
+  apps/trader-agent/backend/tests/test_intel_cache_report.py \
+  apps/trader-agent/backend/tests/test_intel_cache_market_ttl.py -v
 ```
 
-**注意**: Python 后端**不需要** LLM_API_KEY。LLM 调用全部在 CLI 中。
+`test_intel_cache_market_ttl.py` 必须 mock `yfinance.Ticker.history`，断言 TTL 内 `.history.call_count == 0`。
 
 ---
 
-## Verification
+## Phase 3: 探索发现
 
-1. `POST /api/intel/market/ingest` → 8 个标的均有日线+5m bars
-2. `POST /api/intel/signals/scan` → 为每个标的生成信号
-3. `POST /api/intel/context/build` → 返回包含 market_data、signals、events、memory、corpus、patterns、lessons 的结构化 JSON
-4. CLI `trader analyze TSLA` → LLM 通过 tool call 调 context/build → 输出 hypothesis → 自动调用 saveHypothesis
-5. Hypothesis 在 saveHypothesis 前通过 auditor（blockers 空，warnings 可接受）
-6. auditor 对"无反方证据但说明了推理过程"的 hypothesis 只报 warning 不报 blocker
-7. `evaluate_due_predictions()` 用 predictions.reference_price 计算 outcomes
-8. Lesson 写入 lessons 表 + 同步写入 memory_items（冲突时 log warning 不阻塞）
-9. CLI `trader chat` 打开交互对话，LLM 自主调用工具
-10. LLM provider 切换（改 `.env` LLM_PROVIDER）无需修改代码
+### 关键决策
+
+- **D110** — `patterns.trigger_sql` 加列后必须 `_migrate_pattern_trigger_sql(conn)` 显式 UPDATE 回填 5 条 MVP_PATTERNS
+- **D111** — `cross_asset` / `pattern_matcher` 不进 SCANNERS registry，独立 pass
+
+### patterns.trigger_sql 列 + 回填（D110）
+
+在 `schema.py`：
+
+```python
+_PATTERN_TRIGGER_SQL = {
+    "taco_pattern": "SELECT COUNT(*) FROM events WHERE event_type='policy_threat' AND ts > date('now','-3 days')",
+    "higher_low_accumulation": "SELECT COUNT(*) FROM signals WHERE signal_type='higher_low_candidate' AND ts > datetime('now','-1 day')",
+    "volume_contraction_pullback": "SELECT COUNT(*) FROM signals WHERE signal_type='volume_contraction' AND ts > datetime('now','-1 day')",
+    "vwap_reclaim": "SELECT COUNT(*) FROM signals WHERE signal_type='reclaim_vwap' AND ts > datetime('now','-4 hour')",
+    "relative_strength_divergence": "SELECT COUNT(*) FROM signals WHERE signal_type IN ('relative_weakness','relative_strength') AND ts > datetime('now','-1 day')",
+}
+
+def _migrate_pattern_trigger_sql(conn) -> None:
+    """加 trigger_sql 列 + 显式回填 5 条 MVP_PATTERNS。D110。"""
+    existing = {row[1] for row in conn.execute(text("PRAGMA table_info(patterns)")).fetchall()}
+    if "trigger_sql" not in existing:
+        conn.execute(text("ALTER TABLE patterns ADD COLUMN trigger_sql TEXT"))
+    for pattern_id, sql in _PATTERN_TRIGGER_SQL.items():
+        conn.execute(
+            text("UPDATE patterns SET trigger_sql = :sql WHERE pattern_id = :pid AND (trigger_sql IS NULL OR trigger_sql = '')"),
+            {"sql": sql, "pid": pattern_id},
+        )
+```
+
+`init_intel_db` 调用 `_migrate_pattern_trigger_sql(conn)`。
+
+### pattern_matcher 独立 pass（D111）— `app/intel/features/pattern_matcher.py`
+
+```python
+def scan_patterns(engine) -> list[dict]:
+    """遍历 patterns.trigger_sql，触发条件满足 → 生成 pattern_alert signal。"""
+    alerts = []
+    with engine.connect() as conn:
+        patterns = conn.execute(
+            text("SELECT pattern_id, name, trigger_sql, affected_assets, reliability_score FROM patterns WHERE trigger_sql IS NOT NULL")
+        ).mappings().all()
+    for p in patterns:
+        try:
+            with engine.connect() as conn:
+                hit = conn.execute(text(p["trigger_sql"])).scalar()
+            if hit and hit > 0:
+                alerts.append({
+                    "pattern_id": p["pattern_id"],
+                    "pattern_name": p["name"],
+                    "affected_assets": p["affected_assets"],
+                    "match_count": hit,
+                    "reliability_score": p["reliability_score"],
+                })
+        except Exception as exc:
+            logger.warning("pattern_matcher %s failed: %s", p["pattern_id"], exc)
+    return alerts
+```
+
+### cross_asset 独立 pass（D111）— `app/intel/features/cross_asset.py`
+
+```python
+def calc_cross_asset_correlation(engine, symbols: list[str], days: int = 5) -> dict:
+    """返回 {pairs: [{a, b, corr}], anomalies: [{pair, current_corr, avg_corr}]}"""
+    import numpy as np
+    returns_by_symbol = {}
+    for sym in symbols:
+        bars = get_bars_from_db(engine, sym, "1d", limit=days + 1)
+        if len(bars) < 2:
+            continue
+        returns_by_symbol[sym] = np.diff([b["close"] for b in bars]) / [b["close"] for b in bars[:-1]]
+    pairs = []
+    for i, a in enumerate(symbols):
+        for b in symbols[i+1:]:
+            if a in returns_by_symbol and b in returns_by_symbol:
+                ra, rb = returns_by_symbol[a], returns_by_symbol[b]
+                n = min(len(ra), len(rb))
+                if n < 2:
+                    continue
+                corr = float(np.corrcoef(ra[:n], rb[:n])[0, 1])
+                pairs.append({"a": a, "b": b, "corr": round(corr, 3)})
+    return {"pairs": pairs, "anomalies": []}  # anomalies 留 P3 后期补
+```
+
+### anomaly_dashboard — 在 `scanner.py` 内做聚合
+
+```python
+def build_anomaly_dashboard(engine) -> list[dict]:
+    """按 severity 排序 top-N 信号，给 LLM 一个总览。"""
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT symbol, signal_type, severity, raw_description
+                FROM signals
+                WHERE datetime(ts) > datetime('now','-1 day')
+                ORDER BY severity DESC LIMIT 10
+                """
+            )
+        ).mappings().all()
+    return [
+        {"symbol": r["symbol"], "rank": i+1, "anomaly": r["raw_description"]}
+        for i, r in enumerate(rows)
+    ]
+```
+
+### signals/scan 响应聚合 — `app/intel/api/signals.py`
+
+```python
+def scan_signals(request: Request) -> dict:
+    engine = get_intel_engine(request.app.state.settings)
+    from app.intel.features.pattern_matcher import scan_patterns
+    from app.intel.features.cross_asset import calc_cross_asset_correlation
+    from app.intel.features.scanner import build_anomaly_dashboard
+
+    scan_result = scan_all_symbols(engine)  # {"signal_count": int}
+    return {
+        **scan_result,
+        "anomaly_dashboard": build_anomaly_dashboard(engine),
+        "pattern_alerts": scan_patterns(engine),
+        "cross_asset": calc_cross_asset_correlation(engine, MVP_SYMBOL_LIST, days=5),
+    }
+```
+
+注意：**`SCANNERS` registry 不变**。`scan_all_symbols` 签名也可以不变（返回 dict 直接 spread）。
+
+### P3 验收
+
+```bash
+trader scan
+# → 返回带 anomaly_dashboard / pattern_alerts / cross_asset 三字段
+
+# pytest（V110）
+.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_pattern_matcher.py -v
+# 测试用例必须含：
+#  - test_migration_backfills_all_5_patterns_trigger_sql
+#  - test_pattern_matcher_inserts_alert_when_trigger_hits
+```
+
+---
+
+## Phase 4: K 线图 + 服务管理
+
+### asciichart K 线图 — `src/commands/chart.ts`
+
+```typescript
+import asciichart from "asciichart";
+import { fetchIntel } from "../api/client";
+
+export async function chart(symbol: string) {
+  const bars = await fetchIntel(`/market/bars?symbol=${symbol}&timeframe=1d&limit=30`);
+  const closes = bars.map((b: any) => b.close);
+  console.log(`${symbol} — 最近 ${closes.length} 日收盘价`);
+  console.log(asciichart.plot(closes, { height: 15 }));
+}
+```
+
+### 服务管理 — `src/commands/server.ts`（D106: Windows + macOS）
+
+```typescript
+import { spawn, exec } from "child_process";
+import { fetchIntel } from "../api/client";
+
+const PORT = 8000;
+
+export async function server(action: string) {
+  switch (action) {
+    case "start": return serverStart();
+    case "stop":  return serverStop();
+    case "status": return serverStatus();
+    default: throw new Error(`Unknown server action: ${action}`);
+  }
+}
+
+async function serverStart() {
+  spawn("npm", ["run", "trader-agent:backend:dev"], {
+    detached: true,
+    stdio: "ignore",
+    shell: true,
+  }).unref();
+  console.log(`后端已启动（端口 ${PORT}），用 trader server status 确认`);
+}
+
+async function serverStop() {
+  if (process.platform === "win32") {
+    exec(
+      `powershell -Command "Get-NetTCPConnection -LocalPort ${PORT} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"`,
+      (err) => console.log(err ? `[已忽略] ${err.message}` : `已停止端口 ${PORT} 监听进程`),
+    );
+  } else if (process.platform === "darwin") {
+    exec(`lsof -ti tcp:${PORT} | xargs -r kill`, (err) =>
+      console.log(err ? `[已忽略] ${err.message}` : `已停止端口 ${PORT} 监听进程`),
+    );
+  } else {
+    throw new Error(`trader server stop 不支持 ${process.platform}（D106: 仅 Windows + macOS）`);
+  }
+}
+
+async function serverStatus() {
+  try {
+    const res = await fetchIntel("/../health");  // /health 在 /api/intel 之外
+    console.log(res);
+  } catch (e: any) {
+    console.log(`后端未运行或无响应：${e.message}`);
+  }
+}
+```
+
+注意 `/health` 不在 `/api/intel` 前缀下，要么 `fetch(http://127.0.0.1:8000/health)` 直接发，要么在 client.ts 加个 `fetchHealth()` helper。
+
+### P4 验收
+
+```bash
+trader server start
+trader server status
+# → { status: "ok", intel_route_count: >=14 }
+trader chart TSLA
+# → 终端渲染 ASCII K 线
+trader server stop
+# → 端口 8000 进程结束
+```
+
+---
+
+## Phase 5: 新闻爬虫 + 配置 + data status
+
+### 新闻爬虫 — `app/intel/ingestion/news_crawler.py`（D103）
+
+```python
+import feedparser  # pip install feedparser
+import urllib.request
+from html.parser import HTMLParser
+from app.intel.ingestion.events_ingest import create_event
+
+RSS_FEEDS = [
+    ("Reuters Business", "https://www.reutersagency.com/feed/?best-topics=business-finance"),
+    # 增删源在此
+]
+
+def crawl_rss(feed_url: str) -> list[dict]:
+    feed = feedparser.parse(feed_url)
+    return [
+        {
+            "ts": entry.get("published", ""),
+            "title": entry.get("title", ""),
+            "raw_text": _strip_html(entry.get("summary", "")),
+            "url": entry.get("link", ""),
+        }
+        for entry in feed.entries
+    ]
+
+def crawl_alpha_vantage_news(symbol: str, api_key: str) -> list[dict]:
+    url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={symbol}&apikey={api_key}"
+    with urllib.request.urlopen(url, timeout=15) as r:
+        data = json.load(r)
+    return [{...} for item in data.get("feed", [])]
+
+def crawl_url(url: str) -> list[dict]:
+    # 通用网页抓取（BeautifulSoup 或 readability）
+    ...
+
+def ingest_news(settings, engine) -> int:
+    """爬取 → 清洗（去 HTML、截断 >2000 字）→ 去重（event_id hash）→ events 表。
+    返回新增事件数。"""
+    inserted = 0
+    for name, feed_url in RSS_FEEDS:
+        items = crawl_rss(feed_url)
+        for item in items:
+            try:
+                create_event(
+                    engine,
+                    ts=item["ts"],
+                    event_type="news",
+                    title=item["title"][:200],
+                    raw_text=item["raw_text"][:2000],
+                    source=name,
+                    source_type="news",
+                    url=item["url"],
+                )
+                inserted += 1
+            except Exception:
+                pass  # 去重失败等
+    return inserted
+```
+
+### `/api/intel/news/ingest` — `app/intel/api/news.py`
+
+```python
+from fastapi import APIRouter, Request
+from app.intel.db.connection import get_intel_engine
+from app.intel.ingestion.news_crawler import ingest_news
+
+router = APIRouter()
+
+@router.post("/ingest")
+def trigger_news_ingest(request: Request) -> dict:
+    settings = request.app.state.settings
+    engine = get_intel_engine(settings)
+    count = ingest_news(settings, engine)
+    return {"inserted": count}
+```
+
+挂载到 `app/intel/api/__init__.py`（已在 P2 步骤里同步加 `news.router`）。
+
+### 数据状态 — `src/commands/data.ts`
+
+```typescript
+trader data status
+# 输出每个 symbol 的 1d 和 5m 行数 + ts 范围 + ingested_at
+```
+
+调 `GET /api/intel/market/bars-status`（如不存在新建）返回每标的的 `{symbol, daily_count, daily_range, minute_count, last_ingested}`。
+
+### 配置管理 — `src/commands/config.ts`
+
+```bash
+trader config show              # 显示 .env（脱敏）+ DB 配置
+trader config set LLM_PROVIDER anthropic
+trader config symbols add MSTR  # 扩展标的池
+```
+
+只修改 `.env` 文件（脱敏显示），symbols 修改 `apps/trader-agent/backend/app/intel/db/schema.py` 的 `MVP_SYMBOLS` 列表？**不行** — D114 schema.py 是后端文件，CLI 不应改后端代码。改为：写入 `.env` 或 `data/intel-config.json`，由后端启动时读取覆盖默认 MVP_SYMBOLS。如 MVP 阶段先不实现 `symbols add`，给个 TODO 注释即可。
+
+### P5 验收
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/intel/news/ingest
+# → {"inserted": N}
+# 然后 V106 命令自动校验 events 表
+```
+
+---
+
+## Verification 矩阵
+
+| ID | 验收 | blocking |
+|---|---|---|
+| V101 | `trader` 启动 ink TUI，侧栏菜单可见 | true |
+| V102 | `trader chat` 进 ChatPage，多轮 messages 维护 | true |
+| V103 | `trader chart TSLA` ASCII K 线 | false |
+| V104 | `trader report TSLA` ×2，第二次缓存命中 | true |
+| V105 | `pytest test_intel_cache_report.py` 全过 | true |
+| V106 | `/news/ingest` + events 表有 source_type='news' 记录 | true |
+| V107 | `trader server status` 返回 intel_route_count>=14 | true |
+| V108 | `pytest test_intel_cache_market_ttl.py` mock 断言 0 HTTP calls | true |
+| V109 | `chat --eval "..."` 输出含历史 claim | false |
+| V110 | `pytest test_intel_pattern_matcher.py` 全过（含 migration 回填 + alert 触发） | true |
 
 ## Important
 
-- **不要创建** `app/intel/llm/` 目录（Python 后端零 LLM 依赖）
-- 不要修改 `app/modules/` 或 `app/core/` 下任何文件
-- 不要修改 `trader-agent.db` schema
-- 不要动 `apps/trader-cockpit/`
-- 不要 commit
+- `npm install ink@7 ink-ui react asciichart` 在 `apps/trader-cli` 下
+- 不修改 `apps/trader-agent/backend/app/modules/`, `apps/trader-agent/backend/app/core/`, `apps/trader-cockpit/`
+- 不废弃已有 Commander.js 命令
+- TUI 和命令行共享 `api/client.ts`（不重复写 API 调用逻辑）
+- 所有 schema 改动进 `schema.py` 单文件 + `_migrate_*_columns`（D114）
+- `cross_asset` / `pattern_matcher` 是独立 pass，不进 SCANNERS（D111）
+- `chat --eval` 必须保留旧路径（D112）
 
-## References
+## 回归风险清单（codegraph 自检）
 
-- `docs/01-forward-market-intelligence-system-design.md` — 系统设计动机
-- `docs/02-mvp-module-development-plan.md` — 详细 Phase spec、schema SQL、验收标准
-- `docs/research-agent/target-system/trader-agent/00-workflow-router.md` — 开发工作流规范
-- `docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/06-context-injection-policy.md` — 上下文注入策略（budget: 5 items, 800 chars each, 3000 chars total）
+修 schema.py 必跑这两个现有测试（避免 `_migrate_*` 函数语法/顺序错误导致 bootstrap 失败）：
 
-## Specification Gate Check
+```bash
+.venv/Scripts/python.exe -m pytest \
+  apps/trader-agent/backend/tests/test_intel_phase0_schema.py \
+  apps/trader-agent/backend/tests/test_intel_phase6_postmortem.py -v
+```
 
-- [x] Source checked — 01-design ✓ + 02-mvp-plan ✓ + M0-M6 接口已验证（select_context / search_corpus / create_memory_item） ✓
-- [x] Source checked — 01-design ✓ + 02-mvp-plan ✓ + M0-M6 接口已验证（search_corpus / _json / events / time / config / session） ✓
-- [x] Decisions frozen — LLM in CLI only / Python backend = pure data layer / auditor 无反方证据降为 warning / context/build 返回结构化 JSON / seed 5 patterns / signal_id 小时粒度 / VWAP fallback ✓
-- [x] Scope bounded — 新建: app/intel/ (不含 llm/), apps/trader-cli/, tests/. 禁止: app/modules/, app/core/, trader-agent.db, trader-cockpit/
-- [x] Verification mapped — 10 条验收项，每项映射到具体 API 端点或 CLI 命令
-- [x] Prompt self-contained — 所有路径、接口、SQL、schema、tool definitions 内联
-- [x] Behavior preserved — M0-M6 只读复用；旧 DB 不动；旧管线保留
+`init_intel_db` 在 `main.py:create_app` 启动时调用，也在这两个测试调用。`_migrate_pattern_trigger_sql` 和 `_migrate_market_bars_columns` 写错会让所有现有 intel 测试集体红。
 
-## Final response
+`scan_all_symbols` 唯一调用方是 `scan_signals`（已在 spec.modify），改返回字段时同步改 `scan_signals` 的字段合并即可，无其他 caller。
 
-- 每个 Phase: 完成或未完成，附输出
-- 变更文件清单
-- 错误及解决方案
+`list_hypotheses` 和 `build_context` 无内部 caller，扩字段安全。
