@@ -8,6 +8,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "start:tsla": "npx tsx src/index.ts analyze TSLA",
+    "test": "tsx --test src/llm/auditor.test.ts",
     "trader": "tsx src/index.ts"
   },
   "dependencies": {
