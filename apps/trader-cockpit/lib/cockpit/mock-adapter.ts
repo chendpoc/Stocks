@@ -11,6 +11,8 @@ import type {
   CockpitDataAdapter,
   InboxInput,
   InboxMessageListViewModel,
+  KnowledgeMemoryItemInput,
+  KnowledgeMemoryItemUpdate,
   LearningInput,
   LearningItemListViewModel,
   PlaybookTheoryListViewModel,
@@ -254,5 +256,130 @@ export const mockCockpitAdapter: CockpitDataAdapter = {
       await wait(160, input.signal);
       yield part;
     }
+  },
+
+  async searchKnowledge() {
+    return [];
+  },
+
+  async listCandidates() {
+    return [];
+  },
+
+  async getCandidate(id: string) {
+    return {
+      id,
+      candidate_type: "rule",
+      title: "Mock candidate",
+      summary: null,
+      normalized_rule: null,
+      symbols_json: [],
+      tags_json: [],
+      confidence: 0,
+      candidate_status: "candidate",
+      review_flags_json: [],
+      created_by: "mock",
+      created_at: new Date().toISOString(),
+      evidence_refs_json: [],
+    };
+  },
+
+  async createCandidatesFromSections() {
+    return { created: [], flagged: [] };
+  },
+
+  async activateCandidate(id: string) {
+    return { memory_item_id: `mock-memory-${id}` };
+  },
+
+  async rejectCandidate(id: string) {
+    return { candidate_id: id, candidate_status: "rejected" };
+  },
+
+  async mergeCandidate(id: string, targetMemoryItemId: string) {
+    return { candidate_id: id, memory_item_id: targetMemoryItemId };
+  },
+
+  async batchCandidates() {
+    return { activated: [], rejected: [], skipped: [] };
+  },
+
+  async extractPreview() {
+    return {
+      memory_type: "rule",
+      title: "Mock extract",
+      summary: "Mock summary",
+      rule_text: "Mock rule",
+      applicability: null,
+      invalidation: null,
+      symbols: [],
+      tags: [],
+      confidence: 0.5,
+    };
+  },
+
+  async createMemoryItem(item: KnowledgeMemoryItemInput) {
+    const now = new Date().toISOString();
+    return {
+      id: `mock-memory-${Date.now()}`,
+      memory_type: item.memory_type,
+      title: item.title,
+      summary: item.summary ?? null,
+      rule_text: item.rule_text ?? null,
+      symbols_json: item.symbols_json ?? [],
+      tags_json: item.tags_json ?? [],
+      confidence: item.confidence ?? 0.5,
+      status: "active",
+      evidence_refs_json: item.evidence_refs_json ?? [],
+      created_at: now,
+      updated_at: now,
+    };
+  },
+
+  async listMemoryItems() {
+    return [];
+  },
+
+  async getMemoryItem(id: string) {
+    const now = new Date().toISOString();
+    return {
+      id,
+      memory_type: "rule",
+      title: "Mock memory",
+      summary: null,
+      rule_text: null,
+      symbols_json: [],
+      tags_json: [],
+      confidence: 0.5,
+      status: "active",
+      evidence_refs_json: [],
+      created_at: now,
+      updated_at: now,
+    };
+  },
+
+  async updateMemoryItem(id: string, updates: KnowledgeMemoryItemUpdate) {
+    const item = await this.getMemoryItem(id);
+    return { ...item, ...updates, updated_at: new Date().toISOString() };
+  },
+
+  async deprecateMemoryItem(id: string) {
+    return { memory_item_id: id, status: "deprecated" };
+  },
+
+  async selectContext() {
+    return { memories: [], total_chars: 0 };
+  },
+
+  async backup() {
+    return { sqlite_path: "mock.db", jsonl_path: null, timestamp: new Date().toISOString() };
+  },
+
+  async incrementalRebuild() {
+    return {};
+  },
+
+  async evidenceHealth() {
+    return { status: "mock" };
   },
 };

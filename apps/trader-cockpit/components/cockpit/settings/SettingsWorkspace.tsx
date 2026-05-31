@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { cockpitAdapter } from "@/lib/cockpit/adapter";
@@ -107,6 +108,12 @@ export function SettingsWorkspace() {
         <div className="border-b border-border px-4 py-3">
           <p className="text-[11px] uppercase tracking-wider text-muted">{t("settings.toolSources")}</p>
           <h2 className="mt-1 text-sm font-semibold">{t("settings.toolSourcesTitle")}</h2>
+          <Link
+            href="/cockpit/settings/memory"
+            className="mt-3 inline-flex items-center gap-1 text-sm text-accent hover:underline"
+          >
+            记忆与候选管理 →
+          </Link>
         </div>
         <div className="divide-y divide-border">
           {(settings?.tools ?? []).map((tool) => (

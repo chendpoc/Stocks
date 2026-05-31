@@ -36,7 +36,9 @@ SQLite 方便查询，JSONL 方便人工检查、导出、回放。
 
 ## 4. 事件类型
 
-以下列表是 Shared Agent Memory 的 canonical event registry。其他文档不得使用同义事件名。
+以下列表是 canonical event registry，按来源分组（Memory / Pipeline）。Memory 段为 Shared Agent Memory 专用；Pipeline 段为 Phase 1C 管线事件。其他文档不得对同一语义再发明异名事件。
+
+### Memory 事件（`source: memory`）
 
 Artifact events：
 
@@ -75,6 +77,46 @@ index_rebuild_failed
 fts_rebuild_started
 fts_rebuild_completed
 ```
+
+### Pipeline 事件（Phase 1C — `source: pipeline`）
+
+```text
+corpus_import_started
+corpus_import_completed
+semantic_extraction_completed
+market_context_completed
+outcome_labeling_completed
+playbook_aggregation_completed
+runtime_orchestrator_run_started
+runtime_orchestrator_run_completed
+runtime_orchestrator_symbol_completed
+runtime_orchestrator_symbol_failed
+signal_persisted
+rule_discovery_candidate_created
+rule_discovery_lite_backtest_completed
+rule_discovery_candidate_advanced
+structured_model_call_completed
+```
+
+### Pipeline 事件：canonical 名 vs 当前 runtime 写入名
+
+Canonical registry（上表）使用 **underscore** 命名（例如 `runtime_orchestrator_run_started`、`playbook_aggregation_completed`），便于跨模块查询与文档对齐。
+
+Phase 1C 管线代码**尚未**全部切换到 underscore 形式；`runtime_orchestrator`、`playbook`、`semantic_extraction` 等模块仍通过 `record_agent_event()` 写入 **legacy dot-notation** 事件名。审计 SQL / JSONL 查询须按**实际写入值**过滤，勿假设已与 registry 字符串一致。
+
+| Canonical（registry 目标名） | 当前 runtime / 模块写入（legacy） |
+|---|---|
+| `runtime_orchestrator_run_started` | `runtime_orchestrator.run_started` |
+| `runtime_orchestrator_run_completed` | `runtime_orchestrator.run_completed` |
+| `runtime_orchestrator_symbol_completed` | `runtime_orchestrator.symbol_completed` |
+| `runtime_orchestrator_symbol_failed` | `runtime_orchestrator.symbol_failed` |
+| `playbook_aggregation_completed` | `playbook.aggregation.completed` |
+| `semantic_extraction_completed` | `semantic_extraction.completed` |
+| `market_context_completed` | `market_context.completed` |
+| `outcome_labeling_completed` | `outcome_labeling.completed` |
+| `signal_persisted` | `signal_persisted`（R2 起已对齐 canonical） |
+
+**Target vs current：** registry 列的是统一目标名；重命名 legacy 事件为 underscore 形式属于后续 pass（非 R0–R2 范围）。在迁移完成前，审计脚本应同时接受 legacy 名，或显式映射上表后再聚合。
 
 ## 5. Event Schema
 

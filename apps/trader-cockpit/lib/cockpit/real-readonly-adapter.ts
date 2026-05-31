@@ -8,6 +8,13 @@ import type {
   CockpitDataAdapter,
   InboxInput,
   InboxMessageListViewModel,
+  KnowledgeCandidate,
+  KnowledgeContextMemory,
+  KnowledgeExtractPreviewResult,
+  KnowledgeMemoryItem,
+  KnowledgeMemoryItemInput,
+  KnowledgeMemoryItemUpdate,
+  KnowledgeSearchResult,
   LearningInput,
   LearningItemListViewModel,
   MarketIntentExplanation,
@@ -28,6 +35,34 @@ import { mockCockpitAdapter } from "@/lib/cockpit/mock-adapter";
 // Default: same-origin proxy via next.config.ts rewrites (avoids browser CORS).
 const API_BASE = process.env.NEXT_PUBLIC_AGENT_API_BASE ?? "";
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly detail: unknown;
+
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function formatFastApiDetail(detail: unknown): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (detail && typeof detail === "object") {
+    const record = detail as Record<string, unknown>;
+    if (typeof record.message === "string") {
+      return record.message;
+    }
+    if (typeof record.detail === "string") {
+      return record.detail;
+    }
+  }
+  return "Request failed";
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   const hasBody = init?.body != null;
@@ -40,7 +75,18 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
   });
   if (!res.ok) {
-    throw new Error(`API ${path} returned ${res.status}`);
+    let detail: unknown;
+    try {
+      const body = (await res.json()) as { detail?: unknown };
+      detail = body.detail ?? body;
+    } catch {
+      detail = undefined;
+    }
+    const message =
+      detail !== undefined
+        ? formatFastApiDetail(detail)
+        : `API ${path} returned ${res.status}`;
+    throw new ApiError(message, res.status, detail);
   }
   return res.json() as Promise<T>;
 }
@@ -240,5 +286,158 @@ export const realReadonlyAdapter: CockpitDataAdapter = {
 
   async getAgentConsole(input?: AgentConsoleInput): Promise<AgentConsoleViewModel> {
     return mockCockpitAdapter.getAgentConsole(input);
+  },
+
+  async searchKnowledge(
+    query: string,
+    options?: { symbol?: string; sourceType?: string; limit?: number },
+  ): Promise<KnowledgeSearchResult[]> {
+    const params = new URLSearchParams({ q: query });
+    if (options?.symbol) params.set("symbol", options.symbol);
+    if (options?.sourceType) params.set("source_type", options.sourceType);
+    if (options?.limit) params.set("limit", String(options.limit));
+    const data = await fetchJson<{ results: KnowledgeSearchResult[] }>(`/api/knowledge/search?${params}`);
+    return data.results;
+  },
+
+  async listCandidates(options?: {
+    status?: string;
+    candidateType?: string;
+    symbol?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<KnowledgeCandidate[]> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set("status", options.status);
+    if (options?.candidateType) params.set("candidate_type", options.candidateType);
+    if (options?.symbol) params.set("symbol", options.symbol);
+    if (options?.limit) params.set("limit", String(options.limit ?? 20));
+    if (options?.offset) params.set("offset", String(options.offset ?? 0));
+    const data = await fetchJson<{ results: KnowledgeCandidate[] }>(`/api/knowledge/candidates?${params}`);
+    return data.results;
+  },
+
+  async getCandidate(id: string): Promise<KnowledgeCandidate> {
+    return fetchJson<KnowledgeCandidate>(`/api/knowledge/candidates/${id}`);
+  },
+
+  async createCandidatesFromSections(sectionIds: string[]) {
+    return fetchJson<{ created: string[]; flagged: string[] }>("/api/knowledge/candidates", {
+      method: "POST",
+      body: JSON.stringify({ section_ids: sectionIds, extraction_mode: "rule_based" }),
+    });
+  },
+
+  async activateCandidate(id: string) {
+    return fetchJson<{ memory_item_id: string }>(`/api/knowledge/candidates/${id}/activate`, { method: "POST" });
+  },
+
+  async rejectCandidate(id: string) {
+    return fetchJson<{ candidate_id: string; candidate_status: string }>(
+      `/api/knowledge/candidates/${id}/reject`,
+      { method: "POST" },
+    );
+  },
+
+  async mergeCandidate(id: string, targetMemoryItemId: string) {
+    return fetchJson<{ candidate_id: string; memory_item_id: string }>(
+      `/api/knowledge/candidates/${id}/merge`,
+      {
+        method: "POST",
+        body: JSON.stringify({ target_memory_item_id: targetMemoryItemId }),
+      },
+    );
+  },
+
+  async batchCandidates(ids: string[], action: "activate" | "reject") {
+    return fetchJson<{ activated: string[]; rejected: string[]; skipped: string[] }>(
+      "/api/knowledge/candidates/batch",
+      {
+        method: "POST",
+        body: JSON.stringify({ candidate_ids: ids, action }),
+      },
+    );
+  },
+
+  async extractPreview(text: string, contextNote?: string): Promise<KnowledgeExtractPreviewResult> {
+    return fetchJson<KnowledgeExtractPreviewResult>("/api/knowledge/extract-preview", {
+      method: "POST",
+      body: JSON.stringify({ text, context_note: contextNote ?? null }),
+    });
+  },
+
+  async createMemoryItem(item: KnowledgeMemoryItemInput): Promise<KnowledgeMemoryItem> {
+    return fetchJson<KnowledgeMemoryItem>("/api/knowledge/memory-items", {
+      method: "POST",
+      body: JSON.stringify(item),
+    });
+  },
+
+  async listMemoryItems(options?: {
+    status?: string;
+    memoryType?: string;
+    symbol?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<KnowledgeMemoryItem[]> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set("status", options.status);
+    if (options?.memoryType) params.set("memory_type", options.memoryType);
+    if (options?.symbol) params.set("symbol", options.symbol);
+    if (options?.limit) params.set("limit", String(options.limit ?? 20));
+    if (options?.offset) params.set("offset", String(options.offset ?? 0));
+    const data = await fetchJson<{ results: KnowledgeMemoryItem[] }>(`/api/knowledge/memory-items?${params}`);
+    return data.results;
+  },
+
+  async getMemoryItem(id: string): Promise<KnowledgeMemoryItem> {
+    return fetchJson<KnowledgeMemoryItem>(`/api/knowledge/memory-items/${id}`);
+  },
+
+  async updateMemoryItem(id: string, updates: KnowledgeMemoryItemUpdate): Promise<KnowledgeMemoryItem> {
+    return fetchJson<KnowledgeMemoryItem>(`/api/knowledge/memory-items/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async deprecateMemoryItem(id: string) {
+    return fetchJson<{ memory_item_id: string; status: string }>(
+      `/api/knowledge/memory-items/${id}/deprecate`,
+      { method: "POST" },
+    );
+  },
+
+  async selectContext(
+    taskType: string,
+    options?: { symbols?: string[]; tags?: string[]; marketScope?: string },
+  ): Promise<{ memories: KnowledgeContextMemory[]; total_chars: number }> {
+    return fetchJson<{ memories: KnowledgeContextMemory[]; total_chars: number }>(
+      "/api/knowledge/select-context",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          task_type: taskType,
+          symbols: options?.symbols ?? null,
+          tags: options?.tags ?? null,
+          market_scope: options?.marketScope ?? null,
+        }),
+      },
+    );
+  },
+
+  async backup() {
+    return fetchJson<{ sqlite_path: string; jsonl_path: string | null; timestamp: string }>(
+      "/api/knowledge/backup",
+      { method: "POST" },
+    );
+  },
+
+  async incrementalRebuild() {
+    return fetchJson<Record<string, unknown>>("/api/knowledge/incremental-rebuild", { method: "POST" });
+  },
+
+  async evidenceHealth() {
+    return fetchJson<Record<string, unknown>>("/api/knowledge/evidence-health");
   },
 };

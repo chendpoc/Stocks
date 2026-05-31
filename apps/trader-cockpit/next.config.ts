@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
         source: "/api/agent/:path*",
         destination: `${agentApiProxyTarget}/api/agent/:path*`,
       },
+      {
+        source: "/api/knowledge/:path*",
+        destination: `${agentApiProxyTarget}/api/knowledge/:path*`,
+      },
     ];
   },
 };

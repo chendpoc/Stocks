@@ -69,6 +69,17 @@
 未全部 [x] → 不准派发 worker，不准进入实现。
 ```
 
+## 4.1 双文件 Artifact 规范
+
+通过 Spec Gate 后，所有 artifact 按以下规范生成：
+
+- **双文件**：每个 artifact 同时输出 `.md`（给人读）和 `.json`（给脚本/Agent 校验）
+- **JSON Schema** 定义在 `.agent-dev/memory/schemas.md`（spec / task / decision-record / review-findings / change-set）
+- **Decision Record** 独立于 spec，持久化在 `.agent-dev/specs/<feature>/decision-record.json`
+- **存放位置**：遵循 `.agent-dev/` 目录结构（`specs/` `tasks/` `plans/` `reviews/` `changesets/` `memory/`）
+
+验收时，review agent 应对比 `spec.json` 的 `scope.forbidden` 和 git diff，发现越界即报 blocker。
+
 ## 5. Plan And Prompt Rules
 
 计划文档负责单次任务契约，不负责重复通用流程。

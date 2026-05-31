@@ -382,6 +382,106 @@ export type AgentConsoleViewModel = {
   contextUsed: ContextUsedSummary;
 };
 
+export type KnowledgeSearchResult = {
+  evidence_id: string;
+  section_id: string;
+  source_path: string;
+  source_type: string;
+  heading_path: string;
+  snippet: string;
+  source_date: string | null;
+  start_line: number | null;
+  end_line: number | null;
+  symbols: string[];
+  timestamp: string | null;
+  confidence: number;
+};
+
+export type KnowledgeCandidate = {
+  id: string;
+  candidate_type: string;
+  title: string;
+  summary: string | null;
+  normalized_rule: string | null;
+  symbols_json: string[];
+  tags_json: string[];
+  confidence: number;
+  candidate_status: string;
+  review_flags_json: string[];
+  created_by: string;
+  created_at: string;
+  evidence_refs_json: Record<string, unknown>[];
+};
+
+export type KnowledgeMemoryItem = {
+  id: string;
+  memory_type: string;
+  title: string;
+  summary: string | null;
+  rule_text: string | null;
+  applicability?: string | null;
+  invalidation?: string | null;
+  symbols_json: string[];
+  tags_json: string[];
+  confidence: number;
+  status: string;
+  evidence_refs_json: Record<string, unknown>[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeMemoryItemUpdate = {
+  title?: string;
+  summary?: string;
+  rule_text?: string;
+  applicability?: string;
+  invalidation?: string;
+  symbols_json?: string[];
+  tags_json?: string[];
+  confidence?: number;
+};
+
+export type KnowledgeExtractPreviewResult = {
+  memory_type: string;
+  title: string;
+  summary: string;
+  rule_text: string;
+  applicability: string | null;
+  invalidation: string | null;
+  symbols: string[];
+  tags: string[];
+  confidence: number;
+};
+
+export type KnowledgeContextMemory = {
+  memory_id: string;
+  memory_type: string;
+  title: string;
+  summary: string;
+  rule_text: string;
+  symbols: string[];
+  confidence: number;
+  relevance_score: number;
+  rank: number;
+  source_date: string | null;
+  heading_path: string | null;
+  evidence_count: number;
+};
+
+export type KnowledgeMemoryItemInput = {
+  memory_type: string;
+  title: string;
+  summary?: string;
+  rule_text?: string;
+  applicability?: string;
+  invalidation?: string;
+  symbols_json?: string[];
+  tags_json?: string[];
+  confidence?: number;
+  evidence_refs_json?: Record<string, unknown>[];
+  confirm?: boolean;
+};
+
 export interface CockpitDataAdapter {
   listSignals(input?: SignalListInput): Promise<SignalListViewModel>;
   getMarketSnapshot(): Promise<MarketSnapshotViewModel>;
@@ -395,6 +495,48 @@ export interface CockpitDataAdapter {
   getToolSettings(): Promise<ToolSettingsViewModel>;
   streamChat(input: ChatStreamInput): AsyncIterable<ChatStreamPart>;
   getAgentConsole(input?: AgentConsoleInput): Promise<AgentConsoleViewModel>;
+  searchKnowledge(
+    query: string,
+    options?: { symbol?: string; sourceType?: string; limit?: number },
+  ): Promise<KnowledgeSearchResult[]>;
+  listCandidates(options?: {
+    status?: string;
+    candidateType?: string;
+    symbol?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<KnowledgeCandidate[]>;
+  getCandidate(id: string): Promise<KnowledgeCandidate>;
+  createCandidatesFromSections(sectionIds: string[]): Promise<{ created: string[]; flagged: string[] }>;
+  activateCandidate(id: string): Promise<{ memory_item_id: string }>;
+  rejectCandidate(id: string): Promise<{ candidate_id: string; candidate_status: string }>;
+  mergeCandidate(
+    id: string,
+    targetMemoryItemId: string,
+  ): Promise<{ candidate_id: string; memory_item_id: string }>;
+  batchCandidates(
+    ids: string[],
+    action: "activate" | "reject",
+  ): Promise<{ activated: string[]; rejected: string[]; skipped: string[] }>;
+  extractPreview(text: string, contextNote?: string): Promise<KnowledgeExtractPreviewResult>;
+  createMemoryItem(item: KnowledgeMemoryItemInput): Promise<KnowledgeMemoryItem>;
+  listMemoryItems(options?: {
+    status?: string;
+    memoryType?: string;
+    symbol?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<KnowledgeMemoryItem[]>;
+  getMemoryItem(id: string): Promise<KnowledgeMemoryItem>;
+  updateMemoryItem(id: string, updates: KnowledgeMemoryItemUpdate): Promise<KnowledgeMemoryItem>;
+  deprecateMemoryItem(id: string): Promise<{ memory_item_id: string; status: string }>;
+  selectContext(
+    taskType: string,
+    options?: { symbols?: string[]; tags?: string[]; marketScope?: string },
+  ): Promise<{ memories: KnowledgeContextMemory[]; total_chars: number }>;
+  backup(): Promise<{ sqlite_path: string; jsonl_path: string | null; timestamp: string }>;
+  incrementalRebuild(): Promise<Record<string, unknown>>;
+  evidenceHealth(): Promise<Record<string, unknown>>;
 }
 
 import { readStoredDataSource } from "./data-source";
