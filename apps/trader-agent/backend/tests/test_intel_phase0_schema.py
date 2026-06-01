@@ -54,6 +54,7 @@ def test_intel_schema_creates_tables_and_seeds(tmp_path: Path) -> None:
         "outcomes",
         "lessons",
         "trade_ideas",
+        "report_cache",
     ):
         assert expected in table_names
 

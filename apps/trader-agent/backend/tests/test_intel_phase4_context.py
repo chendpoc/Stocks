@@ -76,6 +76,8 @@ def test_context_build_and_signal_scan(tmp_path: Path) -> None:
     assert "signals" in body
     assert "patterns" in body
     assert "lessons" in body
+    assert "related_hypotheses" in body
+    assert isinstance(body["related_hypotheses"], list)
 
 
 def test_event_and_hypothesis_flow(tmp_path: Path) -> None:

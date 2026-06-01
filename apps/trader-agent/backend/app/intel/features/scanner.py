@@ -273,6 +273,24 @@ def scan_symbol(engine, symbol: str, qqq_bars: list[dict]) -> list[dict]:
     return signals
 
 
+def build_anomaly_dashboard(engine) -> list[dict]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT symbol, signal_type, severity, raw_description
+                FROM signals
+                WHERE datetime(ts) > datetime('now','-1 day')
+                ORDER BY severity DESC LIMIT 10
+                """
+            )
+        ).mappings().all()
+    return [
+        {"symbol": r["symbol"], "rank": i + 1, "anomaly": r["raw_description"]}
+        for i, r in enumerate(rows)
+    ]
+
+
 def scan_all_symbols(engine) -> dict[str, int]:
     qqq_bars = get_bars_from_db(engine, "QQQ", "1d", limit=120)
     total = 0

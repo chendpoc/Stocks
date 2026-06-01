@@ -150,8 +150,9 @@ def list_hypotheses(
         rows = conn.execute(
             text(
                 f"""
-                SELECT hypothesis_id, signal_id, ts, symbol, claim, confidence, tradability,
-                       invalidation_condition, status, created_at
+                SELECT hypothesis_id, signal_id, ts, symbol, claim,
+                       professional_explanation, plain_language_explanation,
+                       confidence, tradability, invalidation_condition, status, created_at
                 FROM hypotheses
                 WHERE {where}
                 ORDER BY ts DESC

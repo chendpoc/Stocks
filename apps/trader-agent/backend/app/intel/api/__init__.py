@@ -2,7 +2,19 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.intel.api import context, corpus, events, hypotheses, jobs, lessons, market, signals, trade_ideas
+from app.intel.api import (
+    context,
+    corpus,
+    events,
+    hypotheses,
+    jobs,
+    lessons,
+    market,
+    news,
+    report_cache,
+    signals,
+    trade_ideas,
+)
 
 intel_router = APIRouter()
 
@@ -15,5 +27,7 @@ intel_router.include_router(lessons.router, prefix="/lessons", tags=["intel-less
 intel_router.include_router(trade_ideas.router, prefix="/trade-ideas", tags=["intel-trade-ideas"])
 intel_router.include_router(jobs.router, prefix="/jobs", tags=["intel-jobs"])
 intel_router.include_router(corpus.router, prefix="/corpus", tags=["intel-corpus"])
+intel_router.include_router(report_cache.router, prefix="/report", tags=["intel-report"])
+intel_router.include_router(news.router, prefix="/news", tags=["intel-news"])
 
 __all__ = ["intel_router"]

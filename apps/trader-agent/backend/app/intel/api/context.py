@@ -35,6 +35,43 @@ def _fetch_recent_bars(
     return get_bars_from_db(engine, symbol, timeframe, limit)
 
 
+def _list_related_hypotheses(
+    engine,
+    symbols: list[str],
+    limit: int = 3,
+) -> list[dict]:
+    if not symbols:
+        return []
+    placeholders = ",".join(f":sym{i}" for i in range(len(symbols)))
+    params = {f"sym{i}": s.upper() for i, s in enumerate(symbols)}
+    params["limit"] = limit
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                f"""
+                SELECT created_at, claim, professional_explanation, confidence,
+                       tradability, symbol
+                FROM hypotheses
+                WHERE symbol IN ({placeholders})
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            ),
+            params,
+        ).mappings().all()
+    return [
+        {
+            "date": r["created_at"],
+            "claim": r["claim"],
+            "professional_explanation": r["professional_explanation"],
+            "confidence": r["confidence"],
+            "tradability": r["tradability"],
+            "symbol": r["symbol"],
+        }
+        for r in rows
+    ]
+
+
 def _list_signals_for_symbols(engine, symbols: list[str], days: int = 3) -> list[dict]:
     if not symbols:
         return list_signals(engine, limit=50)
@@ -140,5 +177,6 @@ def build_context(request: Request, payload: BuildContextRequest) -> dict:
         context["corpus"] = []
 
     context["patterns"] = _list_patterns(engine, symbols)
+    context["related_hypotheses"] = _list_related_hypotheses(engine, symbols, limit=3)
 
     return context

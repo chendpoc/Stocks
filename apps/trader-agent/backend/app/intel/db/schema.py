@@ -274,6 +274,19 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_trade_ideas_symbol_status ON trade_ideas(symbol, status)",
+    """
+    CREATE TABLE IF NOT EXISTS report_cache (
+      id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      report_date TEXT NOT NULL,
+      latest_signal_ts TEXT,
+      report_json TEXT NOT NULL,
+      content_hash TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(symbol, report_date, latest_signal_ts)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_report_cache_symbol_date ON report_cache(symbol, report_date)",
 ]
 
 
@@ -346,14 +359,70 @@ def _migrate_lessons_columns(conn) -> None:
             conn.execute(text(f"ALTER TABLE lessons ADD COLUMN {column} {ddl}"))
 
 
+_MARKET_BARS_COLUMN_MIGRATIONS = (("ingested_at", "TEXT"),)
+
+
+def _migrate_market_bars_columns(conn) -> None:
+    existing = {
+        row[1] for row in conn.execute(text("PRAGMA table_info(market_bars)")).fetchall()
+    }
+    for column, ddl in _MARKET_BARS_COLUMN_MIGRATIONS:
+        if column not in existing:
+            conn.execute(text(f"ALTER TABLE market_bars ADD COLUMN {column} {ddl}"))
+
+
+_PATTERN_TRIGGER_SQL = {
+    "taco_pattern": (
+        "SELECT COUNT(*) FROM events WHERE event_type='policy_threat' "
+        "AND ts > date('now','-3 days')"
+    ),
+    "higher_low_accumulation": (
+        "SELECT COUNT(*) FROM signals WHERE signal_type='higher_low_candidate' "
+        "AND ts > datetime('now','-1 day')"
+    ),
+    "volume_contraction_pullback": (
+        "SELECT COUNT(*) FROM signals WHERE signal_type='volume_contraction' "
+        "AND ts > datetime('now','-1 day')"
+    ),
+    "vwap_reclaim": (
+        "SELECT COUNT(*) FROM signals WHERE signal_type='reclaim_vwap' "
+        "AND ts > datetime('now','-4 hour')"
+    ),
+    "relative_strength_divergence": (
+        "SELECT COUNT(*) FROM signals WHERE signal_type IN ('relative_weakness','relative_strength') "
+        "AND ts > datetime('now','-1 day')"
+    ),
+}
+
+
+def _migrate_pattern_trigger_sql(conn) -> None:
+    existing = {
+        row[1] for row in conn.execute(text("PRAGMA table_info(patterns)")).fetchall()
+    }
+    if "trigger_sql" not in existing:
+        conn.execute(text("ALTER TABLE patterns ADD COLUMN trigger_sql TEXT"))
+    for pattern_id, sql in _PATTERN_TRIGGER_SQL.items():
+        conn.execute(
+            text(
+                """
+                UPDATE patterns SET trigger_sql = :sql
+                WHERE pattern_id = :pid AND (trigger_sql IS NULL OR trigger_sql = '')
+                """
+            ),
+            {"sql": sql, "pid": pattern_id},
+        )
+
+
 def init_intel_db(settings: Settings | None = None, engine: Engine | None = None) -> Engine:
     eng = engine or get_intel_engine(settings)
     with eng.begin() as conn:
         for stmt in _SCHEMA_STATEMENTS:
             conn.execute(text(stmt))
         _migrate_lessons_columns(conn)
+        _migrate_market_bars_columns(conn)
         _seed_symbols(conn)
         _seed_patterns(conn)
+        _migrate_pattern_trigger_sql(conn)
     logger.info("Intel database initialized")
     from app.intel.ingestion.seed_lessons import seed_lessons_if_empty
 
