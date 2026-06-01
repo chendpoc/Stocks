@@ -3,7 +3,8 @@
   "title": "CLI TUI 升级 + 缓存系统 + 新闻爬取",
   "status": "approved",
   "source_docs": [
-    "docs/03-forward-market-intel-worker-prompt.md",
+    ".agent-dev/specs/cli-tui-v2/dev-plan.md",
+    ".agent-dev/cli-tui-v2-worker-prompt.md",
     ".agent-dev/specs/forward-market-intel/spec.json",
     ".agent-dev/context/code_map.md"
   ],

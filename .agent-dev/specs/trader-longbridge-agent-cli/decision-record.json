@@ -1,0 +1,135 @@
+{
+  "spec_id": "trader-longbridge-agent-cli",
+  "decisions": [
+    {
+      "id": "D301",
+      "date": "2026-05-31",
+      "question": "Settings 项与 MARKET_DATA_PROVIDER 关系？",
+      "answer": "独立 TRADER_LONGBRIDGE_AGENT=on|off，默认 on；不并入 ingest 三档",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "独立 env TRADER_LONGBRIDGE_AGENT=on|off，默认 on",
+      "rationale": "Agent CLI 工具与 yfinance/AV 入库是两条线",
+      "rejected": ["A 合并为第四档 longbridge ingest"]
+    },
+    {
+      "id": "D302",
+      "date": "2026-05-31",
+      "question": "Agent 工具暴露形态？",
+      "answer": "混合 C：Tier1 22 具名 + longbridgeInvoke 白名单；禁止任何下单",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "混合 C：Tier1 具名工具 + Tier2 longbridgeInvoke 白名单网关",
+      "rationale": "常用路径稳定可审计；长尾命令仍可达 ~80% 覆盖",
+      "rejected": ["A 单网关", "B 全具名"]
+    },
+    {
+      "id": "D303",
+      "date": "2026-05-31",
+      "question": "交易与写操作？",
+      "answer": "禁止 order 及一切写操作；order 整族 blocked_top_level",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "禁止任何 order/下单/出入金/DCA 写入",
+      "rationale": "与 SYSTEM_PROMPT 研究边界一致"
+    },
+    {
+      "id": "D304",
+      "date": "2026-05-31",
+      "question": "标的后缀策略？",
+      "answer": "无后缀补 .US；默认市场 Phase 2",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "无后缀补 .US（与 toLongbridgeSymbol 一致）"
+    },
+    {
+      "id": "D305",
+      "date": "2026-05-31",
+      "question": "Settings UI 布局？",
+      "answer": "双区块 A；Tab 切换；区块2 显示 probe 与 warning",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "双区块：MARKET_DATA_PROVIDER + TRADER_LONGBRIDGE_AGENT"
+    },
+    {
+      "id": "D306",
+      "date": "2026-05-31",
+      "question": "intel vs 长桥优先级？",
+      "answer": "on 时客观事实优先长桥；工具 description 硬编码 + SYSTEM_PROMPT 补丁",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "客观事实优先长桥；intel 负责信号/假设/Lesson"
+    },
+    {
+      "id": "D307",
+      "date": "2026-05-31",
+      "question": "探测失败时行为？",
+      "answer": "写 .env off + Settings warning（未检测到 CLI / 请先 login）；非静默假 on",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "启动 probe 失败写 off + bootstrapWarning；Settings 选 on 前 probe 拒绝 on",
+      "rejected": ["运行时静默降级且 env 仍为 on"]
+    },
+    {
+      "id": "D308",
+      "date": "2026-05-31",
+      "question": "CLI 输出上限？",
+      "answer": "分页默认 + 256KB 截断 + 30s/60s 超时",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "具名工具默认 count/limit；网关校验；max 262144 bytes"
+    },
+    {
+      "id": "D309",
+      "date": "2026-05-31",
+      "question": "何时触发 probe？",
+      "answer": "每次 trader 启动 + Settings 用户选 on 前（C）",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "首次 Agent 路径触发 + Settings 进入；Chat 中途不改 .env",
+      "rationale": "由 D310 细化为 lazy 触发，避免阻塞非 Agent 命令"
+    },
+    {
+      "id": "D310",
+      "date": "2026-06-01",
+      "question": "启动 probe 是否阻塞所有 CLI 命令？(RQ1)",
+      "answer": "改 lazy：首次 resolveAgentTools/getAgentSystemPrompt 时触发；index.ts 不 await",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "B · lazy probe + 30s 内存 cache（probe_cache_ms）",
+      "rationale": "trader scan/signals/data 等非长桥命令也被阻塞 1-3s 不可接受；lazy 模式仍满足 D309「每次启动 probe」的真实意图（保证 env 与能力同步）",
+      "rejected": [
+        "A 保留启动 probe + 缩 timeout 到 2s（仍有 2s 阻塞）",
+        "C 启动 background probe 不 await（双状态难调试）",
+        "保持现状（D309 字面执行，违反性能直觉）"
+      ]
+    },
+    {
+      "id": "D311",
+      "date": "2026-06-01",
+      "question": "getLongbridgeQuote 多 symbol 支持？(RQ4)",
+      "answer": "本期扩展：支持单 symbol 或 symbols 数组（≤10）",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "zod schema 改 union<string, string[]>；超 10 返回 MULTI_SYMBOL_LIMIT",
+      "rationale": "spec.md 之前已声明「多 symbol ≤10」，代码实际仅单 symbol，是一个明确的实现缺口；批量 quote 是 LLM 高频用例（peer comparison）",
+      "rejected": [
+        "Phase 2（接受文档与实现不一致）"
+      ]
+    },
+    {
+      "id": "D312",
+      "date": "2026-06-01",
+      "question": "longbridgeInvoke 子命令兜底白名单 + check 处理？(RQ2 + RQ3)",
+      "answer": "本期实施：移除 check from blocked_top_level，加 infrastructure_only_commands；为未列出的白名单命令加 _default_allowed_first_args 兜底",
+      "confirmed_by": "user",
+      "status": "accepted",
+      "choice": "spec.json 双向修正 + longbridgeCli.ts validateLongbridgeInvoke 加默认子命令校验（约 30 行）",
+      "rationale": "(1) check 是 probeLongbridge 内部 API，不应混在 LLM blocklist；(2) BLOCKED_ARG_TOKENS 黑名单可能漏（如 option deploy / quant publish），白名单兜底安全收益高、代码量小",
+      "rejected": [
+        "保留 check in blocked（语义冲突）",
+        "RQ3 推迟（依赖黑名单存在漏过风险）"
+      ]
+    }
+  ]
+}

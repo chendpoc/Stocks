@@ -1,0 +1,592 @@
+{
+  "id": "trader-longbridge-agent-cli",
+  "title": "Longbridge CLI Agent 工具化（完整版）",
+  "status": "approved",
+  "review_summary": "深度 review 已发现 8 项漂移；RQ1-RQ4 决定：probe 改 lazy / check 移出 blocked_top_level / Invoke 子命令兜底白名单 / quote 支持多 symbol。详见 c:\\Users\\31089\\.cursor\\plans\\t005_开发计划深度_review_53319747.plan.md",
+  "source_docs": [
+    "https://open.longbridge.com/skill/install.md",
+    "apps/trader-cli/src/services/longbridge.ts",
+    "apps/trader-cli/src/llm/tools.ts",
+    "apps/trader-cli/src/tui/pages/SettingsPage.tsx",
+    ".agent-dev/specs/trader-longbridge-agent-cli/decision-record.json",
+    ".agent-dev/specs/trader-longbridge-agent-cli/clarification-questions.json"
+  ],
+  "env": {
+    "TRADER_LONGBRIDGE_AGENT": {
+      "values": ["on", "off"],
+      "default": "on",
+      "persist": "repo_root/.env",
+      "description": "是否在 Chat Agent 注册 Longbridge CLI 只读工具；与 MARKET_DATA_PROVIDER 独立"
+    }
+  },
+  "tool_result_contract": {
+    "success": { "ok": true, "data": "unknown" },
+    "failure": {
+      "ok": false,
+      "code": [
+        "NOT_INSTALLED",
+        "AUTH_REQUIRED",
+        "INVALID_ARGS",
+        "INVALID_COMMAND",
+        "FORBIDDEN_COMMAND",
+        "FORBIDDEN_SUBCOMMAND",
+        "NOT_WHITELISTED",
+        "USE_NAMED_TOOL",
+        "LIMIT_EXCEEDED",
+        "MULTI_SYMBOL_LIMIT",
+        "TRUNCATED",
+        "TIMEOUT",
+        "PARSE_ERROR",
+        "CLI_ERROR"
+      ],
+      "message": "string",
+      "truncated": "boolean optional",
+      "preview": "string optional"
+    },
+    "limits": {
+      "max_stdout_bytes": 262144,
+      "max_count_limit": 500,
+      "default_timeout_ms": 30000,
+      "slow_timeout_ms": 60000,
+      "slow_commands": ["financial-report", "filing", "screener"]
+    }
+  },
+  "tier1_tools": [
+    {
+      "tool_name": "getLongbridgeQuote",
+      "cli_command": "quote",
+      "zod_params_summary": "symbol | symbols[<=10]",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "max_symbols": 10,
+      "description_intent": "最新价、涨跌幅、量额、盘前盘后；支持单 symbol 或 ≤10 个批量；查现在多少钱优先本工具",
+      "multi_symbol": true
+    },
+    {
+      "tool_name": "getLongbridgeKline",
+      "cli_command": "kline",
+      "zod_params_summary": "symbol, period=day, count=60",
+      "default_args": ["--period", "day", "--count", "60"],
+      "timeout_ms": 30000,
+      "description_intent": "OHLCV K 线；实时/历史 K 线优先长桥，非 intel DB 最后一根"
+    },
+    {
+      "tool_name": "getLongbridgeIntraday",
+      "cli_command": "intraday",
+      "zod_params_summary": "symbol, date?",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "当日或指定日分时价量"
+    },
+    {
+      "tool_name": "getLongbridgeDepth",
+      "cli_command": "depth",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "买卖盘口深度"
+    },
+    {
+      "tool_name": "getLongbridgeTrades",
+      "cli_command": "trades",
+      "zod_params_summary": "symbol, count=50",
+      "default_args": ["--count", "50"],
+      "timeout_ms": 30000,
+      "description_intent": "最近逐笔成交"
+    },
+    {
+      "tool_name": "getLongbridgeStatic",
+      "cli_command": "static",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "证券静态信息"
+    },
+    {
+      "tool_name": "getLongbridgeCalcIndex",
+      "cli_command": "calc-index",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "PE/PB/换手率等计算指标"
+    },
+    {
+      "tool_name": "getLongbridgeNews",
+      "cli_command": "news",
+      "zod_params_summary": "symbol, count=20",
+      "default_args": ["--count", "20"],
+      "timeout_ms": 30000,
+      "description_intent": "标的最新新闻列表"
+    },
+    {
+      "tool_name": "getLongbridgeFinancialReport",
+      "cli_command": "financial-report",
+      "zod_params_summary": "symbol, reportType=income, period?",
+      "default_args": ["--type", "income"],
+      "timeout_ms": 60000,
+      "description_intent": "财报三表"
+    },
+    {
+      "tool_name": "getLongbridgeValuation",
+      "cli_command": "valuation",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "估值与同业对比"
+    },
+    {
+      "tool_name": "getLongbridgeConsensus",
+      "cli_command": "consensus",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "一致预期财务"
+    },
+    {
+      "tool_name": "getLongbridgeForecastEps",
+      "cli_command": "forecast-eps",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "EPS 预测与分析师共识"
+    },
+    {
+      "tool_name": "getLongbridgeDividend",
+      "cli_command": "dividend",
+      "zod_params_summary": "symbol",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "分红历史"
+    },
+    {
+      "tool_name": "getLongbridgeScreener",
+      "cli_command": "screener",
+      "zod_params_summary": "strategy, limit=30",
+      "default_args": ["--limit", "30"],
+      "timeout_ms": 60000,
+      "description_intent": "策略选股筛选（只读）"
+    },
+    {
+      "tool_name": "getLongbridgeCompare",
+      "cli_command": "compare",
+      "zod_params_summary": "symbols max 5",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "多标的估值对比"
+    },
+    {
+      "tool_name": "getLongbridgeMarketTemp",
+      "cli_command": "market-temp",
+      "zod_params_summary": "none",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "市场情绪温度 0-100"
+    },
+    {
+      "tool_name": "getLongbridgeMarketStatus",
+      "cli_command": "market-status",
+      "zod_params_summary": "none",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "交易所开闭市状态"
+    },
+    {
+      "tool_name": "getLongbridgePositions",
+      "cli_command": "positions",
+      "zod_params_summary": "none",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "股票持仓快照（只读，非下单）"
+    },
+    {
+      "tool_name": "getLongbridgePortfolio",
+      "cli_command": "portfolio",
+      "zod_params_summary": "none",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "组合概览与盈亏"
+    },
+    {
+      "tool_name": "getLongbridgeAssets",
+      "cli_command": "assets",
+      "zod_params_summary": "none",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "账户资产与购买力"
+    },
+    {
+      "tool_name": "listLongbridgeWatchlist",
+      "cli_command": "watchlist",
+      "zod_params_summary": "none",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "自选分组列表；禁止 create/delete/update"
+    },
+    {
+      "tool_name": "getLongbridgeCapital",
+      "cli_command": "capital",
+      "zod_params_summary": "symbol, flow?",
+      "default_args": [],
+      "timeout_ms": 30000,
+      "description_intent": "资金流向/分布"
+    }
+  ],
+  "gateway": {
+    "invoke_tool_name": "longbridgeInvoke",
+    "whitelist": [
+      "brokers",
+      "option",
+      "warrant",
+      "business-segments",
+      "industry-rank",
+      "industry-peers",
+      "institution-rating",
+      "finance-calendar",
+      "filing",
+      "topic",
+      "margin-ratio",
+      "max-qty",
+      "exchange-rate",
+      "shareholder",
+      "company",
+      "executive",
+      "industry-valuation",
+      "operating",
+      "corp-action",
+      "invest-relation",
+      "constituent",
+      "broker-holding",
+      "ah-premium",
+      "trade-stats",
+      "anomaly",
+      "top-movers",
+      "rank",
+      "profit-analysis",
+      "fund-holder",
+      "insider-trades",
+      "investors",
+      "short-positions",
+      "short-trades",
+      "financial-statement",
+      "valuation-rank",
+      "participants",
+      "security-list",
+      "trading",
+      "subscriptions",
+      "cash-flow",
+      "fund-positions",
+      "quant",
+      "sharelist",
+      "alert"
+    ],
+    "tier1_cli_commands": [
+      "quote",
+      "kline",
+      "intraday",
+      "depth",
+      "trades",
+      "static",
+      "calc-index",
+      "news",
+      "financial-report",
+      "valuation",
+      "consensus",
+      "forecast-eps",
+      "dividend",
+      "screener",
+      "compare",
+      "market-temp",
+      "market-status",
+      "positions",
+      "portfolio",
+      "assets",
+      "watchlist",
+      "capital"
+    ],
+    "blocked_top_level": [
+      "auth",
+      "init",
+      "update",
+      "tui",
+      "completion",
+      "order",
+      "withdrawals",
+      "deposits",
+      "bank-cards",
+      "dca",
+      "ipo",
+      "statement"
+    ],
+    "infrastructure_only_commands": {
+      "check": "由 probeLongbridge 在 longbridge.ts 内部使用，不经 longbridgeInvoke；不暴露给 LLM"
+    },
+    "blocked_arg_tokens": [
+      "buy",
+      "sell",
+      "cancel",
+      "replace",
+      "create",
+      "delete",
+      "subscribe",
+      "pin"
+    ],
+    "invoke_subcommand_rules": {
+      "alert": ["list"],
+      "sharelist": ["list", "detail", "show"],
+      "watchlist": "use_named_tool_listLongbridgeWatchlist",
+      "_default_allowed_first_args": [
+        "list",
+        "show",
+        "get",
+        "detail",
+        "query",
+        "chain",
+        "history",
+        "snapshot",
+        "search",
+        "summary",
+        "stats",
+        "info",
+        "rank",
+        "peers",
+        "calendar",
+        "holders",
+        "actions",
+        "topics",
+        "rating",
+        "premium"
+      ],
+      "_note": "未列出顶层命令的 args[0] 必须 ∈ _default_allowed_first_args，或为 flag (--开头)，或缺省。RQ3 决议本期实施。"
+    },
+    "probe_cache_ms": 30000,
+    "coverage_target": {
+      "min_ratio": 0.8,
+      "denominator_note": "longbridge -h 顶层数据/研究/账户只读命令族；排除 blocked_top_level 与基础设施命令",
+      "numerator_note": "tier1_cli_commands.length + whitelist.length",
+      "expected_numerator": 66,
+      "expected_denominator_approx": 75
+    }
+  },
+  "consumers": [
+    "apps/trader-cli/src/commands/chat.ts",
+    "apps/trader-cli/src/tui/pages/ChatPage.tsx",
+    "apps/trader-cli/src/commands/analyze.ts",
+    "apps/trader-cli/src/services/report.ts"
+  ],
+  "bootstrap": {
+    "entry": "apps/trader-cli/src/index.ts",
+    "function": "ensureLongbridgeAgentOnStartup",
+    "mode": "lazy",
+    "lazy_trigger": "首次调用 resolveAgentTools() 或 getAgentSystemPrompt() 时执行；index.ts 不 await 阻塞",
+    "on_probe_fail": "set TRADER_LONGBRIDGE_AGENT=off in repo .env and set bootstrapWarning",
+    "settings_on_enter": "tryEnableLongbridgeAgent probes before writing on",
+    "rationale": "RQ1=B 决议：避免 trader scan/signals 等非长桥命令也等待 1-3s probe"
+  },
+  "scope": {
+    "create": [
+      "apps/trader-cli/src/services/longbridgeCli.ts",
+      "apps/trader-cli/src/services/longbridgeCli.test.ts",
+      "apps/trader-cli/src/services/longbridgeAgent.ts",
+      "apps/trader-cli/src/services/longbridgeAgent.test.ts",
+      "apps/trader-cli/src/llm/longbridgeTools.ts",
+      "apps/trader-cli/src/llm/longbridgeTools.test.ts",
+      "apps/trader-cli/src/llm/buildAgentTools.ts",
+      ".agent-dev/specs/trader-longbridge-agent-cli/**",
+      ".agent-dev/tasks/T005.json",
+      ".agent-dev/tasks/T005.md",
+      ".agent-dev/tasks/T005-slices/**",
+      ".agent-dev/trader-longbridge-agent-worker-prompt.md"
+    ],
+    "modify": [
+      "apps/trader-cli/src/index.ts",
+      "apps/trader-cli/src/llm/tools.ts",
+      "apps/trader-cli/src/commands/chat.ts",
+      "apps/trader-cli/src/commands/analyze.ts",
+      "apps/trader-cli/src/services/report.ts",
+      "apps/trader-cli/src/tui/pages/SettingsPage.tsx",
+      "apps/trader-cli/src/tui/menu.ts",
+      "apps/trader-cli/.env.example",
+      ".env.example",
+      "apps/trader-cli/package.json",
+      "CLAUDE.md",
+      ".agent-dev/context/code_map.md"
+    ],
+    "forbidden": [
+      "apps/trader-cockpit/**",
+      "apps/trader-agent/backend/app/modules/document_indexer.py",
+      "apps/trader-agent/backend/app/modules/local_search.py",
+      "apps/trader-agent/backend/app/intel/ingestion/market_data.py"
+    ],
+    "readonly_import": [
+      "apps/trader-cli/src/services/longbridge.ts",
+      "apps/trader-cli/src/services/envFile.ts",
+      "apps/trader-cli/src/services/marketDataProvider.ts"
+    ]
+  },
+  "decisions": [
+    { "ref": "D301", "brief": "TRADER_LONGBRIDGE_AGENT on/off 独立，默认 on" },
+    { "ref": "D302", "brief": "Tier1 22 具名 + longbridgeInvoke 白名单网关" },
+    { "ref": "D303", "brief": "禁止交易/写操作；order 整族 blocked" },
+    { "ref": "D304", "brief": "无后缀补 .US" },
+    { "ref": "D305", "brief": "Settings 双区块 Tab 切换" },
+    { "ref": "D306", "brief": "客观事实优先长桥；tool description + prompt 补丁" },
+    { "ref": "D307", "brief": "启动 probe 失败写 off + warning；Settings 选 on 前 probe" },
+    { "ref": "D308", "brief": "分页默认 + 256KB 截断 + 30/60s 超时" },
+    { "ref": "D309", "brief": "每次 trader 启动 + Settings 选 on 前触发 probe" },
+    { "ref": "D310", "brief": "probe 改 lazy：首次 resolveAgentTools() 时执行；启动不阻塞 30s 内有 cache" },
+    { "ref": "D311", "brief": "getLongbridgeQuote 本期支持单 symbol 或 ≤10 批量" },
+    { "ref": "D312", "brief": "longbridgeInvoke 子命令兜底白名单（list/show/detail/...）；check 移出 blocked，纳入 infrastructure_only" }
+  ],
+  "acceptance": [
+    {
+      "id": "A301",
+      "check": "每次 trader 启动：env=on 且 probe 失败 → 写 off + bootstrapWarning",
+      "verified_by": ["V301"]
+    },
+    {
+      "id": "A302",
+      "check": "Settings 选 on 前 probe；失败保持 off 并显示未检测到 CLI 或请先 login",
+      "verified_by": ["V301"]
+    },
+    {
+      "id": "A303",
+      "check": "on 且 probe ok：Chat/readline/eval/analyze/report 使用 resolveAgentTools 合并工具",
+      "verified_by": ["V302", "V303"]
+    },
+    {
+      "id": "A304",
+      "check": "Tier1 共 22 个具名工具，参数与 spec tier1_tools 一致",
+      "verified_by": ["V305"]
+    },
+    {
+      "id": "A305",
+      "check": "longbridgeInvoke 拒绝 order/buy 及非白名单顶层命令",
+      "verified_by": ["V305"]
+    },
+    {
+      "id": "A306",
+      "check": "gateway 覆盖 ≥80%（66/75 只读族）",
+      "verified_by": ["V305"]
+    },
+    {
+      "id": "A307",
+      "check": "getAgentSystemPrompt 在 ready 时附加 LONGBRIDGE_AGENT_PROMPT_PATCH",
+      "verified_by": ["V302"]
+    },
+    {
+      "id": "A308",
+      "check": "Dashboard [l]/[L] 外挂行为不变",
+      "verified_by": ["V304"]
+    },
+    {
+      "id": "A309",
+      "check": "longbridgeTools.test.ts 覆盖 Tier1 映射与 gateway 拒绝",
+      "verified_by": ["V305"]
+    },
+    {
+      "id": "A310",
+      "check": "lazy probe：trader scan/signals 等非长桥命令启动 <300ms（不阻塞 probe）",
+      "verified_by": ["V302", "V306"]
+    },
+    {
+      "id": "A311",
+      "check": "longbridgeInvoke 对未在 invoke_subcommand_rules 列出的命令，args[0] 必须 ∈ _default_allowed_first_args；否则 FORBIDDEN_SUBCOMMAND",
+      "verified_by": ["V305"]
+    },
+    {
+      "id": "A312",
+      "check": "getLongbridgeQuote 接受 symbol:string | symbols:string[<=10]；>10 返回 MULTI_SYMBOL_LIMIT",
+      "verified_by": ["V305"]
+    },
+    {
+      "id": "A313",
+      "check": "SettingsPage probe 30s 内复用 cache；手动 refresh 强制重探",
+      "verified_by": ["V301"]
+    },
+    {
+      "id": "A314",
+      "check": "longbridgeInvoke 不接受 command='check'（被 NOT_WHITELISTED 拦截，不在白名单），probeLongbridge 内部仍可调用",
+      "verified_by": ["V305"]
+    }
+  ],
+  "non_goals": [
+    "Longbridge MCP 客户端嵌入 trader-cli",
+    "MARKET_DATA_PROVIDER=longbridge ingest（Phase 2）",
+    "order buy/sell/cancel/replace 及任何交易写操作",
+    "Ink 内嵌 longbridge auth login OAuth",
+    "替换 longbridge tui 外挂",
+    "TRADER_LONGBRIDGE_DEFAULT_MARKET（Phase 2）",
+    "TRADER_LONGBRIDGE_TRADING（Phase 2）"
+  ],
+  "verification": [
+    {
+      "id": "V301",
+      "command": "cd apps/trader-cli && npm test -- src/services/longbridgeAgent.test.ts",
+      "expect": "probe/bootstrap/settings 单测通过",
+      "blocking": true
+    },
+    {
+      "id": "V302",
+      "command": "cd apps/trader-cli && npm test",
+      "expect": "trader-cli 全部单测通过",
+      "blocking": true
+    },
+    {
+      "id": "V303",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts chat --eval \"用 getLongbridgeQuote 查 TSLA 最新价\"",
+      "expect": "调用长桥工具并返回报价（需本机 longbridge 已登录）",
+      "blocking": false
+    },
+    {
+      "id": "V304",
+      "command": "manual: Dashboard 按 l/L 仍 spawn longbridge 新窗口",
+      "expect": "外挂不变",
+      "blocking": false
+    },
+    {
+      "id": "V305",
+      "command": "cd apps/trader-cli && npm test -- src/services/longbridgeCli.test.ts src/llm/longbridgeTools.test.ts",
+      "expect": "CLI 网关与工具注册单测通过；含 A310 lazy / A311 subcommand / A312 multi-symbol / A314 check 隔离",
+      "blocking": true
+    },
+    {
+      "id": "V306",
+      "command": "manual: time npx tsx src/index.ts scan --help",
+      "expect": "无长桥 probe 阻塞，启动 <300ms（lazy bootstrap 验证）",
+      "blocking": false
+    }
+  ],
+  "code_drift": {
+    "note": "深度 review 后确认：~85% 实现已落地，T005 性质改为 audit+patch；任务步骤见 T005.json S0-S8",
+    "audited_present": [
+      "apps/trader-cli/src/services/longbridgeAgent.ts",
+      "apps/trader-cli/src/services/longbridgeCli.ts",
+      "apps/trader-cli/src/llm/longbridgeTools.ts",
+      "apps/trader-cli/src/llm/buildAgentTools.ts",
+      "apps/trader-cli/src/tui/pages/SettingsPage.tsx",
+      "apps/trader-cli/src/index.ts",
+      "apps/trader-cli/src/commands/chat.ts",
+      "apps/trader-cli/src/commands/analyze.ts",
+      "apps/trader-cli/src/services/report.ts",
+      "apps/trader-cli/src/tui/pages/ChatPage.tsx",
+      "apps/trader-cli/src/llm/tools.ts",
+      "apps/trader-cli/src/services/longbridgeCli.test.ts",
+      "apps/trader-cli/src/services/longbridgeAgent.test.ts"
+    ],
+    "still_missing": [
+      "apps/trader-cli/src/llm/longbridgeTools.test.ts"
+    ],
+    "patch_required": {
+      "B2_check_in_blocked": "spec.json 已修正：check 移出 blocked_top_level，加 infrastructure_only_commands",
+      "B3_invoke_subcommand_whitelist": "longbridgeCli.ts validateLongbridgeInvoke 需扩 _default_allowed_first_args 校验",
+      "B4_probe_no_cache": "longbridgeAgent.ts 加内存缓存 30s TTL；SettingsPage 复用 cache",
+      "M1_top_level_await": "index.ts 改 program.hook('preAction') 或纯导入；不阻塞 startup",
+      "M2_a301_test_gap": "longbridgeAgent.test.ts 加 3 个 mock probe 场景",
+      "M3_missing_test_file": "新建 longbridgeTools.test.ts",
+      "M4_lazy_probe": "ensureLongbridgeAgentOnStartup 改 lazy（首次 resolveAgentTools 时执行）",
+      "m1_multi_symbol": "longbridgeTools.ts getLongbridgeQuote zod 改 union<string, array<=10>>",
+      "m3_decisions_missing_d309": "spec.json 已补 D309-D312",
+      "m5_test_script": "package.json test 加 longbridgeTools.test 路径"
+    }
+  }
+}

@@ -1,7 +1,8 @@
 # Code Map — stock-community-summary
 
 > 给 AI agent 的快速定位指南。先用本文理解结构，再用 CodeGraph 做精确查询。
-> 更新：2026-05-31
+> 配套：根目录 `CLAUDE.md`（开发规约与坑）· `.agent-dev/README.md`（spec/task artifact 说明）。
+> 更新：2026-06-01
 
 ---
 
@@ -10,16 +11,18 @@
 ```
 stock-community-summary/
 ├── apps/
-│   ├── trader-agent/backend/   ← Python 后端（FastAPI + SQLAlchemy + SQLite FTS5）
-│   ├── trader-cockpit/         ← 交易驾驶舱前端（Next.js 15 + HeroUI）
-│   ├── trader-cli/             ← TypeScript CLI（LLM + /api/intel on :8000）
+│   ├── trader-agent/backend/   ← Python 后端（FastAPI + SQLAlchemy + SQLite FTS5；含 intel 子系统）
+│   ├── trader-cli/             ← TypeScript CLI + Ink v7 TUI（七页面板 + 13 子命令；独立 npm，非 pnpm workspace）
+│   ├── trader-chart/           ← Rust ratatui 全屏 K 线（cargo workspace member；Ink Dashboard [c] handoff）
+│   ├── trader-cockpit/         ← 交易驾驶舱前端（Next.js 15 + HeroUI）— intel 期 FORBIDDEN
 │   └── research-console/       ← 旧研究控制台（只读参考，不扩展）
 ├── docs/                       ← VitePress 站点 + 设计文档 + 总结归档
-├── data/                       ← 运行时数据（DB / raw / structured）
-├── scripts/                    ← Node.js 脚本（采集/发布/通知）
+├── data/                       ← 运行时数据（DB / raw / structured；gitignored）
+├── scripts/                    ← Node 脚本（采集/发布/通知/audit）
 ├── packages/summary-core/      ← 共享 TypeScript 包
 ├── utils/                      ← Python 工具库（采集/解析/搜索/通知）
-├── .agent-dev/                 ← Agent 开发 artifact（spec/task/decision）
+├── .agent-dev/                 ← Agent 开发 artifact（spec/task/decision/worker prompts）
+├── Cargo.toml                  ← Rust workspace（仅 apps/trader-chart）
 └── test/                       ← 根级测试
 ```
 
@@ -39,38 +42,48 @@ app/
 │   ├── models.py               ← 所有 SQLAlchemy Table 定义（20+ 表）
 │   ├── session.py              ← create_sqlite_engine()
 │   └── migrations.py           ← bootstrap_database()
-├── modules/                    ← 业务模块（FORBIDDEN — 禁止修改）
-│   ├── _json.py                ← dumps()/loads()（可用）
-│   ├── corpus_search.py        ← search_corpus()（可用）
-│   ├── evidence_ref.py         ← EvidenceRef（可用）
-│   ├── context_selector.py     ← select_context()（不再使用）
-│   ├── memory_service.py       ← list/create_memory_item()（不再使用）
+├── modules/                    ← 旧 Shared Agent Memory（FORBIDDEN — 禁止修改）
+│   ├── _json.py                ← dumps()/loads()（可只读引用）
+│   ├── corpus_search.py        ← search_corpus()（可只读引用；intel/api/corpus.py 已包一层）
+│   ├── evidence_ref.py         ← EvidenceRef（可只读引用）
+│   ├── context_selector.py     ← DEPRECATED — 替换为 intel/context/selector.py
+│   ├── memory_service.py       ← DEPRECATED — 替换为 lessons 表 + create_lesson()
 │   └── ...                     ← 其他模块标记 DEPRECATED
-├── intel/                      ← NEW: Forward Market Intelligence
-│   ├── db/connection.py        ← get_intel_engine() → data/market_intel.db
-│   ├── db/schema.py            ← 11 张表定义 + seed 数据
-│   ├── context/selector.py     ← select_lessons()（10条/6000字预算）
+├── intel/                      ← Forward Market Intelligence 子系统
+│   ├── db/
+│   │   ├── connection.py       ← get_intel_engine() → data/market_intel.db
+│   │   └── schema.py           ← 11 张表 + seed + _migrate_*_columns()
+│   ├── context/selector.py     ← select_lessons() / select_related_hypotheses（10条/6000字预算）
 │   ├── ingestion/
-│   │   ├── market_data.py      ← yfinance 数据拉取
-│   │   ├── events_ingest.py    ← 事件录入
+│   │   ├── market_data.py      ← yfinance 数据拉取 + ingested_at TTL（D109）
+│   │   ├── bars.py             ← market_bars 写入辅助
+│   │   ├── alpha_vantage_data.py
+│   │   ├── events_ingest.py    ← 事件录入（手工 + ARK trades）
+│   │   ├── news_crawler.py     ← RSS/API/Web 三源 → events.source_type='news'（D103）
 │   │   └── seed_lessons.py     ← LLM 扫描 summaries 提取 seed lessons
-│   ├── features/scanner.py     ← 10 特征 + scanner registry
-│   ├── trade/ideas.py          ← hypothesis → trade_idea
+│   ├── features/
+│   │   ├── scanner.py          ← 10 features + signal registry
+│   │   ├── pattern_matcher.py  ← 5 条 MVP_PATTERNS + trigger_sql（D110）
+│   │   └── cross_asset.py      ← 跨资产共现指标（独立计算，不进 SCANNERS — D111）
+│   ├── trade/ideas.py          ← hypothesis → trade_idea（同 symbol 合并）
 │   ├── postmortem/
-│   │   ├── evaluator.py        ← prediction → outcome
+│   │   ├── evaluator.py        ← prediction → outcome（reference_price）
 │   │   └── lessons.py          ← 复盘 → lesson（只写新 DB）
 │   ├── jobs/
 │   │   ├── premarket.py        ← 盘前数据包
 │   │   └── close.py            ← 收盘数据包 + 触发 evaluator
-│   └── api/
-│       ├── context.py          ← POST /api/intel/context/build
-│       ├── market.py           ← /api/intel/market/*
-│       ├── signals.py          ← /api/intel/signals/*
-│       ├── hypotheses.py       ← /api/intel/hypotheses/*（CRUD）
-│       ├── trade_ideas.py      ← /api/intel/trade-ideas/*
-│       ├── lessons.py          ← /api/intel/lessons/*
-│       ├── events.py           ← /api/intel/events/*
-│       └── jobs.py             ← /api/intel/jobs/*
+│   └── api/                    ← 11 路由（前缀 /api/intel）
+│       ├── context.py          ← POST /context/build（含 related_hypotheses — D102）
+│       ├── market.py           ← /market/*（含 GET /market/status — D204）
+│       ├── signals.py          ← /signals/*
+│       ├── hypotheses.py       ← /hypotheses/*（CRUD）
+│       ├── trade_ideas.py      ← /trade-ideas/*
+│       ├── lessons.py          ← /lessons/*
+│       ├── events.py           ← /events/*
+│       ├── jobs.py             ← /jobs/*（premarket / close）
+│       ├── corpus.py           ← /corpus/*（包一层 M2 corpus_search）
+│       ├── report_cache.py     ← /report/*（D105/D113 唯一键 + 实时 join 失效）
+│       └── news.py             ← /news/*
 └── tools/                      ← 外部数据源适配器（yfinance/alpha_vantage/longbridge/SEC）
 ```
 
@@ -79,7 +92,7 @@ app/
 | 数据库 | 路径 | 用途 |
 |---|---|---|
 | `trader-agent.db` | `data/trader-agent/trader-agent.db` | 旧系统（FORBIDDEN — 不动 schema） |
-| `market_intel.db` | `data/market_intel.db` | 新系统（11 张表） |
+| `market_intel.db` | `data/market_intel.db` | 新 intel 系统（11 张表，单文件 schema 管理） |
 
 ### 关键路径约定
 
@@ -90,6 +103,7 @@ app/
 | Lint | `.venv/Scripts/python.exe -m ruff check <file>` |
 | 后端启动 | `npm run trader-agent:backend:dev` → `scripts/dev_server.py`（factory + 启动前校验 intel） |
 | 后端验证 | `npm run trader-agent:backend:verify`（health 含 intel_route_count + ingest 200） |
+| 后端关闭 | `npm run trader-agent:backend:stop`（含 `:force` 用 `--nuke`） |
 
 ---
 
@@ -106,27 +120,135 @@ lib/cockpit/
 
 技术栈：Next.js 15 + React 19 + HeroUI + TailwindCSS 4 + Zustand + TanStack Query
 
-**FORBIDDEN** — intel 开发期间不碰。
+**FORBIDDEN** — intel / trader-cli 开发期间不碰。
 
 ---
 
-## CLI：apps/trader-cli/（TypeScript + tsx，无 .mjs 包装）
+## CLI + Ink TUI：apps/trader-cli/
+
+> TypeScript + tsx（无 build，无 `.mjs` 包装）。**独立 npm 包，非 pnpm workspace 成员。**
 
 ```
 src/
-├── index.ts                  ← Commander.js 入口
+├── index.ts                  ← Commander.js 入口（默认子命令 = tui）
+├── bootstrap-env.ts          ← 仓库根 .env 加载（与后端共用）
+├── loadEnv.ts                ← 兼容旧路径
+├── print-root-hint.ts        ← repo-root 校验提示
+├── symbols.ts                ← 标的归一化辅助
+├── asciichart.d.ts           ← 手写 asciichart 类型 shim（非 @types）
+│
 ├── api/client.ts             ← fetch → localhost:8000/api/intel
-├── llm/
-│   ├── provider.ts           ← Vercel AI SDK（DeepSeek/OpenRouter/Anthropic）
-│   ├── tools.ts              ← 10 个 LLM tool definitions
+│
+├── commands/                 ← 13 个 Commander 子命令（瘦身 — 业务逻辑下沉 services/）
+│   ├── scan.ts               ← /signals/scan
+│   ├── analyze.ts            ← 单次 LLM 深度分析
+│   ├── brief.ts              ← /jobs/premarket 数据包
+│   ├── review.ts             ← /jobs/close 数据包
+│   ├── chart.ts              ← ASCII 或 ratatui handoff
+│   ├── chat.ts               ← --eval 旧 readline；TTY 进 ink ChatPage（D108/D112）
+│   ├── config.ts             ← show / set env
+│   ├── data.ts               ← status / ingest
+│   ├── hypotheses.ts         ← list（CLI 路径）
+│   ├── lessons.ts            ← list
+│   ├── report.ts             ← 同日缓存命中提示「[缓存命中]」
+│   ├── server.ts             ← start / stop / status（Win + macOS — D106）
+│   └── signals.ts            ← list
+│
+├── services/                 ← CLI 与 TUI 同源（D201）
+│   ├── chart.ts              ← ASCII 图绘制
+│   ├── chartIntervals.ts     ← 周期归一化
+│   ├── envFile.ts            ← 仓库根 .env 读写
+│   ├── repoRoot.ts           ← 仓库根定位
+│   ├── market.ts             ← /market/* 包装
+│   ├── marketDataProvider.ts ← provider 切换（yfinance/longbridge — Phase2）
+│   ├── news.ts               ← /news/* 包装
+│   ├── report.ts             ← /report/* + 缓存命中标记（V104）
+│   ├── scan.ts               ← /signals/scan 包装
+│   ├── server.ts             ← 后端生命周期管理
+│   ├── traderChart.ts        ← ratatui handoff（spawnSync inherit — D201/T004）
+│   ├── longbridge.ts         ← Dashboard [l]/[L] 外挂（不进 Agent 工具链）
+│   ├── longbridgeCli.ts      ← runLongbridgeJson + 网关白名单 + 截断/超时（T005）
+│   └── longbridgeAgent.ts    ← env probe + 30s cache + bootstrapWarning（D310）
+│
+├── llm/                      ← Vercel AI SDK
+│   ├── provider.ts           ← DeepSeek / OpenRouter / Anthropic
+│   ├── tools.ts              ← INTEL_TOOLS（intel API + DB）+ LONGBRIDGE_AGENT_PROMPT_PATCH
+│   ├── longbridgeTools.ts    ← Tier1 22 个具名工具 + longbridgeInvoke（44 项白名单 — T005）
+│   ├── buildAgentTools.ts    ← resolveAgentTools / getAgentSystemPrompt（lazy probe 入口）
 │   └── auditor.ts            ← 10 条禁止规则审计
-├── commands/                 ← scan/analyze/brief/review/chat
-└── ui/display.ts             ← 终端格式化
+│
+└── tui/                      ← Ink v7
+    ├── app.tsx               ← 七页路由壳
+    ├── launch.ts             ← TUI 启动
+    ├── menu.ts               ← 1-7 顶部菜单
+    ├── chartSession.ts       ← ratatui handoff 会话
+    ├── chatSuggestions.ts
+    ├── symbolSearch.ts
+    ├── types.ts
+    ├── pages/
+    │   ├── DashboardPage.tsx     ← [s]scan / [g]report / [c]chart / [l/L]longbridge（D202/D203）
+    │   ├── ChatPage.tsx          ← buildAgentTools() 入口（首次 lazy probe）
+    │   ├── SignalsPage.tsx
+    │   ├── HypothesesPage.tsx
+    │   ├── LessonsPage.tsx
+    │   ├── OpsPage.tsx           ← server / data status；[I]ingest [N]news
+    │   └── SettingsPage.tsx      ← 区块1 MARKET_DATA_PROVIDER / 区块2 TRADER_LONGBRIDGE_AGENT
+    ├── components/
+    │   ├── Sidebar.tsx / ContentArea.tsx / StatusBar.tsx / HotkeyBar.tsx / ContextHint.tsx
+    │   ├── PagePanel.tsx / AsyncLoading.tsx / SpinnerLine.tsx
+    │   ├── ScanSummary.tsx / SymbolPicker.tsx
+    │   ├── SignalDetail.tsx / HypothesisDetail.tsx / LessonDetail.tsx
+    │   └── focus.tsx
+    └── hooks/
+        ├── useFetchIntel.ts      ← intel API 抓取
+        ├── useCachedFetch.ts     ← 本地缓存
+        └── useListDetailNav.ts   ← 列表/详情导航
 ```
 
-技术栈：TypeScript + tsx + Commander.js + Vercel AI SDK（ai + @ai-sdk/openai + @ai-sdk/anthropic）
+技术栈：TypeScript 5 + tsx + Ink 7 + Commander 12 + Vercel AI SDK + asciichart + zod。
 
-不是 pnpm workspace 成员。独立安装依赖。
+测试：`npm test` → vitest 跑 `auditor / marketDataProvider / longbridge / longbridgeAgent / longbridgeCli / traderChart / longbridgeTools`（T005 S5 待新增）。
+
+---
+
+## Rust 全屏 K 线：apps/trader-chart/
+
+> cargo workspace member。由 Ink Dashboard `[c]` 或 `trader chart SYMBOL` 通过 `spawnSync(inherit)` handoff 启动（D201）。
+
+```
+apps/trader-chart/
+├── Cargo.toml                ← anyhow + clap + crossterm + ratatui 0.29 + reqwest(rustls) + tokio
+├── README.md                 ← 构建 / 环境变量 / 快捷键 / 测试
+├── src/
+│   ├── main.rs               ← clap 入口
+│   ├── lib.rs                ← pub mod 暴露
+│   ├── app.rs                ← 主循环 + 状态机
+│   ├── api.rs                ← reqwest → GET /market/bars?chart=（D203，不改 API）
+│   ├── model.rs              ← Bar / Series 类型
+│   ├── viewport.rs           ← 缩放 / 十字线 / 滚动
+│   ├── intervals.rs          ← 8 周期归一化
+│   ├── symbols.rs            ← 标的切换
+│   ├── handoff.rs            ← Ink ↔ Rust 状态交换（chart-handoff.json）
+│   └── ui/
+│       ├── mod.rs
+│       └── draw.rs           ← ratatui 渲染（蜡烛 + 量 + crosshair）
+└── tests/fixtures/bars.json
+```
+
+环境变量：
+
+| 变量 | 默认 |
+|------|------|
+| `TRADER_API_BASE` | `http://127.0.0.1:8000/api/intel` |
+| `TRADER_CHART_BIN` | trader-cli 自动解析 release/debug 路径 |
+| `TRADER_CHART_HANDOFF` | `.cache/trader-cli/chart-handoff.json` |
+
+构建 / 测试：
+
+```bash
+npm run trader-chart:build       # cargo build -p trader-chart --release
+cargo test -p trader-chart
+```
 
 ---
 
@@ -134,32 +256,33 @@ src/
 
 ```
 docs/
-├── summaries/                ← 赵哥群聊总结（2025-11 → 2026-05，主语料源）
-├── workflow.md               ← Agent Dev Workflow v2（最终确认版）
+├── workflow.md                                # Agent Dev Workflow v2（最终确认版）
 ├── 01-forward-market-intelligence-system-design.md
 ├── 02-mvp-module-development-plan.md
 ├── 03-forward-market-intel-mvp-plan.md
-├── 03-forward-market-intel-worker-prompt.md
+├── trader_agent_system_design_v0_3.md         # 系统总体设计 v0.3
+├── summaries/                                 # 赵哥群聊总结（2025-11 → 2026-05，主语料源）
+├── assets/chat-images/                        # 群聊图片资产（日期归档）
 └── research-agent/target-system/trader-agent/
-    ├── 00-workflow-router.md ← 局部 workflow 路由 + spec gate
-    ├── 00-system-overview.md ← 三层架构总览
+    ├── 00-workflow-router.md                  # 旧 Shared Agent Memory 任务入口
+    ├── 00-system-overview.md                  # 三层架构总览
     ├── 01-agent-core-backend-prd.md
     ├── 03-shared-agent-memory-prd.md
-    └── 03-shared-agent-memory-development/
+    └── 03-shared-agent-memory-development/    # 01-07 模块 dev doc + plans/
 ```
 
 ---
 
-## 数据：data/
+## 数据：data/（gitignored）
 
 ```
 data/
-├── raw/YYYY-MM-DD/           ← Whop 原始 JSON 归档
-├── structured/YYYY-MM-DD/    ← LLM 结构化总结
-├── generated/                ← 生成文件
+├── raw/YYYY-MM-DD/             ← Whop 原始 JSON 归档
+├── structured/YYYY-MM-DD/      ← LLM 结构化总结
+├── generated/                  ← 生成文件
 ├── trader-agent/
-│   └── trader-agent.db       ← 旧 DB（不动）
-└── market_intel.db           ← 新 DB（NEW）
+│   └── trader-agent.db         ← 旧 DB（不动）
+└── market_intel.db             ← 新 intel DB
 ```
 
 ---
@@ -168,18 +291,30 @@ data/
 
 ```
 .agent-dev/
+├── README.md                                    ← 目录与流程说明
 ├── memory/
-│   ├── schemas.md            ← JSON Schema v1.0（6 种）
-│   └── cursor-setup.md       ← Cursor 配置
-├── specs/forward-market-intel/
-│   ├── spec.json             ← scope / decisions / verification
-│   ├── spec.md               ← 人读说明
-│   └── decision-record.json  ← D001-D013
+│   ├── schemas.md                               ← JSON Schema v1.0（6 种 artifact）
+│   └── cursor-setup.md                          ← Cursor 配置
+├── context/code_map.md                          ← 本文件
+│
+├── specs/
+│   ├── forward-market-intel/                    ← T001 父 spec（spec.json/spec.md/decision-record.json）
+│   ├── cli-tui-v2/                              ← T002（含 dev-plan.md）
+│   ├── cli-tui-integration/                     ← T003（接入七页 TUI；服务层共享）
+│   ├── trader-chart-ratatui/                    ← T004（done）
+│   └── trader-longbridge-agent-cli/             ← T005（含 clarification-questions.{md,json}）
+│
 ├── tasks/
-│   ├── T001.json             ← 10 steps + 依赖图
-│   └── T001.md
-└── context/
-    └── code_map.md           ← 本文件
+│   ├── T001.{md,json}                           ← forward-market-intel
+│   ├── T002.{md,json} + T002-slices/            ← cli-tui-v2 分片（P0/P1/P2/P3/P4/P5）
+│   ├── T003.json + T003-slices/                 ← cli-tui-integration 分片（I0-I3）
+│   ├── T004.json + T004-slices/                 ← trader-chart-ratatui
+│   └── T005.{md,json} + T005-slices/            ← trader-longbridge-agent-cli（audit + patch）
+│
+├── presentations/cli-tui-v2-code-review-presentation.md
+├── cli-tui-v2-worker-prompt.md                  ← T002 worker prompt
+├── cli-tui-integration-worker-prompt.md         ← T003 worker prompt
+└── trader-longbridge-agent-worker-prompt.md     ← T005 worker prompt
 ```
 
 ---
@@ -190,9 +325,11 @@ data/
 |---|---|
 | `app/modules/**` | 旧模块（除 `_json.py`/`corpus_search.py`/`evidence_ref.py`/`core.*`/`db.*` 可只读引用） |
 | `app/core/**` | Settings/events/time 只读引用 |
-| `apps/trader-cockpit/**` | 旧系统前端 |
-| `trader-agent.db` | 旧 DB schema |
-| `apps/research-console/**` | 旧控制台 |
+| `apps/trader-cockpit/**` | 旧驾驶舱前端 |
+| `apps/research-console/**` | 旧研究控制台 |
+| `data/trader-agent/trader-agent.db` | 旧 DB schema |
+| `apps/trader-agent/backend/app/intel/db/schema.py` | cli-tui-integration scope 内禁止；其他 spec 看自身 forbidden |
+| `apps/trader-cli/src/services/longbridge.ts` | T005 期间只读（Dashboard [l]/[L] 外挂逻辑保持） |
 
 ## 可只读引用的旧模块
 
@@ -218,22 +355,31 @@ app/modules/memory_service.py    ← 替换为 lessons 表 + create_lesson()
 ## 常用命令
 
 ```bash
-# 后端开发
-npm run trader-agent:backend:dev     # 启动 FastAPI (port 8000)
+# === 后端 ===
+npm run trader-agent:backend:dev          # FastAPI :8000（带启动前校验）
+npm run trader-agent:backend:verify       # health + intel ingest 校验
+npm run trader-agent:backend:stop         # 关闭（:force 用 --nuke）
 
-# 测试
+# === 测试（仓库根）===
 .venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_phase0_schema.py -v --tb=short
+.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_news_crawler.py -v --tb=short
+.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_cache_report.py -v --tb=short
 
-# CodeGraph
-codegraph serve --watch              # 启动 MCP server（开发时保持运行）
-codegraph index                       # 重建索引
+# === CodeGraph ===
+codegraph serve --watch                   # MCP server（开发时常开）
+codegraph index                           # 重建索引
 
-# 文档
-npm run docs:dev                     # VitePress 开发服务器
+# === 文档站 ===
+npm run docs:dev                          # VitePress
 
-# CLI（待构建后）
-npm run trader-cli -- analyze TSLA
-npm run trader-cli -- chat
+# === CLI / TUI ===
+cd apps/trader-cli && npx tsx src/index.ts                       # 七页 Ink TUI（默认）
+npm run trader-cli -- analyze TSLA                                # 仓库根快捷
+cd apps/trader-cli && npm test                                    # vitest
+
+# === Rust ratatui ===
+npm run trader-chart:build                                        # cargo build -p trader-chart --release
+cargo test -p trader-chart
 ```
 
 ---
@@ -241,7 +387,7 @@ npm run trader-cli -- chat
 ## AI Agent 使用方式
 
 1. **先读本文件** — 理解项目边界和模块关系
-2. **读 spec.json** — 确认 scope.create / scope.forbidden / decisions / verification
-3. **读 task.json** — 确认当前 step 的 depends_on 和 files_expected
+2. **再读对应 spec.json** — 确认 `scope.create` / `scope.forbidden` / `decisions` / `verification`
+3. **读 task.json** — 确认当前 step 的 `depends_on` 和 `files_expected`；大任务读 `tasks/T00X-slices/` 分片
 4. **用 CodeGraph** — `codegraph_context` 查模块上下游，`codegraph_explore` 深入具体文件
 5. **不要** — grep 全局搜索作为第一步（先用 CodeGraph 和本文定位）

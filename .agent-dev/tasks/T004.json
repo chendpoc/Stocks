@@ -1,0 +1,12 @@
+{
+  "id": "T004",
+  "spec_id": "trader-chart-ratatui",
+  "title": "Ratatui Chart + Ink Handoff",
+  "status": "done",
+  "steps": [
+    { "id": "P0", "title": "Spec artifacts", "status": "done" },
+    { "id": "R1-R8", "title": "apps/trader-chart Rust", "status": "done" },
+    { "id": "T1-T4", "title": "trader-cli integration", "status": "done" },
+    { "id": "G", "title": "Verify + docs", "status": "done" }
+  ]
+}

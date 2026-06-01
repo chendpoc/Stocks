@@ -117,8 +117,9 @@ flowchart LR
 
 ## 相关文档
 
+- Dev Plan（Plan Gate）: [dev-plan.md](./dev-plan.md)
+- Worker Prompt（实现指令）: [cli-tui-v2-worker-prompt.md](../../cli-tui-v2-worker-prompt.md)
 - 父 Spec: [.agent-dev/specs/forward-market-intel/spec.json](../forward-market-intel/spec.json)
-- Worker Prompt: [docs/03-forward-market-intel-worker-prompt.md](../../../docs/03-forward-market-intel-worker-prompt.md)
 - Task: [.agent-dev/tasks/T002.json](../../tasks/T002.json)
 - 决策记录: [decision-record.json](./decision-record.json)
 - Code Map: [.agent-dev/context/code_map.md](../../context/code_map.md)
