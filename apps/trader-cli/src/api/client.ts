@@ -1,5 +1,20 @@
 const BASE = process.env.TRADER_API_BASE ?? "http://127.0.0.1:8000/api/intel";
 
+function apiRoot(): string {
+  return BASE.replace(/\/api\/intel\/?$/, "");
+}
+
+export async function fetchHealth(): Promise<{
+  status: string;
+  intel_route_count: number;
+}> {
+  const response = await fetch(`${apiRoot()}/health`);
+  if (!response.ok) {
+    throw new Error(`Health ${response.status}: ${await response.text()}`);
+  }
+  return response.json();
+}
+
 export async function fetchIntel(
   path: string,
   options: RequestInit = {},
