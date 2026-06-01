@@ -23,6 +23,7 @@ __pycache__/
 *.egg-info/
 utils/local_secrets.py
 utils/.local_secrets.py
+/target/
 .venv/
 data/
 logs/
