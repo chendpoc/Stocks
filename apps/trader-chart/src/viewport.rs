@@ -45,6 +45,14 @@ pub fn y_for_price(price: f64, lo: f64, hi: f64, height: u16) -> u16 {
     row.round() as u16
 }
 
+pub fn price_ticks(lo: f64, hi: f64, count: usize) -> Vec<f64> {
+    if count < 2 || hi <= lo {
+        return vec![lo, hi];
+    }
+    let step = (hi - lo) / (count - 1) as f64;
+    (0..count).map(|i| lo + step * i as f64).collect()
+}
+
 pub fn max_volume(bars: &[Bar], win: &ViewWindow) -> f64 {
     let end = (win.start + win.len).min(bars.len());
     bars[win.start..end]
@@ -68,6 +76,14 @@ mod tests {
             close,
             volume: 10.0,
         }
+    }
+
+    #[test]
+    fn price_ticks_count() {
+        let ticks = price_ticks(100.0, 200.0, 5);
+        assert_eq!(ticks.len(), 5);
+        assert!((ticks[0] - 100.0).abs() < f64::EPSILON);
+        assert!((ticks[4] - 200.0).abs() < f64::EPSILON);
     }
 
     #[test]

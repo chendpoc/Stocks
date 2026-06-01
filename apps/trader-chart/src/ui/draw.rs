@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::app::App;
-use crate::viewport::{price_range, window_for, y_for_price, ViewWindow};
+use crate::viewport::{price_range, price_ticks, window_for, y_for_price, ViewWindow};
 
 pub fn draw_ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
@@ -29,12 +29,31 @@ pub fn draw_ui(f: &mut Frame, app: &App) {
             .block(Block::default().borders(Borders::ALL).title("Loading"));
         f.render_widget(p, chunks[1]);
     } else {
-        let inner = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(5), Constraint::Length(3)])
+        let main_cols = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(1), Constraint::Length(10)])
             .split(chunks[1]);
-        draw_candles(f, inner[0], app);
-        draw_volume(f, inner[1], app);
+
+        let left_rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(4),
+                Constraint::Length(1),
+                Constraint::Length(3),
+            ])
+            .split(main_cols[0]);
+
+        draw_candles(f, left_rows[0], app);
+        draw_x_axis(f, left_rows[1], app);
+        draw_volume(f, left_rows[2], app);
+
+        let y_axis_area = Rect {
+            x: main_cols[1].x,
+            y: left_rows[0].y,
+            width: main_cols[1].width,
+            height: left_rows[0].height,
+        };
+        draw_y_axis(f, y_axis_area, app);
     }
     draw_crosshair_line(f, chunks[2], app);
     draw_footer(f, chunks[3], app);
@@ -173,6 +192,116 @@ fn draw_candles(f: &mut Frame, area: Rect, app: &App) {
                     .set_string(x, inner.y + y, ch.to_string(), style);
             }
         }
+    }
+}
+
+fn format_price(price: f64) -> String {
+    if price.abs() < 1.0 {
+        format!("{:.4}", price)
+    } else if price.abs() < 100.0 {
+        format!("{:.2}", price)
+    } else {
+        format!("{:.1}", price)
+    }
+}
+
+fn format_ts_label(ts: &str, interval: &str) -> String {
+    let is_intraday = matches!(interval, "1m" | "2m" | "5m" | "30m" | "1h" | "2h" | "4h");
+    if is_intraday {
+        if let Some(t_pos) = ts.find('T') {
+            if let Some(hhmm) = ts.get(t_pos + 1..t_pos + 6) {
+                return hhmm.to_string();
+            }
+        }
+    }
+    if ts.len() >= 10 {
+        return ts[5..10].to_string();
+    }
+    ts.chars().take(10).collect()
+}
+
+fn draw_y_axis(f: &mut Frame, area: Rect, app: &App) {
+    let w = win(app);
+    if w.len == 0 || area.height < 4 {
+        return;
+    }
+    let (lo, hi) = price_range(&app.bars, &w);
+    let inner_top = area.y + 1;
+    let inner_h = area.height.saturating_sub(2);
+    if inner_h < 2 {
+        return;
+    }
+
+    let n = ((inner_h as usize) / 3).clamp(3, 8);
+    let ticks = price_ticks(lo, hi, n);
+    let dim = Style::default().fg(Color::DarkGray);
+    let max_w = area.width.saturating_sub(1) as usize;
+
+    for &price in &ticks {
+        let row = y_for_price(price, lo, hi, inner_h);
+        if row < inner_h {
+            let label = format_price(price);
+            let show = if label.len() > max_w {
+                &label[..max_w]
+            } else {
+                &label
+            };
+            f.buffer_mut()
+                .set_string(area.x + 1, inner_top + row, show, dim);
+        }
+    }
+
+    if !app.bars.is_empty() {
+        let i = app.crosshair_index.min(app.bars.len() - 1);
+        let price = app.bars[i].close;
+        let row = y_for_price(price, lo, hi, inner_h);
+        if row < inner_h {
+            let label = format_price(price);
+            let show = if label.len() > max_w {
+                &label[..max_w]
+            } else {
+                &label
+            };
+            f.buffer_mut().set_string(
+                area.x + 1,
+                inner_top + row,
+                show,
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            );
+        }
+    }
+}
+
+fn draw_x_axis(f: &mut Frame, area: Rect, app: &App) {
+    if area.width < 6 || area.height == 0 {
+        return;
+    }
+    let w = win(app);
+    if w.len == 0 {
+        return;
+    }
+    let inner_left = area.x + 1;
+    let inner_w = area.width.saturating_sub(2) as usize;
+    let dim = Style::default().fg(Color::DarkGray);
+    let spacing = 10usize;
+
+    let mut col = 0;
+    while col < inner_w.min(w.len) {
+        let bi = w.start + col;
+        if bi < app.bars.len() {
+            let label = format_ts_label(&app.bars[bi].ts, &app.chart_interval);
+            if col + label.len() <= inner_w {
+                f.buffer_mut().set_string(
+                    inner_left + col as u16,
+                    area.y,
+                    &label,
+                    dim,
+                );
+            }
+        }
+        col += spacing;
     }
 }
 
