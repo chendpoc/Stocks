@@ -5,6 +5,28 @@ export type LongbridgeAgentMode = "on" | "off";
 
 let bootstrapWarning: string | null = null;
 
+const PROBE_CACHE_MS = 30_000;
+let probeCache: { result: LongbridgeProbe; ts: number } | null = null;
+let bootstrapDone = false;
+
+let _probeFn: typeof probeLongbridge = probeLongbridge;
+let _setEnvFn: typeof setEnvValue = setEnvValue;
+
+export async function cachedProbe(force = false): Promise<LongbridgeProbe> {
+  const now = Date.now();
+  if (!force && probeCache && now - probeCache.ts < PROBE_CACHE_MS) {
+    return probeCache.result;
+  }
+  const result = await _probeFn();
+  probeCache = { result, ts: now };
+  return result;
+}
+
+export async function refreshProbeCache(): Promise<LongbridgeProbe> {
+  probeCache = null;
+  return cachedProbe(true);
+}
+
 export function getLongbridgeBootstrapWarning(): string | null {
   return bootstrapWarning;
 }
@@ -24,7 +46,7 @@ export function getLongbridgeAgentSetting(): LongbridgeAgentMode {
 }
 
 export function setLongbridgeAgentSetting(mode: LongbridgeAgentMode): void {
-  setEnvValue("TRADER_LONGBRIDGE_AGENT", mode);
+  _setEnvFn("TRADER_LONGBRIDGE_AGENT", mode);
 }
 
 export function probeWarningMessage(probe: LongbridgeProbe): string {
@@ -39,9 +61,11 @@ export function probeWarningMessage(probe: LongbridgeProbe): string {
 
 /** 每次 trader 进程启动时调用 */
 export async function ensureLongbridgeAgentOnStartup(): Promise<void> {
+  if (bootstrapDone) return;
+  bootstrapDone = true;
   bootstrapWarning = null;
   if (getLongbridgeAgentSetting() !== "on") return;
-  const probe = await probeLongbridge();
+  const probe = await cachedProbe(false);
   if (probe.installed && probe.authOk) return;
   setLongbridgeAgentSetting("off");
   bootstrapWarning = probeWarningMessage(probe) || probe.message;
@@ -56,7 +80,7 @@ export async function tryEnableLongbridgeAgent(): Promise<{
   ok: boolean;
   message: string;
 }> {
-  const probe = await probeLongbridge();
+  const probe = await cachedProbe(true);
   const warn = probeWarningMessage(probe);
   if (warn) {
     return { ok: false, message: warn };
@@ -68,6 +92,18 @@ export async function tryEnableLongbridgeAgent(): Promise<{
 
 export async function isLongbridgeAgentReady(): Promise<boolean> {
   if (!isLongbridgeAgentEnabled()) return false;
-  const probe = await probeLongbridge();
+  const probe = await cachedProbe(false);
   return probe.installed && probe.authOk;
+}
+
+/** @internal — only for tests */
+export function _resetForTest(deps?: {
+  probe?: typeof probeLongbridge;
+  setEnv?: typeof setEnvValue;
+}): void {
+  bootstrapDone = false;
+  probeCache = null;
+  bootstrapWarning = null;
+  _probeFn = deps?.probe ?? probeLongbridge;
+  _setEnvFn = deps?.setEnv ?? setEnvValue;
 }

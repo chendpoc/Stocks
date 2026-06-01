@@ -29,10 +29,31 @@ function symTool(
 
 export function createLongbridgeTools() {
   return {
-    getLongbridgeQuote: symTool(
-      "【长桥·实时客观】最新报价、涨跌幅、量额、盘前盘后。查「现在多少钱」优先本工具，勿用 getMarketBars limit=1 代替。",
-      "quote",
-    ),
+    getLongbridgeQuote: tool({
+      description:
+        "【长桥·实时客观】最新报价、涨跌幅、量额、盘前盘后。" +
+        "查现在多少钱、批量比价（≤10 symbol）优先本工具。" +
+        "客观行情事实优先长桥而非 intel DB。",
+      parameters: z.object({
+        symbol: z.string().optional().describe("单 symbol，如 TSLA 或 TSLA.US"),
+        symbols: z.array(z.string()).optional().describe("批量 symbol（≤10）"),
+      }).refine(
+        (v) => !!v.symbol || (v.symbols != null && v.symbols.length > 0),
+        { message: "必须提供 symbol 或 symbols" },
+      ),
+      execute: async ({ symbol, symbols }) => {
+        const list = symbols && symbols.length > 0 ? symbols : [symbol!];
+        if (list.length > 10) {
+          return {
+            ok: false as const,
+            code: "MULTI_SYMBOL_LIMIT",
+            message: "最多同时查询 10 个 symbol",
+          };
+        }
+        const normalized = list.map(toLongbridgeSymbol);
+        return runLongbridgeJson("quote", normalized);
+      },
+    }),
 
     getLongbridgeKline: tool({
       description:

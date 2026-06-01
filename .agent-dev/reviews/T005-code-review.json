@@ -1,0 +1,94 @@
+{
+  "review_id": "R-T005-20260602-postfix-2",
+  "spec_id": "trader-longbridge-agent-cli",
+  "task_id": "T005",
+  "reviewer": "code-review-agent",
+  "pass": "post-fix re-review 2",
+  "verdict": "fix_required",
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "files": [
+        "apps/trader-chart/src/main.rs",
+        "apps/trader-chart/src/ui/draw.rs",
+        "apps/trader-chart/src/viewport.rs"
+      ],
+      "description": ".agent-dev/README.md and docs/project-overview.md are no longer in the tracked diff, but apps/trader-chart/* remains changed while T005 scope does not include trader-chart files."
+    },
+    {
+      "id": "F002",
+      "severity": "resolved",
+      "rule": "api_contract_break",
+      "file": "apps/trader-cli/src/llm/longbridgeTools.ts",
+      "line": 39,
+      "description": "Schema no longer blocks over-limit symbols before execute(); safeParse succeeds for 11 symbols and execute returns ok:false code=MULTI_SYMBOL_LIMIT."
+    },
+    {
+      "id": "F003",
+      "severity": "warning",
+      "rule": "api_contract_break",
+      "file": "apps/trader-cli/src/services/longbridgeCli.ts",
+      "line": 161,
+      "description": "watchlist still returns FORBIDDEN_COMMAND because the generic TIER1_COMMANDS branch runs before the watchlist-specific USE_NAMED_TOOL branch."
+    },
+    {
+      "id": "F004",
+      "severity": "warning",
+      "rule": "evidence_drift",
+      "file": ".agent-dev/tasks/T005.json",
+      "line": 45,
+      "description": "V306 deterministic check passes, but T005.json S2/S8 still mentions the old scan --help <300ms acceptance and T005.md still marks V303/V304 as requiring manual verification while S8 is done."
+    },
+    {
+      "id": "F005",
+      "severity": "warning",
+      "rule": "untested_code",
+      "file": "apps/trader-cli/src/llm/longbridgeTools.test.ts",
+      "line": 65,
+      "description": "There is still no valid symbols[<=10] execute-path test for getLongbridgeQuote; tests cover direct >10 execute rejection and single-symbol fallback only."
+    }
+  ],
+  "summary": {
+    "blocker_count": 1,
+    "warning_count": 3,
+    "resolved_since_last_review": [
+      "F002 fixed: over-limit symbols now reach execute() and return MULTI_SYMBOL_LIMIT",
+      "Generic docs scope leak fixed: .agent-dev/README.md and docs/project-overview.md removed from tracked diff",
+      "V306 deterministic assertion passes locally"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      {
+        "command": "cd apps/trader-cli && npm test",
+        "result": "exit 0; 36 tests passed"
+      },
+      {
+        "command": "quote.parameters.safeParse({ symbols: 11 items }) via npx tsx",
+        "result": "success:true"
+      },
+      {
+        "command": "quote.execute({ symbols: 11 items }) via npx tsx",
+        "result": "ok:false; code=MULTI_SYMBOL_LIMIT"
+      },
+      {
+        "command": "quote.parameters.safeParse({ symbols: [\"TSLA\", \"AAPL\"] }) via npx tsx",
+        "result": "success:true"
+      },
+      {
+        "command": "validateLongbridgeInvoke(\"watchlist\", []) via npx tsx",
+        "result": "ok:false; code=FORBIDDEN_COMMAND"
+      },
+      {
+        "command": "deterministic V306 grep checks",
+        "result": "index.ts top-level await matches 0; buildAgentTools.ts lazy matches 2"
+      },
+      {
+        "command": "git diff --check",
+        "result": "exit 0; CRLF warnings only"
+      }
+    ]
+  }
+}

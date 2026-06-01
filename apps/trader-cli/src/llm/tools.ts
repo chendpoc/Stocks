@@ -28,7 +28,9 @@ export const LONGBRIDGE_AGENT_PROMPT_PATCH = `
 Longbridge CLI 工具（TRADER_LONGBRIDGE_AGENT=on 且本机已登录时可用）：
 - 具体客观事实（现价、盘口、K 线、财报、新闻、估值、筛选、持仓快照）优先使用 getLongbridge* / longbridgeInvoke，不要用 getMarketBars(limit=1) 代替实时价。
 - 本系统信号、scan、ingest、buildContext、saveHypothesis、Lesson 仍使用 intel 工具；不得仅凭长桥数据写入假设，除非用户要求对比。
-- 禁止请求任何下单、撤单、出入金；工具集不提供交易写操作。`;
+- 禁止请求任何下单、撤单、出入金；工具集不提供交易写操作。
+- 单轮对话内对长桥工具调用 ≤ 10 次（避免 rate limit）。
+- 工具返回 { ok:false } 时不要用相同 args 重试；改用 intel 工具或如实告知用户问题。`;
 
 export function getSystemPrompt(): string {
   return SYSTEM_PROMPT;

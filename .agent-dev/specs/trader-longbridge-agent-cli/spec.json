@@ -551,8 +551,8 @@
     },
     {
       "id": "V306",
-      "command": "manual: time npx tsx src/index.ts scan --help",
-      "expect": "无长桥 probe 阻塞，启动 <300ms（lazy bootstrap 验证）",
+      "command": "grep -n 'await.*ensureLongbridge' apps/trader-cli/src/index.ts | wc -l == 0 && grep -c 'await ensureLongbridgeAgentOnStartup' apps/trader-cli/src/llm/buildAgentTools.ts >= 2",
+      "expect": "确定性断言：(1) index.ts 无 top-level await ensureLongbridge；(2) buildAgentTools.ts 两处 lazy 入口；(3) longbridgeAgent.test 'second call short-circuits' 覆盖 bootstrapDone",
       "blocking": false
     }
   ],

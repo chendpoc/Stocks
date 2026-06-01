@@ -8,7 +8,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "start:tsla": "npx tsx src/index.ts analyze TSLA",
-    "test": "tsx --test src/llm/auditor.test.ts src/services/marketDataProvider.test.ts src/services/longbridge.test.ts src/services/longbridgeAgent.test.ts src/services/longbridgeCli.test.ts src/services/traderChart.test.ts",
+    "test": "tsx --test src/llm/auditor.test.ts src/llm/longbridgeTools.test.ts src/services/marketDataProvider.test.ts src/services/longbridge.test.ts src/services/longbridgeAgent.test.ts src/services/longbridgeCli.test.ts src/services/traderChart.test.ts",
     "trader": "tsx src/index.ts"
   },
   "dependencies": {

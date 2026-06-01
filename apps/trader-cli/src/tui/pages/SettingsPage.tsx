@@ -8,10 +8,11 @@ import {
   setMarketDataProvider,
   type MarketDataProviderId,
 } from "../../services/marketDataProvider.js";
-import { probeLongbridge } from "../../services/longbridge.js";
 import {
+  cachedProbe,
   getLongbridgeAgentSetting,
   getLongbridgeBootstrapWarning,
+  refreshProbeCache,
   setLongbridgeAgentSetting,
   tryEnableLongbridgeAgent,
   type LongbridgeAgentMode,
@@ -67,8 +68,8 @@ export function SettingsPage({ isActive = true }: Props) {
   const [statusLine, setStatusLine] = useState("");
   const bootstrapWarn = getLongbridgeBootstrapWarning();
 
-  const refreshLbProbe = useCallback(async () => {
-    const probe = await probeLongbridge();
+  const refreshLbProbe = useCallback(async (force = false) => {
+    const probe = force ? await refreshProbeCache() : await cachedProbe();
     if (!probe.installed) {
       setLbProbeLine("CLI: 未安装");
       return;
@@ -82,7 +83,7 @@ export function SettingsPage({ isActive = true }: Props) {
 
   useEffect(() => {
     if (isActive) void refreshLbProbe();
-  }, [isActive, currentLb, refreshLbProbe]);
+  }, [isActive, refreshLbProbe]);
 
   const applyMarket = useCallback((id: MarketDataProviderId) => {
     setMarketDataProvider(id);
@@ -147,6 +148,10 @@ export function SettingsPage({ isActive = true }: Props) {
           const opt = marketOptions[marketPickIndex];
           if (opt) applyMarket(opt.id);
         }
+        return;
+      }
+      if (_input === "r") {
+        void refreshLbProbe(true);
         return;
       }
       if (key.upArrow) {
@@ -274,6 +279,7 @@ export function SettingsPage({ isActive = true }: Props) {
         <KeyHint keys="Tab" label="切换区块" />
         <KeyHint keys="↑↓" label="选择" />
         <KeyHint keys="Enter" label="写入 .env" />
+        {lbFocused ? <KeyHint keys="r" label="刷新长桥状态" /> : null}
       </ActionBar>
       <Box marginTop={1} flexDirection="column">
         <Text bold color="cyan">

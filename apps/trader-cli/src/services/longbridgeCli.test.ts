@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DEFAULT_ALLOWED_FIRST_ARGS,
   GATEWAY_WHITELIST,
   sanitizeLongbridgeArgs,
   validateLongbridgeInvoke,
@@ -24,4 +25,23 @@ test("validateLongbridgeInvoke allows whitelisted option", () => {
 
 test("gateway whitelist covers majority of read-only CLI families", () => {
   assert.ok(GATEWAY_WHITELIST.size >= 40);
+});
+
+test("BLOCKED_TOP_LEVEL does not contain check (D312)", () => {
+  const r = validateLongbridgeInvoke("check", []);
+  assert.ok(r && !r.ok);
+  assert.equal(r && !r.ok && r.code, "NOT_WHITELISTED");
+});
+
+test("Invoke with non-allowed first arg returns FORBIDDEN_SUBCOMMAND", () => {
+  const r = validateLongbridgeInvoke("option", ["deploy"]);
+  assert.ok(r && !r.ok);
+  assert.equal(r && !r.ok && r.code, "FORBIDDEN_SUBCOMMAND");
+});
+
+test("Invoke with allowed first arg passes validation", () => {
+  assert.equal(validateLongbridgeInvoke("option", ["list"]), null);
+  assert.equal(validateLongbridgeInvoke("filing", ["detail", "--symbol", "TSLA.US"]), null);
+  assert.equal(validateLongbridgeInvoke("brokers", []), null);
+  assert.equal(validateLongbridgeInvoke("rank", ["--symbol", "TSLA.US"]), null);
 });

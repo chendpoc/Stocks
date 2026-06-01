@@ -2,7 +2,7 @@
   "id": "T005",
   "spec_id": "trader-longbridge-agent-cli",
   "title": "Longbridge CLI Agent 工具化 — Audit + Patch（深度 Review 后）",
-  "status": "in_progress",
+  "status": "done",
   "task_type": "audit_patch",
   "worker_prompt_path": ".agent-dev/trader-longbridge-agent-worker-prompt.md",
   "review_plan": "c:\\Users\\31089\\.cursor\\plans\\t005_开发计划深度_review_53319747.plan.md",
@@ -11,7 +11,7 @@
     {
       "id": "S0",
       "description": "Audit：对照修订后的 spec.json 跑 spec ↔ 代码 diff，在 T005.md 漂移清单标记每项状态（已对齐 / 需 patch / 缺失）",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "verification": { "ref": "manual", "blocking": false },
       "files_expected": [
@@ -22,7 +22,7 @@
     {
       "id": "S1",
       "description": "Patch · B2 + B3 + D312：spec.json 已修；改 longbridgeCli.ts —— validateLongbridgeInvoke 加 _default_allowed_first_args 兜底校验；保持 check 不在 BLOCKED_TOP_LEVEL（默认就不在）",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S0"],
       "verification": { "ref": "V305", "blocking": true },
       "files_expected": [
@@ -34,7 +34,7 @@
     {
       "id": "S2",
       "description": "Patch · M1 + M4 + B4 + D310：longbridgeAgent.ts 加 probe cache（30s TTL）+ refreshProbeCache(force)；index.ts 移除 top-level await；buildAgentTools.ts 在 resolveAgentTools/getAgentSystemPrompt 入口 lazy 调用 ensureLongbridgeAgentOnStartup",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S0"],
       "verification": { "ref": "V302", "blocking": true },
       "files_expected": [
@@ -47,7 +47,7 @@
     {
       "id": "S3",
       "description": "Patch · m1 + D311：longbridgeTools.ts getLongbridgeQuote zod schema 改 union<symbol:string, symbols:string[]>；execute 路径处理批量；>10 抛 MULTI_SYMBOL_LIMIT",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S0"],
       "verification": { "ref": "V305", "blocking": true },
       "files_expected": [
@@ -58,7 +58,7 @@
     {
       "id": "S4",
       "description": "Test · M2：longbridgeAgent.test.ts 新增 3 个 mock probe 场景：(a) installed=false → env 改 off + warning 含「未检测到 longbridge CLI」；(b) installed=true authOk=false → env 改 off + warning 含「auth login」；(c) installed=true authOk=true → env 保持 on；额外覆盖 probe cache（连续两次调用只 spawn 一次）",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S2"],
       "verification": { "ref": "V301", "blocking": true },
       "files_expected": [
@@ -69,7 +69,7 @@
     {
       "id": "S5",
       "description": "Test · M3：新建 longbridgeTools.test.ts —— 断言 Object.keys(createLongbridgeTools()) 共 23（22 Tier1 + 1 invoke）；Tier1 工具名集合 === spec.json tier1_tools.map(t=>t.tool_name)；longbridgeInvoke({command:'order',...}) 返回 FORBIDDEN_COMMAND；getLongbridgeQuote 多 symbol 路径通",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S3"],
       "verification": { "ref": "V305", "blocking": true },
       "files_expected": [
@@ -80,7 +80,7 @@
     {
       "id": "S6",
       "description": "Patch · B4 SettingsPage 接入 probe cache（复用 S2 的 refreshProbeCache，进入页面仅 force=false；按键 r 强制 refresh）",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S2"],
       "verification": { "ref": "V301", "blocking": false },
       "files_expected": [
@@ -91,7 +91,7 @@
     {
       "id": "S7",
       "description": "Docs · m5 + m6 + m7：根 .env.example 加 TRADER_LONGBRIDGE_AGENT=on；package.json test 脚本含 longbridgeTools.test.ts；LONGBRIDGE_AGENT_PROMPT_PATCH 加「单轮 chat ≤ 10 个长桥调用」与「ok:false 时如何回退到 intel」一句；code_map.md / CLAUDE.md 各加一行指向 longbridgeTools.ts",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S4", "S5", "S6"],
       "verification": { "ref": "V302", "blocking": true },
       "files_expected": [
@@ -107,7 +107,7 @@
     {
       "id": "S8",
       "description": "Manual · 手动验收 V303/V304/V306：本机已 longbridge auth login → trader scan --help <300ms；trader chat 「TSLA 最新价」走 getLongbridgeQuote；Dashboard l/L 仍 spawn longbridge",
-      "status": "pending",
+      "status": "done",
       "depends_on": ["S7"],
       "verification": { "ref": "V303", "blocking": false },
       "files_expected": [],

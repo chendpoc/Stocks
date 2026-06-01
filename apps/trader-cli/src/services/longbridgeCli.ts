@@ -108,6 +108,12 @@ export const GATEWAY_WHITELIST = new Set([
 
 const SLOW_COMMANDS = new Set(["financial-report", "filing", "screener"]);
 
+export const DEFAULT_ALLOWED_FIRST_ARGS = new Set([
+  "list", "show", "get", "detail", "query", "chain", "history", "snapshot",
+  "search", "summary", "stats", "info", "rank", "peers", "calendar",
+  "holders", "actions", "topics", "rating", "premium",
+]);
+
 export type LongbridgeCliResult =
   | { ok: true; data: unknown }
   | {
@@ -186,6 +192,16 @@ export function validateLongbridgeInvoke(
         ok: false,
         code: "FORBIDDEN_SUBCOMMAND",
         message: "sharelist 仅允许 list/detail/show",
+      };
+    }
+  }
+  if (args.length > 0 && !args[0].startsWith("--")) {
+    const first = args[0].toLowerCase();
+    if (!DEFAULT_ALLOWED_FIRST_ARGS.has(first)) {
+      return {
+        ok: false,
+        code: "FORBIDDEN_SUBCOMMAND",
+        message: `子命令 ${args[0]} 不在允许的只读操作列表`,
       };
     }
   }

@@ -21,7 +21,7 @@ npm run trader-agent:backend:stop     # 关闭
 # === TypeScript CLI + Ink TUI（apps/trader-cli）===
 cd apps/trader-cli && npx tsx src/index.ts        # 七页 Ink TUI（Dashboard/Chat/Signals/Hypotheses/Lessons/Ops/Settings）
 npm run trader-cli -- analyze TSLA                 # 单次 LLM 深度分析（仓库根快捷脚本）
-cd apps/trader-cli && npm test                     # vitest 单测（auditor / longbridgeCli / longbridgeAgent / traderChart / marketDataProvider / longbridgeTools）
+cd apps/trader-cli && npm test                     # node:test 单测（auditor / longbridgeCli / longbridgeAgent / longbridgeTools / traderChart / marketDataProvider）
 
 # === Rust Ratatui 全屏 K 线（apps/trader-chart）===
 npm run trader-chart:build           # cargo build -p trader-chart --release（首次必跑）
@@ -320,6 +320,7 @@ JSON Schema 定义在 `.agent-dev/memory/schemas.md`。
 | **DeepSeek + OpenSpec + grill-me** | Spec 生成 + 规范化校验 + 压力测试 |
 | **Cursor Composer 2.5 + Superpowers** | Brainstorm → Plan → Implement → Review → Verify |
 | **Codex** | 结构化 Code Review（对比 spec scope + decisions） |
+| **Code Task Subagent** | `.cursor/skills/code-task/` + `.agent-dev/subagents/code-task-worker.md` — 理解任务意图、锁定 scope、实现、验证、Handoff |
 
 ### 三个强制 Gate
 

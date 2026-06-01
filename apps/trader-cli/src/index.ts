@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 import "./bootstrap-env";
-import { ensureLongbridgeAgentOnStartup } from "./services/longbridgeAgent.js";
 import { Command } from "commander";
 
-await ensureLongbridgeAgentOnStartup();
 import { analyze } from "./commands/analyze";
 import { brief } from "./commands/brief";
 import { chart } from "./commands/chart";

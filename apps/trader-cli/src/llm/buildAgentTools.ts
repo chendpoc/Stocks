@@ -1,4 +1,4 @@
-import { isLongbridgeAgentReady } from "../services/longbridgeAgent.js";
+import { ensureLongbridgeAgentOnStartup, isLongbridgeAgentReady } from "../services/longbridgeAgent.js";
 import { createLongbridgeTools } from "./longbridgeTools.js";
 import {
   getSystemPrompt,
@@ -9,6 +9,7 @@ import {
 export async function resolveAgentTools(): Promise<
   typeof INTEL_TOOLS & Partial<ReturnType<typeof createLongbridgeTools>>
 > {
+  await ensureLongbridgeAgentOnStartup();
   if (!(await isLongbridgeAgentReady())) {
     return INTEL_TOOLS;
   }
@@ -16,6 +17,7 @@ export async function resolveAgentTools(): Promise<
 }
 
 export async function getAgentSystemPrompt(): Promise<string> {
+  await ensureLongbridgeAgentOnStartup();
   if (await isLongbridgeAgentReady()) {
     return getSystemPromptWithLongbridge();
   }
