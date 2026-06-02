@@ -287,6 +287,106 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_report_cache_symbol_date ON report_cache(symbol, report_date)",
+    """
+    CREATE TABLE IF NOT EXISTS context_snapshots (
+      snapshot_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      asof_ts TEXT NOT NULL,
+      context_version TEXT,
+      items_json TEXT NOT NULL,
+      evidence_refs_json TEXT,
+      weighting_policy_version TEXT,
+      context_hash TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(context_hash)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_context_snapshots_symbol ON context_snapshots(symbol, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS model_decisions (
+      decision_id TEXT PRIMARY KEY,
+      run_id TEXT,
+      snapshot_id TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      model_provider TEXT,
+      model_name TEXT,
+      model_version TEXT,
+      action TEXT NOT NULL,
+      confidence REAL,
+      uncertainty REAL,
+      decision_json TEXT NOT NULL,
+      human_overrides_json TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'active',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_model_decisions_symbol ON model_decisions(symbol, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS decision_outcomes (
+      outcome_id TEXT PRIMARY KEY,
+      decision_id TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      horizon TEXT NOT NULL,
+      path TEXT NOT NULL DEFAULT 'model_path',
+      status TEXT NOT NULL DEFAULT 'pending',
+      due_at TEXT,
+      scheduled_at TEXT,
+      reference_price REAL,
+      future_price REAL,
+      absolute_return_pct REAL,
+      benchmark_symbol TEXT,
+      benchmark_return_pct REAL,
+      relative_return_pct REAL,
+      hit_invalidation_proxy INTEGER,
+      hit_target_proxy INTEGER,
+      label TEXT,
+      outcome_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT,
+      labeled_at TEXT,
+      UNIQUE(decision_id, horizon, path)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_decision_outcomes_due ON decision_outcomes(status, due_at)",
+    "CREATE INDEX IF NOT EXISTS idx_decision_outcomes_decision ON decision_outcomes(decision_id)",
+    """
+    CREATE TABLE IF NOT EXISTS insight_candidates (
+      insight_id TEXT PRIMARY KEY,
+      run_id TEXT,
+      symbols_json TEXT NOT NULL,
+      window_start TEXT,
+      window_end TEXT,
+      thesis TEXT,
+      evidence_refs_json TEXT,
+      verification_status TEXT DEFAULT 'pending',
+      weight_cap REAL,
+      candidate_json TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_insight_candidates_symbol ON insight_candidates(created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS evaluation_reports (
+      report_id TEXT PRIMARY KEY,
+      model_version TEXT NOT NULL,
+      window_start TEXT,
+      window_end TEXT,
+      metrics_json TEXT,
+      recommendation TEXT NOT NULL,
+      report_json TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_evaluation_reports_model ON evaluation_reports(model_version, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS weighting_policy_stats (
+      policy_version TEXT NOT NULL,
+      source_key TEXT NOT NULL,
+      stats_json TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (policy_version, source_key)
+    )
+    """,
 ]
 
 

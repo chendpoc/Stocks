@@ -13,6 +13,7 @@ from app.intel.api import (
     news,
     report_cache,
     signals,
+    stage1,
     trade_ideas,
 )
 
@@ -29,5 +30,6 @@ intel_router.include_router(jobs.router, prefix="/jobs", tags=["intel-jobs"])
 intel_router.include_router(corpus.router, prefix="/corpus", tags=["intel-corpus"])
 intel_router.include_router(report_cache.router, prefix="/report", tags=["intel-report"])
 intel_router.include_router(news.router, prefix="/news", tags=["intel-news"])
+intel_router.include_router(stage1.router, prefix="/stage1", tags=["intel-stage1"])
 
 __all__ = ["intel_router"]
