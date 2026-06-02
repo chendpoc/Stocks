@@ -1,0 +1,367 @@
+#!/usr/bin/env node
+import {
+  type Stage1RunStatus,
+  STAGE1_RUN_STATUSES,
+} from "./runtime/checkpointStore.js";
+import { Stage1Runtime } from "./runtime/stage1Runtime.js";
+import { runDecisionGraph } from "./graphs/decisionGraph.js";
+import { runDueOutcomeGraph } from "./graphs/outcomeGraph.js";
+import { runEvaluationSummaryGraph } from "./graphs/evaluationGraph.js";
+import { runInsightExplorationGraph } from "./graphs/insightExplorationGraph.js";
+
+interface WorkflowError {
+  code: string;
+  message: string;
+  details?: unknown;
+}
+
+interface WorkflowEnvelope {
+  ok: boolean;
+  command: string;
+  run_id: string | null;
+  status: Stage1RunStatus | null;
+  data: Record<string, unknown> | null;
+  error: WorkflowError | null;
+}
+
+class WorkflowCommandError extends Error {
+  readonly code: string;
+
+  readonly details?: unknown;
+
+  constructor(code: string, message: string, details?: unknown) {
+    super(message);
+    this.code = code;
+    this.details = details;
+  }
+}
+
+function parseArgs(argv: string[]): { commandArgs: string[] } {
+  const commandArgs = argv.filter((item) => item !== "--json");
+  return { commandArgs };
+}
+
+function parseLimit(args: string[]): number {
+  const limitFlagIndex = args.indexOf("--limit");
+  if (limitFlagIndex < 0) {
+    return 50;
+  }
+  const raw = args[limitFlagIndex + 1];
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
+  }
+  return parsed;
+}
+
+function toEnvelope(args: {
+  ok: boolean;
+  command: string;
+  run_id?: string | null;
+  status?: Stage1RunStatus | null;
+  data?: Record<string, unknown> | null;
+  error?: WorkflowError | null;
+}): WorkflowEnvelope {
+  return {
+    ok: args.ok,
+    command: args.command,
+    run_id: args.run_id ?? null,
+    status: args.status ?? null,
+    data: args.data ?? null,
+    error: args.error ?? null,
+  };
+}
+
+function normalizeStatus(status: unknown): Stage1RunStatus {
+  if (STAGE1_RUN_STATUSES.includes(status as Stage1RunStatus)) {
+    return status as Stage1RunStatus;
+  }
+  return "failed";
+}
+
+function handleRunsCommand(
+  runtime: Stage1Runtime,
+  args: string[],
+): WorkflowEnvelope {
+  const sub = args[1];
+  switch (sub) {
+    case "list": {
+      const limit = parseLimit(args);
+      const runs = runtime.listRuns(limit);
+      return toEnvelope({
+        ok: true,
+        command: "runs list",
+        data: { runs },
+      });
+    }
+    case "show": {
+      const runId = args[2];
+      if (!runId) {
+        throw new WorkflowCommandError(
+          "RUN_ID_REQUIRED",
+          "runs show requires a run_id",
+        );
+      }
+      const run = runtime.showRun(runId);
+      return toEnvelope({
+        ok: true,
+        command: "runs show",
+        run_id: run.run_id,
+        status: normalizeStatus(run.status),
+        data: { run },
+      });
+    }
+    case "resume": {
+      const runId = args[2];
+      if (!runId) {
+        throw new WorkflowCommandError(
+          "RUN_ID_REQUIRED",
+          "runs resume requires a run_id",
+        );
+      }
+      const run = runtime.resumeRun(runId);
+      return toEnvelope({
+        ok: true,
+        command: "runs resume",
+        run_id: run.run_id,
+        status: normalizeStatus(run.status),
+        data: { run },
+      });
+    }
+    default:
+      throw new WorkflowCommandError(
+        "UNKNOWN_RUNS_COMMAND",
+        `Unknown runs command: ${sub ?? "(missing)"} (use list|show|resume)`,
+      );
+  }
+}
+
+async function handleDecideCommandAsync(args: string[]): Promise<WorkflowEnvelope> {
+  const symbol = args[1];
+  if (!symbol) {
+    throw new WorkflowCommandError(
+      "SYMBOL_REQUIRED",
+      "decide requires a symbol argument",
+    );
+  }
+
+  const result = await runDecisionGraph({ symbol });
+  return toEnvelope({
+    ok: true,
+    command: "decide",
+    run_id: result.run_id,
+    status: "succeeded",
+    data: {
+      snapshot_id: result.snapshot.snapshot_id,
+      decision_id: result.decision.decision_id,
+      action: result.envelope.action,
+      scheduled_outcome_count: result.scheduled_outcomes.length,
+      paper_execution_submitted: result.paper_execution_submitted,
+    },
+  });
+}
+
+async function handleEvalSummaryCommandAsync(args: string[]): Promise<WorkflowEnvelope> {
+  if (args[1] !== "summary") {
+    throw new WorkflowCommandError(
+      "SUMMARY_SUBCOMMAND_REQUIRED",
+      "eval requires summary subcommand",
+    );
+  }
+
+  const symbolFlagIndex = args.indexOf("--symbol");
+  const modelVersionFlagIndex = args.indexOf("--model-version");
+  const limitFlagIndex = args.indexOf("--limit");
+  const symbol =
+    symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1]?.toUpperCase() : undefined;
+  const model_version =
+    modelVersionFlagIndex >= 0 ? args[modelVersionFlagIndex + 1] : "stage1-v0";
+  const limit =
+    limitFlagIndex >= 0 ? Number.parseInt(args[limitFlagIndex + 1] ?? "", 10) : 500;
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
+  }
+
+  const result = await runEvaluationSummaryGraph({
+    symbol,
+    model_version,
+    limit,
+  });
+
+  return toEnvelope({
+    ok: true,
+    command: "eval summary",
+    run_id: result.run_id,
+    status: "succeeded",
+    data: {
+      report_id: result.report.report_id,
+      model_version: result.report.model_version,
+      window_start: result.report.window_start,
+      window_end: result.report.window_end,
+      recommendation: result.report.recommendation,
+      metrics_json: result.report.metrics_json,
+      report_json: result.report.report_json,
+      persisted_report: result.persisted_report,
+    },
+  });
+}
+
+async function handleInsightsExploreCommandAsync(
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  if (args[1] !== "explore") {
+    throw new WorkflowCommandError(
+      "EXPLORE_SUBCOMMAND_REQUIRED",
+      "insights requires explore subcommand",
+    );
+  }
+
+  const symbolFlagIndex = args.indexOf("--symbol");
+  const windowFlagIndex = args.indexOf("--window");
+  const symbol = args[symbolFlagIndex + 1]?.toUpperCase();
+  const window = args[windowFlagIndex + 1];
+  if (!symbol) {
+    throw new WorkflowCommandError("SYMBOL_REQUIRED", "insights explore requires --symbol");
+  }
+  if (!window) {
+    throw new WorkflowCommandError("WINDOW_REQUIRED", "insights explore requires --window");
+  }
+
+  const result = await runInsightExplorationGraph({ symbol, window });
+  return toEnvelope({
+    ok: true,
+    command: "insights explore",
+    run_id: result.run_id,
+    status: "succeeded",
+    data: {
+      insight_id: result.insight_id,
+      window: result.window.window,
+      window_start: result.window.window_start,
+      window_end: result.window.window_end,
+      react_step_count: result.react_steps.length,
+      verification_status: result.persisted_candidate?.verification_status ?? "pending",
+      weight_cap: result.proposal.weight_cap,
+      evidence_ref_count: result.proposal.evidence_refs.length,
+      thesis: result.proposal.thesis,
+      persisted_candidate: result.persisted_candidate,
+    },
+  });
+}
+
+async function handleOutcomesRunCommandAsync(args: string[]): Promise<WorkflowEnvelope> {
+  if (args[1] !== "run" || !args.includes("--due")) {
+    throw new WorkflowCommandError(
+      "DUE_FLAG_REQUIRED",
+      "outcomes run requires --due",
+    );
+  }
+
+  const symbolFlagIndex = args.indexOf("--symbol");
+  const limitFlagIndex = args.indexOf("--limit");
+  const symbol =
+    symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1]?.toUpperCase() : undefined;
+  const limit =
+    limitFlagIndex >= 0 ? Number.parseInt(args[limitFlagIndex + 1] ?? "", 10) : 100;
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
+  }
+
+  const result = await runDueOutcomeGraph({ symbol, limit });
+  return toEnvelope({
+    ok: true,
+    command: "outcomes run --due",
+    run_id: result.run_id,
+    status: "succeeded",
+    data: {
+      processed_count: result.processed_count,
+      labeled_count: result.labeled_count,
+      skipped_count: result.skipped_count,
+      failed_count: result.failed_count,
+      outcomes: result.outcomes,
+    },
+  });
+}
+
+async function handleCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  if (args.length === 0) {
+    throw new WorkflowCommandError(
+      "COMMAND_REQUIRED",
+      "Command required (expected: runs list|show|resume | decide SYMBOL | outcomes run --due | eval summary | insights explore)",
+    );
+  }
+  switch (args[0]) {
+    case "runs":
+      return handleRunsCommand(runtime, args);
+    case "decide":
+      return handleDecideCommandAsync(args);
+    case "outcomes":
+      return handleOutcomesRunCommandAsync(args);
+    case "eval":
+      return handleEvalSummaryCommandAsync(args);
+    case "insights":
+      return handleInsightsExploreCommandAsync(args);
+    default:
+      throw new WorkflowCommandError(
+        "UNKNOWN_COMMAND",
+        `Unknown command: ${args[0]} (currently supported: runs, decide, outcomes, eval, insights)`,
+      );
+  }
+}
+
+function printEnvelope(envelope: WorkflowEnvelope): void {
+  console.log(JSON.stringify(envelope));
+}
+
+function toErrorEnvelope(command: string, error: unknown): WorkflowEnvelope {
+  if (error instanceof WorkflowCommandError) {
+    return toEnvelope({
+      ok: false,
+      command,
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      },
+    });
+  }
+  if (error instanceof Error) {
+    return toEnvelope({
+      ok: false,
+      command,
+      error: {
+        code: "UNEXPECTED_ERROR",
+        message: error.message,
+      },
+    });
+  }
+  return toEnvelope({
+    ok: false,
+    command,
+    error: {
+      code: "UNKNOWN_ERROR",
+      message: "Unknown error",
+      details: error,
+    },
+  });
+}
+
+async function main(): Promise<void> {
+  const parsed = parseArgs(process.argv.slice(2));
+  const commandLabel =
+    parsed.commandArgs.length > 0 ? parsed.commandArgs.join(" ") : "(none)";
+  const runtime = new Stage1Runtime();
+  try {
+    const envelope = await handleCommandAsync(runtime, parsed.commandArgs);
+    printEnvelope(envelope);
+  } catch (error) {
+    printEnvelope(toErrorEnvelope(commandLabel, error));
+    process.exitCode = 1;
+  } finally {
+    runtime.close();
+  }
+}
+
+void main();
