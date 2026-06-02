@@ -40,6 +40,27 @@ Do not expand beyond that unless the selected route says to.
 - Do not echo long worker prompts in chat. Put long artifacts in `.agent-dev/`.
 - Prefer focused fixes over broad refactors.
 
+## Context Guardrails
+
+- Do not broad-read `project-docs/**` or `project-docs/research-agent/**`.
+  Select one route in `.agent-dev/context/ai-index.md`, then read only that
+  route's `read_first` files.
+- Do not run recursive document inventory commands such as `rg --files
+  project-docs`, `rg --files project-docs/research-agent`, or recursive
+  `Get-ChildItem project-docs` unless the selected route explicitly requires a
+  bounded subdirectory.
+- Use `project-docs/README.md` and route entrypoints for orientation; use
+  `project-docs/research-agent/modules/**` only in `legacy_migration`.
+
+## Dirty Worktree Rules
+
+- Start with `git status --short`.
+- Do not read a full unrestricted `git diff` by default.
+- Inspect diffs only for the task scope, for example `git diff -- <path>`.
+- Treat unrelated dirty files as user or parallel-agent work. Do not revert,
+  move, stage, or format them unless the user explicitly asks.
+- For reviews, list the allowed paths first, then inspect only those path diffs.
+
 ## Main Areas
 
 | Area | Purpose | Notes |

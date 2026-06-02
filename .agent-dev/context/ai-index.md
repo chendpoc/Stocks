@@ -16,6 +16,16 @@ Then select one `task_type` and read only its `read_first` set. Do not read
 specs, tasks, code maps, corpus, archive, or source files unless the selected
 route calls for them.
 
+## Context Guards
+
+- Do not broad-read `project-docs/**` or `project-docs/research-agent/**`.
+  Navigate through one route's `read_first` and `read_if_needed` entries.
+- Do not run repository-wide document inventory as a substitute for this index.
+  Use bounded paths from the selected route only.
+- In a dirty worktree, start with `git status --short`. Do not read a full
+  unrestricted `git diff` by default; inspect only scoped diffs such as
+  `git diff -- <path>`.
+
 ## Route Table
 
 | task_type | read_first | read_if_needed | do_not_read | spec_task_required | code_map_required | codegraph_when |

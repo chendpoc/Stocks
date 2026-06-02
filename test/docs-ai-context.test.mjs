@@ -93,6 +93,21 @@ test("CLAUDE default read set does not force spec task code_map or source files"
   assert.doesNotMatch(defaultBlock, /\.agent-dev\/tasks\//);
 });
 
+test("entry docs forbid broad project-docs reads and full dirty diffs by default", async () => {
+  const claude = await read("CLAUDE.md");
+  const index = await read(".agent-dev/context/ai-index.md");
+
+  for (const [path, text] of [
+    ["CLAUDE.md", claude],
+    [".agent-dev/context/ai-index.md", index],
+  ]) {
+    assert.match(text, /Do not broad-read `project-docs\/\*\*`/, `${path} needs project-docs broad-read guard`);
+    assert.match(text, /git status --short/, `${path} needs dirty worktree status rule`);
+    assert.match(text, /Do not read a full\s+unrestricted `git diff` by default/, `${path} needs full diff guard`);
+    assert.match(text, /git diff -- <path>/, `${path} needs scoped diff rule`);
+  }
+});
+
 test("AI routes have small default read sets and avoid corpus or legacy by default", async () => {
   const routes = parseRoutes(await read(".agent-dev/context/ai-index.md"));
   const expectedRouteNames = new Set([

@@ -28,3 +28,4 @@ utils/.local_secrets.py
 data/
 logs/
 crypto_monitor.db
+/outputs/manual-*/
