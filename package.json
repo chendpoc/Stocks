@@ -38,6 +38,7 @@
     "trader-agent:backend:verify": ".venv\\Scripts\\python.exe apps/trader-agent/backend/scripts/verify_backend.py",
     "trader-agent:intel:ping": "npm run trader-agent:backend:verify",
     "trader-cli": "npm --prefix apps/trader-cli run trader --",
+    "trader-workflows": "npm --prefix apps/trader-workflows run workflows --",
     "trader-chart:build": "cargo build -p trader-chart --release",
     "trader-chart:dev": "cargo run -p trader-chart --",
     "trader-cockpit:dev": "node scripts/pnpm-workspace.mjs --filter trader-cockpit dev",

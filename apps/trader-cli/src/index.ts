@@ -12,6 +12,11 @@ import { hypotheses } from "./commands/hypotheses";
 import { lessons } from "./commands/lessons";
 import { report } from "./commands/report";
 import { review } from "./commands/review";
+import { registerDecideCommand } from "./commands/decide";
+import { registerOutcomesCommands } from "./commands/outcomes";
+import { registerEvalCommands } from "./commands/eval";
+import { registerInsightsCommands } from "./commands/insights";
+import { registerRunsCommands } from "./commands/runs";
 import { scan } from "./commands/scan";
 import { server } from "./commands/server";
 import { signals } from "./commands/signals";
@@ -83,6 +88,12 @@ program
   .argument("[value]", "Value for set")
   .description("Show or set CLI env config")
   .action(config);
+
+registerRunsCommands(program);
+registerDecideCommand(program);
+registerOutcomesCommands(program);
+registerEvalCommands(program);
+registerInsightsCommands(program);
 
 program.parseAsync(process.argv).catch((error) => {
   console.error(error);
