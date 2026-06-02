@@ -40,6 +40,42 @@ function mapActionToApi(action: DecisionEnvelope["action"]): string {
   return action.toLowerCase();
 }
 
+function addMinutes(asof: Date, minutes: number): Date {
+  return new Date(asof.getTime() + minutes * 60 * 1000);
+}
+
+function addDays(asof: Date, days: number): Date {
+  return new Date(asof.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function endOfTradingDayUtc(asof: Date): Date {
+  const due = new Date(asof);
+  due.setUTCHours(21, 0, 0, 0);
+  if (due.getTime() <= asof.getTime()) {
+    due.setUTCDate(due.getUTCDate() + 1);
+  }
+  return due;
+}
+
+export function computeOutcomeDueAt(horizon: OutcomeHorizon, asof_ts: string): string {
+  const asof = new Date(asof_ts);
+  if (Number.isNaN(asof.getTime())) {
+    throw new Error(`Invalid asof_ts for outcome scheduling: ${asof_ts}`);
+  }
+  switch (horizon) {
+    case "30m":
+      return addMinutes(asof, 30).toISOString();
+    case "1h":
+      return addMinutes(asof, 60).toISOString();
+    case "EOD":
+      return endOfTradingDayUtc(asof).toISOString();
+    case "1d":
+      return addDays(asof, 1).toISOString();
+    case "3d":
+      return addDays(asof, 3).toISOString();
+  }
+}
+
 export async function persistModelDecision(input: {
   decision_id?: string;
   run_id?: string;
@@ -72,6 +108,7 @@ export async function persistModelDecision(input: {
 export async function scheduleModelPathOutcomes(input: {
   decision_id: string;
   symbol: string;
+  asof_ts?: string;
   due_at?: string | null;
 }): Promise<ScheduledDecisionOutcome[]> {
   const response = await fetchStage1<{ items: ScheduledDecisionOutcome[] }>(
@@ -84,7 +121,9 @@ export async function scheduleModelPathOutcomes(input: {
           symbol: input.symbol,
           horizon,
           path: "model_path",
-          due_at: input.due_at ?? null,
+          due_at:
+            input.due_at ??
+            (input.asof_ts ? computeOutcomeDueAt(horizon, input.asof_ts) : null),
         })),
       }),
     },
@@ -96,6 +135,7 @@ export async function scheduleOverridePathOutcomes(input: {
   decision_id: string;
   symbol: string;
   horizons?: OutcomeHorizon[];
+  asof_ts?: string;
   due_at?: string | null;
 }): Promise<ScheduledDecisionOutcome[]> {
   const horizons = input.horizons ?? [...OUTCOME_HORIZONS];
@@ -109,7 +149,9 @@ export async function scheduleOverridePathOutcomes(input: {
           symbol: input.symbol,
           horizon,
           path: "override_path",
-          due_at: input.due_at ?? null,
+          due_at:
+            input.due_at ??
+            (input.asof_ts ? computeOutcomeDueAt(horizon, input.asof_ts) : null),
         })),
       }),
     },

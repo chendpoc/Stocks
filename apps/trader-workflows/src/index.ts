@@ -3,7 +3,10 @@ import {
   type Stage1RunStatus,
   STAGE1_RUN_STATUSES,
 } from "./runtime/checkpointStore.js";
-import { Stage1Runtime } from "./runtime/stage1Runtime.js";
+import {
+  Stage1Runtime,
+  type Stage1RuntimeResumeHandlers,
+} from "./runtime/stage1Runtime.js";
 import { runDecisionGraph } from "./graphs/decisionGraph.js";
 import { runDueOutcomeGraph } from "./graphs/outcomeGraph.js";
 import { runEvaluationSummaryGraph } from "./graphs/evaluationGraph.js";
@@ -79,10 +82,21 @@ function normalizeStatus(status: unknown): Stage1RunStatus {
   return "failed";
 }
 
-function handleRunsCommand(
+const WORKFLOW_RESUME_HANDLERS: Stage1RuntimeResumeHandlers = {
+  DecisionGraph: (input) => runDecisionGraph(input),
+  OutcomeGraph: (input) => runDueOutcomeGraph(input),
+  EvaluationGraph: (input) => runEvaluationSummaryGraph(input),
+  InsightExplorationGraph: (input) => {
+    const symbol = typeof input.symbol === "string" ? input.symbol : "";
+    const window = typeof input.window === "string" ? input.window : "";
+    return runInsightExplorationGraph({ ...input, symbol, window });
+  },
+};
+
+async function handleRunsCommandAsync(
   runtime: Stage1Runtime,
   args: string[],
-): WorkflowEnvelope {
+): Promise<WorkflowEnvelope> {
   const sub = args[1];
   switch (sub) {
     case "list": {
@@ -119,7 +133,7 @@ function handleRunsCommand(
           "runs resume requires a run_id",
         );
       }
-      const run = runtime.resumeRun(runId);
+      const run = await runtime.resumeRun(runId, WORKFLOW_RESUME_HANDLERS);
       return toEnvelope({
         ok: true,
         command: "runs resume",
@@ -136,7 +150,10 @@ function handleRunsCommand(
   }
 }
 
-async function handleDecideCommandAsync(args: string[]): Promise<WorkflowEnvelope> {
+async function handleDecideCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
   const symbol = args[1];
   if (!symbol) {
     throw new WorkflowCommandError(
@@ -145,12 +162,21 @@ async function handleDecideCommandAsync(args: string[]): Promise<WorkflowEnvelop
     );
   }
 
-  const result = await runDecisionGraph({ symbol });
+  const executed = await runtime.runGraph({
+    graph_name: "DecisionGraph",
+    node_name: "decision",
+    input: { symbol },
+    execute: (input) => runDecisionGraph(input),
+  });
+  const result = executed.output;
+  if (!result) {
+    throw new WorkflowCommandError("RUN_INTERRUPTED", "DecisionGraph interrupted before completion");
+  }
   return toEnvelope({
     ok: true,
     command: "decide",
-    run_id: result.run_id,
-    status: "succeeded",
+    run_id: executed.run.run_id,
+    status: normalizeStatus(executed.run.status),
     data: {
       snapshot_id: result.snapshot.snapshot_id,
       decision_id: result.decision.decision_id,
@@ -161,7 +187,10 @@ async function handleDecideCommandAsync(args: string[]): Promise<WorkflowEnvelop
   });
 }
 
-async function handleEvalSummaryCommandAsync(args: string[]): Promise<WorkflowEnvelope> {
+async function handleEvalSummaryCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
   if (args[1] !== "summary") {
     throw new WorkflowCommandError(
       "SUMMARY_SUBCOMMAND_REQUIRED",
@@ -182,17 +211,22 @@ async function handleEvalSummaryCommandAsync(args: string[]): Promise<WorkflowEn
     throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
   }
 
-  const result = await runEvaluationSummaryGraph({
-    symbol,
-    model_version,
-    limit,
+  const executed = await runtime.runGraph({
+    graph_name: "EvaluationGraph",
+    node_name: "evaluation_summary",
+    input: { symbol, model_version, limit },
+    execute: (input) => runEvaluationSummaryGraph(input),
   });
+  const result = executed.output;
+  if (!result) {
+    throw new WorkflowCommandError("RUN_INTERRUPTED", "EvaluationGraph interrupted before completion");
+  }
 
   return toEnvelope({
     ok: true,
     command: "eval summary",
-    run_id: result.run_id,
-    status: "succeeded",
+    run_id: executed.run.run_id,
+    status: normalizeStatus(executed.run.status),
     data: {
       report_id: result.report.report_id,
       model_version: result.report.model_version,
@@ -207,6 +241,7 @@ async function handleEvalSummaryCommandAsync(args: string[]): Promise<WorkflowEn
 }
 
 async function handleInsightsExploreCommandAsync(
+  runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
   if (args[1] !== "explore") {
@@ -227,12 +262,29 @@ async function handleInsightsExploreCommandAsync(
     throw new WorkflowCommandError("WINDOW_REQUIRED", "insights explore requires --window");
   }
 
-  const result = await runInsightExplorationGraph({ symbol, window });
+  const executed = await runtime.runGraph({
+    graph_name: "InsightExplorationGraph",
+    node_name: "insight_exploration",
+    input: { symbol, window },
+    execute: (input) => {
+      const inputSymbol = typeof input.symbol === "string" ? input.symbol : symbol;
+      const inputWindow = typeof input.window === "string" ? input.window : window;
+      return runInsightExplorationGraph({
+        ...input,
+        symbol: inputSymbol,
+        window: inputWindow,
+      });
+    },
+  });
+  const result = executed.output;
+  if (!result) {
+    throw new WorkflowCommandError("RUN_INTERRUPTED", "InsightExplorationGraph interrupted before completion");
+  }
   return toEnvelope({
     ok: true,
     command: "insights explore",
-    run_id: result.run_id,
-    status: "succeeded",
+    run_id: executed.run.run_id,
+    status: normalizeStatus(executed.run.status),
     data: {
       insight_id: result.insight_id,
       window: result.window.window,
@@ -248,7 +300,10 @@ async function handleInsightsExploreCommandAsync(
   });
 }
 
-async function handleOutcomesRunCommandAsync(args: string[]): Promise<WorkflowEnvelope> {
+async function handleOutcomesRunCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
   if (args[1] !== "run" || !args.includes("--due")) {
     throw new WorkflowCommandError(
       "DUE_FLAG_REQUIRED",
@@ -266,12 +321,21 @@ async function handleOutcomesRunCommandAsync(args: string[]): Promise<WorkflowEn
     throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
   }
 
-  const result = await runDueOutcomeGraph({ symbol, limit });
+  const executed = await runtime.runGraph({
+    graph_name: "OutcomeGraph",
+    node_name: "outcomes_due",
+    input: { symbol, limit },
+    execute: (input) => runDueOutcomeGraph(input),
+  });
+  const result = executed.output;
+  if (!result) {
+    throw new WorkflowCommandError("RUN_INTERRUPTED", "OutcomeGraph interrupted before completion");
+  }
   return toEnvelope({
     ok: true,
     command: "outcomes run --due",
-    run_id: result.run_id,
-    status: "succeeded",
+    run_id: executed.run.run_id,
+    status: normalizeStatus(executed.run.status),
     data: {
       processed_count: result.processed_count,
       labeled_count: result.labeled_count,
@@ -294,15 +358,15 @@ async function handleCommandAsync(
   }
   switch (args[0]) {
     case "runs":
-      return handleRunsCommand(runtime, args);
+      return handleRunsCommandAsync(runtime, args);
     case "decide":
-      return handleDecideCommandAsync(args);
+      return handleDecideCommandAsync(runtime, args);
     case "outcomes":
-      return handleOutcomesRunCommandAsync(args);
+      return handleOutcomesRunCommandAsync(runtime, args);
     case "eval":
-      return handleEvalSummaryCommandAsync(args);
+      return handleEvalSummaryCommandAsync(runtime, args);
     case "insights":
-      return handleInsightsExploreCommandAsync(args);
+      return handleInsightsExploreCommandAsync(runtime, args);
     default:
       throw new WorkflowCommandError(
         "UNKNOWN_COMMAND",

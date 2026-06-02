@@ -15,7 +15,7 @@ function createTempCheckpointDbPath(): { tempDir: string; dbPath: string } {
   };
 }
 
-test("Stage1 runtime uses temporary checkpoint DB and keeps market_intel untouched", () => {
+test("Stage1 runtime uses temporary checkpoint DB and keeps market_intel untouched", async () => {
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../");
   const marketIntelPath = resolve(repoRoot, "data/market_intel.db");
   const beforeMtime = existsSync(marketIntelPath)
@@ -36,7 +36,9 @@ test("Stage1 runtime uses temporary checkpoint DB and keeps market_intel untouch
     assert.equal(resolve(store.dbPath), resolve(dbPath));
     assert.notEqual(resolve(store.dbPath), resolve(marketIntelPath));
 
-    const resumed = runtime.resumeRun(interrupted.run_id);
+    const resumed = await runtime.resumeRun(interrupted.run_id, {
+      DecisionGraph: async (input) => ({ run_id: input.run_id, resumed: true }),
+    });
     assert.equal(resumed.status, "succeeded");
     assert.ok(resumed.checkpoints.length >= 2);
   } finally {
@@ -50,7 +52,7 @@ test("Stage1 runtime uses temporary checkpoint DB and keeps market_intel untouch
   }
 });
 
-test("Stage1 runtime supports runs list/show/resume primitives", () => {
+test("Stage1 runtime supports runs list/show/resume primitives", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
   const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
 
@@ -70,14 +72,89 @@ test("Stage1 runtime supports runs list/show/resume primitives", () => {
     assert.equal(shown.graph_name, "OutcomeGraph");
     assert.ok(shown.checkpoints.length >= 1);
 
-    const resumed = runtime.resumeRun(interrupted.run_id);
+    const resumed = await runtime.resumeRun(interrupted.run_id, {
+      OutcomeGraph: async (input) => ({ run_id: input.run_id, resumed: true }),
+    });
     assert.equal(resumed.status, "succeeded");
     assert.ok(resumed.checkpoints.some((cp) => cp.node_name === "complete"));
 
-    assert.throws(
+    await assert.rejects(
       () => runtime.resumeRun(completed.run_id),
       /not resumable; expected interrupted/,
     );
+  } finally {
+    runtime.close();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("Stage1 runtime wraps graph execution in run metadata and checkpoints", async () => {
+  const { tempDir, dbPath } = createTempCheckpointDbPath();
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
+
+  try {
+    const executed = await runtime.runGraph({
+      graph_name: "DecisionGraph",
+      node_name: "decision",
+      input: { symbol: "TSLA.US" },
+      execute: async (input) => ({
+        run_id: input.run_id,
+        symbol: input.symbol,
+        ok: true,
+      }),
+    });
+
+    assert.equal(executed.run.status, "succeeded");
+    assert.equal(executed.run.graph_name, "DecisionGraph");
+    assert.equal(executed.output?.run_id, executed.run.run_id);
+    assert.deepEqual(executed.run.output, executed.output);
+
+    const shown = runtime.showRun(executed.run.run_id);
+    assert.equal(shown.status, "succeeded");
+    assert.ok(shown.checkpoint_ref);
+    assert.ok(shown.checkpoints.some((cp) => cp.node_name === "bootstrap"));
+    assert.ok(shown.checkpoints.some((cp) => cp.node_name === "decision:start"));
+    assert.ok(shown.checkpoints.some((cp) => cp.node_name === "decision:complete"));
+    assert.ok(shown.checkpoints.some((cp) => cp.node_name === "complete"));
+  } finally {
+    runtime.close();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("Stage1 runtime resumes interrupted graph runs through registered handler", async () => {
+  const { tempDir, dbPath } = createTempCheckpointDbPath();
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
+
+  try {
+    const interrupted = await runtime.runGraph({
+      graph_name: "DecisionGraph",
+      node_name: "decision",
+      input: { symbol: "TSLA.US" },
+      interrupt_before_execute: true,
+      execute: async () => {
+        throw new Error("should not execute before interruption");
+      },
+    });
+
+    assert.equal(interrupted.run.status, "interrupted");
+    const resumed = await runtime.resumeRun(interrupted.run.run_id, {
+      DecisionGraph: async (input) => ({
+        run_id: input.run_id,
+        symbol: input.symbol,
+        resumed: true,
+      }),
+    });
+
+    assert.equal(resumed.status, "succeeded");
+    assert.deepEqual(resumed.output, {
+      run_id: interrupted.run.run_id,
+      symbol: "TSLA.US",
+      resumed: true,
+    });
+    assert.ok(resumed.checkpoints.some((cp) => cp.node_name === "resume"));
+    assert.ok(resumed.checkpoints.some((cp) => cp.node_name === "resume_execute:start"));
+    assert.ok(resumed.checkpoints.some((cp) => cp.node_name === "resume_execute:complete"));
   } finally {
     runtime.close();
     rmSync(tempDir, { recursive: true, force: true });

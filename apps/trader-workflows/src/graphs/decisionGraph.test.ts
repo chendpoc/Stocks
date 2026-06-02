@@ -11,6 +11,7 @@ import {
 import type { WorkflowLlmProvider } from "../llm/provider.js";
 import type { ContextSnapshotRecord } from "../services/contextSnapshots.js";
 import {
+  computeOutcomeDueAt,
   OUTCOME_HORIZONS,
   type PersistedModelDecision,
   type ScheduledDecisionOutcome,
@@ -111,6 +112,7 @@ test("DecisionGraph persists snapshot, decision, and pending model_path outcomes
 
   const persistedDecisions: PersistedModelDecision[] = [];
   const scheduled: ScheduledDecisionOutcome[] = [];
+  const asof = "2026-06-01T12:00:00.000Z";
 
   const result = await new DecisionGraph({
     buildContext: async () => SAMPLE_SNAPSHOT,
@@ -138,12 +140,12 @@ test("DecisionGraph persists snapshot, decision, and pending model_path outcomes
         horizon,
         path: "model_path",
         status: "pending",
-        due_at: input.due_at ?? null,
+        due_at: input.asof_ts ? computeOutcomeDueAt(horizon, input.asof_ts) : null,
       }));
       scheduled.push(...rows);
       return rows;
     },
-  }).run({ symbol: "TSLA", run_id: "run-test-1" });
+  }).run({ symbol: "TSLA", run_id: "run-test-1", asof_ts: asof });
 
   assert.equal(result.snapshot.snapshot_id, "snap-test-1");
   assert.equal(result.decision.decision_id, "dec-test-1");
@@ -153,6 +155,11 @@ test("DecisionGraph persists snapshot, decision, and pending model_path outcomes
   assert.equal(scheduled.length, OUTCOME_HORIZONS.length);
   assert.ok(scheduled.every((row) => row.status === "pending"));
   assert.ok(scheduled.every((row) => row.path === "model_path"));
+  assert.deepEqual(
+    scheduled.map((row) => row.due_at),
+    OUTCOME_HORIZONS.map((horizon) => computeOutcomeDueAt(horizon, asof)),
+  );
+  assert.notEqual(scheduled[0].due_at, scheduled[4].due_at);
 });
 
 test("DecisionGraph rejects invalid envelopes before persistence", async () => {

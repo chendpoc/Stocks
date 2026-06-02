@@ -92,7 +92,7 @@ export class DecisionGraph {
     const scheduled_outcomes = await this.deps.scheduleOutcomes({
       decision_id: decision.decision_id,
       symbol,
-      due_at: asof_ts,
+      asof_ts,
     });
 
     if (scheduled_outcomes.length !== OUTCOME_HORIZONS.length) {

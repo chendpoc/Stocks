@@ -145,6 +145,7 @@ export function selectHorizonPrices(input: {
   horizon: string;
   symbolBars: MarketBar[];
   benchmarkBars: MarketBar[];
+  due_at?: string | null;
 }): {
   reference_price: number;
   future_price: number;
@@ -157,7 +158,15 @@ export function selectHorizonPrices(input: {
     return null;
   }
 
+  const dueAtMs = input.due_at ? Date.parse(input.due_at) : Number.NaN;
   const horizonIndex = (() => {
+    if (Number.isFinite(dueAtMs)) {
+      const dueIndex = symbolBars.findIndex((bar) => Date.parse(bar.ts) >= dueAtMs);
+      if (dueIndex <= 0) {
+        return null;
+      }
+      return dueIndex;
+    }
     switch (input.horizon as OutcomeHorizon) {
       case "30m":
         return Math.min(1, symbolBars.length - 1);
@@ -173,6 +182,9 @@ export function selectHorizonPrices(input: {
         return symbolBars.length - 1;
     }
   })();
+  if (horizonIndex === null) {
+    return null;
+  }
 
   const ref = symbolBars[0];
   const future = symbolBars[horizonIndex];
@@ -194,6 +206,26 @@ export function selectHorizonPrices(input: {
     benchmark_reference_price: benchRef.close,
     benchmark_future_price: benchFuture.close,
   };
+}
+
+export function resolveOutcomeBarQuery(horizon: string): {
+  timeframe: string;
+  limit: number;
+} {
+  switch (horizon as OutcomeHorizon) {
+    case "30m":
+      return { timeframe: "5m", limit: 24 };
+    case "1h":
+      return { timeframe: "5m", limit: 36 };
+    case "EOD":
+      return { timeframe: "5m", limit: 120 };
+    case "1d":
+      return { timeframe: "1d", limit: 5 };
+    case "3d":
+      return { timeframe: "1d", limit: 10 };
+    default:
+      return { timeframe: "1d", limit: 10 };
+  }
 }
 
 export async function fetchDueDecisionOutcomes(input: {
@@ -267,17 +299,20 @@ export async function buildOutcomeLabelPayload(input: {
     const decision = await fetchDecision(input.outcome.decision_id);
     const decisionJson = parseDecisionJson(decision.decision_json);
     const benchmark = resolveBenchmarkSymbol(input.outcome.symbol);
+    const barQuery = resolveOutcomeBarQuery(input.outcome.horizon);
 
     const symbolBars =
       input.symbolBars ??
-      (await fetchBars(input.outcome.symbol, "1d", 10));
+      (await fetchBars(input.outcome.symbol, barQuery.timeframe, barQuery.limit));
     const benchmarkBars =
-      input.benchmarkBars ?? (await fetchBars(benchmark, "1d", 10));
+      input.benchmarkBars ??
+      (await fetchBars(benchmark, barQuery.timeframe, barQuery.limit));
 
     const prices = selectHorizonPrices({
       horizon: input.outcome.horizon,
       symbolBars,
       benchmarkBars,
+      due_at: input.outcome.due_at,
     });
 
     if (!prices) {

@@ -7,6 +7,7 @@ import {
   computeOutcomeLabelMetrics,
   finalizeDueOutcome,
   isSupportedOutcomeHorizon,
+  resolveOutcomeBarQuery,
   resolveBenchmarkSymbol,
   selectHorizonPrices,
   type DecisionOutcomeRow,
@@ -110,6 +111,40 @@ test("selectHorizonPrices supports fixed horizons", () => {
   assert.equal(isSupportedOutcomeHorizon("2d"), false);
 });
 
+test("selectHorizonPrices uses due_at to select the future bar", () => {
+  const prices = selectHorizonPrices({
+    horizon: "30m",
+    symbolBars: SYMBOL_BARS,
+    benchmarkBars: BENCHMARK_BARS,
+    due_at: "2026-06-01T12:00:00Z",
+  });
+
+  assert.ok(prices);
+  assert.equal(prices.reference_price, 100);
+  assert.equal(prices.future_price, 103);
+  assert.equal(prices.benchmark_reference_price, 400);
+  assert.equal(prices.benchmark_future_price, 402);
+});
+
+test("selectHorizonPrices returns null when no bar reaches due_at", () => {
+  const prices = selectHorizonPrices({
+    horizon: "3d",
+    symbolBars: SYMBOL_BARS,
+    benchmarkBars: BENCHMARK_BARS,
+    due_at: "2026-06-10T09:30:00Z",
+  });
+
+  assert.equal(prices, null);
+});
+
+test("resolveOutcomeBarQuery uses intraday bars for short horizons", () => {
+  assert.deepEqual(resolveOutcomeBarQuery("30m"), { timeframe: "5m", limit: 24 });
+  assert.deepEqual(resolveOutcomeBarQuery("1h"), { timeframe: "5m", limit: 36 });
+  assert.deepEqual(resolveOutcomeBarQuery("EOD"), { timeframe: "5m", limit: 120 });
+  assert.deepEqual(resolveOutcomeBarQuery("1d"), { timeframe: "1d", limit: 5 });
+  assert.deepEqual(resolveOutcomeBarQuery("3d"), { timeframe: "1d", limit: 10 });
+});
+
 test("buildOutcomeLabelPayload returns skipped when market data is insufficient", async () => {
   const outcome: DecisionOutcomeRow = {
     outcome_id: "out-1",
@@ -134,6 +169,38 @@ test("buildOutcomeLabelPayload returns skipped when market data is insufficient"
 
   assert.equal(payload.status, "skipped");
   assert.equal(payload.label, "insufficient_data");
+});
+
+test("buildOutcomeLabelPayload fetches bars by horizon timeframe", async () => {
+  const calls: Array<{ symbol: string; timeframe: string; limit: number }> = [];
+  const payload = await buildOutcomeLabelPayload({
+    outcome: {
+      outcome_id: "out-1h",
+      decision_id: "dec-1h",
+      symbol: "TSLA",
+      horizon: "1h",
+      path: "model_path",
+      status: "pending",
+      due_at: "2026-06-01T11:00:00Z",
+    },
+    fetchBars: async (symbol, timeframe, limit) => {
+      calls.push({ symbol, timeframe, limit });
+      return symbol === "TSLA" ? SYMBOL_BARS : BENCHMARK_BARS;
+    },
+    fetchDecision: async () => ({
+      decision_id: "dec-1h",
+      symbol: "TSLA",
+      action: "watch",
+      decision_json: { invalidation: "below 90" },
+    }),
+  });
+
+  assert.equal(payload.status, "labeled");
+  assert.deepEqual(calls, [
+    { symbol: "TSLA", timeframe: "5m", limit: 36 },
+    { symbol: "QQQ", timeframe: "5m", limit: 36 },
+  ]);
+  assert.equal(payload.future_price, 102);
 });
 
 test("finalizeDueOutcome labels pending row exactly once", async () => {
