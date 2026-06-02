@@ -161,6 +161,19 @@ def create_context_snapshot(request: Request, payload: ContextSnapshotInput) -> 
         if existing:
             _conflict_if_different(existing["context_hash"], payload.context_hash, "context_hash")
             _conflict_if_different(existing["items_json"], items, "items_json")
+            _conflict_scalar(existing["symbol"], sym, "symbol")
+            _conflict_scalar(existing["asof_ts"], payload.asof_ts, "asof_ts")
+            _conflict_scalar(
+                existing.get("context_version"), payload.context_version, "context_version"
+            )
+            _conflict_if_different(
+                existing["evidence_refs_json"], evidence, "evidence_refs_json"
+            )
+            _conflict_scalar(
+                existing.get("weighting_policy_version"),
+                payload.weighting_policy_version,
+                "weighting_policy_version",
+            )
             return existing
 
         by_hash = _fetch_one(
@@ -255,13 +268,18 @@ def create_model_decision(request: Request, payload: ModelDecisionInput) -> dict
         )
         if existing:
             _conflict_if_different(existing["decision_json"], decision_json, "decision_json")
+            _conflict_scalar(existing.get("run_id"), payload.run_id, "run_id")
             _conflict_scalar(existing["snapshot_id"], payload.snapshot_id, "snapshot_id")
+            _conflict_scalar(existing["symbol"], sym, "symbol")
             _conflict_scalar(
                 existing.get("model_provider"), payload.model_provider, "model_provider"
             )
             _conflict_scalar(existing.get("model_name"), payload.model_name, "model_name")
             _conflict_scalar(existing.get("model_version"), payload.model_version, "model_version")
             _conflict_scalar(existing["action"], payload.action, "action")
+            _conflict_scalar(existing.get("confidence"), payload.confidence, "confidence")
+            _conflict_scalar(existing.get("uncertainty"), payload.uncertainty, "uncertainty")
+            _conflict_scalar(existing.get("status"), payload.status, "status")
             return existing
 
         conn.execute(
@@ -410,7 +428,10 @@ def schedule_decision_outcomes(request: Request, payload: OutcomeScheduleInput) 
             )
             if existing:
                 due_mismatch = (existing.get("due_at") or None) != item.due_at
-                if existing["symbol"].upper() != sym or due_mismatch:
+                outcome_id_mismatch = (
+                    item.outcome_id is not None and existing["outcome_id"] != item.outcome_id
+                )
+                if existing["symbol"].upper() != sym or due_mismatch or outcome_id_mismatch:
                     raise HTTPException(
                         status_code=409,
                         detail="decision outcome schedule conflict",
@@ -606,6 +627,20 @@ def create_insight_candidate(request: Request, payload: InsightCandidateInput) -
         )
         if existing:
             _conflict_if_different(existing["candidate_json"], candidate, "candidate_json")
+            _conflict_scalar(existing.get("run_id"), payload.run_id, "run_id")
+            _conflict_if_different(existing["symbols_json"], symbols, "symbols_json")
+            _conflict_scalar(existing.get("window_start"), payload.window_start, "window_start")
+            _conflict_scalar(existing.get("window_end"), payload.window_end, "window_end")
+            _conflict_scalar(existing.get("thesis"), payload.thesis, "thesis")
+            _conflict_if_different(
+                existing["evidence_refs_json"], evidence, "evidence_refs_json"
+            )
+            _conflict_scalar(
+                existing.get("verification_status"),
+                payload.verification_status,
+                "verification_status",
+            )
+            _conflict_scalar(existing.get("weight_cap"), payload.weight_cap, "weight_cap")
             return existing
 
         conn.execute(
@@ -709,6 +744,10 @@ def create_evaluation_report(request: Request, payload: EvaluationReportInput) -
             _conflict_if_different(
                 existing["recommendation"], payload.recommendation, "recommendation"
             )
+            _conflict_scalar(existing["model_version"], payload.model_version, "model_version")
+            _conflict_scalar(existing.get("window_start"), payload.window_start, "window_start")
+            _conflict_scalar(existing.get("window_end"), payload.window_end, "window_end")
+            _conflict_if_different(existing.get("metrics_json"), metrics, "metrics_json")
             return existing
 
         conn.execute(

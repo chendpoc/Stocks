@@ -121,6 +121,12 @@ def test_context_snapshot_idempotent_and_conflict(tmp_path: Path) -> None:
     )
     assert conflict.status_code == 409
 
+    metadata_conflict = client.post(
+        f"{STAGE1_PREFIX}/context-snapshots",
+        json={**payload, "symbol": "AAPL"},
+    )
+    assert metadata_conflict.status_code == 409
+
     listed = client.get(f"{STAGE1_PREFIX}/context-snapshots", params={"symbol": "TSLA"})
     assert listed.status_code == 200
     assert listed.json()["count"] >= 1
@@ -147,6 +153,12 @@ def test_model_decision_human_override_and_conflict(tmp_path: Path) -> None:
         json={**payload, "action": "avoid"},
     )
     assert conflict.status_code == 409
+
+    metadata_conflict = client.post(
+        f"{STAGE1_PREFIX}/model-decisions",
+        json={**payload, "confidence": 0.9},
+    )
+    assert metadata_conflict.status_code == 409
 
     before = client.get(f"{STAGE1_PREFIX}/model-decisions/dec-1").json()
     override = client.post(
@@ -284,6 +296,12 @@ def test_insight_evaluation_and_weighting_routes(tmp_path: Path) -> None:
     )
     assert insight_conflict.status_code == 409
 
+    insight_metadata_conflict = client.post(
+        f"{STAGE1_PREFIX}/insight-candidates",
+        json={**insight_payload, "thesis": "different thesis"},
+    )
+    assert insight_metadata_conflict.status_code == 409
+
     insight_detail = client.get(f"{STAGE1_PREFIX}/insight-candidates/ins-1")
     assert insight_detail.status_code == 200
 
@@ -311,6 +329,12 @@ def test_insight_evaluation_and_weighting_routes(tmp_path: Path) -> None:
         json={**report_payload, "report_id": "rep-2", "recommendation": "promote"},
     )
     assert bad_report.status_code == 422
+
+    report_metadata_conflict = client.post(
+        f"{STAGE1_PREFIX}/evaluation-reports",
+        json={**report_payload, "metrics_json": {"accuracy": 0.2}},
+    )
+    assert report_metadata_conflict.status_code == 409
 
     report_detail = client.get(f"{STAGE1_PREFIX}/evaluation-reports/rep-1")
     assert report_detail.status_code == 200
