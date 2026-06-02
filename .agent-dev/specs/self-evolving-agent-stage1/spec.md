@@ -2,7 +2,7 @@
 
 ## 背景
 
-`docs/deep-research-report.md` 的终态目标是模型主脑驱动的自进化交易决策系统：模型自己判断，结果自己回流，表现更好才升级。经过本轮 grill-with-docs，Stage 1 的最小闭环从旧 T006 的 “Decision Store + TUI” 调整为：
+`project-docs/research-reports/deep-research-report.md` 的终态目标是模型主脑驱动的自进化交易决策系统：模型自己判断，结果自己回流，表现更好才升级。经过本轮 grill-with-docs，Stage 1 的最小闭环从旧 T006 的 “Decision Store + TUI” 调整为：
 
 ```text
 ContextSnapshot

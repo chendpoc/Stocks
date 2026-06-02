@@ -264,7 +264,7 @@
       "id": "F033",
       "severity": "warning",
       "rule": "scope_violation",
-      "file": "docs/research-agent/target-system/trader-agent/00-workflow-router.md",
+      "file": "project-docs/research-agent/target-system/trader-agent/00-workflow-router.md",
       "line": 69,
       "description": "Unexpected modify: docs not in scope. Added §4.1 双文件 Artifact 规范 section."
     },
@@ -272,7 +272,7 @@
       "id": "F034",
       "severity": "warning",
       "rule": "scope_violation",
-      "file": "docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md",
       "line": 36,
       "description": "Unexpected modify: docs not in scope. Expanded event registry with Pipeline events, canonical-vs-legacy event name mapping."
     },
@@ -280,7 +280,7 @@
       "id": "F035",
       "severity": "warning",
       "rule": "scope_violation",
-      "file": "docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/README.md",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/README.md",
       "line": 1,
       "description": "Unexpected modify: docs not in scope."
     },
@@ -288,7 +288,7 @@
       "id": "F036",
       "severity": "warning",
       "rule": "scope_violation",
-      "file": "docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/06-m6-audit-rebuild.md",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/06-m6-audit-rebuild.md",
       "line": 1,
       "description": "NEW FILE not in scope. 229-line M6 audit-rebuild plan."
     },
@@ -296,7 +296,7 @@
       "id": "F037",
       "severity": "warning",
       "rule": "scope_violation",
-      "file": "docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/06-m6-worker-prompt.md",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/06-m6-worker-prompt.md",
       "line": 1,
       "description": "NEW FILE not in scope. 296-line M6 worker prompt."
     },
@@ -304,7 +304,7 @@
       "id": "F038",
       "severity": "warning",
       "rule": "scope_violation",
-      "file": "docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/README.md",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/README.md",
       "line": 14,
       "description": "Unexpected modify: docs not in scope. Added M6 audit-rebuild row to plan table."
     },

@@ -26,7 +26,7 @@
       "category": "artifact_gap",
       "file": ".agent-dev/tasks/T005.json",
       "line": 8,
-      "description": "The durable plan reference points to c:\\Users\\31089\\.cursor\\plans\\t005_开发计划深度_review_53319747.plan.md instead of a repo-versioned dev-plan artifact. docs/workflow.md expects project artifacts under .agent-dev so a fresh reviewer can rehydrate the plan without local Cursor state."
+      "description": "The durable plan reference points to c:\\Users\\31089\\.cursor\\plans\\t005_开发计划深度_review_53319747.plan.md instead of a repo-versioned dev-plan artifact. project-docs/workflows/agent-dev-workflow.md expects project artifacts under .agent-dev so a fresh reviewer can rehydrate the plan without local Cursor state."
     },
     {
       "id": "P004",

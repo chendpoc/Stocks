@@ -101,7 +101,7 @@ def test_detects_hash_change(tmp_path: Path) -> None:
 
 def test_marks_prd_as_memory_ineligible(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"
-    prd_path = tmp_repo / "docs" / "research-agent" / "target-system" / "foo.md"
+    prd_path = tmp_repo / "project-docs" / "research-agent" / "target-system" / "foo.md"
     prd_path.parent.mkdir(parents=True)
     prd_path.write_text("# prd\n", encoding="utf-8")
 
@@ -109,7 +109,7 @@ def test_marks_prd_as_memory_ineligible(tmp_path: Path) -> None:
     bootstrap_database(settings)
     build_artifact_catalog(settings)
 
-    row = _row_by_path(settings, "docs/research-agent/target-system/foo.md")
+    row = _row_by_path(settings, "project-docs/research-agent/target-system/foo.md")
     assert row["source_type"] == "prd"
     assert row["memory_eligible"] == 0
 

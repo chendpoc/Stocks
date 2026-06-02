@@ -13,10 +13,10 @@ Read first:
 3. `.agent-dev/specs/self-evolving-agent-stage1/decision-record.json`
 4. `.agent-dev/tasks/T006.json`
 5. `.agent-dev/tasks/T006-slices/README.md`
-6. `docs/adr/0001-langgraph-minimal-stage1.md`
+6. `project-docs/adr/0001-langgraph-minimal-stage1.md`
 7. `CONTEXT.md`
 8. `.agent-dev/context/code_map.md`
-9. `docs/deep-research-report.md`
+9. `project-docs/research-reports/deep-research-report.md`
 
 Do not implement from `.agent-dev/specs/model-decision-store/` or `.agent-dev/model-decision-store-worker-prompt.md`; they are superseded provenance only.
 

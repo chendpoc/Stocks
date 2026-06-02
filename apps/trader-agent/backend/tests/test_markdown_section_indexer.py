@@ -160,7 +160,7 @@ def test_reindexes_stale_artifact_idempotently(tmp_path: Path) -> None:
 
 def test_keeps_prd_memory_ineligible(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"
-    md_path = tmp_repo / "docs" / "research-agent" / "target-system" / "x.md"
+    md_path = tmp_repo / "project-docs" / "research-agent" / "target-system" / "x.md"
     md_path.parent.mkdir(parents=True)
     md_path.write_text("# prd section\nprd body\n", encoding="utf-8")
 
@@ -168,7 +168,7 @@ def test_keeps_prd_memory_ineligible(tmp_path: Path) -> None:
     bootstrap_database(settings)
     _catalog_and_index(settings)
 
-    rel_path = "docs/research-agent/target-system/x.md"
+    rel_path = "project-docs/research-agent/target-system/x.md"
     artifact = _artifact_by_path(settings, rel_path)
     sections = [row for row in _sections(settings) if row["artifact_id"] == artifact["id"]]
 

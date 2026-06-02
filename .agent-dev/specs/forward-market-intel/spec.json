@@ -3,11 +3,11 @@
   "title": "Forward Market Intelligence MVP",
   "status": "approved",
   "source_docs": [
-    "docs/01-forward-market-intelligence-system-design.md",
-    "docs/02-mvp-module-development-plan.md",
-    "docs/03-forward-market-intel-mvp-plan.md",
-    "docs/research-agent/target-system/trader-agent/00-workflow-router.md",
-    "docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/06-context-injection-policy.md"
+    "project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md",
+    "project-docs/legacy/forward-intel/02-mvp-module-development-plan.md",
+    "project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md",
+    "project-docs/research-agent/target-system/trader-agent/00-workflow-router.md",
+    "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/06-context-injection-policy.md"
   ],
   "scope": {
     "create": [

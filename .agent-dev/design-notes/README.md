@@ -18,7 +18,7 @@ This directory contains planning notes for the self-evolving trading agent. Thes
 Always read current source-of-truth artifacts before these notes:
 
 ```text
-1. docs/workflow.md
+1. project-docs/workflows/agent-dev-workflow.md
 2. CLAUDE.md
 3. .agent-dev/tasks/T006.json
 4. .agent-dev/tasks/T006.md

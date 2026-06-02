@@ -751,7 +751,7 @@ test("node runtime policy keeps CI pinned to Node 22", async () => {
   const nodeVersion = await readFile(".node-version", "utf8");
   const dailyWorkflow = await readFile(".github/workflows/daily-publish.yml", "utf8");
   const deployWorkflow = await readFile(".github/workflows/deploy.yml", "utf8");
-  const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-node-runtime-policy.md", "utf8");
+  const moduleDoc = await readFile("project-docs/research-agent/modules/2026-05-23-node-runtime-policy.md", "utf8");
 
   assert.equal(nvmrc.trim(), "22");
   assert.equal(nodeVersion.trim(), "22");
@@ -897,7 +897,7 @@ test("research console renders structured agent answers as section cards", async
   const sectionLib = await readFile("apps/research-console/lib/agent-answer-sections.ts", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
   const moduleDoc = await readFile(
-    "docs/research-agent/modules/2026-05-23-agent-answer-section-cards.md",
+    "project-docs/research-agent/modules/2026-05-23-agent-answer-section-cards.md",
     "utf8",
   );
 
@@ -1474,7 +1474,7 @@ test("Fortress visual refactor keeps opportunity blotter primary and Agent auxil
   const inspector = await readFile("apps/research-console/components/research/ResearchInspector.tsx", "utf8");
   const agent = await readFile("apps/research-console/components/AgentPanel.tsx", "utf8");
   const moduleDoc = await readFile(
-    "docs/research-agent/modules/2026-05-23-research-workbench-terminal-visual-refactor.md",
+    "project-docs/research-agent/modules/2026-05-23-research-workbench-terminal-visual-refactor.md",
     "utf8",
   );
   const combined = [workspace, board, inspector, agent].join("\n");
@@ -1764,7 +1764,7 @@ test("research session API and UI shell define dynamic cockpit surfaces", async 
   const workspace = await readFile("apps/research-console/components/ResearchWorkspace.tsx", "utf8");
   const styles = await readFile("apps/research-console/app/globals.css", "utf8");
   const moduleDoc = await readFile(
-    "docs/research-agent/modules/2026-05-23-dynamic-research-session-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-dynamic-research-session-prd.md",
     "utf8",
   );
 
@@ -2671,8 +2671,8 @@ test("research console agent panel derives research plan status from tool eviden
 });
 
 test("research agent plan documents subagent lifecycle governance", async () => {
-  const plan = await readFile("docs/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md", "utf8");
-  const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-agent-lifecycle-governance.md", "utf8");
+  const plan = await readFile("project-docs/plans/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md", "utf8");
+  const moduleDoc = await readFile("project-docs/research-agent/modules/2026-05-23-agent-lifecycle-governance.md", "utf8");
 
   assert.match(moduleDoc, /默认最多保留 2 个活跃 agent/);
   assert.match(moduleDoc, /已完成、无后续依赖、被替代或方向过期的 agent 必须关闭/);
@@ -2685,8 +2685,8 @@ test("research agent plan documents subagent lifecycle governance", async () => 
 });
 
 test("research agent plan documents collaboration retrospective cadence", async () => {
-  const plan = await readFile("docs/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md", "utf8");
-  const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-collaboration-retrospective-cadence.md", "utf8");
+  const plan = await readFile("project-docs/plans/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md", "utf8");
+  const moduleDoc = await readFile("project-docs/research-agent/modules/2026-05-23-collaboration-retrospective-cadence.md", "utf8");
 
   assert.match(moduleDoc, /默认每 10 个用户-助手交互轮次/);
   assert.match(moduleDoc, /本阶段做对了什么/);
@@ -3689,8 +3689,8 @@ test("research console source files do not contain common mojibake markers", asy
 
 test("research agent documentation does not contain common mojibake markers", async () => {
   const docRoots = [
-    "docs/research-agent",
-    "docs/superpowers/plans",
+    "project-docs/research-agent",
+    "project-docs/plans/superpowers/plans",
   ];
   const mojibakeMarkers = [
     "\uFFFD",
@@ -4313,7 +4313,7 @@ test("research console has a separate verification workflow from the VitePress p
 });
 
 test("research console standalone architecture document records the site boundary", async () => {
-  const doc = await readFile("docs/research-agent/standalone-site-architecture.md", "utf8");
+  const doc = await readFile("project-docs/research-agent/standalone-site-architecture.md", "utf8");
 
   assert.match(doc, /VitePress/);
   assert.match(doc, /apps\/research-console/);
@@ -4324,8 +4324,8 @@ test("research console standalone architecture document records the site boundar
 });
 
 test("trading workbench master plan records the new development focus and boundaries", async () => {
-  const doc = await readFile("docs/research-agent/trading-workbench-master-plan.md", "utf8");
-  const readiness = await readFile("docs/research-agent/delivery-readiness-audit.md", "utf8");
+  const doc = await readFile("project-docs/research-agent/trading-workbench-master-plan.md", "utf8");
+  const readiness = await readFile("project-docs/research-agent/delivery-readiness-audit.md", "utf8");
 
   for (const expected of [
     "daily summary maintenance mode",
@@ -4358,7 +4358,7 @@ test("trading workbench master plan records the new development focus and bounda
 });
 
 test("cursor execution queue records current delegated work and review gates", async () => {
-  const doc = await readFile("docs/research-agent/cursor-execution-queue.md", "utf8");
+  const doc = await readFile("project-docs/research-agent/cursor-execution-queue.md", "utf8");
 
   for (const expected of [
     "Cursor Execution Queue",
@@ -4394,7 +4394,7 @@ test("cursor execution queue records current delegated work and review gates", a
 });
 
 test("codex agent execution queue records high-decision research workbench lanes", async () => {
-  const doc = await readFile("docs/research-agent/codex-agent-execution-queue.md", "utf8");
+  const doc = await readFile("project-docs/research-agent/codex-agent-execution-queue.md", "utf8");
 
   for (const expected of [
     "Codex Agent Execution Queue",
@@ -4430,7 +4430,7 @@ test("codex agent execution queue records high-decision research workbench lanes
 
 test("phase 1 summary-to-opportunity board module document defines implementation boundaries", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-summary-to-opportunity-board.md",
+    "project-docs/research-agent/modules/2026-05-23-summary-to-opportunity-board.md",
     "utf8",
   );
 
@@ -4469,9 +4469,9 @@ test("trader agent target-system docs are centralized outside the repository roo
     await assert.rejects(access(rootDoc));
   }
 
-  const targetDir = "docs/research-agent/target-system/trader-agent";
+  const targetDir = "project-docs/research-agent/target-system/trader-agent";
   const readme = await readFile(`${targetDir}/README.md`, "utf8");
-  const stagedPlan = await readFile("docs/research-agent/trading-workbench-master-plan.md", "utf8");
+  const stagedPlan = await readFile("project-docs/research-agent/trading-workbench-master-plan.md", "utf8");
 
   for (const targetDoc of [
     "README.md",
@@ -4489,7 +4489,7 @@ test("trader agent target-system docs are centralized outside the repository roo
     "旧阶段路线已放弃",
     "apps/research-console",
     "trading-workbench-master-plan.md",
-    "docs/research-agent/modules/",
+    "project-docs/research-agent/modules/",
     "历史实现记录",
   ]) {
     assert.match(readme, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
@@ -4507,7 +4507,7 @@ test("trader agent target-system docs are centralized outside the repository roo
 
 test("cursor opportunity board PRD splits phase work into measurable modules", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-cursor-opportunity-board-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-cursor-opportunity-board-prd.md",
     "utf8",
   );
 
@@ -4546,7 +4546,7 @@ test("cursor opportunity board PRD splits phase work into measurable modules", a
 
 test("codex evidence tool layer PRD defines policy-gated external evidence work", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-codex-evidence-tool-layer-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-codex-evidence-tool-layer-prd.md",
     "utf8",
   );
 
@@ -4584,7 +4584,7 @@ test("codex evidence tool layer PRD defines policy-gated external evidence work"
 
 test("external evidence tool actions PRD defines product-level provider integration", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-external-evidence-tool-actions-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-external-evidence-tool-actions-prd.md",
     "utf8",
   );
 
@@ -4614,7 +4614,7 @@ test("external evidence tool actions PRD defines product-level provider integrat
 
 test("codex agent research flow PRD defines auditable non-CoT agent orchestration", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-codex-agent-research-flow-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-codex-agent-research-flow-prd.md",
     "utf8",
   );
 
@@ -4650,7 +4650,7 @@ test("codex agent research flow PRD defines auditable non-CoT agent orchestratio
 
 test("codex review learning records PRD defines local-only review archive", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-codex-review-learning-records-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-codex-review-learning-records-prd.md",
     "utf8",
   );
 
@@ -4686,7 +4686,7 @@ test("codex review learning records PRD defines local-only review archive", asyn
 
 test("cursor opportunity detail PRD splits phase 2 detail work into measurable modules", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-cursor-opportunity-detail-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-cursor-opportunity-detail-prd.md",
     "utf8",
   );
 
@@ -4725,7 +4725,7 @@ test("cursor opportunity detail PRD splits phase 2 detail work into measurable m
 
 test("cursor agent panel readability PRD splits phase 4 UI cleanup into measurable modules", async () => {
   const doc = await readFile(
-    "docs/research-agent/modules/2026-05-23-cursor-agent-panel-readability-prd.md",
+    "project-docs/research-agent/modules/2026-05-23-cursor-agent-panel-readability-prd.md",
     "utf8",
   );
 
@@ -4871,7 +4871,7 @@ test("tool trace layout distinguishes executed and blocked tools with bounded su
 });
 
 test("research console deployment boundary document keeps the workbench off the public report deploy", async () => {
-  const doc = await readFile("docs/research-agent/research-console-deployment-boundary.md", "utf8");
+  const doc = await readFile("project-docs/research-agent/research-console-deployment-boundary.md", "utf8");
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const publicWorkflow = await readFile(".github/workflows/deploy.yml", "utf8");
   const researchWorkflow = await readFile(".github/workflows/research-console.yml", "utf8");
@@ -4899,7 +4899,7 @@ test("research console deployment boundary document keeps the workbench off the 
 
 test("research agent plan treats module document list as representative not exhaustive", async () => {
   const plan = await readFile(
-    "docs/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md",
+    "project-docs/plans/superpowers/plans/2026-05-22-research-agent-opportunity-workbench.md",
     "utf8",
   );
 
@@ -4919,7 +4919,7 @@ test("Cloudflare Pages guide documents Git integration instead of Wrangler direc
 });
 
 test("delivery readiness audit covers the five operational surfaces", async () => {
-  const audit = await readFile("docs/research-agent/delivery-readiness-audit.md", "utf8");
+  const audit = await readFile("project-docs/research-agent/delivery-readiness-audit.md", "utf8");
 
   for (const heading of [
     "Daily Summary Pipeline",
@@ -4945,7 +4945,7 @@ test("public build audit guards local-only content and summary month scope", asy
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const script = await readFile("scripts/audit-public-build.mjs", "utf8");
   const releaseCheck = await readFile("scripts/release-check.mjs", "utf8");
-  const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-public-build-boundary-audit.md", "utf8");
+  const moduleDoc = await readFile("project-docs/research-agent/modules/2026-05-23-public-build-boundary-audit.md", "utf8");
 
   assert.equal(pkg.scripts["public:build:audit"], "node scripts/audit-public-build.mjs");
   for (const marker of [
@@ -4970,7 +4970,7 @@ test("public build audit guards local-only content and summary month scope", asy
 });
 
 test("release completion audit distinguishes local readiness from production completion", async () => {
-  const audit = await readFile("docs/research-agent/release-completion-audit.md", "utf8");
+  const audit = await readFile("project-docs/research-agent/release-completion-audit.md", "utf8");
 
   assert.match(audit, /npm run release:check/);
   assert.match(audit, /git status --short/);
@@ -4987,7 +4987,7 @@ test("release completion audit distinguishes local readiness from production com
 });
 
 test("integration handoff checklist keeps release and agent cleanup gates explicit", async () => {
-  const checklist = await readFile("docs/research-agent/integration-handoff-checklist.md", "utf8");
+  const checklist = await readFile("project-docs/research-agent/integration-handoff-checklist.md", "utf8");
 
   for (const expected of [
     "npm run release:check",
@@ -5007,7 +5007,7 @@ test("integration handoff checklist keeps release and agent cleanup gates explic
 });
 
 test("git integration plan documents behind-one generated-index overlap strategy", async () => {
-  const plan = await readFile("docs/research-agent/git-integration-plan.md", "utf8");
+  const plan = await readFile("project-docs/research-agent/git-integration-plan.md", "utf8");
 
   for (const expected of [
     "behind origin/main by 1 commit",
@@ -5027,7 +5027,7 @@ test("git integration plan documents behind-one generated-index overlap strategy
 test("package exposes a read-only integration status command", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const script = await readFile("scripts/integration-status.mjs", "utf8");
-  const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-integration-status-command.md", "utf8");
+  const moduleDoc = await readFile("project-docs/research-agent/modules/2026-05-23-integration-status-command.md", "utf8");
 
   assert.equal(pkg.scripts["integration:status"], "node scripts/integration-status.mjs");
   for (const expected of [
@@ -5059,7 +5059,7 @@ test("integration status command emits machine-readable json", () => {
   const payload = JSON.parse(result.stdout);
 
   assert.equal(payload.read_only, true);
-  assert.equal(payload.checklist, "docs/research-agent/integration-handoff-checklist.md");
+  assert.equal(payload.checklist, "project-docs/research-agent/integration-handoff-checklist.md");
   assert.equal(payload.commands.release_check, "npm run release:check");
   assert.equal(payload.commands.release_verify, "npm run release:verify -- --date YYYY-MM-DD");
   assert.equal(typeof payload.git.changed_entries, "number");
@@ -5162,7 +5162,7 @@ test("package exposes a JS release check command for pre-push verification", asy
 test("package exposes a read-only production release verifier", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const script = await readFile("scripts/verify-production-release.mjs", "utf8");
-  const moduleDoc = await readFile("docs/research-agent/modules/2026-05-23-production-release-verifier.md", "utf8");
+  const moduleDoc = await readFile("project-docs/research-agent/modules/2026-05-23-production-release-verifier.md", "utf8");
 
   assert.equal(pkg.scripts["release:verify"], "node scripts/verify-production-release.mjs");
   for (const expected of [

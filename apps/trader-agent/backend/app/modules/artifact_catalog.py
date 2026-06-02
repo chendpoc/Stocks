@@ -39,13 +39,14 @@ CLASSIFICATION_RULES: tuple[tuple[str, str, int, str], ...] = (
     ("docs/assets/chat-images/**", "image", 0, "image_metadata_only"),
     ("data/trader-agent/raw/**/*.jsonl", "raw_chat", 1, "raw_financial_chat_corpus"),
     ("data/trader-agent/imports/**", "raw_chat", 0, "imported_chat_not_for_memory"),
-    ("docs/research-agent/target-system/**/*.md", "prd", 0, "engineering_prd_not_for_memory"),
+    ("project-docs/research-agent/target-system/**/*.md", "prd", 0, "engineering_prd_not_for_memory"),
     (
-        "docs/research-agent/**/*.md",
+        "project-docs/research-agent/**/*.md",
         "engineering_doc",
         0,
         "engineering_doc_not_for_memory",
     ),
+    ("project-docs/**/*.md", "engineering_doc", 0, "engineering_doc_not_for_memory"),
     ("docs/**/*.md", "markdown", 0, "general_docs_not_for_memory"),
 )
 
@@ -70,6 +71,7 @@ def build_artifact_catalog(settings: Settings, docs_root: Path | None = None) ->
     resolved_docs_root = (docs_root or (repo_root / "docs")).resolve()
     scan_roots = (
         resolved_docs_root,
+        repo_root / "project-docs",
         repo_root / "data" / "trader-agent" / "raw",
         repo_root / "data" / "trader-agent" / "imports",
     )

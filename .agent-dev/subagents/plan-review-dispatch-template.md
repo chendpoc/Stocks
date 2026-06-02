@@ -19,7 +19,7 @@ Read `.agent-dev/subagents/plan-review-agent.md`.
 Expected behavior:
 - Resolve `.agent-dev/tasks/T00X.json`.
 - Derive `spec_id` from the task JSON.
-- Read `docs/workflow.md`, `CLAUDE.md`, `.agent-dev/README.md`, `.agent-dev/context/code_map.md`, the matching spec, decision record, task markdown, slice docs, dev plan if present, and worker prompt if declared.
+- Read `project-docs/workflows/agent-dev-workflow.md`, `CLAUDE.md`, `.agent-dev/README.md`, `.agent-dev/context/code_map.md`, the matching spec, decision record, task markdown, slice docs, dev plan if present, and worker prompt if declared.
 - Use CodeGraph MCP for referenced modules and dependency edges when available.
 - Review whether the plan is safe to hand to a worker.
 - Produce findings first.

@@ -39,7 +39,7 @@ From that single task id, the plan review agent must resolve:
 8. `.agent-dev/specs/<spec_id>/dev-plan.md`, if present
 9. `worker_prompt_path` from task JSON, if present
 10. `.agent-dev/context/code_map.md`
-11. `docs/workflow.md`
+11. `project-docs/workflows/agent-dev-workflow.md`
 12. current source files or tests referenced by the plan
 
 If `T00X.json` does not exist yet, report that the plan is not reviewable as a task artifact. The parent agent may instead provide an explicit draft plan path or pasted draft, but the finding must say that the plan has not reached the project artifact gate.
@@ -68,7 +68,7 @@ If any referenced path is missing, mark it as a finding. Do not preserve non-exi
 
 Read in this order:
 
-1. `docs/workflow.md`
+1. `project-docs/workflows/agent-dev-workflow.md`
 2. `CLAUDE.md`
 3. `.agent-dev/README.md`
 4. `.agent-dev/memory/schemas.md`
@@ -88,7 +88,7 @@ Conflict handling:
 
 - `decision-record.json` beats draft plan text.
 - `spec.scope.forbidden` beats implementation convenience.
-- `docs/workflow.md` controls phase/gate order.
+- `project-docs/workflows/agent-dev-workflow.md` controls phase/gate order.
 - current source tree beats old plan assumptions.
 - if spec/task/plan disagree, surface a finding or open decision instead of guessing.
 
@@ -112,7 +112,7 @@ Flag missing required artifacts as `critical`.
 
 Compare the plan against:
 
-- project workflow in `docs/workflow.md`
+- project workflow in `project-docs/workflows/agent-dev-workflow.md`
 - repo rules in `CLAUDE.md`
 - module map in `.agent-dev/context/code_map.md`
 - spec scope, non-goals, acceptance, and verification

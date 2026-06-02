@@ -3,15 +3,15 @@
   "title": "Self-Evolving Trading Agent Stage 1：LangGraph Minimal Durable Workflow",
   "status": "draft",
   "source_docs": [
-    "docs/deep-research-report.md",
-    "docs/workflow.md",
-    "docs/adr/0001-langgraph-minimal-stage1.md",
+    "project-docs/research-reports/deep-research-report.md",
+    "project-docs/workflows/agent-dev-workflow.md",
+    "project-docs/adr/0001-langgraph-minimal-stage1.md",
     "CONTEXT.md",
     ".agent-dev/specs/self-evolving-agent-stage1/decision-record.json"
   ],
   "scope": {
     "create": [
-      "docs/adr/0001-langgraph-minimal-stage1.md",
+      "project-docs/adr/0001-langgraph-minimal-stage1.md",
       ".agent-dev/specs/self-evolving-agent-stage1/**",
       ".agent-dev/tasks/T006.json",
       ".agent-dev/tasks/T006.md",
@@ -375,13 +375,13 @@
     },
     {
       "id": "V102",
-      "command": "manual: Review Stage 1 architecture against docs/deep-research-report.md, CONTEXT.md, and docs/adr/0001-langgraph-minimal-stage1.md",
+      "command": "manual: Review Stage 1 architecture against project-docs/research-reports/deep-research-report.md, CONTEXT.md, and project-docs/adr/0001-langgraph-minimal-stage1.md",
       "expect": "Accepted decisions, non-goals, graph boundaries, storage split, outcome horizons, and T006 supersession are consistent",
       "blocking": true
     },
     {
       "id": "V103",
-      "command": "git diff --check -- CONTEXT.md docs/adr/0001-langgraph-minimal-stage1.md .agent-dev/specs/self-evolving-agent-stage1 .agent-dev/specs/model-decision-store .agent-dev/tasks/T006.json .agent-dev/tasks/T006.md .agent-dev/tasks/T006-slices .agent-dev/model-decision-store-worker-prompt.md .agent-dev/self-evolving-agent-stage1-worker-prompt.md",
+      "command": "git diff --check -- CONTEXT.md project-docs/adr/0001-langgraph-minimal-stage1.md .agent-dev/specs/self-evolving-agent-stage1 .agent-dev/specs/model-decision-store .agent-dev/tasks/T006.json .agent-dev/tasks/T006.md .agent-dev/tasks/T006-slices .agent-dev/model-decision-store-worker-prompt.md .agent-dev/self-evolving-agent-stage1-worker-prompt.md",
       "expect": "No whitespace errors in architecture artifacts",
       "blocking": true
     },

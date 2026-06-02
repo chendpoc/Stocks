@@ -6,7 +6,7 @@
       "date": "2026-06-02",
       "question": "Stage 1 MVP 的最小闭环是什么？",
       "answer": "Stage 1 MVP 是 Decision + Outcome，暂不强制 paper execution。",
-      "rationale": "docs/deep-research-report.md 将 Stage 1 定义为 DecisionEnvelope、Feature Snapshot 与 Outcome Labels。只做 Decision 不能证明自进化，只做 Paper 会过早引入 broker 复杂度。",
+      "rationale": "project-docs/research-reports/deep-research-report.md 将 Stage 1 定义为 DecisionEnvelope、Feature Snapshot 与 Outcome Labels。只做 Decision 不能证明自进化，只做 Paper 会过早引入 broker 复杂度。",
       "alternatives": ["Decision-only", "Decision + Paper + Outcome"],
       "confirmed_by": "user"
     },

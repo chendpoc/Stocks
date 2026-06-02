@@ -13,7 +13,7 @@
 
 **File**: `apps/trader-chart/src/main.rs`, `apps/trader-chart/src/ui/draw.rs`, `apps/trader-chart/src/viewport.rs`
 
-**Issue**: The earlier generic docs scope leak is fixed: `.agent-dev/README.md` and `docs/project-overview.md` are no longer in the tracked diff. However, the current T005 diff still includes `apps/trader-chart/*` rendering/input changes, while T005 scope in `spec.json` only allows Longbridge CLI files, T005 task/spec artifacts, env/package docs, `CLAUDE.md`, and `.agent-dev/context/code_map.md`.
+**Issue**: The earlier generic docs scope leak is fixed: `.agent-dev/README.md` and `project-docs/overview.md` are no longer in the tracked diff. However, the current T005 diff still includes `apps/trader-chart/*` rendering/input changes, while T005 scope in `spec.json` only allows Longbridge CLI files, T005 task/spec artifacts, env/package docs, `CLAUDE.md`, and `.agent-dev/context/code_map.md`.
 
 **Impact**: T005 still cannot be reviewed or merged as a focused Longbridge Agent CLI task while trader-chart UI/viewport changes are mixed into the same diff.
 

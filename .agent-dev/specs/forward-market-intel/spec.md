@@ -7,13 +7,13 @@
 
 从 Whop 群聊中有价值的信息进行结构化沉淀和分析。
 
-详见：[docs/01-forward-market-intelligence-system-design.md](../../docs/01-forward-market-intelligence-system-design.md)
+详见：[project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md](../../project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md)
 
 ## 架构决策详解
 
 8 个关键决策，完整 rationale 记录在 `decision-record.json`。
 
-详见：[docs/03-forward-market-intel-mvp-plan.md](../../docs/03-forward-market-intel-mvp-plan.md) §2-11
+详见：[project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md](../../project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md) §2-11
 
 ## 验收标准详解
 
@@ -25,8 +25,8 @@
 
 ## 相关文档
 
-- 系统设计: `docs/01-forward-market-intelligence-system-design.md`
-- MVP 开发计划: `docs/02-mvp-module-development-plan.md`
-- 实施计划: `docs/03-forward-market-intel-mvp-plan.md`
+- 系统设计: `project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md`
+- MVP 开发计划: `project-docs/legacy/forward-intel/02-mvp-module-development-plan.md`
+- 实施计划: `project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md`
 - Worker Prompt: `docs/03-forward-market-intel-worker-prompt.md`
 - 决策记录: `decision-record.json`

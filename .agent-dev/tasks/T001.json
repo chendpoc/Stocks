@@ -66,5 +66,5 @@
     }
   ],
   "context_pack_ref": "CP001",
-  "worker_prompt_path": "docs/03-forward-market-intel-worker-prompt.md"
+  "worker_prompt_path": "project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md"
 }

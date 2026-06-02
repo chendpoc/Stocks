@@ -20,7 +20,7 @@ Superpowers 内部流程：**Brainstorm → Plan → Implement → Review → Ve
 
 ### 建议扩展的 Skills
 
-基于 `docs/workflow.md` 的 Phase 划分，后续可扩展以下 Superpowers skills：
+基于 `project-docs/workflows/agent-dev-workflow.md` 的 Phase 划分，后续可扩展以下 Superpowers skills：
 
 | Skill | 对应 Phase | 用途 |
 |---|---|---|

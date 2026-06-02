@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const checklistPath = "docs/research-agent/integration-handoff-checklist.md";
+const checklistPath = "project-docs/research-agent/integration-handoff-checklist.md";
 
 function run(command, args) {
   const result = spawnSync(command, args, {

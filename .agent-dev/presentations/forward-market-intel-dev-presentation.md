@@ -319,6 +319,6 @@ npm run trader-cli -- analyze TSLA
 | Spec | `.agent-dev/specs/forward-market-intel/spec.json` |
 | 决策记录 | `.agent-dev/specs/forward-market-intel/decision-record.json` |
 | Code Map | `.agent-dev/context/code_map.md` |
-| 系统设计 | `docs/01-forward-market-intelligence-system-design.md` |
-| MVP 计划 | `docs/03-forward-market-intel-mvp-plan.md` |
+| 系统设计 | `project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md` |
+| MVP 计划 | `project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md` |
 | 8000 排障 | `.agent-dev/reviews/backend-intel-8000-review.md` |

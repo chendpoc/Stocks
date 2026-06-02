@@ -18,7 +18,7 @@
       "depends_on": [],
       "verification": { "ref": "V101", "blocking": true },
       "files_expected": [
-        "docs/adr/0001-langgraph-minimal-stage1.md",
+        "project-docs/adr/0001-langgraph-minimal-stage1.md",
         "CONTEXT.md",
         ".agent-dev/specs/self-evolving-agent-stage1/spec.json",
         ".agent-dev/specs/self-evolving-agent-stage1/spec.md",

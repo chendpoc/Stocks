@@ -123,4 +123,4 @@ flowchart LR
 - Task: [.agent-dev/tasks/T002.json](../../tasks/T002.json)
 - 决策记录: [decision-record.json](./decision-record.json)
 - Code Map: [.agent-dev/context/code_map.md](../../context/code_map.md)
-- 系统设计: [docs/01-forward-market-intelligence-system-design.md](../../../docs/01-forward-market-intelligence-system-design.md)
+- 系统设计: [project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md](../../../project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md)
