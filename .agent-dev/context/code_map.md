@@ -2,7 +2,7 @@
 
 > 给 AI agent 的快速定位指南。先用本文理解结构，再用 CodeGraph 做精确查询。
 > 配套：根目录 `CLAUDE.md`（开发规约与坑）· `.agent-dev/README.md`（spec/task artifact 说明）。
-> 更新：2026-06-01
+> 更新：2026-06-02
 
 ---
 
@@ -12,7 +12,8 @@
 stock-community-summary/
 ├── apps/
 │   ├── trader-agent/backend/   ← Python 后端（FastAPI + SQLAlchemy + SQLite FTS5；含 intel 子系统）
-│   ├── trader-cli/             ← TypeScript CLI + Ink v7 TUI（七页面板 + 13 子命令；独立 npm，非 pnpm workspace）
+│   ├── trader-cli/             ← TypeScript CLI + Ink v7 TUI（intel 子命令 + Stage1 薄包装；独立 npm）
+│   ├── trader-workflows/       ← Stage 1 LangGraph 运行时 + 四图 CLI（独立 npm；不 import 进 trader-cli）
 │   ├── trader-chart/           ← Rust ratatui 全屏 K 线（cargo workspace member；Ink Dashboard [c] handoff）
 │   ├── trader-cockpit/         ← 交易驾驶舱前端（Next.js 15 + HeroUI）— intel 期 FORBIDDEN
 │   └── research-console/       ← 旧研究控制台（只读参考，不扩展）
@@ -83,9 +84,12 @@ app/
 │       ├── jobs.py             ← /jobs/*（premarket / close）
 │       ├── corpus.py           ← /corpus/*（包一层 M2 corpus_search）
 │       ├── report_cache.py     ← /report/*（D105/D113 唯一键 + 实时 join 失效）
-│       └── news.py             ← /news/*
+│       ├── news.py             ← /news/*
+│       └── stage1.py           ← **Stage 1 域 API**（前缀 `/api/intel/stage1` — T006）
 └── tools/                      ← 外部数据源适配器（yfinance/alpha_vantage/longbridge/SEC）
 ```
+
+**Stage 1 API**（`intel/api/stage1.py`，挂载 `/api/intel/stage1`）：`context-snapshots`、`model-decisions`、`human-overrides`、`decision-outcomes`（schedule/due/label）、`insight-candidates`、`evaluation-reports`、`weighting-policy-stats`。后端零 LLM；持久化在 `market_intel.db` Stage1 表。
 
 ### 数据库
 
@@ -139,7 +143,12 @@ src/
 │
 ├── api/client.ts             ← fetch → localhost:8000/api/intel
 │
-├── commands/                 ← 13 个 Commander 子命令（瘦身 — 业务逻辑下沉 services/）
+├── commands/                 ← intel 子命令 + Stage1 薄包装（spawn `npm run trader-workflows`）
+│   ├── decide.ts             ← DecisionGraph（spawn workflows，无 src import）
+│   ├── runs.ts               ← runs list | show | resume
+│   ├── outcomes.ts           ← outcomes run --due
+│   ├── eval.ts               ← eval summary
+│   ├── insights.ts           ← insights explore
 │   ├── scan.ts               ← /signals/scan
 │   ├── analyze.ts            ← 单次 LLM 深度分析
 │   ├── brief.ts              ← /jobs/premarket 数据包
@@ -208,6 +217,52 @@ src/
 技术栈：TypeScript 5 + tsx + Ink 7 + Commander 12 + Vercel AI SDK + asciichart + zod。
 
 测试：`npm test` → vitest 跑 `auditor / marketDataProvider / longbridge / longbridgeAgent / longbridgeCli / traderChart / longbridgeTools`（T005 S5 待新增）。
+
+**边界**：Ink TUI 与 intel 子命令走 `services/` + `api/client.ts`；Stage1（`decide` / `runs` / `outcomes` / `eval` / `insights`）仅 `spawnSync` 仓库根 `npm --prefix apps/trader-workflows run workflows`，**禁止** `import` `apps/trader-workflows/src/**`。
+
+---
+
+## Stage 1 工作流：apps/trader-workflows/
+
+> TypeScript + tsx + `@langchain/langgraph` + `better-sqlite3`（checkpoint 临时库）。**独立 npm 包**（T006 / `self-evolving-agent-stage1`）。
+
+```
+apps/trader-workflows/
+├── package.json              ← scripts: workflows | test (tsx --test)
+└── src/
+    ├── index.ts              ← Commander 式 argv 路由；统一 WorkflowEnvelope JSON
+    ├── api/
+    │   └── client.ts         ← fetch → /api/intel/stage1/* + /api/intel/context/build
+    ├── runtime/
+    │   ├── stage1Runtime.ts  ← 运行编排；list/show/resume；调各 graph
+    │   └── checkpointStore.ts← LangGraph checkpoint SQLite（与 market_intel 分离）
+    ├── graphs/
+    │   ├── decisionGraph.ts       ← Raw evidence → snapshot → model_decision
+    │   ├── outcomeGraph.ts        ← due outcomes 批量 label（model_path only）
+    │   ├── evaluationGraph.ts     ← hold | needs_more_data（无 auto-promotion）
+    │   └── insightExplorationGraph.ts ← 受控 ReAct → InsightCandidate pending
+    ├── services/
+    │   ├── contextSnapshots.ts    ← weighted items + hash + POST snapshot
+    │   ├── decisions.ts           ← envelope 校验 + POST model-decisions
+    │   ├── outcomes.ts            ← schedule/label + 行情 proxy
+    │   ├── evaluation.ts          ← 聚合 metrics + evaluation report
+    │   └── insightCandidates.ts   ← weight cap + controlled ReAct tools
+    └── llm/
+        ├── provider.ts            ← Stage1 LLM 调用（decide / insight 路径）
+        └── decisionEnvelope.ts    ← zod 校验 + paper 标记 not submitted
+```
+
+| 层 | 职责 |
+|---|---|
+| **trader-agent/backend** | Stage1 域表 CRUD、不可变 snapshot、409 冲突；**无** graph 编排 |
+| **trader-workflows** | LangGraph 运行时、checkpoint、四图业务编排、JSON envelope |
+| **trader-cli** | 人类/脚本入口；Stage1 子命令薄包装到 `trader-workflows` |
+
+仓库根脚本：`npm run trader-workflows -- <cmd> --json`（等同 `npm --prefix apps/trader-workflows run workflows --`）。
+
+测试：`cd apps/trader-workflows && npm test`（47 项 graph/service/runtime 单测）。
+
+**Non-goals（Stage1）**：无自研 TUI 页、无 paper 成交、无 broker mirror、无 auto-training / auto-promotion、无旧 hypotheses/predictions 双写。
 
 ---
 
@@ -303,6 +358,7 @@ data/
 │   ├── cli-tui-integration/                     ← T003（接入七页 TUI；服务层共享）
 │   ├── trader-chart-ratatui/                    ← T004（done）
 │   └── trader-longbridge-agent-cli/             ← T005（含 clarification-questions.{md,json}）
+│   └── self-evolving-agent-stage1/              ← T006 Stage 1 自进化闭环
 │
 ├── tasks/
 │   ├── T001.{md,json}                           ← forward-market-intel
@@ -310,11 +366,13 @@ data/
 │   ├── T003.json + T003-slices/                 ← cli-tui-integration 分片（I0-I3）
 │   ├── T004.json + T004-slices/                 ← trader-chart-ratatui
 │   └── T005.{md,json} + T005-slices/            ← trader-longbridge-agent-cli（audit + patch）
+│   └── T006.{md,json} + T006-slices/            ← self-evolving-agent-stage1（S1–S8）
 │
 ├── presentations/cli-tui-v2-code-review-presentation.md
 ├── cli-tui-v2-worker-prompt.md                  ← T002 worker prompt
 ├── cli-tui-integration-worker-prompt.md         ← T003 worker prompt
-└── trader-longbridge-agent-worker-prompt.md     ← T005 worker prompt
+├── trader-longbridge-agent-worker-prompt.md     ← T005 worker prompt
+└── self-evolving-agent-stage1-worker-prompt.md  ← T006 worker prompt
 ```
 
 ---
@@ -376,6 +434,16 @@ npm run docs:dev                          # VitePress
 cd apps/trader-cli && npx tsx src/index.ts                       # 七页 Ink TUI（默认）
 npm run trader-cli -- analyze TSLA                                # 仓库根快捷
 cd apps/trader-cli && npm test                                    # vitest
+
+# === Stage 1 工作流（T006 — 需后端 :8000 + .env LLM；runs list 可离线）===
+npm run trader-agent:backend:dev                                  # 先起 FastAPI
+npm run trader-cli -- runs list --json
+npm run trader-cli -- decide TSLA.US --json                       # 取 run_id 后 runs show
+npm run trader-cli -- outcomes run --due --json
+npm run trader-cli -- eval summary --json
+npm run trader-cli -- insights explore --symbol TSLA.US --window 30d --json
+npm run trader-workflows -- runs list --json                      # 直连 workflows（跳过 CLI 层）
+cd apps/trader-workflows && npm test                              # 47 tests
 
 # === Rust ratatui ===
 npm run trader-chart:build                                        # cargo build -p trader-chart --release
