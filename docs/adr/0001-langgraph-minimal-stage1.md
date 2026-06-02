@@ -1,0 +1,9 @@
+# LangGraph Minimal Stage 1
+
+Status: accepted
+
+The self-evolving trading agent will use LangGraph as the minimal durable workflow runtime for Stage 1 because the core workflows require checkpointing, pause/resume, human-in-the-loop review, and cross-hour outcome labeling. LangGraph runtime code lives in the in-repo `apps/trader-workflows` app; `apps/trader-cli` only triggers and inspects workflow runs, and `apps/trader-agent/backend` remains the domain API and SQLite owner. LangGraph owns runtime state only; `market_intel.db` remains the source of truth for trading-domain facts such as context snapshots, model decisions, outcome labels, insight candidates, evaluation reports, and weighting policy stats.
+
+Implementation contracts are frozen in `.agent-dev/specs/self-evolving-agent-stage1/spec.json`: CLI wrappers call the workflow app through its JSON command contract instead of importing graph/runtime code; checkpoint state defaults to `data/trader-workflows/checkpoints.sqlite` and can be overridden with `TRADER_WORKFLOWS_CHECKPOINT_DB`; S1 uses `@langchain/langgraph` plus a project-owned `Stage1CheckpointStore` SQLite facade backed by `better-sqlite3`; Stage 1 domain routes live under `/api/intel/stage1`; DecisionGraph pre-creates pending `decision_outcomes` rows and OutcomeGraph finalizes due pending rows; `apps/trader-workflows` owns its own LLM provider and must not import the CLI provider.
+
+Considered alternatives were OpenAI Agents SDK as the primary runtime and a custom in-project runtime. OpenAI Agents SDK can still be used inside graph nodes for model/tool execution, but it is not the durable workflow engine. A custom runtime is rejected for Stage 1 because checkpoint, interrupt, replay, and resume are framework responsibilities rather than project differentiation.

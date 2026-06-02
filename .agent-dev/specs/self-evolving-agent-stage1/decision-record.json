@@ -1,0 +1,257 @@
+{
+  "spec_id": "self-evolving-agent-stage1",
+  "decisions": [
+    {
+      "id": "D001",
+      "date": "2026-06-02",
+      "question": "Stage 1 MVP 的最小闭环是什么？",
+      "answer": "Stage 1 MVP 是 Decision + Outcome，暂不强制 paper execution。",
+      "rationale": "docs/deep-research-report.md 将 Stage 1 定义为 DecisionEnvelope、Feature Snapshot 与 Outcome Labels。只做 Decision 不能证明自进化，只做 Paper 会过早引入 broker 复杂度。",
+      "alternatives": ["Decision-only", "Decision + Paper + Outcome"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D002",
+      "date": "2026-06-02",
+      "question": "Stage 1 是否采用 LangGraph runtime？",
+      "answer": "采用 LangGraph minimal runtime。",
+      "rationale": "human-in-the-loop、checkpoint、暂停/恢复和跨小时 outcome labeling 是刚需；这些属于 durable workflow runtime 职责。",
+      "alternatives": ["OpenAI Agents SDK first", "cron + DB status", "自研 graph runtime"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D003",
+      "date": "2026-06-02",
+      "question": "多模态数据获取与规律探索在 Stage 1 中的定位是什么？",
+      "answer": "Multimodal Market Intelligence Graph 是 context provider，不抢 Stage 1 主闭环。",
+      "rationale": "新闻、舆情、政治事件、K 线、图表图片、公司事件、节假日和宏观日历都应进入上下文生产链，但 Stage 1 的主验收仍是 Decision + Outcome + Evaluation。",
+      "alternatives": ["把 intelligence graph 作为 Stage 1 主线", "完全复用现有 context/build 不扩展"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D004",
+      "date": "2026-06-02",
+      "question": "LLM 是否可以 ReAct 自主探索规律？",
+      "answer": "采用受控 ReAct，并区分 InsightCandidate 与 AcceptedLesson。",
+      "rationale": "系统需要探索新 K 线规律、历史规律和市场机制，但未验证发现不能直接进入高权重上下文或驱动交易。",
+      "alternatives": ["固定 pipeline，无 ReAct", "完全自主 ReAct"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D005",
+      "date": "2026-06-02",
+      "question": "InsightCandidate 如何转成 AcceptedLesson？",
+      "answer": "必须经过 replay/outcome evidence，LLM 不能单独批准自己。",
+      "rationale": "交易系统的学习必须来自可验证表现，避免 hallucination 和自我强化污染。",
+      "alternatives": ["LLM 自评通过即可转正", "human review 单独转正"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D006",
+      "date": "2026-06-02",
+      "question": "DecisionGraph 消费什么上下文？",
+      "answer": "DecisionGraph 只消费 ContextSnapshot + evidence_refs，不直接消费原始大对象。",
+      "rationale": "原始新闻全文、图片、K 线序列等需要先被处理为可追溯、可加权的上下文，避免 context 膨胀和不可回放。",
+      "alternatives": ["直接塞入所有 raw evidence", "只消费 AcceptedLesson"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D007",
+      "date": "2026-06-02",
+      "question": "原始对象如何进入 context？",
+      "answer": "Raw Evidence 经 processors 转为 WeightedContextItem，再组成 ContextSnapshot。",
+      "rationale": "多模态原始对象必须被摘要、引用、置信度标注和加权后才能进入决策上下文。",
+      "alternatives": ["只保存 raw evidence", "只保存无权重摘要"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D008",
+      "date": "2026-06-02",
+      "question": "WeightedContextItem 权重由谁决定？",
+      "answer": "采用规则基础权重 + LLM rerank + 上限约束。",
+      "rationale": "纯规则过硬，纯 LLM 过软；上限约束能防止未验证 insight、低质量来源或图像/社媒证据获得不合理高权重。",
+      "alternatives": ["全部规则权重", "全部 LLM 权重"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D009",
+      "date": "2026-06-02",
+      "question": "权重是否随 outcome 自动更新？",
+      "answer": "历史 ContextSnapshot 不可变，outcome 只影响未来 WeightingPolicy / SourceStats / LessonStats。",
+      "rationale": "历史快照必须冻结才能 replay；学习应反映在未来上下文构建策略中。",
+      "alternatives": ["不自动更新权重", "回写历史 ContextSnapshot"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D010",
+      "date": "2026-06-02",
+      "question": "哪些 workflow 使用 LangGraph？",
+      "answer": "只有 durable / HITL / long-running workflow 使用 LangGraph；普通数据处理保持 services/jobs。",
+      "rationale": "data fetch、OCR、chunking、embedding、K 线特征计算和 indexing 不需要 graph runtime；Decision/Outcome/Evaluation/Insight Exploration 才需要 checkpoint 与恢复。",
+      "alternatives": ["所有处理都 LangGraph", "完全不用 LangGraph"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D011",
+      "date": "2026-06-02",
+      "question": "Stage 1 是否包含 InsightExplorationGraph？",
+      "answer": "包含 InsightExplorationGraph v0，但只产出 InsightCandidate。",
+      "rationale": "Stage 1 要保留自主探索能力，但候选规律不能自动转 AcceptedLesson、不能触发交易、不能训练模型。",
+      "alternatives": ["Stage 1 不做 insight exploration", "Stage 1 做完整 insight-to-lesson-to-promotion"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D012",
+      "date": "2026-06-02",
+      "question": "Stage 1 是否做自研 TUI 页面？",
+      "answer": "TUI 后移；Stage 1 使用 CLI、report artifacts 和 LangGraph 自带/生态 UI。",
+      "rationale": "当前关键是数据闭环和 checkpoint，不是自研展示层；避免把 Decisions/Outcomes/Insights/Eval 页面一次性做大。",
+      "alternatives": ["完整 TUI", "极简自研 TUI 总览"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D013",
+      "date": "2026-06-02",
+      "question": "domain facts 和 LangGraph checkpoint 是否分离存储？",
+      "answer": "分离存储。",
+      "rationale": "market_intel.db 保存交易领域事实；LangGraph checkpoint store 只保存 runtime state、resume/interrupt metadata 与 checkpoint lineage。",
+      "alternatives": ["全部写入 market_intel.db", "全部依赖 LangGraph checkpoint"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D014",
+      "date": "2026-06-02",
+      "question": "Stage 1 新增哪些 domain tables？",
+      "answer": "采用最小新增表：context_snapshots、model_decisions、decision_outcomes、insight_candidates、evaluation_reports、weighting_policy_stats。",
+      "rationale": "raw evidence 第一版复用现有 events/signals/market_bars/lessons/corpus/patterns，避免 Stage 1 建完整 intelligence schema。",
+      "alternatives": ["一次性建完整 intelligence schema", "只落 model_decisions"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D015",
+      "date": "2026-06-02",
+      "question": "Stage 1 outcome horizon 覆盖哪些窗口？",
+      "answer": "覆盖 30m、1h、EOD、1d、3d。",
+      "rationale": "需要同时评估短线、日内、隔夜和多日延续性。",
+      "alternatives": ["只做 EOD", "30m/EOD/1d", "由每个 DecisionEnvelope 自声明 horizon"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D016",
+      "date": "2026-06-02",
+      "question": "outcome label 的评价口径是什么？",
+      "answer": "采用 absolute return + relative return vs benchmark + invalidation/target proxy。",
+      "rationale": "只看绝对收益无法区分市场 Beta，缺少 invalidation/target proxy 无法评价交易计划是否被打脸。",
+      "alternatives": ["只看 absolute return", "absolute + relative vs benchmark"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D017",
+      "date": "2026-06-02",
+      "question": "DecisionEnvelope 是否必须包含 invalidation 和 target？",
+      "answer": "按 action 分层要求 trade_plan / invalidation / target。",
+      "rationale": "NO_TRADE/WATCH 不应强制编造交易计划，但 WAIT_TRIGGER 和 PAPER_*_CANDIDATE 必须提供足够条件供 outcome evaluation。",
+      "alternatives": ["所有 action 都必填", "所有 action 都可选"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D018",
+      "date": "2026-06-02",
+      "question": "Stage 1 是否保留 PAPER_*_CANDIDATE action？",
+      "answer": "保留 PAPER_*_CANDIDATE，但不执行 paper order。",
+      "rationale": "Stage 1 评价模型候选判断质量，不引入 Longbridge order lifecycle 和 broker reconcile。",
+      "alternatives": ["移除 candidate action", "保留并立即执行 paper"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D019",
+      "date": "2026-06-02",
+      "question": "Stage 1 的 human-in-the-loop 是否允许 override decision？",
+      "answer": "允许 HumanOverride，但原始 DecisionEnvelope 必须不可变。",
+      "rationale": "人工可以覆盖 action 并给出原因，但系统必须能区分模型原始判断与人工干预后的路径。",
+      "alternatives": ["只允许 annotation", "直接编辑原始 DecisionEnvelope"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D020",
+      "date": "2026-06-02",
+      "question": "HumanOverride 是否影响 outcome/evaluation？",
+      "answer": "采用 model_path / override_path 双轨评估。",
+      "rationale": "需要同时评估模型质量、人工 override 质量，以及 delta_human_value。",
+      "alternatives": ["不让 override 影响 evaluation", "只评估 override 后路径"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D021",
+      "date": "2026-06-02",
+      "question": "EvaluationGraph 第一版是否自动升级模型？",
+      "answer": "只做 promotion recommendation，不自动升级模型。",
+      "rationale": "Stage 1 数据量和稳定性不足以自动切换模型，但需要输出 hold/needs_more_data 作为后续 promotion gate 的基础。",
+      "alternatives": ["只做 observation report", "自动 promotion"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D022",
+      "date": "2026-06-02",
+      "question": "PromotionRecommendation 是否必须比较 champion/challenger？",
+      "answer": "先做当前模型单臂评估，不强制 challenger。",
+      "rationale": "Stage 1 不引入完整 model registry、shadow run 或双模型推理；没有 challenger 时只输出 hold/needs_more_data。",
+      "alternatives": ["必须 champion vs challenger", "每次 decision 同时跑两个模型"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D023",
+      "date": "2026-06-02",
+      "question": "apps/trader-cli 如何触发 apps/trader-workflows？",
+      "answer": "CLI 通过 workflow app JSON command contract 触发 workflow，不直接 import graph/runtime。",
+      "rationale": "这样可以保持 CLI thin wrapper 边界，避免 trader-cli 同时承载 TUI、LLM provider 和 durable runtime。workflow app 自己暴露 machine-readable command entry，CLI 只负责转发参数、展示结果和传递 exit code。",
+      "alternatives": ["CLI 直接 import workflow source", "backend HTTP endpoint 触发 workflow", "把 runtime 放回 trader-cli"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D024",
+      "date": "2026-06-02",
+      "question": "LangGraph checkpoint store 的默认位置是什么？",
+      "answer": "默认写入 data/trader-workflows/checkpoints.sqlite，可由 TRADER_WORKFLOWS_CHECKPOINT_DB 覆盖。",
+      "rationale": "checkpoint/run metadata 是 runtime state，不属于 market_intel.db domain facts；显式路径可以让测试和本地运行验证存储分离。",
+      "alternatives": ["写入 market_intel.db", "写入 data/trader-agent/", "由 worker 自行选择路径"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D025",
+      "date": "2026-06-02",
+      "question": "Stage 1 backend API 放在哪里，负责什么？",
+      "answer": "统一挂在 /api/intel/stage1，负责 domain facts 的 create/list/detail 与不可变/idempotent 写入约束。",
+      "rationale": "workflow app 需要稳定 API 写入 ContextSnapshot、DecisionEnvelope、OutcomeLabel、InsightCandidate 和 EvaluationReport；如果只写表名不写 API 契约，worker 会发明不一致的路径和冲突处理。",
+      "alternatives": ["每个表散落到现有 routes", "workflow app 直接写 SQLite", "只提供 schema 不提供 API"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D026",
+      "date": "2026-06-02",
+      "question": "workflow app 是否复用 trader-cli 的 LLM provider？",
+      "answer": "apps/trader-workflows 自有 LLM provider；CLI provider 只可作为 env 命名参考，不可 import。",
+      "rationale": "DecisionGraph 和 InsightExplorationGraph 属于 workflow runtime，不应依赖 CLI 内部模块。复用 env 命名能保持配置一致，同时不破坏 app 边界。",
+      "alternatives": ["直接 import apps/trader-cli/src/llm/provider.ts", "抽 packages/trader-llm", "每个 graph 自行写 provider"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D027",
+      "date": "2026-06-02",
+      "question": "OutcomeGraph 的 due outcome 从哪里来？",
+      "answer": "DecisionGraph 预创建 decision_outcomes pending rows；OutcomeGraph 只 finalize due pending rows。",
+      "rationale": "这让 S4 的 schedule outcome horizons 和 S5 的 due outcome processing 对齐，避免 worker 自行决定是动态计算 due rows 还是预建 schedule。",
+      "alternatives": ["OutcomeGraph 动态从 model_decisions 计算 due rows", "新增独立 outcome_schedules 表", "由每个 DecisionEnvelope 自带 outcome schedule"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D028",
+      "date": "2026-06-02",
+      "question": "S1 checkpoint store 的依赖与实现策略是什么？",
+      "answer": "S1 采用 @langchain/langgraph + 项目内 SQLite checkpoint/run-store facade。",
+      "rationale": "必须使用成熟 LangGraph runtime，但也需要稳定本地持久化契约。图实现只依赖 Stage1CheckpointStore facade，底层用 better-sqlite3 写入 data/trader-workflows/checkpoints.sqlite；未来若接入官方 SQLite saver，也必须包在同一 facade 后面。",
+      "alternatives": ["worker 自行选择 checkpoint package", "只用 MemorySaver", "把 checkpoint 写入 market_intel.db"],
+      "confirmed_by": "plan-review-fix"
+    }
+  ]
+}
