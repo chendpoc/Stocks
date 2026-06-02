@@ -1,0 +1,85 @@
+{
+  "id": "T007",
+  "spec_id": "langgraph-native-decisiongraph",
+  "title": "LangGraph-Native DecisionGraph + Studio Adapter",
+  "status": "done",
+  "task_type": "refactor",
+  "worker_prompt_path": ".agent-dev/langgraph-native-decisiongraph-worker-prompt.md",
+  "context": "T007 refactors only DecisionGraph into a LangGraph-native StateGraph and exposes it through LangGraph Studio while preserving T006 CLI JSON contracts. It does not build a custom workflow UI or migrate OutcomeGraph/EvaluationGraph/InsightExplorationGraph.",
+  "steps": [
+    {
+      "id": "S0",
+      "description": "Spec gate: confirm T007 source-of-truth, T006 contract preservation, and forbidden-scope boundaries.",
+      "status": "done",
+      "depends_on": [],
+      "verification": { "ref": "V101", "blocking": true },
+      "files_expected": [
+        ".agent-dev/specs/langgraph-native-decisiongraph/spec.json",
+        ".agent-dev/specs/langgraph-native-decisiongraph/spec.md",
+        ".agent-dev/specs/langgraph-native-decisiongraph/decision-record.json",
+        ".agent-dev/specs/langgraph-native-decisiongraph/dev-plan.md",
+        ".agent-dev/tasks/T007.json",
+        ".agent-dev/tasks/T007.md",
+        ".agent-dev/tasks/T007-slices/README.md",
+        ".agent-dev/langgraph-native-decisiongraph-worker-prompt.md"
+      ],
+      "exit_criteria": "A reviewer can prove T007 only changes native DecisionGraph and preserves T006 CLI/run_id contracts."
+    },
+    {
+      "id": "S1",
+      "description": "Studio config and dependency foundation: add exact langgraph.json shape plus LangGraph CLI/checkpointer dependencies. Do not require Studio load until S2.",
+      "status": "done",
+      "depends_on": ["S0"],
+      "verification": { "ref": "V102", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/langgraph.json",
+        "apps/trader-workflows/package.json",
+        "apps/trader-workflows/package-lock.json"
+      ],
+      "exit_criteria": "langgraph.json has dependencies [\".\"], only decision_graph, and env ../../.env; dependencies are installed without adding UI code."
+    },
+    {
+      "id": "S2",
+      "description": "DecisionGraph native state and nodes: move the business flow into LangGraph StateGraph nodes, keep runDecisionGraph as adapter, and satisfy Studio load-only smoke.",
+      "status": "done",
+      "depends_on": ["S1"],
+      "verification": { "ref": "V201", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/decisionGraph.ts",
+        "apps/trader-workflows/src/graphs/decisionGraph.state.ts",
+        "apps/trader-workflows/src/graphs/decisionGraph.nodes.ts",
+        "apps/trader-workflows/src/graphs/evidenceRefs.ts",
+        "apps/trader-workflows/src/graphs/decisionGraph.test.ts"
+      ],
+      "exit_criteria": "DecisionGraph behavior remains equivalent while the business flow is owned by the compiled StateGraph; Studio can load decision_graph without direct real-persistence."
+    },
+    {
+      "id": "S3",
+      "description": "Run registry and checkpointer boundary: preserve run_id, use thread_id = run_id, expose bounded runs show metadata, and remove fake full-state checkpoints from native DecisionGraph.",
+      "status": "done",
+      "depends_on": ["S1", "S2"],
+      "verification": { "ref": "V203", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/runtime/checkpointStore.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.test.ts",
+        "apps/trader-workflows/src/runtime/langgraphCheckpointer.ts",
+        "apps/trader-workflows/src/index.ts"
+      ],
+      "exit_criteria": "runs list/show/resume keep run_id contract, use thread_id = run_id, and return bounded metadata without full native graph state."
+    },
+    {
+      "id": "S4",
+      "description": "CLI, Studio, docs, and forbidden-scope verification.",
+      "status": "done",
+      "depends_on": ["S1", "S2", "S3"],
+      "verification": { "ref": "V303", "blocking": true },
+      "files_expected": [
+        ".agent-dev/context/code_map.md",
+        "CLAUDE.md",
+        ".agent-dev/tasks/T007-slices/README.md"
+      ],
+      "exit_criteria": "CLI smoke, Studio smoke, tests, docs, and scope audit prove T007 stayed inside DecisionGraph-native refactor boundaries."
+    }
+  ]
+}
