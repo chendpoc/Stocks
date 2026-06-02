@@ -19,6 +19,8 @@ export interface Stage1RunSummary {
   graph_name: string;
   status: Stage1RunStatus;
   current_node: string | null;
+  thread_id: string | null;
+  checkpoint_ns: string | null;
   checkpoint_ref: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -46,6 +48,8 @@ interface Stage1RunRow {
   graph_name: string;
   status: Stage1RunStatus;
   current_node: string | null;
+  thread_id: string | null;
+  checkpoint_ns: string | null;
   checkpoint_ref: string | null;
   input_json: string | null;
   output_json: string | null;
@@ -124,6 +128,8 @@ function mapRunSummary(row: Stage1RunRow): Stage1RunSummary {
     graph_name: row.graph_name,
     status: row.status,
     current_node: row.current_node,
+    thread_id: row.thread_id,
+    checkpoint_ns: row.checkpoint_ns,
     checkpoint_ref: row.checkpoint_ref,
     started_at: row.started_at,
     finished_at: row.finished_at,
@@ -173,6 +179,8 @@ export class Stage1CheckpointStore {
         graph_name TEXT NOT NULL,
         status TEXT NOT NULL,
         current_node TEXT,
+        thread_id TEXT,
+        checkpoint_ns TEXT,
         checkpoint_ref TEXT,
         input_json TEXT,
         output_json TEXT,
@@ -199,6 +207,20 @@ export class Stage1CheckpointStore {
       CREATE INDEX IF NOT EXISTS idx_workflow_runs_updated_at
         ON workflow_runs(updated_at DESC);
     `);
+    this.migrateRunRegistryColumns();
+  }
+
+  private migrateRunRegistryColumns(): void {
+    const columns = this.db
+      .prepare("PRAGMA table_info(workflow_runs);")
+      .all() as Array<{ name: string }>;
+    const names = new Set(columns.map((column) => column.name));
+    if (!names.has("thread_id")) {
+      this.db.exec("ALTER TABLE workflow_runs ADD COLUMN thread_id TEXT;");
+    }
+    if (!names.has("checkpoint_ns")) {
+      this.db.exec("ALTER TABLE workflow_runs ADD COLUMN checkpoint_ns TEXT;");
+    }
   }
 
   createRun(params: {
@@ -206,6 +228,8 @@ export class Stage1CheckpointStore {
     graph_name: string;
     status: Stage1RunStatus;
     current_node?: string | null;
+    thread_id?: string | null;
+    checkpoint_ns?: string | null;
     checkpoint_ref?: string | null;
     input?: unknown;
     output?: unknown;
@@ -216,11 +240,11 @@ export class Stage1CheckpointStore {
     const now = nowIso();
     const insert = this.db.prepare(`
       INSERT INTO workflow_runs (
-        run_id, graph_name, status, current_node, checkpoint_ref,
+        run_id, graph_name, status, current_node, thread_id, checkpoint_ns, checkpoint_ref,
         input_json, output_json, started_at, finished_at, latest_error,
         created_at, updated_at
       ) VALUES (
-        @run_id, @graph_name, @status, @current_node, @checkpoint_ref,
+        @run_id, @graph_name, @status, @current_node, @thread_id, @checkpoint_ns, @checkpoint_ref,
         @input_json, @output_json, @started_at, @finished_at, @latest_error,
         @created_at, @updated_at
       );
@@ -230,6 +254,8 @@ export class Stage1CheckpointStore {
       graph_name: params.graph_name,
       status: params.status,
       current_node: params.current_node ?? null,
+      thread_id: params.thread_id ?? null,
+      checkpoint_ns: params.checkpoint_ns ?? null,
       checkpoint_ref: params.checkpoint_ref ?? null,
       input_json:
         params.input === undefined ? null : JSON.stringify(params.input),
@@ -253,6 +279,8 @@ export class Stage1CheckpointStore {
     patch: {
       status?: Stage1RunStatus;
       current_node?: string | null;
+      thread_id?: string | null;
+      checkpoint_ns?: string | null;
       checkpoint_ref?: string | null;
       input?: unknown;
       output?: unknown;
@@ -270,6 +298,10 @@ export class Stage1CheckpointStore {
       status: patch.status ?? current.status,
       current_node:
         patch.current_node === undefined ? current.current_node : patch.current_node,
+      thread_id:
+        patch.thread_id === undefined ? current.thread_id : patch.thread_id,
+      checkpoint_ns:
+        patch.checkpoint_ns === undefined ? current.checkpoint_ns : patch.checkpoint_ns,
       checkpoint_ref:
         patch.checkpoint_ref === undefined
           ? current.checkpoint_ref
@@ -295,6 +327,8 @@ export class Stage1CheckpointStore {
       SET
         status = @status,
         current_node = @current_node,
+        thread_id = @thread_id,
+        checkpoint_ns = @checkpoint_ns,
         checkpoint_ref = @checkpoint_ref,
         input_json = @input_json,
         output_json = @output_json,
@@ -356,7 +390,7 @@ export class Stage1CheckpointStore {
   listRuns(limit = 50): Stage1RunSummary[] {
     const stmt = this.db.prepare(`
       SELECT
-        run_id, graph_name, status, current_node, checkpoint_ref,
+        run_id, graph_name, status, current_node, thread_id, checkpoint_ns, checkpoint_ref,
         input_json, output_json, started_at, finished_at, latest_error,
         created_at, updated_at
       FROM workflow_runs
@@ -402,7 +436,7 @@ export class Stage1CheckpointStore {
   private readRunRow(runId: string): Stage1RunRow | null {
     const stmt = this.db.prepare(`
       SELECT
-        run_id, graph_name, status, current_node, checkpoint_ref,
+        run_id, graph_name, status, current_node, thread_id, checkpoint_ns, checkpoint_ref,
         input_json, output_json, started_at, finished_at, latest_error,
         created_at, updated_at
       FROM workflow_runs

@@ -164,9 +164,7 @@ async function handleDecideCommandAsync(
 
   const executed = await runtime.runGraph({
     graph_name: "DecisionGraph",
-    node_name: "decision",
     input: { symbol },
-    execute: (input) => runDecisionGraph(input),
   });
   const result = executed.output;
   if (!result) {

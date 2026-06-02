@@ -1,120 +1,103 @@
 import { randomUUID } from "node:crypto";
 
+import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
+import type { BaseCheckpointSaver } from "@langchain/langgraph";
+
 import {
-  type DecisionEnvelope,
-  DecisionEnvelopeValidationError,
-  validateDecisionEnvelope,
-} from "../llm/decisionEnvelope.js";
-import {
-  createWorkflowLlmProvider,
-  type WorkflowLlmProvider,
-} from "../llm/provider.js";
-import {
-  buildAndPersistContextSnapshot,
-  type ContextSnapshotRecord,
-} from "../services/contextSnapshots.js";
-import {
-  OUTCOME_HORIZONS,
-  persistModelDecision,
-  scheduleModelPathOutcomes,
-  type PersistedModelDecision,
-  type ScheduledDecisionOutcome,
-} from "../services/decisions.js";
+  createDecisionGraphNodes,
+  DECISION_GRAPH_NODE_NAMES,
+  resolveDecisionGraphNodeDeps,
+  stateToDecisionGraphResult,
+  type DecisionGraphNodeDeps,
+} from "./decisionGraph.nodes.js";
+import { DecisionGraphStateAnnotation } from "./decisionGraph.state.js";
 
-export interface DecisionGraphInput {
-  symbol: string;
-  run_id?: string;
-  taskType?: string;
-  asof_ts?: string;
-  model_version?: string;
-}
+import type {
+  DecisionGraphDeps,
+  DecisionGraphInput,
+  DecisionGraphResult,
+} from "./decisionGraph.types.js";
 
-export interface DecisionGraphResult {
-  run_id: string;
-  snapshot: ContextSnapshotRecord;
-  decision: PersistedModelDecision;
-  envelope: DecisionEnvelope;
-  scheduled_outcomes: ScheduledDecisionOutcome[];
-  paper_execution_submitted: false;
-}
+export type {
+  DecisionGraphDeps,
+  DecisionGraphInput,
+  DecisionGraphResult,
+} from "./decisionGraph.types.js";
+export { DecisionGraph } from "./decisionGraph.types.js";
 
-export interface DecisionGraphDeps {
-  buildContext?: typeof buildAndPersistContextSnapshot;
-  llm?: WorkflowLlmProvider;
-  persistDecision?: typeof persistModelDecision;
-  scheduleOutcomes?: typeof scheduleModelPathOutcomes;
-}
+export {
+  deterministicDecisionId,
+  DECISION_GRAPH_NODE_NAMES,
+  stateToDecisionGraphResult,
+} from "./decisionGraph.nodes.js";
 
-export class DecisionGraph {
-  private readonly deps: Required<DecisionGraphDeps>;
-
-  constructor(deps: DecisionGraphDeps = {}) {
-    this.deps = {
-      buildContext: deps.buildContext ?? buildAndPersistContextSnapshot,
-      llm: deps.llm ?? createWorkflowLlmProvider(),
-      persistDecision: deps.persistDecision ?? persistModelDecision,
-      scheduleOutcomes: deps.scheduleOutcomes ?? scheduleModelPathOutcomes,
-    };
+function depsToNodeDeps(deps?: DecisionGraphDeps): Partial<DecisionGraphNodeDeps> {
+  if (!deps) {
+    return {};
   }
-
-  async run(input: DecisionGraphInput): Promise<DecisionGraphResult> {
-    const symbol = input.symbol.toUpperCase();
-    const run_id = input.run_id ?? `run_${randomUUID().replace(/-/g, "")}`;
-    const asof_ts = input.asof_ts ?? new Date().toISOString();
-
-    const snapshot = await this.deps.buildContext({
-      symbol,
-      taskType: input.taskType ?? "decision",
-      asof_ts,
-    });
-
-    let envelope: DecisionEnvelope;
-    try {
-      envelope = await this.deps.llm.generateDecisionEnvelope({
-        symbol,
-        contextItems: snapshot.items_json,
-      });
-      validateDecisionEnvelope(envelope);
-    } catch (error) {
-      if (error instanceof DecisionEnvelopeValidationError) {
-        throw error;
-      }
-      throw error;
-    }
-
-    const decision = await this.deps.persistDecision({
-      run_id,
-      snapshot_id: snapshot.snapshot_id,
-      envelope,
-      model_version: input.model_version ?? "stage1-v0",
-    });
-
-    const scheduled_outcomes = await this.deps.scheduleOutcomes({
-      decision_id: decision.decision_id,
-      symbol,
-      asof_ts,
-    });
-
-    if (scheduled_outcomes.length !== OUTCOME_HORIZONS.length) {
-      throw new Error(
-        `expected ${OUTCOME_HORIZONS.length} scheduled outcomes, got ${scheduled_outcomes.length}`,
-      );
-    }
-
-    return {
-      run_id,
-      snapshot,
-      decision,
-      envelope,
-      scheduled_outcomes,
-      paper_execution_submitted: false,
-    };
-  }
+  return {
+    buildContext: deps.buildContext,
+    llm: deps.llm,
+    persistDecision: deps.persistDecision,
+    scheduleOutcomes: deps.scheduleOutcomes,
+  };
 }
+
+export function buildDecisionGraph(options?: {
+  deps?: DecisionGraphDeps;
+  checkpointer?: BaseCheckpointSaver;
+}) {
+  const nodes = createDecisionGraphNodes(depsToNodeDeps(options?.deps));
+
+  const graph = new StateGraph(DecisionGraphStateAnnotation)
+    .addNode("normalize_input", nodes.normalize_input)
+    .addNode("build_context_snapshot", nodes.build_context_snapshot)
+    .addNode("generate_decision_envelope", nodes.generate_decision_envelope)
+    .addNode("validate_decision_envelope", nodes.validate_decision_envelope)
+    .addNode("persist_model_decision", nodes.persist_model_decision)
+    .addNode("schedule_model_path_outcomes", nodes.schedule_model_path_outcomes)
+    .addNode("final_output", nodes.final_output)
+    .addEdge(START, "normalize_input")
+    .addEdge("normalize_input", "build_context_snapshot")
+    .addEdge("build_context_snapshot", "generate_decision_envelope")
+    .addEdge("generate_decision_envelope", "validate_decision_envelope")
+    .addEdge("validate_decision_envelope", "persist_model_decision")
+    .addEdge("persist_model_decision", "schedule_model_path_outcomes")
+    .addEdge("schedule_model_path_outcomes", "final_output")
+    .addEdge("final_output", END);
+
+  return graph.compile({
+    checkpointer: options?.checkpointer ?? new MemorySaver(),
+  });
+}
+
+export const decisionGraph = buildDecisionGraph();
 
 export async function runDecisionGraph(
   input: DecisionGraphInput,
   deps?: DecisionGraphDeps,
 ): Promise<DecisionGraphResult> {
-  return new DecisionGraph(deps).run(input);
+  const run_id = input.run_id ?? `run_${randomUUID().replace(/-/g, "")}`;
+  const graph = deps ? buildDecisionGraph({ deps }) : decisionGraph;
+  const finalState = await graph.invoke(
+    {
+      run_id,
+      thread_id: run_id,
+      symbol: input.symbol,
+      taskType: input.taskType,
+      asof_ts: input.asof_ts,
+      model_version: input.model_version,
+    },
+    {
+      configurable: { thread_id: run_id },
+    },
+  );
+  return stateToDecisionGraphResult(finalState);
+}
+
+export async function invokeDecisionGraphState(
+  input: DecisionGraphInput,
+  deps?: DecisionGraphDeps,
+): Promise<DecisionGraphResult> {
+  return runDecisionGraph(input, deps);
 }

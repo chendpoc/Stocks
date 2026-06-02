@@ -1,0 +1,44 @@
+import type { DecisionEnvelope } from "../llm/decisionEnvelope.js";
+import type { WorkflowLlmProvider } from "../llm/provider.js";
+import type { ContextSnapshotRecord } from "../services/contextSnapshots.js";
+import {
+  persistModelDecision,
+  scheduleModelPathOutcomes,
+  type PersistedModelDecision,
+  type ScheduledDecisionOutcome,
+} from "../services/decisions.js";
+import { buildAndPersistContextSnapshot } from "../services/contextSnapshots.js";
+
+export interface DecisionGraphInput {
+  symbol: string;
+  run_id?: string;
+  taskType?: string;
+  asof_ts?: string;
+  model_version?: string;
+}
+
+export interface DecisionGraphResult {
+  run_id: string;
+  snapshot: ContextSnapshotRecord;
+  decision: PersistedModelDecision;
+  envelope: DecisionEnvelope;
+  scheduled_outcomes: ScheduledDecisionOutcome[];
+  paper_execution_submitted: false;
+}
+
+export interface DecisionGraphDeps {
+  buildContext?: typeof buildAndPersistContextSnapshot;
+  llm?: WorkflowLlmProvider;
+  persistDecision?: typeof persistModelDecision;
+  scheduleOutcomes?: typeof scheduleModelPathOutcomes;
+}
+
+/** @deprecated Use runDecisionGraph or the compiled decisionGraph export. */
+export class DecisionGraph {
+  constructor(private readonly deps: DecisionGraphDeps = {}) { }
+
+  async run(input: DecisionGraphInput): Promise<DecisionGraphResult> {
+    const { runDecisionGraph } = await import("./decisionGraph.js");
+    return runDecisionGraph(input, this.deps);
+  }
+}

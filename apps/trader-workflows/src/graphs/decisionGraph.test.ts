@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DecisionGraph } from "./decisionGraph.js";
+import {
+  buildDecisionGraph,
+  DECISION_GRAPH_NODE_NAMES,
+  decisionGraph,
+  runDecisionGraph,
+} from "./decisionGraph.js";
+import { DecisionGraph } from "./decisionGraph.types.js";
 import {
   DecisionEnvelopeValidationError,
   extractDecisionJson,
@@ -160,6 +166,61 @@ test("DecisionGraph persists snapshot, decision, and pending model_path outcomes
     OUTCOME_HORIZONS.map((horizon) => computeOutcomeDueAt(horizon, asof)),
   );
   assert.notEqual(scheduled[0].due_at, scheduled[4].due_at);
+});
+
+test("runDecisionGraph invokes the compiled StateGraph path", async () => {
+  const envelope = parseDecisionEnvelope({
+    symbol: "TSLA",
+    action: "NO_TRADE",
+    thesis: "No edge",
+    confidence: 0.4,
+  });
+
+  const result = await runDecisionGraph(
+    { symbol: "TSLA", run_id: "run-compiled-1", asof_ts: "2026-06-01T12:00:00.000Z" },
+    {
+      buildContext: async () => SAMPLE_SNAPSHOT,
+      llm: stubLlm(envelope),
+      persistDecision: async (input) => ({
+        decision_id: "dec-compiled-1",
+        run_id: input.run_id ?? null,
+        snapshot_id: input.snapshot_id,
+        symbol: input.envelope.symbol,
+        action: input.envelope.action.toLowerCase(),
+        confidence: input.envelope.confidence,
+        uncertainty: input.envelope.uncertainty ?? null,
+        decision_json: JSON.stringify(input.envelope),
+        status: "active",
+      }),
+      scheduleOutcomes: async (input) =>
+        OUTCOME_HORIZONS.map((horizon, index) => ({
+          outcome_id: `out-compiled-${index}`,
+          decision_id: input.decision_id,
+          symbol: input.symbol,
+          horizon,
+          path: "model_path",
+          status: "pending",
+          due_at: input.asof_ts ? computeOutcomeDueAt(horizon, input.asof_ts) : null,
+        })),
+    },
+  );
+
+  assert.equal(result.run_id, "run-compiled-1");
+  assert.equal(result.envelope.action, "NO_TRADE");
+  assert.equal(result.scheduled_outcomes.length, OUTCOME_HORIZONS.length);
+});
+
+test("decisionGraph export exposes native business node names", () => {
+  const nodeNames = decisionGraph.getGraph().nodes;
+  for (const name of DECISION_GRAPH_NODE_NAMES) {
+    assert.ok(nodeNames[name], `missing node ${name}`);
+  }
+});
+
+test("buildDecisionGraph compiles without hand-written class flow", () => {
+  const compiled = buildDecisionGraph();
+  assert.equal(typeof compiled.invoke, "function");
+  assert.ok(compiled.getGraph().nodes.normalize_input);
 });
 
 test("DecisionGraph rejects invalid envelopes before persistence", async () => {
