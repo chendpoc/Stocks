@@ -1,0 +1,73 @@
+{
+  "id": "T010",
+  "spec_id": "workflow-feedback-loop-maturity-v1",
+  "title": "OutcomeGraph Maturity v1",
+  "status": "pending",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add normalized outcome label and bounded outcome metric contracts for decision outcomes and insight candidate outcomes.",
+      "status": "pending",
+      "depends_on": [],
+      "verification": {
+        "ref": "V201",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/outcomes.ts",
+        "apps/trader-workflows/src/graphs/outcomeGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Add the narrow InsightCandidateOutcome persistence contract confirmed by Q60 B, with five minimal backend APIs; the schedule endpoint is used by InsightExplorationGraph, validates 1m/2m/5m/30m/1h/2h/4h horizons, rejects low-frequency horizons, and derives due_at. The 2m fallback is selected before calling the backend.",
+      "status": "pending",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V202",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/app/intel/api/stage1.py",
+        "apps/trader-agent/backend/tests/test_stage1_insight_candidate_outcomes.py"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Update OutcomeGraph run output to include counts by source type, final status, normalized label, and bounded compact-evidence context capped at 15 lines when fresh evidence is used.",
+      "status": "pending",
+      "depends_on": [
+        "S1",
+        "S2"
+      ],
+      "verification": {
+        "ref": "V201",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/outcomeGraph.ts",
+        "apps/trader-workflows/src/graphs/outcomeGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Keep CLI output bounded and update workflow README if command output shape changes.",
+      "status": "pending",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V203",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md"
+      ]
+    }
+  ]
+}

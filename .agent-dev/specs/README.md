@@ -1,7 +1,5 @@
 # Active Specs
 
-This directory is reserved for active, unarchived feature specs.
-
 Historical completed or superseded specs were moved to
 `project-docs/archive/agent-dev/specs/`.
 

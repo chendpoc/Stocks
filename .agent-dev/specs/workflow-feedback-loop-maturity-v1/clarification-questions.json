@@ -1,0 +1,95 @@
+{
+  "spec_id": "workflow-feedback-loop-maturity-v1",
+  "generated_by": "product-requirements-discussion",
+  "questions": [
+    {
+      "id": "Q60",
+      "category": "api_contract",
+      "question": "Should T010 add a narrow InsightCandidateOutcome backend contract in v1?",
+      "option_refs": [
+        "A",
+        "B"
+      ],
+      "status": "answered",
+      "answer": "B"
+    },
+    {
+      "id": "Q62",
+      "category": "architecture",
+      "question": "Who schedules InsightCandidateOutcome after an InsightCandidate is created?",
+      "option_refs": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "status": "answered",
+      "answer": "B"
+    },
+    {
+      "id": "Q63",
+      "category": "data_contract",
+      "question": "How should InsightCandidateOutcome horizon and due_at be determined?",
+      "option_refs": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "status": "answered",
+      "answer": "B"
+    },
+    {
+      "id": "Q64",
+      "category": "data_contract",
+      "question": "What horizon should be used when candidate semantics are ambiguous?",
+      "option_refs": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "status": "answered",
+      "answer": "B"
+    },
+    {
+      "id": "Q65",
+      "category": "evidence_policy",
+      "question": "Should OutcomeGraph load fresh evidence before labeling due outcomes?",
+      "option_refs": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "status": "answered",
+      "answer": "C"
+    },
+    {
+      "id": "Q66",
+      "category": "evidence_policy",
+      "question": "What context scope may the Evidence Loader use?",
+      "option_refs": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "status": "answered",
+      "answer": "B"
+    },
+    {
+      "id": "Q67",
+      "category": "evidence_policy",
+      "question": "How long should the compact evidence summary be?",
+      "option_refs": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "status": "answered",
+      "answer": "15 lines"
+    }
+  ]
+}

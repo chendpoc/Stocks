@@ -1,0 +1,109 @@
+{
+  "spec_id": "decision-graph-maturity-v1",
+  "decisions": [
+    {
+      "id": "D101",
+      "date": "2026-06-03",
+      "question": "Is the existing DecisionGraph topology reasonable for v1 maturity work?",
+      "answer": "Yes. Keep the current normalize_input -> build_context_snapshot -> generate_decision_envelope -> validate_decision_envelope -> persist_model_decision -> schedule_model_path_outcomes -> final_output chain.",
+      "rationale": "The graph shape is not the current weakness; the context snapshot contract and inspection surface are.",
+      "alternatives": [
+        "Add check_data_readiness before model generation",
+        "Split DecisionGraph into a larger multi-graph workflow",
+        "Replace the node chain before proving the context contract"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D102",
+      "date": "2026-06-03",
+      "question": "What is the first maturity slice?",
+      "answer": "Use build_context_snapshot as the first slice.",
+      "rationale": "A decision is not reviewable until the input context snapshot, weighted items, evidence refs, and hash are reproducible and inspectable.",
+      "alternatives": [
+        "Start with AlphaResearchGraph",
+        "Start with outcome evaluation",
+        "Start with custom UI"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D103",
+      "date": "2026-06-03",
+      "question": "Should v1 introduce DataReadiness or a check_data_readiness node?",
+      "answer": "No.",
+      "rationale": "That would add terminology, graph gates, and policy before the existing context snapshot contract is mature.",
+      "alternatives": [
+        "Add DataReadiness",
+        "Create DecisionContext v1",
+        "Add a readiness node before generate_decision_envelope"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D104",
+      "date": "2026-06-03",
+      "question": "Which context builder tests are required first?",
+      "answer": "Cover source mapping, empty context behavior, stable context hash, and evidence ref dedupe.",
+      "rationale": "These tests prove the builder is deterministic and inspectable without expanding the workflow surface.",
+      "alternatives": [
+        "Only test happy-path decision generation",
+        "Add full evidence resolver tests",
+        "Add backend schema tests"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D105",
+      "date": "2026-06-03",
+      "question": "How should runs show expose context information?",
+      "answer": "Add a bounded output.context_snapshot summary with snapshot id, hash, version, item count, evidence ref count, and source type counts.",
+      "rationale": "The run record should be self-explanatory without leaking raw evidence or requiring a secondary backend query.",
+      "alternatives": [
+        "Expose full weighted items in runs show",
+        "Expose only snapshot_id",
+        "Require users to query backend tables manually"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D106",
+      "date": "2026-06-03",
+      "question": "What additional CLI inspection is allowed?",
+      "answer": "Add read-only context snapshots list and show commands.",
+      "rationale": "This gives operators enough detail to inspect snapshot identity, counts, and top weighted items without building a raw data browser.",
+      "alternatives": [
+        "Build a full data browser",
+        "Do not expose snapshot inspection",
+        "Add mutation commands"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D107",
+      "date": "2026-06-03",
+      "question": "How is the Web UI requirement handled in v1?",
+      "answer": "Use LangGraph Studio to load and visualize the existing decision_graph.",
+      "rationale": "The first phase needs Web UI visualization, but a custom UI would expand scope beyond workflow maturity.",
+      "alternatives": [
+        "Build a custom React Flow workflow UI",
+        "Defer all Web UI visibility",
+        "Register placeholder graphs"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D108",
+      "date": "2026-06-03",
+      "question": "What is explicitly out of scope?",
+      "answer": "No backend schema/API changes, custom UI, raw evidence browser, evidence resolver, artifact store, AlphaResearchGraph, or other graph migrations.",
+      "rationale": "The slice should finish the existing DecisionGraph maturity loop before expanding architecture.",
+      "alternatives": [
+        "Broaden into AlphaResearchGraph",
+        "Add new backend storage",
+        "Build evidence detail UI now"
+      ],
+      "confirmed_by": "user"
+    }
+  ]
+}

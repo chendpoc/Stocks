@@ -11,13 +11,16 @@ public site.
    routes you there.
 3. For the active trader-agent target system, start with
    `research-agent/target-system/README.md`.
-4. For archived research-console, trader-cockpit, or agent-dev material, use
+4. For current project backlog and implementation ordering, use
+   `backlog/README.md`.
+5. For archived research-console, trader-cockpit, or agent-dev material, use
    `archive/README.md` only when historical context is explicitly requested.
 
 ## Directory Map
 
 | Path | Purpose |
 |---|---|
+| `backlog/` | Project-level Now / Next / Later / Blocked backlog index and per-requirement files. |
 | `research-agent/` | Active trader-agent target-system docs. |
 | `archive/` | Historical research-console, trader-cockpit, legacy trader-agent, agent-dev, and migration material. |
 | `workflows/` | Internal development workflow docs. |

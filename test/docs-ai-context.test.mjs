@@ -284,6 +284,16 @@ test("internal project docs are separated from VitePress docs", async () => {
   await access("project-docs/archive/agent-dev/specs/self-evolving-agent-stage1/spec.json");
   await access("project-docs/archive/agent-dev/specs/langgraph-native-decisiongraph/spec.json");
   await access("project-docs/archive/agent-dev/worker-prompts/langgraph-native-decisiongraph-worker-prompt.md");
+  await access("project-docs/backlog/README.md");
+  await access("project-docs/backlog/workflow-maturity-roadmap.md");
+  await access("project-docs/backlog/now/alpha-research-graph-spec.md");
+  await access("project-docs/backlog/now/compact-evidence-summary-builder.md");
+  await access("project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md");
+  await access("project-docs/backlog/now/workflow-feedback-loop-hardening.md");
+  await access("project-docs/backlog/supporting/rule-discovery-lite-backtest-engine.md");
+  await access("project-docs/backlog/later/model-learning-graph-v0.md");
+  await access("project-docs/backlog/blocked-by-contract/automatic-active-rulepack-mutation.md");
+  await access("project-docs/research-agent/target-system/trader-agent/07-backlog-roadmap-index.md");
   await assert.rejects(access(".agent-dev/tasks/T001.json"));
   await assert.rejects(access(".agent-dev/tasks/T006.json"));
   await assert.rejects(access(".agent-dev/tasks/T007.json"));
@@ -295,5 +305,39 @@ test("internal project docs are separated from VitePress docs", async () => {
   const projectDocsReadme = await read("project-docs/README.md");
   assert.ok(lineCount(projectDocsReadme) <= 80, "project-docs/README.md should stay concise");
   assert.match(projectDocsReadme, /Internal project documentation lives here/);
+  assert.match(projectDocsReadme, /backlog\/README\.md/);
   assert.match(projectDocsReadme, /Keep VitePress site content in `docs\/`/);
+
+  const backlogReadme = await read("project-docs/backlog/README.md");
+  assert.match(backlogReadme, /# Project Backlog/);
+  assert.match(backlogReadme, /\| Now \|/);
+  assert.match(backlogReadme, /\| Next \|/);
+  assert.match(backlogReadme, /\| Later \|/);
+  assert.match(backlogReadme, /\| Blocked by Contract \|/);
+  assert.match(backlogReadme, /\]\(\.\/workflow-maturity-roadmap\.md\)/);
+  assert.match(backlogReadme, /\]\(\.\/now\/workflow-runtime-run-checkpoint-audit-alignment\.md\)/);
+  assert.match(backlogReadme, /\]\(\.\/now\/alpha-research-graph-spec\.md\)/);
+  assert.match(backlogReadme, /\]\(\.\/supporting\/rule-discovery-lite-backtest-engine\.md\)/);
+  assert.match(backlogReadme, /\]\(\.\/blocked-by-contract\/automatic-active-rulepack-mutation\.md\)/);
+  assert.match(backlogReadme, /product scope, architecture, storage, API,\s+workflow/s);
+
+  const workflowMaturity = await read("project-docs/backlog/workflow-maturity-roadmap.md");
+  assert.match(workflowMaturity, /workflow-first/);
+  assert.match(workflowMaturity, /AlphaResearchGraph/);
+  assert.match(workflowMaturity, /policy gates/);
+
+  const alphaSpec = await read("project-docs/backlog/now/alpha-research-graph-spec.md");
+  assert.match(alphaSpec, /Status: Now/);
+  assert.match(alphaSpec, /\.agent-dev\/specs\/alpha-research-graph\//);
+
+  const ruleDiscovery = await read("project-docs/backlog/supporting/rule-discovery-lite-backtest-engine.md");
+  assert.match(ruleDiscovery, /Status: Supporting dependency/);
+
+  const blockedRulepack = await read("project-docs/backlog/blocked-by-contract/automatic-active-rulepack-mutation.md");
+  assert.match(blockedRulepack, /Status: Blocked by Contract/);
+  assert.match(blockedRulepack, /Manual approval\/versioning contract/);
+
+  const legacyBacklog = await read("project-docs/research-agent/target-system/trader-agent/07-backlog-roadmap-index.md");
+  assert.match(legacyBacklog, /compatibility entry/);
+  assert.match(legacyBacklog, /project-docs\/backlog\/README\.md/);
 });

@@ -1,0 +1,73 @@
+{
+  "id": "T011",
+  "spec_id": "workflow-feedback-loop-maturity-v1",
+  "title": "EvaluationGraph Maturity v1",
+  "status": "pending",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Extend evaluation inputs to consume normalized decision outcome and insight candidate outcome summaries.",
+      "status": "pending",
+      "depends_on": [
+        "T010"
+      ],
+      "verification": {
+        "ref": "V301",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/evaluation.ts",
+        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Add EvaluationReport sections for decision performance, insight candidate performance, strengths, weaknesses, failure modes, data gaps, and evidence refs.",
+      "status": "pending",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V301",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/evaluation.ts",
+        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Preserve no-promotion and dry-run behavior while returning bounded report summaries.",
+      "status": "pending",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V302",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/evaluationGraph.ts",
+        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Update eval CLI/docs only if the output envelope changes.",
+      "status": "pending",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V303",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md"
+      ]
+    }
+  ]
+}

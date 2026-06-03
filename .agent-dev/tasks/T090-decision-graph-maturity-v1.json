@@ -1,0 +1,83 @@
+{
+  "id": "T090",
+  "spec_id": "decision-graph-maturity-v1",
+  "title": "DecisionGraph Maturity v1",
+  "status": "pending",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Harden build_context_snapshot so context snapshots have explicit source mapping, stable hashes, empty-source behavior, and deduped evidence refs.",
+      "status": "pending",
+      "depends_on": [],
+      "verification": {
+        "ref": "V901",
+        "kind": "test",
+        "command": "cd apps/trader-workflows && npm test -- src/services/contextSnapshots.test.ts",
+        "expect": "Context snapshot tests cover source mapping, empty-source behavior, stable hash, and evidence ref dedupe",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/contextSnapshots.ts",
+        "apps/trader-workflows/src/services/contextSnapshots.test.ts"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Expose a bounded context snapshot summary through runs show --json.",
+      "status": "pending",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V902",
+        "kind": "test",
+        "command": "cd apps/trader-workflows && npm test -- src/runtime/stage1Runtime.test.ts",
+        "expect": "runs show includes output.context_snapshot with bounded counts and no raw payloads",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.test.ts"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Add read-only context snapshots list/show inspection commands.",
+      "status": "pending",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V903",
+        "kind": "manual",
+        "command": "cd apps/trader-workflows && npm run workflows -- context snapshots list --symbol TSLA.US --limit 20 --json",
+        "expect": "Read-only snapshot inspection returns bounded list/show payloads",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/cli.ts",
+        "apps/trader-workflows/src/cli.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Update workflow docs only if the CLI output envelope changes.",
+      "status": "pending",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V904",
+        "kind": "check",
+        "command": "git diff --check -- .agent-dev/tasks/T090-decision-graph-maturity-v1.md .agent-dev/tasks/T090-decision-graph-maturity-v1.json apps/trader-workflows project-docs/backlog/now/decision-graph-maturity-v1.md",
+        "expect": "No whitespace or patch-format issues",
+        "blocking": false
+      },
+      "files_expected": [
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md",
+        "project-docs/backlog/now/decision-graph-maturity-v1.md"
+      ]
+    }
+  ]
+}

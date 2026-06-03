@@ -6,6 +6,29 @@
 
 项目级 agent 工程原则见 [08-agent-engineering-principles-proposal.md](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md)。新增长运行 run、subagent、MCP/tool surface、skill 或 alpha research workflow 前，先按该文档检查边界。
 
+当前 backlog 主线是 workflow 成熟度：[workflow-maturity-roadmap.md](../../project-docs/backlog/workflow-maturity-roadmap.md)。
+
+## 工作流清单
+
+表中空白链接表示该 workflow 还没有独立开发文档。
+
+| Workflow | 状态 | 文档 |
+|---|---|---|
+| `Stage1Runtime` | 已实现 | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
+| `DecisionGraph` | 已实现 | [DecisionGraph maturity v1](../../project-docs/backlog/now/decision-graph-maturity-v1.md) |
+| `OutcomeGraph` | 已实现 | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
+| `EvaluationGraph` | 已实现 | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
+| `InsightExplorationGraph` | 已实现 | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
+| `AlphaResearchGraph` | 规划中 | [AlphaResearchGraph spec](../../project-docs/backlog/now/alpha-research-graph-spec.md) |
+| `MarketJudgmentGraph` | 规划中 |  |
+| `ModelLearningGraph` | 规划中 |  |
+| `ReflectionGraph` | 规划中 | [Reflection Engine](../../project-docs/research-agent/target-system/trader-agent/01-agent-core-development/18-reflection-engine.md) |
+| `RuntimeOrchestrator` | 后端依赖 | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
+| `Rule Discovery / Lite Backtest` | 后端依赖 | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
+| `Memory Review / Activation` | 后端依赖 | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
+| `Audit / Rebuild Workflow` | 后端依赖 | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
+| `Approval / Capability Gate` | 后端依赖 |  |
+
 ## 架构
 
 ```text
@@ -54,6 +77,33 @@ apps/trader-agent/shared
 - 将 LangGraph 原生 checkpoint 与本地运行时存储对接；
 - 保持图执行可观测，且不把执行逻辑推入 CLI/TUI。
 
+#### CLI：`runs show`
+
+使用 `npm run workflows -- runs show RUN_ID --json`（或 `trader-workflows`）。返回
+envelope 为 `{ ok, command, run_id, status, data: { run } }`。
+
+**DecisionGraph** 运行的 `data.run.output` 为有界摘要，并包含 `context_snapshot`：
+
+```json
+{
+  "snapshot_id": "snap-…",
+  "decision_id": "dec-…",
+  "action": "NO_TRADE",
+  "scheduled_outcome_count": 3,
+  "paper_execution_submitted": false,
+  "context_snapshot": {
+    "snapshot_id": "snap-…",
+    "context_hash": "…",
+    "context_version": "stage1-context-v0",
+    "item_count": 12,
+    "evidence_ref_count": 10,
+    "source_type_counts": { "signal": 2, "event": 1 }
+  }
+}
+```
+
+其他 graph 仍使用各自有界的 `output` 结构。
+
 ### DecisionGraph
 
 `DecisionGraph` 是当前的结构化决策工作流。
@@ -67,6 +117,39 @@ apps/trader-agent/shared
 - 返回 evidence references，供下游审查与评估使用。
 
 它是**决策工作流**，不是完整的 alpha 发现工作流：基于已有上下文做决策，不负责发现、验证并晋升新因子。
+
+#### CLI：`context snapshots`（只读）
+
+在不加载完整原始 payload 的前提下检查已持久化的 context snapshot。
+
+`context snapshots list --symbol SYMBOL [--limit N] --json` — 列出某标的近期
+snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
+
+```json
+{
+  "snapshot_id": "snap-…",
+  "symbol": "TSLA",
+  "asof_ts": "2026-06-01T12:00:00.000Z",
+  "context_hash": "…",
+  "context_version": "stage1-context-v0",
+  "item_count": 12,
+  "evidence_ref_count": 10,
+  "source_type_counts": { "signal": 2 }
+}
+```
+
+`context snapshots show SNAPSHOT_ID --json` — 单条摘要（字段同 list），另含
+`data.top_items`（按 `composite_weight` 取前 5 项）：
+
+```json
+{
+  "item_id": "signal:sig-1",
+  "source_type": "signal",
+  "summary": "Breakout signal",
+  "composite_weight": 0.7,
+  "evidence_ref": { "ref_type": "intel_signal", "ref_id": "sig-1", "symbol": "TSLA" }
+}
+```
 
 ### OutcomeGraph
 

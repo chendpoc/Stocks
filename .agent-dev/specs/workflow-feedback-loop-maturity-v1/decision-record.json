@@ -1,0 +1,201 @@
+{
+  "spec_id": "workflow-feedback-loop-maturity-v1",
+  "decisions": [
+    {
+      "id": "D101",
+      "date": "2026-06-03",
+      "question": "Should the team write a feedback-loop maturity spec before graph-specific tasks?",
+      "answer": "Yes. Define the shared handoff first, then split OutcomeGraph, EvaluationGraph, and InsightExplorationGraph tasks.",
+      "rationale": "The three graph contracts are coupled; independent specs would drift.",
+      "alternatives": [
+        "Write only one oversized implementation spec",
+        "Write three isolated graph specs",
+        "Keep only backlog notes"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D102",
+      "date": "2026-06-03",
+      "question": "Which sources are in feedback-loop v1?",
+      "answer": "DecisionGraph and InsightExplorationGraph outputs only.",
+      "rationale": "They are the current implemented sources. Alpha, market judgment, and model learning remain future workflows.",
+      "alternatives": [
+        "Only DecisionGraph",
+        "All future graph sources",
+        "No shared source contract"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D103",
+      "date": "2026-06-03",
+      "question": "What outcome types should OutcomeGraph v1 support?",
+      "answer": "DecisionOutcome and InsightCandidateOutcome.",
+      "rationale": "This covers current decision feedback and insight-candidate feedback without creating a generic future abstraction.",
+      "alternatives": [
+        "DecisionOutcome only",
+        "Generic TrackedOutcome",
+        "Decision, insight, alpha, model, and market judgment outcomes"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D104",
+      "date": "2026-06-03",
+      "question": "What outcome label shape should v1 use?",
+      "answer": "A normalized label plus bounded metrics, reason codes, and evidence refs.",
+      "rationale": "Evaluation needs aggregateable labels, but review and reflection need explainability.",
+      "alternatives": [
+        "Simple positive/negative/neutral only",
+        "Full trading performance metric set",
+        "Each source defines incompatible labels"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D105",
+      "date": "2026-06-03",
+      "question": "What should EvaluationGraph v1 output?",
+      "answer": "Metrics plus strength summaries, weakness summaries, failure modes, data gaps, and evidence refs.",
+      "rationale": "The output must be useful to reflection and insight generation, not only a static report.",
+      "alternatives": [
+        "Aggregate metrics only",
+        "Automatic modification suggestions",
+        "Candidate promotion recommendation"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D106",
+      "date": "2026-06-03",
+      "question": "What should drive InsightExplorationGraph v1?",
+      "answer": "EvaluationReport, context snapshot summaries, and outcome labels.",
+      "rationale": "Mature insight generation should respond to measured performance, not raw or free-form exploration.",
+      "alternatives": [
+        "Free exploration from context snapshots and outcomes only",
+        "Raw market/news data",
+        "Direct RuleCandidate generation"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D107",
+      "date": "2026-06-03",
+      "question": "Should these three graphs be migrated to native LangGraph in v1?",
+      "answer": "No. First mature contracts, tests, and inspection surfaces.",
+      "rationale": "Runtime-shape migration before contract maturity would mix two risks.",
+      "alternatives": [
+        "Migrate all three immediately",
+        "Migrate only OutcomeGraph",
+        "Do nothing"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D108",
+      "date": "2026-06-03",
+      "question": "What implementation order should the graph tasks use?",
+      "answer": "OutcomeGraph, then EvaluationGraph, then InsightExplorationGraph.",
+      "rationale": "Evaluation depends on outcome labels. Insight generation depends on evaluation output.",
+      "alternatives": [
+        "Insight first",
+        "Evaluation first",
+        "All tasks in parallel"
+      ],
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D109",
+      "date": "2026-06-03",
+      "question": "Should T010 add a narrow InsightCandidateOutcome backend contract in v1?",
+      "answer": "Yes. Add the narrow InsightCandidateOutcome backend contract.",
+      "rationale": "Without this contract, the InsightExplorationGraph feedback path cannot close through OutcomeGraph and EvaluationGraph.",
+      "alternatives": [
+        "Do not add backend support in v1 and mature DecisionOutcome only"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D110",
+      "date": "2026-06-03",
+      "question": "Who schedules InsightCandidateOutcome after an InsightCandidate is created?",
+      "answer": "InsightExplorationGraph schedules InsightCandidateOutcome after creating and persisting InsightCandidate; OutcomeGraph only handles due records and labeling.",
+      "rationale": "InsightExplorationGraph knows what candidate was produced, why it should be observed, and what horizon applies. OutcomeGraph should remain the due-outcome labeling boundary.",
+      "alternatives": [
+        "OutcomeGraph scans pending InsightCandidate records and decides what to schedule",
+        "Manual CLI scheduling is the primary path",
+        "No InsightCandidateOutcome scheduling in v1"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D111",
+      "date": "2026-06-03",
+      "question": "How should InsightCandidateOutcome horizon and due_at be determined?",
+      "answer": "InsightCandidate carries exactly one whitelisted short-cycle horizon, using 1m, 2m, 5m, 30m, 1h, 2h, or 4h. Normal scheduling sends the horizon and the backend derives due_at from scheduled_at plus horizon.",
+      "rationale": "The feedback loop is meant to validate short-cycle insight candidates, not ultra-low-frequency 30d/90d research hypotheses. A bounded intraday whitelist keeps scheduling measurable without arbitrary due timestamps.",
+      "alternatives": [
+        "Fixed 30m horizon only",
+        "Schedule every candidate at multiple horizons",
+        "Require every caller to provide arbitrary due_at",
+        "Use 30d/90d low-frequency horizons",
+        "No horizon validation"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D112",
+      "date": "2026-06-03",
+      "question": "What horizon should InsightExplorationGraph use when candidate semantics do not clearly select one?",
+      "answer": "Use 2m as the fallback horizon. Clear candidate semantics may still select any whitelisted horizon: 1m, 2m, 5m, 30m, 1h, 2h, or 4h.",
+      "rationale": "The feedback loop should stay short-cycle and keep scheduling moving. A 2m fallback is fast enough for the intended minute/hour workflow without forcing every ambiguous candidate into a longer 30m window.",
+      "alternatives": [
+        "Do not schedule if the horizon is ambiguous",
+        "Default ambiguous candidates to 30m",
+        "Use fixed mapping by origin_category",
+        "Schedule multiple horizons per candidate"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D113",
+      "date": "2026-06-03",
+      "question": "Should OutcomeGraph be allowed to load fresh evidence before labeling due outcomes?",
+      "answer": "Yes. OutcomeGraph may call a white-listed Evidence Loader to produce a compact evidence summary at label time.",
+      "rationale": "OutcomeGraph should label against the current short-cycle evidence window, not only stale candidate payloads, but the loader must remain white-listed and compact.",
+      "alternatives": [
+        "Only use market bars",
+        "Use market bars plus existing evidence_refs only",
+        "Delay labeling to a later human step"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D114",
+      "date": "2026-06-03",
+      "question": "What context scope may the Evidence Loader use?",
+      "answer": "Same symbol plus market benchmark or index context.",
+      "rationale": "This keeps the evidence window comparable and bounded while avoiding arbitrary dynamic source selection inside OutcomeGraph.",
+      "alternatives": [
+        "Only same symbol evidence",
+        "Same symbol plus industry or related symbols",
+        "OutcomeGraph decides sources dynamically"
+      ],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D115",
+      "date": "2026-06-03",
+      "question": "How long should the compact evidence summary be?",
+      "answer": "15 lines.",
+      "rationale": "Five lines is too short for same-symbol plus benchmark/index evidence, but a wider range like 10-20 lines is too vague. Fifteen lines keeps the summary compact and readable while preserving enough signal for labeling.",
+      "alternatives": [
+        "5 lines",
+        "10-20 line range",
+        "Longer summaries"
+      ],
+      "confirmed_by": "user"
+    }
+  ]
+}

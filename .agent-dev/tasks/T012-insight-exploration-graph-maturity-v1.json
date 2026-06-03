@@ -1,0 +1,91 @@
+{
+  "id": "T012",
+  "spec_id": "workflow-feedback-loop-maturity-v1",
+  "title": "InsightExplorationGraph Maturity v1",
+  "status": "pending",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Extend insight exploration inputs to use EvaluationReport plus context snapshot summaries and outcome labels.",
+      "status": "pending",
+      "depends_on": [
+        "T011"
+      ],
+      "verification": {
+        "ref": "V401",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/insightCandidates.ts",
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Constrain generated InsightCandidate records to include origin category, evidence refs, one whitelisted horizon with 2m fallback when semantics are ambiguous, weight cap, and no auto-promotion.",
+      "status": "pending",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V401",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/insightCandidates.ts",
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Schedule an InsightCandidateOutcome after each persisted InsightCandidate using the minimal schedule API and its 1m/2m/5m/30m/1h/2h/4h horizon; backend derives due_at and OutcomeGraph remains due-and-label only.",
+      "status": "pending",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V402",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/outcomes.ts",
+        "apps/trader-workflows/src/services/insightCandidates.ts",
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Ensure insight exploration never reads raw market/news data and never emits RuleCandidate.",
+      "status": "pending",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V402",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S5",
+      "description": "Update insights CLI/docs only if the output envelope or optional evaluation report input changes.",
+      "status": "pending",
+      "depends_on": [
+        "S4"
+      ],
+      "verification": {
+        "ref": "V403",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md"
+      ]
+    }
+  ]
+}

@@ -199,21 +199,29 @@ emit scheduled outcomes
 
 ### OutcomeGraph
 
-```text
-input: decision_id / horizon
-wait or pick due outcome
-fetch future market data
-calculate absolute return
-calculate relative return vs benchmark
-calculate invalidation/target proxy
-persist decision_outcomes
-```
+`OutcomeGraph` 负责将当前输入证据标准化为固定的结果判断。它只消费当前处理所需的最小必要证据，输出以 `label` 为核心，`summary` 作为可选补充。
 
-固定 horizons：
+#### 输入
+- 仅接收当前输入快照中本次处理所需的最小必要证据
+- 不依赖历史上下文
+- 不依赖外部状态
+- 不改写输入证据
+- 不引入随机性
 
-```text
-30m / 1h / EOD / 1d / 3d
-```
+#### 输出
+- `label`：必填，使用固定枚举
+  - `hit`
+  - `miss`
+  - `neutral`
+  - `insufficient_data`
+- `summary`：可选，最多 1 句
+  - 仅用于简短说明当前 `label` 的原因
+
+#### 职责边界
+- 仅负责结果标准化
+- 不负责下一步流程决策
+- 不负责执行动作
+- 不对输入证据做改写或派生
 
 ### EvaluationGraph
 

@@ -15,6 +15,30 @@ Project-wide agent engineering principles live in
 Apply them before adding long-running runs, subagents, MCP/tool surfaces, skills,
 or alpha research workflow features.
 
+Current backlog focus is workflow maturity:
+[project-docs/backlog/workflow-maturity-roadmap.md](../../project-docs/backlog/workflow-maturity-roadmap.md).
+
+## Workflow Catalog
+
+Blank doc cells mean the workflow has no standalone development doc yet.
+
+| Workflow | Status | Doc |
+|---|---|---|
+| `Stage1Runtime` | implemented | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
+| `DecisionGraph` | implemented | [DecisionGraph maturity v1](../../project-docs/backlog/now/decision-graph-maturity-v1.md) |
+| `OutcomeGraph` | implemented | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
+| `EvaluationGraph` | implemented | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
+| `InsightExplorationGraph` | implemented | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
+| `AlphaResearchGraph` | planned | [AlphaResearchGraph spec](../../project-docs/backlog/now/alpha-research-graph-spec.md) |
+| `MarketJudgmentGraph` | planned |  |
+| `ModelLearningGraph` | planned |  |
+| `ReflectionGraph` | planned | [Reflection Engine](../../project-docs/research-agent/target-system/trader-agent/01-agent-core-development/18-reflection-engine.md) |
+| `RuntimeOrchestrator` | backend dependency | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
+| `Rule Discovery / Lite Backtest` | backend dependency | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
+| `Memory Review / Activation` | backend dependency | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
+| `Audit / Rebuild Workflow` | backend dependency | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
+| `Approval / Capability Gate` | backend dependency |  |
+
 ## Architecture
 
 ```text
@@ -64,6 +88,34 @@ Responsibilities:
 - connect native LangGraph checkpointing to the local runtime store;
 - keep graph execution observable without pushing execution logic into CLI/TUI.
 
+#### CLI: `runs show`
+
+Use `npm run workflows -- runs show RUN_ID --json` (or `trader-workflows`). The
+envelope is `{ ok, command, run_id, status, data: { run } }`.
+
+For **DecisionGraph** runs, `data.run.output` is bounded and includes
+`context_snapshot`:
+
+```json
+{
+  "snapshot_id": "snap-…",
+  "decision_id": "dec-…",
+  "action": "NO_TRADE",
+  "scheduled_outcome_count": 3,
+  "paper_execution_submitted": false,
+  "context_snapshot": {
+    "snapshot_id": "snap-…",
+    "context_hash": "…",
+    "context_version": "stage1-context-v0",
+    "item_count": 12,
+    "evidence_ref_count": 10,
+    "source_type_counts": { "signal": 2, "event": 1 }
+  }
+}
+```
+
+Other graphs keep their own bounded `output` shapes.
+
 ### DecisionGraph
 
 `DecisionGraph` is the current structured decision workflow.
@@ -78,6 +130,39 @@ Responsibilities:
 
 It is a decision workflow, not the full alpha-discovery workflow. It decides
 from available context; it does not discover, validate, and promote new factors.
+
+#### CLI: `context snapshots` (read-only)
+
+Inspect persisted context snapshots without loading full raw payloads.
+
+`context snapshots list --symbol SYMBOL [--limit N] --json` — lists recent
+snapshots for a symbol (default `limit` 20). Each `data.snapshots[]` entry:
+
+```json
+{
+  "snapshot_id": "snap-…",
+  "symbol": "TSLA",
+  "asof_ts": "2026-06-01T12:00:00.000Z",
+  "context_hash": "…",
+  "context_version": "stage1-context-v0",
+  "item_count": 12,
+  "evidence_ref_count": 10,
+  "source_type_counts": { "signal": 2 }
+}
+```
+
+`context snapshots show SNAPSHOT_ID --json` — one summary (same fields as list)
+plus `data.top_items` (up to 5 items by `composite_weight`):
+
+```json
+{
+  "item_id": "signal:sig-1",
+  "source_type": "signal",
+  "summary": "Breakout signal",
+  "composite_weight": 0.7,
+  "evidence_ref": { "ref_type": "intel_signal", "ref_id": "sig-1", "symbol": "TSLA" }
+}
+```
 
 ### OutcomeGraph
 

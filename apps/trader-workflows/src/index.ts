@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fetchStage1 } from "./api/client.js";
 import {
   type Stage1RunStatus,
   STAGE1_RUN_STATUSES,
@@ -11,6 +12,12 @@ import { runDecisionGraph } from "./graphs/decisionGraph.js";
 import { runDueOutcomeGraph } from "./graphs/outcomeGraph.js";
 import { runEvaluationSummaryGraph } from "./graphs/evaluationGraph.js";
 import { runInsightExplorationGraph } from "./graphs/insightExplorationGraph.js";
+import {
+  fetchContextSnapshot,
+  listContextSnapshots,
+  toContextSnapshotSummary,
+  toTopWeightedItemSummaries,
+} from "./services/contextSnapshots.js";
 
 interface WorkflowError {
   code: string;
@@ -298,6 +305,86 @@ async function handleInsightsExploreCommandAsync(
   });
 }
 
+function parsePositiveLimitFlag(args: string[], defaultLimit: number): number {
+  const limitFlagIndex = args.indexOf("--limit");
+  if (limitFlagIndex < 0) {
+    return defaultLimit;
+  }
+  const parsed = Number.parseInt(args[limitFlagIndex + 1] ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
+  }
+  return parsed;
+}
+
+async function handleContextCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  if (args[1] !== "snapshots") {
+    throw new WorkflowCommandError(
+      "SNAPSHOTS_SUBCOMMAND_REQUIRED",
+      "context requires snapshots subcommand (use list|show)",
+    );
+  }
+
+  const sub = args[2];
+  switch (sub) {
+    case "list": {
+      const symbolFlagIndex = args.indexOf("--symbol");
+      const symbol = symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1] : undefined;
+      if (!symbol) {
+        throw new WorkflowCommandError(
+          "SYMBOL_REQUIRED",
+          "context snapshots list requires --symbol",
+        );
+      }
+      const limit = parsePositiveLimitFlag(args, 20);
+      const response = await listContextSnapshots({
+        symbol,
+        limit,
+      });
+      const snapshots = response.items.map((snapshot) => ({
+        snapshot_id: snapshot.snapshot_id,
+        symbol: snapshot.symbol,
+        asof_ts: snapshot.asof_ts,
+        ...toContextSnapshotSummary(snapshot),
+      }));
+      return toEnvelope({
+        ok: true,
+        command: "context snapshots list",
+        data: { snapshots, count: response.count },
+      });
+    }
+    case "show": {
+      const snapshotId = args[3];
+      if (!snapshotId) {
+        throw new WorkflowCommandError(
+          "SNAPSHOT_ID_REQUIRED",
+          "context snapshots show requires a snapshot_id",
+        );
+      }
+      const snapshot = await fetchContextSnapshot(snapshotId);
+      return toEnvelope({
+        ok: true,
+        command: "context snapshots show",
+        data: {
+          snapshot_id: snapshot.snapshot_id,
+          symbol: snapshot.symbol,
+          asof_ts: snapshot.asof_ts,
+          ...toContextSnapshotSummary(snapshot),
+          top_items: toTopWeightedItemSummaries(snapshot.items_json),
+        },
+      });
+    }
+    default:
+      throw new WorkflowCommandError(
+        "UNKNOWN_CONTEXT_COMMAND",
+        `Unknown context snapshots command: ${sub ?? "(missing)"} (use list|show)`,
+      );
+  }
+}
+
 async function handleOutcomesRunCommandAsync(
   runtime: Stage1Runtime,
   args: string[],
@@ -351,7 +438,7 @@ async function handleCommandAsync(
   if (args.length === 0) {
     throw new WorkflowCommandError(
       "COMMAND_REQUIRED",
-      "Command required (expected: runs list|show|resume | decide SYMBOL | outcomes run --due | eval summary | insights explore)",
+      "Command required (expected: runs list|show|resume | decide SYMBOL | context snapshots list|show | outcomes run --due | eval summary | insights explore)",
     );
   }
   switch (args[0]) {
@@ -365,10 +452,12 @@ async function handleCommandAsync(
       return handleEvalSummaryCommandAsync(runtime, args);
     case "insights":
       return handleInsightsExploreCommandAsync(runtime, args);
+    case "context":
+      return handleContextCommandAsync(runtime, args);
     default:
       throw new WorkflowCommandError(
         "UNKNOWN_COMMAND",
-        `Unknown command: ${args[0]} (currently supported: runs, decide, outcomes, eval, insights)`,
+        `Unknown command: ${args[0]} (currently supported: runs, decide, context, outcomes, eval, insights)`,
       );
   }
 }

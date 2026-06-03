@@ -1,0 +1,332 @@
+{
+  "id": "decision-graph-maturity-v1",
+  "title": "DecisionGraph Context Snapshot Maturity v1",
+  "status": "approved",
+  "source_docs": [
+    "project-docs/backlog/now/decision-graph-maturity-v1.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    "UBIQUITOUS_LANGUAGE.md",
+    "project-docs/archive/agent-dev/specs/langgraph-native-decisiongraph/spec.md",
+    "project-docs/archive/agent-dev/specs/langgraph-native-decisiongraph/spec.json",
+    "project-docs/archive/agent-dev/specs/langgraph-native-decisiongraph/decision-record.json",
+    "project-docs/archive/agent-dev/specs/cli-tui-integration/spec.json",
+    "apps/trader-workflows/package.json",
+    "apps/trader-workflows/langgraph.json",
+    "apps/trader-workflows/src/index.ts",
+    "apps/trader-workflows/src/services/contextSnapshots.ts",
+    "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+    "apps/trader-workflows/src/graphs/decisionGraph.ts"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/decision-graph-maturity-v1/**"
+    ],
+    "modify": [
+      "apps/trader-workflows/src/services/contextSnapshots.ts",
+      "apps/trader-workflows/src/services/contextSnapshots.test.ts",
+      "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+      "apps/trader-workflows/src/runtime/stage1Runtime.test.ts",
+      "apps/trader-workflows/src/index.ts",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md"
+    ],
+    "readonly_import": [
+      "apps/trader-workflows/package.json",
+      "apps/trader-workflows/langgraph.json",
+      "apps/trader-workflows/src/graphs/decisionGraph.ts",
+      "apps/trader-workflows/src/graphs/decisionGraph.nodes.ts",
+      "apps/trader-workflows/src/graphs/decisionGraph.state.ts",
+      "apps/trader-agent/backend/app/intel/api/stage1.py",
+      "apps/trader-agent/backend/app/intel/api/context.py",
+      "apps/trader-agent/backend/app/intel/api/context_snapshots.py"
+    ],
+    "forbidden": [
+      "apps/trader-agent/backend/**",
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-cockpit/**",
+      "apps/trader-workflows/src/graphs/outcomeGraph.ts",
+      "apps/trader-workflows/src/graphs/evaluationGraph.ts",
+      "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+      "data/**"
+    ],
+    "forbidden_terms": [
+      "DataReadiness",
+      "DecisionContext v1",
+      "check_data_readiness"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D101",
+      "brief": "Keep the current DecisionGraph node topology"
+    },
+    {
+      "ref": "D102",
+      "brief": "Use build_context_snapshot as the first maturity slice"
+    },
+    {
+      "ref": "D103",
+      "brief": "Do not add DataReadiness, DecisionContext v1, or a check_data_readiness node"
+    },
+    {
+      "ref": "D104",
+      "brief": "First-slice context tests cover source mapping, empty context behavior, stable hash, and evidence ref dedupe"
+    },
+    {
+      "ref": "D105",
+      "brief": "runs show exposes a bounded context_snapshot summary in output_json"
+    },
+    {
+      "ref": "D106",
+      "brief": "context snapshots list/show provides read-only CLI inspection"
+    },
+    {
+      "ref": "D107",
+      "brief": "LangGraph Web UI visualization uses the existing decision_graph Studio entry only"
+    },
+    {
+      "ref": "D108",
+      "brief": "No backend schema/API change, custom UI, raw evidence browser, artifact store, or AlphaResearchGraph in this slice"
+    }
+  ],
+  "contracts": {
+    "graph_contract": {
+      "graph_name": "decision_graph",
+      "config_path": "apps/trader-workflows/langgraph.json",
+      "export_path": "./src/graphs/decisionGraph.ts:decisionGraph",
+      "node_sequence": [
+        "normalize_input",
+        "build_context_snapshot",
+        "generate_decision_envelope",
+        "validate_decision_envelope",
+        "persist_model_decision",
+        "schedule_model_path_outcomes",
+        "final_output"
+      ],
+      "rule": "The node sequence remains unchanged in this slice."
+    },
+    "context_snapshot_builder_contract": {
+      "input_fields": [
+        "symbol",
+        "taskType",
+        "asof_ts"
+      ],
+      "snapshot_fields": [
+        "snapshot_id",
+        "symbol",
+        "asof_ts",
+        "context_version",
+        "items_json",
+        "evidence_refs_json",
+        "weighting_policy_version",
+        "context_hash"
+      ],
+      "source_mapping": {
+        "market_data": "market_bar",
+        "signals": "signal",
+        "events": "event",
+        "lessons": "lesson",
+        "corpus": "corpus",
+        "patterns": "pattern",
+        "related_hypotheses": "hypothesis"
+      },
+      "benchmark_rule": "Do not invent a new source_type for benchmark in v1; fold it into an existing market rule only if the implementation already has a bounded rule.",
+      "empty_context_rule": "Persist a snapshot with empty weighted items and evidence refs, stable context_hash, and no readiness gate.",
+      "evidence_ref_dedupe_key": [
+        "ref_type",
+        "ref_id"
+      ],
+      "hash_rule": "context_hash is stable for identical weighted item content, including empty weighted item content."
+    },
+    "context_snapshot_summary_contract": {
+      "shape": {
+        "snapshot_id": "string",
+        "context_hash": "string",
+        "context_version": "string",
+        "item_count": "number",
+        "evidence_ref_count": "number",
+        "source_type_counts": "Record<string, number>"
+      },
+      "forbidden": [
+        "raw backend payloads",
+        "full articles",
+        "large market arrays",
+        "model traces",
+        "unbounded weighted item lists"
+      ]
+    },
+    "runs_show_contract": {
+      "command": "runs show RUN_ID --json",
+      "output_path": "output.context_snapshot",
+      "rule": "Stage1Runtime bounded output includes the context snapshot summary so runs show does not need a secondary backend query."
+    },
+    "context_snapshots_cli_contract": {
+      "commands": [
+        "context snapshots list --symbol SYMBOL --limit N --json",
+        "context snapshots show SNAPSHOT_ID --json"
+      ],
+      "mode": "read_only",
+      "list_fields": [
+        "snapshot_id",
+        "symbol",
+        "asof_ts",
+        "context_version",
+        "context_hash",
+        "item_count",
+        "evidence_ref_count",
+        "source_type_counts"
+      ],
+      "show_extra_fields": {
+        "top_weighted_items_limit": 5,
+        "top_weighted_item_fields": [
+          "item_id",
+          "source_type",
+          "summary",
+          "composite_weight",
+          "evidence_ref"
+        ]
+      },
+      "forbidden": [
+        "snapshot mutation",
+        "raw evidence resolution",
+        "full data browser"
+      ]
+    },
+    "studio_contract": {
+      "script": "npm run studio",
+      "mode": "visualize_existing_decision_graph",
+      "real_persistence_expansion_allowed": false,
+      "rule": "LangGraph Studio loads and visualizes the existing decision_graph only; this slice adds no custom Web UI."
+    }
+  },
+  "acceptance": [
+    {
+      "id": "A101",
+      "check": "DecisionGraph node sequence is unchanged",
+      "verified_by": [
+        "V201",
+        "V304"
+      ]
+    },
+    {
+      "id": "A102",
+      "check": "Context snapshot tests cover first-slice source mapping",
+      "verified_by": [
+        "V201"
+      ]
+    },
+    {
+      "id": "A103",
+      "check": "Empty source data persists a stable snapshot and does not add a readiness gate",
+      "verified_by": [
+        "V201",
+        "V304"
+      ]
+    },
+    {
+      "id": "A104",
+      "check": "Evidence refs are deduped by ref_type and ref_id",
+      "verified_by": [
+        "V201"
+      ]
+    },
+    {
+      "id": "A105",
+      "check": "runs show RUN_ID --json includes output.context_snapshot with bounded counts and no raw payloads",
+      "verified_by": [
+        "V202",
+        "V302"
+      ]
+    },
+    {
+      "id": "A106",
+      "check": "context snapshots list/show --json is read-only and returns bounded summaries",
+      "verified_by": [
+        "V203",
+        "V303"
+      ]
+    },
+    {
+      "id": "A107",
+      "check": "LangGraph Studio loads and visualizes decision_graph",
+      "verified_by": [
+        "V301"
+      ]
+    },
+    {
+      "id": "A108",
+      "check": "No forbidden scope is introduced; explicit non-goal mentions in this spec are allowed",
+      "verified_by": [
+        "V304"
+      ]
+    }
+  ],
+  "non_goals": [
+    "new graph node",
+    "graph topology redesign",
+    "DataReadiness",
+    "DecisionContext v1",
+    "check_data_readiness",
+    "backend schema/API changes",
+    "custom workflow UI",
+    "React Flow editor",
+    "raw evidence browser",
+    "evidence resolver",
+    "artifact store",
+    "AlphaResearchGraph",
+    "OutcomeGraph native migration",
+    "EvaluationGraph native migration",
+    "InsightExplorationGraph native migration",
+    "apps/trader-cockpit changes"
+  ],
+  "verification": [
+    {
+      "id": "V101",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/decision-graph-maturity-v1/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/decision-graph-maturity-v1/decision-record.json | ConvertFrom-Json | Out-Null",
+      "expect": "Active spec JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V201",
+      "command": "cd apps/trader-workflows && npm test -- src/services/contextSnapshots.test.ts",
+      "expect": "Context snapshot contract tests pass",
+      "blocking": true
+    },
+    {
+      "id": "V202",
+      "command": "cd apps/trader-workflows && npm test -- src/runtime/stage1Runtime.test.ts",
+      "expect": "Stage1Runtime bounded run output includes context snapshot summary",
+      "blocking": true
+    },
+    {
+      "id": "V203",
+      "command": "manual or targeted CLI test: context snapshots list/show returns bounded read-only summaries",
+      "expect": "CLI inspection contract passes without snapshot mutation",
+      "blocking": true
+    },
+    {
+      "id": "V301",
+      "command": "cd apps/trader-workflows && npm run studio",
+      "expect": "LangGraph Studio lists decision_graph and visualizes the existing node chain",
+      "blocking": true
+    },
+    {
+      "id": "V302",
+      "command": "manual with backend dev server: npm run workflows -- runs show <RUN_ID> --json",
+      "expect": "Run output includes output.context_snapshot and no raw payloads",
+      "blocking": true
+    },
+    {
+      "id": "V303",
+      "command": "manual with backend dev server: npm run workflows -- context snapshots list --symbol TSLA.US --limit 20 --json; npm run workflows -- context snapshots show <SNAPSHOT_ID> --json",
+      "expect": "Read-only snapshot inspection returns bounded list/show payloads",
+      "blocking": true
+    },
+    {
+      "id": "V304",
+      "command": "git diff --check -- .agent-dev/specs/decision-graph-maturity-v1 apps/trader-workflows project-docs/backlog/now/decision-graph-maturity-v1.md",
+      "expect": "No whitespace errors; reviewer also confirms no forbidden implementation scope was introduced",
+      "blocking": true
+    }
+  ]
+}

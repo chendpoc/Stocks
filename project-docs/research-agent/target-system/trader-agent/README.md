@@ -34,7 +34,7 @@
 5. [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md)：拆解 AI 模型、RAG、MCP、市场工具和轻量化升级路线。
 6. [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md)：定义 workflow runtime、run tracking 和 workflow orchestration 的跨层边界。
 7. [06-self-learning-market-judgment-model-roadmap.md](./06-self-learning-market-judgment-model-roadmap.md)：定义 Alpha Research、Market Judgment 和 Model Learning 三条未来自学习路线。
-8. [07-backlog-roadmap-index.md](./07-backlog-roadmap-index.md)：按 Now / Next / Later / Blocked by Contract 收敛已记录 backlog。
+8. [project-docs/backlog/README.md](../../../backlog/README.md)：按 Now / Next / Later / Blocked by Contract 收敛已记录 backlog。
 9. [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md)：沉淀 agent harness、上下文工程、tool/MCP、skills、policy check 和 alpha workflow 的完整 proposal。
 10. [03-shared-agent-memory-prd.md](./03-shared-agent-memory-prd.md)：定义本地资料库索引、候选记忆、长期金融记忆、上下文注入和审计重建。
 11. [03-shared-agent-memory-development/README.md](./03-shared-agent-memory-development/README.md)：进入 Shared Agent Memory 开发前，确认 artifact catalog、Markdown heading chunk、FTS5、candidate review 和 audit/rebuild 设计。

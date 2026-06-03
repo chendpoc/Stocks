@@ -1,0 +1,316 @@
+{
+  "id": "workflow-feedback-loop-maturity-v1",
+  "title": "Workflow Feedback Loop Maturity v1",
+  "status": "review",
+  "source_docs": [
+    "project-docs/backlog/now/workflow-feedback-loop-hardening.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    "apps/trader-workflows/README.md",
+    "apps/trader-workflows/src/graphs/outcomeGraph.ts",
+    "apps/trader-workflows/src/graphs/evaluationGraph.ts",
+    "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+    "apps/trader-workflows/src/services/outcomes.ts",
+    "apps/trader-workflows/src/services/evaluation.ts",
+    "apps/trader-workflows/src/services/insightCandidates.ts"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/workflow-feedback-loop-maturity-v1/**",
+      ".agent-dev/specs/workflow-feedback-loop-maturity-v1/clarification-questions.json",
+      ".agent-dev/specs/workflow-feedback-loop-maturity-v1/clarification-questions.md",
+      ".agent-dev/tasks/T010-outcome-graph-maturity-v1.json",
+      ".agent-dev/tasks/T010-outcome-graph-maturity-v1.md",
+      ".agent-dev/tasks/T011-evaluation-graph-maturity-v1.json",
+      ".agent-dev/tasks/T011-evaluation-graph-maturity-v1.md",
+      ".agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.json",
+      ".agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md"
+    ],
+    "modify": [
+      "project-docs/backlog/now/workflow-feedback-loop-hardening.md",
+      "project-docs/backlog/README.md",
+      "project-docs/backlog/workflow-maturity-roadmap.md"
+    ],
+    "readonly_import": [
+      "apps/trader-workflows/src/graphs/outcomeGraph.ts",
+      "apps/trader-workflows/src/graphs/evaluationGraph.ts",
+      "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+      "apps/trader-workflows/src/graphs/outcomeGraph.test.ts",
+      "apps/trader-workflows/src/graphs/evaluationGraph.test.ts",
+      "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts",
+      "apps/trader-workflows/src/services/outcomes.ts",
+      "apps/trader-workflows/src/services/evaluation.ts",
+      "apps/trader-workflows/src/services/insightCandidates.ts",
+      "apps/trader-agent/backend/app/intel/api/stage1.py",
+      "apps/trader-agent/backend/app/intel/db/schema.py"
+    ],
+    "forbidden": [
+      "apps/trader-cockpit/**",
+      "apps/trader-cli/**",
+      "apps/trader-workflows/src/graphs/decisionGraph.ts",
+      "apps/trader-workflows/src/graphs/decisionGraph.nodes.ts",
+      "apps/trader-workflows/src/graphs/decisionGraph.state.ts",
+      "apps/trader-workflows/src/graphs/alphaResearchGraph.ts",
+      "data/**",
+      "docs/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D101",
+      "brief": "Define a feedback-loop maturity spec before graph-specific tasks"
+    },
+    {
+      "ref": "D102",
+      "brief": "v1 feedback sources are DecisionGraph and InsightExplorationGraph only"
+    },
+    {
+      "ref": "D103",
+      "brief": "OutcomeGraph v1 supports DecisionOutcome and InsightCandidateOutcome, not a generic TrackedOutcome"
+    },
+    {
+      "ref": "D104",
+      "brief": "Outcome labels use normalized label, metrics, reason codes, and evidence refs"
+    },
+    {
+      "ref": "D105",
+      "brief": "EvaluationGraph v1 outputs metrics plus strengths, weaknesses, failure modes, and data gaps"
+    },
+    {
+      "ref": "D106",
+      "brief": "InsightExplorationGraph v1 is driven by EvaluationReport, context snapshot summaries, and outcome labels"
+    },
+    {
+      "ref": "D107",
+      "brief": "Do not migrate OutcomeGraph, EvaluationGraph, or InsightExplorationGraph to native LangGraph in v1"
+    },
+    {
+      "ref": "D108",
+      "brief": "Implementation order is OutcomeGraph, then EvaluationGraph, then InsightExplorationGraph"
+    },
+    {
+      "ref": "D109",
+      "brief": "T010 adds a narrow InsightCandidateOutcome backend contract in v1"
+    },
+    {
+      "ref": "D110",
+      "brief": "InsightExplorationGraph schedules InsightCandidateOutcome after creating InsightCandidate"
+    },
+    {
+      "ref": "D111",
+      "brief": "InsightCandidate carries one whitelisted horizon and backend derives due_at"
+    },
+    {
+      "ref": "D112",
+      "brief": "InsightExplorationGraph uses 2m when candidate semantics do not clearly select a horizon"
+    }
+  ],
+  "contracts": {
+    "source_types": [
+      "decision",
+      "insight_candidate"
+    ],
+    "outcome_types": [
+      "DecisionOutcome",
+      "InsightCandidateOutcome"
+    ],
+    "insight_candidate_outcome_backend_contract": {
+      "enabled": true,
+      "table": "insight_candidate_outcomes",
+      "api": [
+        "POST /insight-candidate-outcomes/schedule",
+        "GET /insight-candidate-outcomes/due",
+        "POST /insight-candidate-outcomes/{outcome_id}/label",
+        "GET /insight-candidate-outcomes",
+        "GET /insight-candidate-outcomes/{outcome_id}"
+      ],
+      "allowed_paths": [
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/app/intel/api/stage1.py",
+        "apps/trader-agent/backend/tests/test_stage1_insight_candidate_outcomes.py"
+      ],
+      "forbidden": [
+        "generic TrackedOutcome abstraction",
+        "AlphaOutcome",
+        "ModelOutcome",
+        "MarketJudgmentOutcome",
+        "RulePack activation",
+        "promotion",
+        "execution"
+      ]
+    },
+    "insight_candidate_outcome_scheduling": {
+      "owner": "InsightExplorationGraph",
+      "trigger": "after InsightCandidate persistence",
+      "api": "POST /insight-candidate-outcomes/schedule",
+      "payload_fields": [
+        "insight_id",
+        "symbol",
+        "horizon",
+        "evidence_refs",
+        "reason_codes",
+        "outcome_json"
+      ],
+      "derived_fields": [
+        "due_at"
+      ],
+      "outcome_graph_role": "fetch due InsightCandidateOutcome records and label them only",
+      "manual_scheduling": "recovery/admin path only",
+      "forbidden": [
+        "OutcomeGraph scans unscheduled InsightCandidate records",
+        "OutcomeGraph decides what new insight outcomes to observe",
+        "manual CLI scheduling as the primary v1 flow"
+      ]
+    },
+    "horizon_contract": {
+      "owner": "InsightExplorationGraph",
+      "field": "horizon",
+      "required_on": [
+        "InsightCandidate",
+        "InsightCandidateOutcome"
+      ],
+      "allowed_values": [
+        "1m",
+        "2m",
+        "5m",
+        "30m",
+        "1h",
+        "2h",
+        "4h"
+      ],
+      "default": "2m",
+      "default_owner": "InsightExplorationGraph",
+      "default_policy": "use 2m only when candidate semantics do not clearly select another whitelisted horizon",
+      "due_at_policy": "normal schedule requests provide horizon; backend derives due_at as scheduled_at plus horizon",
+      "frequency_scope": "short-cycle intraday validation only; no daily or monthly horizons in v1",
+      "override_policy": "manual/admin due_at override is recovery-only and must include a reason code",
+      "outcome_graph_role": "read horizon and due_at only; do not choose or mutate horizon"
+    },
+    "outcome_evidence_loading": {
+      "enabled": true,
+      "owner": "OutcomeGraph",
+      "allowed_loader": "white-listed Evidence Loader",
+      "trigger": "before label evaluation when current short-cycle evidence is needed",
+      "context_scope": [
+        "same_symbol",
+        "market_benchmark_or_index"
+      ],
+      "summary_max_lines": 15,
+      "output": "compact evidence summary",
+      "forbidden": [
+        "raw evidence crawling",
+        "direct raw-data ingestion",
+        "unbounded evidence expansion",
+        "arbitrary dynamic source selection"
+      ]
+    },
+    "normalized_labels": [
+      "hit",
+      "miss",
+      "neutral",
+      "invalid",
+      "insufficient_data"
+    ],
+    "outcome_metrics": [
+      "return_pct",
+      "relative_return_pct",
+      "max_drawdown_pct",
+      "realized_volatility",
+      "horizon_minutes"
+    ],
+    "evaluation_report_sections": [
+      "decision_performance",
+      "insight_candidate_performance",
+      "top_positive_patterns",
+      "top_negative_patterns",
+      "failure_modes",
+      "data_gaps",
+      "evidence_refs"
+    ],
+    "insight_exploration_inputs": [
+      "evaluation_report",
+      "context_snapshot_summaries",
+      "outcome_labels"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "A101",
+      "check": "Feedback-loop handoff defines source types, scheduling owner, horizon contract, outcome label contract, evaluation report contract, and insight input contract",
+      "verified_by": [
+        "V101"
+      ]
+    },
+    {
+      "id": "A102",
+      "check": "OutcomeGraph task is present with scope, steps, dependencies, and verification",
+      "verified_by": [
+        "V102"
+      ]
+    },
+    {
+      "id": "A103",
+      "check": "EvaluationGraph task is present with scope, steps, dependencies, and verification",
+      "verified_by": [
+        "V102"
+      ]
+    },
+    {
+      "id": "A104",
+      "check": "InsightExplorationGraph task is present with scope, steps, dependencies, and verification",
+      "verified_by": [
+        "V102"
+      ]
+    },
+    {
+      "id": "A105",
+      "check": "Spec and tasks do not include AlphaResearchGraph implementation, native graph migration, custom UI, execution, RulePack mutation, or automatic promotion",
+      "verified_by": [
+        "V103"
+      ]
+    }
+  ],
+  "non_goals": [
+    "AlphaResearchGraph implementation",
+    "ReflectionGraph implementation",
+    "native LangGraph migration for these three graphs",
+    "broker or paper execution",
+    "active RulePack mutation",
+    "automatic model promotion or switching",
+    "workflow builder",
+    "custom UI",
+    "raw evidence browser",
+    "generic TrackedOutcome abstraction"
+  ],
+  "verification": [
+    {
+      "id": "V101",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/workflow-feedback-loop-maturity-v1/decision-record.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/workflow-feedback-loop-maturity-v1/clarification-questions.json | ConvertFrom-Json | Out-Null",
+      "expect": "Feedback-loop spec and clarification JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V102",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T010-outcome-graph-maturity-v1.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T011-evaluation-graph-maturity-v1.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.json | ConvertFrom-Json | Out-Null",
+      "expect": "All graph task JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V103",
+      "command": "manual review: compare spec non_goals and task files against the current diff",
+      "expect": "No forbidden implementation scope is pulled into v1",
+      "blocking": true
+    },
+    {
+      "id": "V104",
+      "command": "git diff --check -- .agent-dev/specs/workflow-feedback-loop-maturity-v1 .agent-dev/tasks project-docs/backlog",
+      "expect": "No whitespace errors in planning artifacts",
+      "blocking": true
+    },
+    {
+      "id": "V105",
+      "command": "node --test test/docs-ai-context.test.mjs",
+      "expect": "Private AI context routing tests still pass",
+      "blocking": true
+    }
+  ]
+}

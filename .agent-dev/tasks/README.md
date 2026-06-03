@@ -7,3 +7,10 @@ Historical T001-T007 task files and slice plans were moved to
 
 New task artifacts should follow `.agent-dev/memory/schemas.md` and should be
 read only through `.agent-dev/context/ai-index.md` route selection.
+
+Current active task groups:
+
+- `T010` OutcomeGraph Maturity v1
+- `T011` EvaluationGraph Maturity v1
+- `T012` InsightExplorationGraph Maturity v1
+- `T090` DecisionGraph Maturity v1

@@ -31,7 +31,7 @@
 | Shared Agent Memory | [03-shared-agent-memory-prd.md](./03-shared-agent-memory-prd.md), [03-shared-agent-memory-development/README.md](./03-shared-agent-memory-development/README.md) | 具体 M0-M6 development doc 和后端现状 |
 | Workflow runtime / CLI operator interface | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md), [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md) | `apps/trader-workflows`、`apps/trader-cli` 当前代码和测试 |
 | Self-learning market judgment / model learning | [06-self-learning-market-judgment-model-roadmap.md](./06-self-learning-market-judgment-model-roadmap.md), [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | future direction only; does not change Stage 1 scope or promotion safety gates |
-| Backlog ordering | [07-backlog-roadmap-index.md](./07-backlog-roadmap-index.md) | Now / Next / Later / Blocked by Contract consolidation; links back to owning docs |
+| Backlog ordering | [project-docs/backlog/README.md](../../../backlog/README.md) | Now / Next / Later / Blocked by Contract consolidation; links back to owning docs |
 | Agent harness / context / tool principles | [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md) | apply before adding agentic workflow, subagent, MCP/tool, skill, or long-running run design |
 | AI / RAG / MCP | [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md), [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md) | 现有模型调用、tool registry、knowledge API |
 
