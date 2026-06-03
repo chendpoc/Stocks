@@ -1,8 +1,9 @@
 # Trader Agent Subproject
 
-`apps/trader-agent/` is the standalone product subproject for the trader-agent target system.
+`apps/trader-agent/` is the backend and shared-contract subproject for the trader-agent target system.
 
-It is intentionally separate from `apps/research-console/`. The existing research console remains a migration/reference asset, not the final application surface.
+The former research console and cockpit apps have been removed. Historical UI
+material lives under `project-docs/archive/`.
 
 ## Subproject Layout
 
@@ -13,10 +14,6 @@ apps/trader-agent/
     pyproject.toml
     app/
     tests/
-  cockpit/
-    app/
-    components/
-    lib/
   shared/
     rulepacks/
     schemas/
@@ -25,8 +22,7 @@ apps/trader-agent/
 ## Ownership
 
 - `backend/`: Agent Core Backend implementation.
-- `cockpit/`: Web Agent Cockpit implementation.
-- `shared/`: product-level contracts shared by backend and cockpit, including RulePack files and schema definitions.
+- `shared/`: product-level contracts, RulePack files, and shared fixtures used by backend and workflows.
 
 ## Current Phase
 

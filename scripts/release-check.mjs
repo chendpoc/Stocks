@@ -7,7 +7,7 @@ const rootDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 const checks = [
   ["npm", ["run", "test:summary"]],
-  ["npm", ["run", "console:build"]],
+  ["npm", ["run", "docs:build"]],
   ["npm", ["run", "daily:publish:dry"]],
   ["npm", ["run", "public:build:audit"]],
   ["git", ["diff", "--check"]],
