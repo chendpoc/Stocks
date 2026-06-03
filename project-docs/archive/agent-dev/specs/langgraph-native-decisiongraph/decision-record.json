@@ -1,0 +1,122 @@
+{
+  "spec_id": "langgraph-native-decisiongraph",
+  "decisions": [
+    {
+      "id": "D001",
+      "date": "2026-06-02",
+      "question": "What is the single source of truth for DecisionGraph after T007?",
+      "answer": "The exported LangGraph-native compiled DecisionGraph is the source of truth.",
+      "rationale": "CLI, Studio, and future schedulers must run and inspect the same business workflow.",
+      "alternatives": ["Keep the hand-written class as source of truth", "Build a Studio-only wrapper"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D002",
+      "date": "2026-06-02",
+      "question": "Should runDecisionGraph keep its public name and result contract?",
+      "answer": "Yes. Keep runDecisionGraph as an adapter that invokes the compiled graph.",
+      "rationale": "Existing CLI/runtime callers can remain stable while the graph implementation changes underneath.",
+      "alternatives": ["Rename the public function", "Let callers import the graph directly"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D003",
+      "date": "2026-06-02",
+      "question": "What does Stage1CheckpointStore own after T007?",
+      "answer": "It is downgraded to run registry, CLI envelope, and run metadata storage.",
+      "rationale": "LangGraph checkpointer should own checkpoint, resume, replay, interrupt, and graph state lineage.",
+      "alternatives": ["Keep dual checkpoints", "Remove run registry entirely"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D004",
+      "date": "2026-06-02",
+      "question": "Can T007 change the user-facing run_id contract?",
+      "answer": "No. CLI continues to expose run_id; the registry maps it to LangGraph thread_id and checkpoint ids.",
+      "rationale": "T006 established trader runs list/show/resume around run_id and there is no reason to break that surface.",
+      "alternatives": ["Expose thread_id as the primary id", "Return only checkpoint ids"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D005",
+      "date": "2026-06-02",
+      "question": "Which graphs are migrated in T007?",
+      "answer": "Only DecisionGraph is migrated to LangGraph-native.",
+      "rationale": "DecisionGraph is the core entry and provides the smallest meaningful proof of native graph, Studio, checkpointer, and CLI compatibility.",
+      "alternatives": ["Migrate all four T006 graphs", "Only add a Studio adapter without refactoring DecisionGraph"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D006",
+      "date": "2026-06-02",
+      "question": "What should langgraph.json register in T007?",
+      "answer": "Register only decision_graph.",
+      "rationale": "Outcome/Evaluation/Insight placeholders would imply support that T007 does not implement.",
+      "alternatives": ["Register all future graphs as placeholders", "Do not add langgraph.json"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D007",
+      "date": "2026-06-02",
+      "question": "Can graph state include raw evidence or large objects?",
+      "answer": "No. Graph state includes processed context, weighted items, and evidence refs only.",
+      "rationale": "Large raw objects belong to domain evidence storage and future detail UI, not graph checkpoints.",
+      "alternatives": ["Store truncated raw evidence in state", "Store full raw provider payloads in checkpoints"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D008",
+      "date": "2026-06-02",
+      "question": "Does T007 implement evidence detail display?",
+      "answer": "No. T007 may define an EvidenceRefResolver interface, but no custom detail UI or large-object display.",
+      "rationale": "The current task is native workflow runtime and Studio entry; detail display would expand into storage, API, cache, and UI scope.",
+      "alternatives": ["Build a custom evidence detail page now", "Add raw evidence blobs to Studio state"],
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D009",
+      "date": "2026-06-02",
+      "question": "How does T007 map run_id and LangGraph thread_id?",
+      "answer": "For native DecisionGraph runs, thread_id equals run_id.",
+      "rationale": "The simplest mapping preserves the T006 CLI contract and avoids unnecessary dual-id registry complexity.",
+      "alternatives": ["Generate a separate thread_id", "Expose thread_id as the primary CLI id"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D010",
+      "date": "2026-06-02",
+      "question": "What Studio invocation mode is allowed in T007?",
+      "answer": "Studio is load-only plus optional fixture-only invocation; direct Studio real-persistence is forbidden.",
+      "rationale": "Real domain writes must go through workflow CLI / Stage1Runtime so run registry metadata and run_id mapping remain consistent.",
+      "alternatives": ["Allow Studio to persist real decisions", "Do not add Studio config"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D011",
+      "date": "2026-06-02",
+      "question": "What does runs show expose after native checkpointer adoption?",
+      "answer": "runs show exposes bounded run metadata, thread_id, checkpoint_ref, input summary, output summary, latest error, and an empty or metadata-only checkpoints array.",
+      "rationale": "The CLI surface remains stable without leaking full graph checkpoint state or raw evidence objects.",
+      "alternatives": ["Expose full LangGraph state", "Remove the checkpoints field"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D012",
+      "date": "2026-06-02",
+      "question": "What langgraph.json shape is required?",
+      "answer": "Use dependencies [\".\"], graphs.decision_graph, and env \"../../.env\".",
+      "rationale": "LangGraph docs require configuration for dependencies and graphs; the repo root .env is two levels above apps/trader-workflows.",
+      "alternatives": ["Only set graphs", "Inline env mapping", "Set node_version"],
+      "confirmed_by": "plan-review-fix"
+    },
+    {
+      "id": "D013",
+      "date": "2026-06-02",
+      "question": "Should S1 require Studio to load a real graph before S2 migrates DecisionGraph?",
+      "answer": "No. S1 adds config and dependencies only; S2 owns the real compiled graph export and Studio load gate.",
+      "rationale": "Requiring a real graph export in S1 forces either a forbidden placeholder or scope bleed into S2.",
+      "alternatives": ["Merge S1 and S2", "Allow a placeholder graph in S1"],
+      "confirmed_by": "plan-review-fix"
+    }
+  ]
+}

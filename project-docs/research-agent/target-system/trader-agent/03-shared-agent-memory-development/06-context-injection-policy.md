@@ -103,7 +103,7 @@ source date
 heading path
 ```
 
-Cockpit UI 可以显示为：
+CLI/TUI 或未来 operator interface 可以显示为：
 
 ```text
 Used Memory

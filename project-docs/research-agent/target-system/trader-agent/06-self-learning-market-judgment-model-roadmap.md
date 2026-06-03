@@ -210,7 +210,7 @@ Hard boundaries:
 - no automatic model promotion without gate;
 - no training on labels generated only by the same model being trained;
 - no promotion based only on in-sample or training metrics;
-- no hidden model switch in CLI, Cockpit, scheduler, or runtime;
+- no hidden model switch in CLI, workflow scheduler, backend API, or runtime;
 - every checkpoint, metric, and decision must be auditable.
 
 ## 9. Next Spec To Write

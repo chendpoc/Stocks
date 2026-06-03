@@ -1,0 +1,48 @@
+{
+  "spec_id": "cli-tui-integration",
+  "parent_spec": "cli-tui-v2",
+  "decisions": [
+    {
+      "id": "D201",
+      "question": "TUI 与 CLI 如何共享业务逻辑？",
+      "answer": "抽到 apps/trader-cli/src/services/；commands 仅 console 包装。",
+      "rationale": "避免 T002 双份实现；TUI 与 trader report 等行为一致。",
+      "alternatives": ["TUI 内联 fetchIntel 重复逻辑"]
+    },
+    {
+      "id": "D202",
+      "question": "菜单结构？",
+      "answer": "7 页：Dashboard / Chat / Signals / Hypotheses / Lessons / Ops / Settings；键 1-7 与 Ctrl+1-7。",
+      "rationale": "用户选择完整七页；Ops 独立便于 server/ingest。",
+      "alternatives": ["5 页合并 Ops 到 Settings"]
+    },
+    {
+      "id": "D203",
+      "question": "Dashboard 标的与 report/chart？",
+      "answer": "focusedSymbol 默认 TSLA；[/] 或 h/l 在 MVP 列表循环；report/chart 绑定该标的。",
+      "rationale": "单屏指挥中心，避免再开子命令页。",
+      "alternatives": ["独立 Report 菜单页"]
+    },
+    {
+      "id": "D204",
+      "question": "trader data status 语义？",
+      "answer": "只读 GET /market/status；禁止 status 子命令 POST ingest。",
+      "rationale": "修复 code review Important：status 不应触发 yfinance。",
+      "alternatives": ["继续误用 ingest POST"]
+    },
+    {
+      "id": "D205",
+      "question": "server start cwd？",
+      "answer": "与 loadEnv 相同方式向上查找 monorepo 根含 package.json + apps/trader-cli。",
+      "rationale": "REPO_ROOT 常未设置。",
+      "alternatives": ["仅 process.cwd()"]
+    },
+    {
+      "id": "D206",
+      "question": "多 agent 编排？",
+      "answer": "I0→I1→I2→I3 严格串行；每阶段内 T003-I*-slice 串行；单 slice ≤6 文件。",
+      "rationale": "用户要求避免单 agent 过重、模块顺序开发。",
+      "alternatives": ["单 agent 一次做完 T003"]
+    }
+  ]
+}

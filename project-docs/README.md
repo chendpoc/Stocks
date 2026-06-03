@@ -11,19 +11,18 @@ public site.
    routes you there.
 3. For the active trader-agent target system, start with
    `research-agent/target-system/README.md`.
-4. For old research-console material, use `research-agent/README.md` and
-   `research-agent/modules/README.md` only through the `legacy_migration` route.
+4. For archived research-console, trader-cockpit, or agent-dev material, use
+   `archive/README.md` only when historical context is explicitly requested.
 
 ## Directory Map
 
 | Path | Purpose |
 |---|---|
-| `research-agent/` | Trader-agent target system plus historical research-console material. |
+| `research-agent/` | Active trader-agent target-system docs. |
+| `archive/` | Historical research-console, trader-cockpit, legacy trader-agent, agent-dev, and migration material. |
 | `workflows/` | Internal development workflow docs. |
 | `adr/` | Architecture decision records. |
 | `research-reports/` | Long-form research and system direction notes. |
-| `legacy/` | Superseded or historical planning docs. |
-| `plans/superpowers/` | Historical execution plans. |
 
 ## Boundary
 

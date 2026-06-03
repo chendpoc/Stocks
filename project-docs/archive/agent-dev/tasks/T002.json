@@ -1,0 +1,99 @@
+{
+  "id": "T002",
+  "spec_id": "cli-tui-v2",
+  "title": "CLI TUI 升级 + 缓存系统 + 新闻爬取",
+  "status": "completed",
+  "steps": [
+    {
+      "id": "P0",
+      "description": "Phase 0: ink TUI 框架搭建（App + Sidebar + ContentArea + StatusBar + HotkeyBar；Commander.js 集成保留所有现有子命令）",
+      "status": "completed",
+      "depends_on": [],
+      "verification": {"ref": "V101", "blocking": true},
+      "files_expected": [
+        "apps/trader-cli/src/tui/app.tsx",
+        "apps/trader-cli/src/tui/components/Sidebar.tsx",
+        "apps/trader-cli/src/tui/components/ContentArea.tsx",
+        "apps/trader-cli/src/tui/components/StatusBar.tsx",
+        "apps/trader-cli/src/tui/components/HotkeyBar.tsx",
+        "apps/trader-cli/src/index.ts",
+        "apps/trader-cli/package.json"
+      ]
+    },
+    {
+      "id": "P1",
+      "description": "Phase 1: chat TUI ChatPage（client-side messages 内存 20 轮，D108）+ context/build 注入 related_hypotheses（D102）+ hypotheses.py 扩 SELECT 字段（professional_explanation）+ tools.ts 新增 getRelatedHypotheses + 保留 chat --eval 旧路径（D112）",
+      "status": "completed",
+      "depends_on": ["P0"],
+      "verification": {"ref": "V102", "blocking": true},
+      "files_expected": [
+        "apps/trader-cli/src/tui/pages/ChatPage.tsx",
+        "apps/trader-cli/src/commands/chat.ts",
+        "apps/trader-cli/src/llm/tools.ts",
+        "apps/trader-agent/backend/app/intel/api/context.py",
+        "apps/trader-agent/backend/app/intel/api/hypotheses.py"
+      ]
+    },
+    {
+      "id": "P2",
+      "description": "Phase 2: 报表缓存（report_cache 表 + /report/check+save 端点，D105/D113）+ 市场数据 TTL short-circuit（ingest_symbol 内 ingested_at TTL，D109）+ schema.py 加表加列加 _migrate_market_bars_ingested_at + report 命令",
+      "status": "completed",
+      "depends_on": ["P0"],
+      "verification": {"ref": "V104", "blocking": true},
+      "files_expected": [
+        "apps/trader-cli/src/commands/report.ts",
+        "apps/trader-agent/backend/app/intel/api/report_cache.py",
+        "apps/trader-agent/backend/app/intel/api/__init__.py",
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/app/intel/ingestion/market_data.py",
+        "apps/trader-agent/backend/tests/test_intel_cache_report.py",
+        "apps/trader-agent/backend/tests/test_intel_cache_market_ttl.py"
+      ]
+    },
+    {
+      "id": "P3",
+      "description": "Phase 3: 探索发现（pattern_matcher + cross_asset，作为独立 pass 不进 SCANNERS，D111）+ patterns.trigger_sql 列 + _migrate_pattern_trigger_sql 显式回填 5 条 MVP_PATTERNS（D110）+ scan_all_symbols 返回签名增 anomaly_dashboard/pattern_alerts/cross_asset 三字段",
+      "status": "completed",
+      "depends_on": ["P2"],
+      "verification": {"ref": "V110", "blocking": true},
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/features/pattern_matcher.py",
+        "apps/trader-agent/backend/app/intel/features/cross_asset.py",
+        "apps/trader-agent/backend/app/intel/features/scanner.py",
+        "apps/trader-agent/backend/app/intel/api/signals.py",
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/tests/test_intel_pattern_matcher.py"
+      ]
+    },
+    {
+      "id": "P4",
+      "description": "Phase 4: ASCII K 线图（asciichart + GET /market/bars，D107）+ 服务管理（trader server start/stop/status，Windows + macOS 跨平台，D106）",
+      "status": "completed",
+      "depends_on": ["P0"],
+      "verification": {"ref": "V107", "blocking": true},
+      "files_expected": [
+        "apps/trader-cli/src/commands/chart.ts",
+        "apps/trader-cli/src/commands/server.ts",
+        "apps/trader-cli/package.json"
+      ]
+    },
+    {
+      "id": "P5",
+      "description": "Phase 5: 新闻爬虫（RSS+API+Web 三源 → events.source_type='news'，D103）+ trader data status 子命令 + trader config show/set 子命令 + /api/intel/news 路由",
+      "status": "completed",
+      "depends_on": ["P0"],
+      "verification": {"ref": "V106", "blocking": true},
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/ingestion/news_crawler.py",
+        "apps/trader-agent/backend/app/intel/api/news.py",
+        "apps/trader-agent/backend/app/intel/api/__init__.py",
+        "apps/trader-cli/src/commands/data.ts",
+        "apps/trader-cli/src/commands/config.ts",
+        "apps/trader-agent/backend/tests/test_intel_news_crawler.py"
+      ]
+    }
+  ],
+  "context_pack_ref": "CP002",
+  "dev_plan_path": ".agent-dev/specs/cli-tui-v2/dev-plan.md",
+  "worker_prompt_path": ".agent-dev/cli-tui-v2-worker-prompt.md"
+}

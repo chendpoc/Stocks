@@ -28,7 +28,7 @@ Agent Core 的第一版不是交易机器人，也不是自动投顾。它的本
 3. 把新市场规律转成 `RuleCandidate`，通过简版回测和人工审批进入规则库候选区。
 4. 明确拒绝自动实盘下单、绕过审批、自动扩大高风险工具权限。
 
-本计划只覆盖 `apps/trader-agent/backend/`。Web Cockpit 属于同一子项目的 `apps/trader-agent/cockpit/`，但不在本计划实现。
+本计划只覆盖 `apps/trader-agent/backend/` 与必要的 `apps/trader-agent/shared/` 契约；Web UI 不在当前实现范围。
 
 ## Non-Goals
 
@@ -41,11 +41,11 @@ Agent Core 的第一版不是交易机器人，也不是自动投顾。它的本
 
 ## Implementation Path Decision
 
-实现路径采用新的独立子项目 `apps/trader-agent/`，原因是 trader-agent 已经不是旧 research console 的功能扩展，而是一个新的产品系统。后端、前端 cockpit 和共享契约必须在同一产品子项目下管理。
+实现路径采用 `apps/trader-agent/` 作为 backend/shared 子项目，原因是 trader-agent 已经不是旧 research console 的功能扩展，而是一个新的产品系统。当前核心交互由 workflow 和 CLI 承担。
 
 本计划的 canonical backend entrypoint 是 `apps/trader-agent/backend/app/main.py`。
 
-`apps/research-console/` 只作为迁移素材和参考实现，不承载新的 trader-agent 开发。
+旧 research-console 和 cockpit 材料已归档到 `project-docs/archive/`，不承载新的 trader-agent 开发。
 
 ## Target File Tree
 
@@ -121,8 +121,6 @@ apps/trader-agent/
       test_local_tool_adapter.py
       test_signal_pipeline.py
       test_rule_discovery_lite_backtest.py
-  cockpit/
-    README.md
   shared/
     README.md
     fixtures/
@@ -173,7 +171,7 @@ Storage rule:
 | Tools | `LocalToolAdapter` | Tool Gateway / MCP adapter |
 | RulePack | YAML file loaded at startup as source of truth | Versioned DB-backed RulePack after approval workflow matures |
 | Scheduler | Manual API trigger and single-process scan loop | Worker queue |
-| Approval | Stored approval request records | Cockpit approval workflow |
+| Approval | Stored approval request records | CLI/TUI or future separately scoped approval workflow |
 
 ## Public API Minimum
 
@@ -244,7 +242,7 @@ SQLite field mapping:
 
 ## Phase 0: Backend Foundation
 
-- [x] Create `apps/trader-agent/package.json` as the monorepo workspace package entry for backend and future cockpit scripts.
+- [x] Create `apps/trader-agent/package.json` as the monorepo workspace package entry for backend scripts.
 - [x] Create `apps/trader-agent/backend/pyproject.toml` with package metadata, runtime dependencies, `[project.optional-dependencies].dev`, pytest config, and ruff config. Runtime deps include FastAPI, Pydantic, SQLAlchemy, uvicorn, pandas, pandas-market-calendars, and yfinance. Dev deps include pytest and ruff.
 - [x] Create `apps/trader-agent/backend/app/main.py` with FastAPI app factory and `/health`.
 - [x] Create `app/core/config.py` with local data dir, universe, RulePack path, market timezone, and tool capability flags.
@@ -465,7 +463,7 @@ Acceptance:
 These capabilities are intentionally deferred until the local deterministic pipeline is stable:
 
 - Trader Brain, Market Brain, and Opportunity Brain as LLM composition layers.
-- WebSocket/SSE stream to Web Cockpit.
+- WebSocket/SSE stream to a separately scoped UI.
 - Remote Tool Gateway and MCP adapter beyond read-only preparation.
 - PostgreSQL and Redis migration.
 - Real approval UI integration.

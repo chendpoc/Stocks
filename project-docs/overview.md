@@ -29,7 +29,7 @@
 | **Ratatui 全屏图** | 2026-06 | Rust 全屏 K 线 — 从 Ink TUI 内 handoff 启动 |
 | **Longbridge CLI Agent** | 2026-06 → 进行中 | 22 个长桥只读工具 + Tier2 invoke — 客观行情事实优先长桥 |
 
-旧阶段产物（Shared Agent Memory、Web Cockpit）保留但不再扩展，新功能全部通过 intel + CLI 路径开发。
+旧阶段产物已归档到 `project-docs/archive/`；新功能全部通过 intel + CLI / workflow 路径开发。
 
 ---
 
@@ -130,15 +130,16 @@ postmortem/ → 1D/3D/5D 复盘 → lessons 沉淀 → 反哺 context/build → 
 stock-community-summary/
 ├── apps/
 │   ├── trader-agent/backend/     Python 后端（FastAPI + SQLite + intel 子系统）
+│   ├── trader-agent/shared/      RulePack、共享 fixture 和跨 surface 契约
 │   ├── trader-cli/               TypeScript CLI + Ink TUI（独立 npm，非 pnpm workspace）
 │   ├── trader-chart/             Rust ratatui 全屏 K 线（cargo workspace member）
-│   ├── trader-cockpit/           Next.js 15 驾驶舱前端（暂冻结）
-│   └── research-console/        旧研究控制台（只读参考）
+│   └── trader-workflows/         Stage 1 workflow runtime
 │
 ├── docs/                         VitePress 站点 + 设计文档 + 群聊总结归档
 ├── scripts/                      每日采集 / 发布 / 通知 / 审计脚本（Node.js）
 ├── data/                         运行时数据（gitignored）
-├── .agent-dev/                   开发 artifact（spec / task / decision / worker prompt）
+├── .agent-dev/                   当前 AI 路由、协议和活跃 artifact
+├── project-docs/archive/          历史计划、旧 UI、旧 agent-dev artifact
 ├── packages/summary-core/        共享 TypeScript 包
 ├── utils/                        Python 工具库
 ├── Cargo.toml                    Rust workspace
@@ -233,19 +234,21 @@ CodeGraph 语义索引
   → GitHub PR
 ```
 
-所有 spec / task / decision 持久化在 `.agent-dev/` 目录下。详见 `project-docs/workflows/agent-dev-workflow.md` 与 `.agent-dev/README.md`。
+新的活跃 spec / task / decision 可放在 `.agent-dev/` 目录下；已完成、被取代或历史执行包归档到 `project-docs/archive/agent-dev/`。详见 `project-docs/workflows/agent-dev-workflow.md` 与 `.agent-dev/README.md`。
 
 ---
 
-## 当前开发任务
+## 当前开发面
 
-| Task | 标题 | 状态 | 简述 |
-|---|---|---|---|
-| **T001** | Forward Market Intelligence MVP | in_progress | 11 张表 + 11 路由 + scanner + CLI — 核心 Phase 已落地 |
-| **T002** | CLI TUI v2 | completed | Ink 七页壳 + 报表缓存 + 市场 TTL + 新闻爬虫 + 服务管理 |
-| **T003** | CLI TUI 功能集成 | approved | 七页 TUI 接入 services 共享层 + Dashboard 指挥中心 |
-| **T004** | Ratatui 全屏 K 线 | done | Rust ratatui + Ink handoff（同终端 inherit） |
-| **T005** | Longbridge CLI Agent 工具化 | in_progress | 22 Tier1 + invoke 白名单 — 当前为 audit + patch 阶段 |
+| Area | 状态 | 简述 |
+|---|---|---|
+| `apps/trader-agent/backend` | active | FastAPI + SQLite intel/domain API。 |
+| `apps/trader-agent/shared` | active | RulePack、共享 fixture 与 backend/workflow 之间的产品契约。 |
+| `apps/trader-workflows` | active | Stage 1 workflow runtime and LangGraph graphs。 |
+| `apps/trader-cli` | active | Commander CLI + Ink TUI，当前主操作入口。 |
+| `apps/trader-chart` | active | Rust ratatui K 线 handoff。 |
+| `.agent-dev` | active protocol only | 只保留 AI 路由、subagent 协议、schema、活跃 artifact 占位。 |
+| `project-docs/archive/agent-dev` | archived | T001-T007 历史 specs/tasks/prompts/reviews/presentations。 |
 
 ---
 
@@ -305,14 +308,14 @@ cargo test -p trader-chart
 
 | 文档 | 路径 | 说明 |
 |---|---|---|
-| 系统设计 v0.3 | `project-docs/legacy/trader-agent/trader_agent_system_design_v0_3.md` | 三层架构全景 — Brain / Cockpit / Platform |
-| Forward Market Intelligence 设计 | `project-docs/legacy/forward-intel/01-forward-market-intelligence-system-design.md` | intel 子系统详细设计 |
-| MVP 模块开发指导 | `project-docs/legacy/forward-intel/02-mvp-module-development-plan.md` | 技术栈选型 + Phase 规划 |
-| MVP 实施计划 | `project-docs/legacy/forward-intel/03-forward-market-intel-mvp-plan.md` | 10 个预决策 + 项目结构 + Phase 验收 |
+| Trader Agent 目标系统 | `project-docs/research-agent/target-system/trader-agent/README.md` | 当前 source-of-truth：backend/shared/workflows/CLI |
+| Workflow Router | `project-docs/research-agent/target-system/trader-agent/00-workflow-router.md` | 当前任务路由和 source-of-truth 选择 |
+| LangGraph Stage 1 ADR | `project-docs/adr/0001-langgraph-minimal-stage1.md` | workflow runtime 架构决策 |
 | Agent Dev Workflow v2 | `project-docs/workflows/agent-dev-workflow.md` | Spec-Driven 完整流程（最终确认版） |
 | 开发规约 | `CLAUDE.md` | AI Agent 必读 — 规则 / 坑 / 架构 / 约定 |
 | 代码地图 | `.agent-dev/context/code_map.md` | 文件级快速定位 |
 | Artifact 说明 | `.agent-dev/README.md` | spec / task / decision 双文件 artifact |
+| 历史 Forward Intel 计划 | `project-docs/archive/forward-intel/` | 历史材料；包含旧 cockpit 假设，不作为当前实现指导 |
 
 ---
 
@@ -329,7 +332,7 @@ cargo test -p trader-chart
 - `MARKET_DATA_PROVIDER=longbridge` 直接入库
 - 期权结构分析（Momentum Options Trader）
 - 深度学习 Shadow Inference（SetupSuccessPredictor / SignalRanker）
-- Web Cockpit 复活（trader-cockpit 解冻）
+- Workflow / CLI 运行观察和复盘体验完善
 
 ### 远期
 

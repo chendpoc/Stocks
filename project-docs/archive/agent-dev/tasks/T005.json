@@ -1,0 +1,117 @@
+{
+  "id": "T005",
+  "spec_id": "trader-longbridge-agent-cli",
+  "title": "Longbridge CLI Agent 工具化 — Audit + Patch（深度 Review 后）",
+  "status": "done",
+  "task_type": "audit_patch",
+  "worker_prompt_path": ".agent-dev/trader-longbridge-agent-worker-prompt.md",
+  "review_plan": "c:\\Users\\31089\\.cursor\\plans\\t005_开发计划深度_review_53319747.plan.md",
+  "context": "深度 review 确认 ~85% 代码已落地。本任务是 audit + 修 4 个 Blocker（B1-B4）+ 4 个 Major（M1-M4）+ 8 个 Minor（m1-m8），不是从零实现。",
+  "steps": [
+    {
+      "id": "S0",
+      "description": "Audit：对照修订后的 spec.json 跑 spec ↔ 代码 diff，在 T005.md 漂移清单标记每项状态（已对齐 / 需 patch / 缺失）",
+      "status": "done",
+      "depends_on": [],
+      "verification": { "ref": "manual", "blocking": false },
+      "files_expected": [
+        ".agent-dev/tasks/T005.md"
+      ],
+      "exit_criteria": "漂移清单 8 项全部勾选，每个 patch_required 都有具体行号引用"
+    },
+    {
+      "id": "S1",
+      "description": "Patch · B2 + B3 + D312：spec.json 已修；改 longbridgeCli.ts —— validateLongbridgeInvoke 加 _default_allowed_first_args 兜底校验；保持 check 不在 BLOCKED_TOP_LEVEL（默认就不在）",
+      "status": "done",
+      "depends_on": ["S0"],
+      "verification": { "ref": "V305", "blocking": true },
+      "files_expected": [
+        "apps/trader-cli/src/services/longbridgeCli.ts",
+        "apps/trader-cli/src/services/longbridgeCli.test.ts"
+      ],
+      "exit_criteria": "longbridgeCli.test.ts 新增至少 3 个测试：(a) check 不在 BLOCKED_TOP_LEVEL；(b) Invoke command='option' args=['some-write-op'] 返回 FORBIDDEN_SUBCOMMAND；(c) Invoke command='check' 返回 NOT_WHITELISTED"
+    },
+    {
+      "id": "S2",
+      "description": "Patch · M1 + M4 + B4 + D310：longbridgeAgent.ts 加 probe cache（30s TTL）+ refreshProbeCache(force)；index.ts 移除 top-level await；buildAgentTools.ts 在 resolveAgentTools/getAgentSystemPrompt 入口 lazy 调用 ensureLongbridgeAgentOnStartup",
+      "status": "done",
+      "depends_on": ["S0"],
+      "verification": { "ref": "V302", "blocking": true },
+      "files_expected": [
+        "apps/trader-cli/src/services/longbridgeAgent.ts",
+        "apps/trader-cli/src/index.ts",
+        "apps/trader-cli/src/llm/buildAgentTools.ts"
+      ],
+      "exit_criteria": "index.ts 无 top-level await；trader scan --help 启动 <300ms；同 30s 内 probe 复用 cache（不再 spawn 第二次）"
+    },
+    {
+      "id": "S3",
+      "description": "Patch · m1 + D311：longbridgeTools.ts getLongbridgeQuote zod schema 改 union<symbol:string, symbols:string[]>；execute 路径处理批量；>10 抛 MULTI_SYMBOL_LIMIT",
+      "status": "done",
+      "depends_on": ["S0"],
+      "verification": { "ref": "V305", "blocking": true },
+      "files_expected": [
+        "apps/trader-cli/src/llm/longbridgeTools.ts"
+      ],
+      "exit_criteria": "调用 getLongbridgeQuote({symbols:[...11 个]}) 返回 ok:false code:MULTI_SYMBOL_LIMIT"
+    },
+    {
+      "id": "S4",
+      "description": "Test · M2：longbridgeAgent.test.ts 新增 3 个 mock probe 场景：(a) installed=false → env 改 off + warning 含「未检测到 longbridge CLI」；(b) installed=true authOk=false → env 改 off + warning 含「auth login」；(c) installed=true authOk=true → env 保持 on；额外覆盖 probe cache（连续两次调用只 spawn 一次）",
+      "status": "done",
+      "depends_on": ["S2"],
+      "verification": { "ref": "V301", "blocking": true },
+      "files_expected": [
+        "apps/trader-cli/src/services/longbridgeAgent.test.ts"
+      ],
+      "exit_criteria": "npm test -- longbridgeAgent.test 至少 4 个测试通过"
+    },
+    {
+      "id": "S5",
+      "description": "Test · M3：新建 longbridgeTools.test.ts —— 断言 Object.keys(createLongbridgeTools()) 共 23（22 Tier1 + 1 invoke）；Tier1 工具名集合 === spec.json tier1_tools.map(t=>t.tool_name)；longbridgeInvoke({command:'order',...}) 返回 FORBIDDEN_COMMAND；getLongbridgeQuote 多 symbol 路径通",
+      "status": "done",
+      "depends_on": ["S3"],
+      "verification": { "ref": "V305", "blocking": true },
+      "files_expected": [
+        "apps/trader-cli/src/llm/longbridgeTools.test.ts"
+      ],
+      "exit_criteria": "npm test -- longbridgeTools.test 至少 5 个测试通过"
+    },
+    {
+      "id": "S6",
+      "description": "Patch · B4 SettingsPage 接入 probe cache（复用 S2 的 refreshProbeCache，进入页面仅 force=false；按键 r 强制 refresh）",
+      "status": "done",
+      "depends_on": ["S2"],
+      "verification": { "ref": "V301", "blocking": false },
+      "files_expected": [
+        "apps/trader-cli/src/tui/pages/SettingsPage.tsx"
+      ],
+      "exit_criteria": "进入 Settings 同区块切换 Tab 不再每次 spawn longbridge check（visual 体感）"
+    },
+    {
+      "id": "S7",
+      "description": "Docs · m5 + m6 + m7：根 .env.example 加 TRADER_LONGBRIDGE_AGENT=on；package.json test 脚本含 longbridgeTools.test.ts；LONGBRIDGE_AGENT_PROMPT_PATCH 加「单轮 chat ≤ 10 个长桥调用」与「ok:false 时如何回退到 intel」一句；code_map.md / CLAUDE.md 各加一行指向 longbridgeTools.ts",
+      "status": "done",
+      "depends_on": ["S4", "S5", "S6"],
+      "verification": { "ref": "V302", "blocking": true },
+      "files_expected": [
+        ".env.example",
+        "apps/trader-cli/.env.example",
+        "apps/trader-cli/package.json",
+        "apps/trader-cli/src/llm/tools.ts",
+        ".agent-dev/context/code_map.md",
+        "CLAUDE.md"
+      ],
+      "exit_criteria": "全量 npm test 通过；新文件出现在 .env.example 与 test 脚本"
+    },
+    {
+      "id": "S8",
+      "description": "Manual · 手动验收 V303/V304/V306：本机已 longbridge auth login → trader scan --help <300ms；trader chat 「TSLA 最新价」走 getLongbridgeQuote；Dashboard l/L 仍 spawn longbridge",
+      "status": "done",
+      "depends_on": ["S7"],
+      "verification": { "ref": "V303", "blocking": false },
+      "files_expected": [],
+      "exit_criteria": "录屏或截图证据 3 段，附在 PR 描述"
+    }
+  ]
+}

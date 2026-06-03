@@ -1,0 +1,167 @@
+{
+  "id": "T006",
+  "spec_id": "self-evolving-agent-stage1",
+  "title": "LangGraph Stage 1 Runtime + Decision/Outcome/Evaluation/Insight v0",
+  "status": "completed",
+  "task_type": "feature",
+  "worker_prompt_path": ".agent-dev/self-evolving-agent-stage1-worker-prompt.md",
+  "supersedes": {
+    "spec_id": "model-decision-store",
+    "reason": "旧 T006 只覆盖 Decision Store + TUI；新的 Stage 1 需要 LangGraph durable runtime、DecisionGraph、OutcomeGraph、EvaluationGraph、InsightExplorationGraph v0。"
+  },
+  "context": "T006 建立自进化交易 agent 的 Stage 1 最小闭环：ContextSnapshot -> DecisionGraph -> OutcomeGraph -> EvaluationGraph，并加入受控 ReAct 的 InsightExplorationGraph v0。TUI、paper execution、broker mirror、自动训练和自动 promotion 全部后移。",
+  "steps": [
+    {
+      "id": "S0",
+      "description": "Spec gate：确认 Stage 1 ADR、spec、decision-record、CONTEXT.md 和旧 model-decision-store supersession 一致。",
+      "status": "completed",
+      "depends_on": [],
+      "verification": { "ref": "V101", "blocking": true },
+      "files_expected": [
+        "project-docs/adr/0001-langgraph-minimal-stage1.md",
+        "CONTEXT.md",
+        ".agent-dev/specs/self-evolving-agent-stage1/spec.json",
+        ".agent-dev/specs/self-evolving-agent-stage1/spec.md",
+        ".agent-dev/specs/self-evolving-agent-stage1/decision-record.json",
+        ".agent-dev/specs/model-decision-store/spec.json",
+        ".agent-dev/tasks/T006.json",
+        ".agent-dev/tasks/T006.md",
+        ".agent-dev/tasks/T006-slices/README.md",
+        ".agent-dev/tasks/T006-slices/S1-runtime-foundation.md",
+        ".agent-dev/tasks/T006-slices/S2-domain-schema-api.md",
+        ".agent-dev/tasks/T006-slices/S3-context-snapshot-pipeline.md",
+        ".agent-dev/tasks/T006-slices/S4-decision-graph.md",
+        ".agent-dev/tasks/T006-slices/S5-outcome-graph.md",
+        ".agent-dev/tasks/T006-slices/S6-evaluation-graph.md",
+        ".agent-dev/tasks/T006-slices/S7-insight-exploration-graph.md",
+        ".agent-dev/tasks/T006-slices/S8-cli-report-docs.md"
+      ],
+      "exit_criteria": "Review can prove old T006 is superseded and new Stage 1 decisions D001-D022 are the source of truth."
+    },
+    {
+      "id": "S1",
+      "description": "LangGraph runtime foundation：引入最小 LangGraph graph runner、checkpoint store 分离、run_id/status/resume primitives 和 graph run inspection CLI。",
+      "status": "completed",
+      "depends_on": ["S0"],
+      "verification": { "ref": "V203", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/package.json",
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/src/runtime/checkpointStore.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.test.ts",
+        "apps/trader-workflows/src/api/client.ts",
+        "apps/trader-cli/src/commands/runs.ts",
+        "apps/trader-cli/src/index.ts",
+        "apps/trader-cli/package.json",
+        "package.json"
+      ],
+      "exit_criteria": "A graph run can checkpoint, resume, expose run status, and keep runtime state separate from market_intel.db domain facts."
+    },
+    {
+      "id": "S2",
+      "description": "Stage 1 domain schema/API：新增最小 domain tables 和 backend API for context snapshots, decisions, outcomes, insight candidates, evaluation reports, weighting policy stats。",
+      "status": "completed",
+      "depends_on": ["S0"],
+      "verification": { "ref": "V201", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/app/intel/api/stage1.py",
+        "apps/trader-agent/backend/app/intel/api/__init__.py",
+        "apps/trader-agent/backend/tests/test_intel_stage1_schema_api.py"
+      ],
+      "exit_criteria": "market_intel.db contains the Stage 1 domain facts without writing legacy hypotheses/predictions or LangGraph checkpoints."
+    },
+    {
+      "id": "S3",
+      "description": "Context pipeline v0：把现有 events/signals/market_bars/lessons/corpus/patterns 处理为 WeightedContextItem，并生成 immutable ContextSnapshot。",
+      "status": "completed",
+      "depends_on": ["S2"],
+      "verification": { "ref": "V202", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/services/contextSnapshots.ts",
+        "apps/trader-workflows/src/services/contextSnapshots.test.ts"
+      ],
+      "exit_criteria": "ContextSnapshot includes evidence_refs and capped weights; historical snapshots are immutable."
+    },
+    {
+      "id": "S4",
+      "description": "DecisionGraph v0：symbol -> ContextSnapshot -> model DecisionEnvelope -> validation -> persist model_decisions -> schedule outcome horizons。",
+      "status": "completed",
+      "depends_on": ["S1", "S2", "S3"],
+      "verification": { "ref": "V204", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/decisionGraph.ts",
+        "apps/trader-workflows/src/graphs/decisionGraph.test.ts",
+        "apps/trader-workflows/src/services/decisions.ts",
+        "apps/trader-workflows/src/llm/provider.ts",
+        "apps/trader-workflows/src/llm/decisionEnvelope.ts",
+        "apps/trader-cli/src/commands/decide.ts",
+        "apps/trader-cli/src/index.ts"
+      ],
+      "exit_criteria": "DecisionEnvelope is immutable; PAPER_*_CANDIDATE is persisted but does not submit paper orders."
+    },
+    {
+      "id": "S5",
+      "description": "OutcomeGraph v0：label due outcomes for 30m/1h/EOD/1d/3d using absolute return, benchmark-relative return, invalidation proxy, and target proxy。",
+      "status": "completed",
+      "depends_on": ["S1", "S2", "S4"],
+      "verification": { "ref": "V205", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/outcomeGraph.ts",
+        "apps/trader-workflows/src/graphs/outcomeGraph.test.ts",
+        "apps/trader-workflows/src/services/outcomes.ts",
+        "apps/trader-workflows/src/services/outcomes.test.ts",
+        "apps/trader-cli/src/commands/outcomes.ts",
+        "apps/trader-cli/src/index.ts"
+      ],
+      "exit_criteria": "Each due decision can produce deterministic horizon labels and no outcome mutates historical ContextSnapshot."
+    },
+    {
+      "id": "S6",
+      "description": "EvaluationGraph v0：aggregate model_path and override_path outcomes, report human override delta and current-model promotion recommendation。",
+      "status": "completed",
+      "depends_on": ["S2", "S5"],
+      "verification": { "ref": "V206", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/evaluationGraph.ts",
+        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts",
+        "apps/trader-workflows/src/services/evaluation.ts",
+        "apps/trader-workflows/src/services/evaluation.test.ts",
+        "apps/trader-cli/src/commands/eval.ts",
+        "apps/trader-cli/src/index.ts"
+      ],
+      "exit_criteria": "Evaluation report emits hold/needs_more_data only; it does not auto-promote or require challenger comparison."
+    },
+    {
+      "id": "S7",
+      "description": "InsightExplorationGraph v0：controlled ReAct over weighted context and historical outcomes; persist InsightCandidate only。",
+      "status": "completed",
+      "depends_on": ["S1", "S2", "S3", "S5"],
+      "verification": { "ref": "V207", "blocking": true },
+      "files_expected": [
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+        "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts",
+        "apps/trader-workflows/src/services/insightCandidates.ts",
+        "apps/trader-workflows/src/services/insightCandidates.test.ts",
+        "apps/trader-cli/src/commands/insights.ts",
+        "apps/trader-cli/src/index.ts"
+      ],
+      "exit_criteria": "InsightGraph can generate candidate insights with evidence refs but cannot create AcceptedLesson, trade, train, or promote."
+    },
+    {
+      "id": "S8",
+      "description": "CLI/report/docs/verification：wire Stage 1 CLI commands, markdown/json reports, code_map/CLAUDE updates, and scope review。",
+      "status": "completed",
+      "depends_on": ["S1", "S2", "S3", "S4", "S5", "S6", "S7"],
+      "verification": { "ref": "V208", "blocking": true },
+      "files_expected": [
+        ".agent-dev/context/code_map.md",
+        "CLAUDE.md",
+        "apps/trader-cli/package.json",
+        ".agent-dev/self-evolving-agent-stage1-worker-prompt.md"
+      ],
+      "exit_criteria": "All Stage 1 evidence is attached; CLI smoke proves JSON command contract; no self-built TUI, paper execution, broker mirror, auto-training, or auto-promotion code is added."
+    }
+  ]
+}

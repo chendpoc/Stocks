@@ -1,0 +1,96 @@
+{
+  "review_id": "PR-T007-20260602-2005",
+  "task_id": "T007",
+  "spec_id": "langgraph-native-decisiongraph",
+  "reviewer": "plan-review-agent",
+  "verdict": "revise_required",
+  "findings": [
+    {
+      "id": "P001",
+      "severity": "critical",
+      "category": "worker_ambiguity",
+      "file": ".agent-dev/tasks/T007-slices/S3-run-registry-checkpointer-boundary.md",
+      "line": 18,
+      "description": "The Stage1CheckpointStore downgrade does not define the concrete registry API/schema or how current showRun/resumeRun change, even though current code exposes checkpoint records and stores state_json."
+    },
+    {
+      "id": "P002",
+      "severity": "critical",
+      "category": "missing_decision",
+      "file": ".agent-dev/specs/langgraph-native-decisiongraph/spec.md",
+      "line": 40,
+      "description": "The plan requires Studio, workflow CLI, and trader-cli to run the same graph, but does not decide whether direct Studio invocation creates run registry metadata, uses fixtures only, or persists real domain facts without registry records."
+    },
+    {
+      "id": "P003",
+      "severity": "important",
+      "category": "dependency_risk",
+      "file": ".agent-dev/specs/langgraph-native-decisiongraph/spec.md",
+      "line": 51,
+      "description": "The langgraph.json plan only specifies graphs and does not pin required config keys such as dependencies or env handling, while the LangGraph CLI docs require a config declaring dependencies and graphs."
+    },
+    {
+      "id": "P004",
+      "severity": "important",
+      "category": "worker_ambiguity",
+      "file": ".agent-dev/tasks/T007-slices/S1-studio-native-foundation.md",
+      "line": 12,
+      "description": "S1 requires a real decisionGraph export and Studio load before S2 migrates native nodes, forcing the worker either to create a forbidden placeholder/single-node wrapper or silently pull S2 into S1."
+    },
+    {
+      "id": "P005",
+      "severity": "important",
+      "category": "verification_gap",
+      "file": ".agent-dev/specs/langgraph-native-decisiongraph/spec.json",
+      "line": 246,
+      "description": "The verification gates do not require explicit assertions for compiled-graph invocation, bounded run metadata, backend/LLM prerequisites, or Studio graph invocation/listing behavior."
+    },
+    {
+      "id": "P006",
+      "severity": "minor",
+      "category": "artifact_gap",
+      "file": ".agent-dev/specs/langgraph-native-decisiongraph/spec.json",
+      "line": 4,
+      "description": "The spec remains draft and dev-plan.md is absent; this is not the main technical blocker, but it weakens the Phase 5 artifact gate if T007 is considered ready for implementation approval."
+    }
+  ],
+  "open_decisions": [
+    "Should Studio direct invocation be real-persistence, fixture-only, or load-only?",
+    "Is thread_id equal to run_id, derived from it, or a separate id stored in registry metadata?",
+    "What exact runs show RUN_ID --json shape is preserved after native checkpointer adoption?",
+    "Should S1 and S2 remain separate, or should the Studio real compiled graph gate move after S2?",
+    "Which langgraph.json keys are required for this repo: dependencies, env, node_version, or only graphs?"
+  ],
+  "acceptance_verification_gaps": [
+    "A001 needs a concrete config-shape check, not only JSON parse plus manual smoke.",
+    "A003 needs an assertion that runDecisionGraph invokes the compiled graph path.",
+    "A004/A005 need checks that registry metadata is bounded and LangGraph owns native graph state.",
+    "A006 needs a diff/test check that runs show and checkpoint metadata do not expose raw or large state.",
+    "V302 needs backend, repo-root env, and LLM prerequisites or a documented fallback.",
+    "V304 should include git diff forbidden-path and content audits."
+  ],
+  "evidence": {
+    "files_inspected_count": 28,
+    "codegraph": {
+      "available": true,
+      "status": "439 indexed files, 7008 nodes, 15625 edges",
+      "used": [
+        "codegraph_context for T007 DecisionGraph/Stage1Runtime/Stage1CheckpointStore surface",
+        "codegraph_search for DecisionGraph, Stage1CheckpointStore, runDecisionGraph",
+        "codegraph_trace handleDecideCommandAsync to runDecisionGraph"
+      ]
+    },
+    "external": [
+      "LangGraph JS local-server docs",
+      "LangGraph CLI docs",
+      "npm view metadata for @langchain/langgraph, @langchain/langgraph-cli, @langchain/langgraph-checkpoint-sqlite"
+    ]
+  },
+  "summary": {
+    "critical_count": 2,
+    "important_count": 3,
+    "minor_count": 1,
+    "open_decision_count": 5,
+    "verdict": "revise_required"
+  }
+}

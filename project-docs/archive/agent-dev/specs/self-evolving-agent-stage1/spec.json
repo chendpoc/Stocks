@@ -1,0 +1,437 @@
+{
+  "id": "self-evolving-agent-stage1",
+  "title": "Self-Evolving Trading Agent Stage 1：LangGraph Minimal Durable Workflow",
+  "status": "draft",
+  "source_docs": [
+    "project-docs/research-reports/deep-research-report.md",
+    "project-docs/workflows/agent-dev-workflow.md",
+    "project-docs/adr/0001-langgraph-minimal-stage1.md",
+    "CONTEXT.md",
+    ".agent-dev/specs/self-evolving-agent-stage1/decision-record.json"
+  ],
+  "scope": {
+    "create": [
+      "project-docs/adr/0001-langgraph-minimal-stage1.md",
+      ".agent-dev/specs/self-evolving-agent-stage1/**",
+      ".agent-dev/tasks/T006.json",
+      ".agent-dev/tasks/T006.md",
+      ".agent-dev/tasks/T006-slices/**",
+      ".agent-dev/self-evolving-agent-stage1-worker-prompt.md",
+      "apps/trader-workflows/**",
+      "apps/trader-workflows/src/index.ts",
+      "apps/trader-workflows/src/runtime/checkpointStore.ts",
+      "apps/trader-workflows/src/llm/provider.ts",
+      "apps/trader-cli/src/commands/runs.ts",
+      "apps/trader-cli/src/commands/outcomes.ts",
+      "apps/trader-cli/src/commands/eval.ts",
+      "apps/trader-cli/src/commands/insights.ts",
+      "apps/trader-cli/src/commands/decide.ts",
+      "apps/trader-agent/backend/app/intel/api/stage1.py",
+      "apps/trader-agent/backend/tests/test_intel_stage1_schema_api.py",
+      "apps/trader-workflows/src/services/contextSnapshots.ts",
+      "apps/trader-workflows/src/services/outcomes.ts",
+      "apps/trader-workflows/src/services/evaluation.ts",
+      "apps/trader-workflows/src/services/insightCandidates.ts"
+    ],
+    "modify": [
+      "CONTEXT.md",
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-agent/backend/app/intel/api/__init__.py",
+      "apps/trader-cli/src/index.ts",
+      "apps/trader-cli/package.json",
+      "package.json",
+      ".agent-dev/context/code_map.md",
+      "CLAUDE.md"
+    ],
+    "forbidden": [
+      "apps/trader-cockpit/**",
+      "apps/trader-chart/**",
+      "apps/trader-agent/backend/app/modules/document_indexer.py",
+      "apps/trader-agent/backend/app/modules/local_search.py",
+      "apps/trader-agent/backend/app/modules/memory_service.py",
+      "apps/trader-agent/backend/app/modules/context_selector.py",
+      "data/trader-agent/trader-agent.db",
+      "apps/trader-cli/src/services/longbridgeCli.ts",
+      "apps/trader-cli/src/llm/longbridgeTools.ts"
+    ],
+    "readonly_import": [
+      "apps/trader-agent/backend/app/intel/api/context.py",
+      "apps/trader-agent/backend/app/intel/db/connection.py"
+    ]
+  },
+  "decisions": [
+    { "ref": "D001", "brief": "Stage 1 MVP 是 Decision + Outcome，暂不强制 paper execution" },
+    { "ref": "D002", "brief": "Stage 1 采用 LangGraph minimal runtime" },
+    { "ref": "D003", "brief": "Multimodal Market Intelligence Graph 是 context provider" },
+    { "ref": "D004", "brief": "受控 ReAct，区分 InsightCandidate 与 AcceptedLesson" },
+    { "ref": "D005", "brief": "AcceptedLesson 必须经过 replay/outcome evidence" },
+    { "ref": "D006", "brief": "DecisionGraph 只消费 ContextSnapshot + evidence_refs" },
+    { "ref": "D007", "brief": "Raw Evidence 经 processors 转为 WeightedContextItem" },
+    { "ref": "D008", "brief": "权重采用规则基础权重 + LLM rerank + 上限约束" },
+    { "ref": "D009", "brief": "历史 ContextSnapshot 不可变，outcome 只影响未来权重策略" },
+    { "ref": "D010", "brief": "只有 durable/HITL/long-running workflow 使用 LangGraph" },
+    { "ref": "D011", "brief": "Stage 1 包含 InsightExplorationGraph v0，只产出 InsightCandidate" },
+    { "ref": "D012", "brief": "TUI 后移，Stage 1 使用 CLI/report/LangGraph UI" },
+    { "ref": "D013", "brief": "domain DB 与 LangGraph checkpoint store 分离" },
+    { "ref": "D014", "brief": "Stage 1 最小新增 domain tables" },
+    { "ref": "D015", "brief": "outcome horizons 为 30m/1h/EOD/1d/3d" },
+    { "ref": "D016", "brief": "outcome label 采用 absolute + relative benchmark + invalidation/target proxy" },
+    { "ref": "D017", "brief": "按 action 分层要求 trade_plan / invalidation / target" },
+    { "ref": "D018", "brief": "保留 PAPER_*_CANDIDATE，但 Stage 1 不执行 paper order" },
+    { "ref": "D019", "brief": "允许 HumanOverride，但原始 DecisionEnvelope 不可变" },
+    { "ref": "D020", "brief": "采用 model_path / override_path 双轨评估" },
+    { "ref": "D021", "brief": "Stage 1 只做 promotion recommendation，不自动升级模型" },
+    { "ref": "D022", "brief": "PromotionRecommendation 先做当前模型单臂评估，不强制 challenger" },
+    { "ref": "D023", "brief": "CLI 通过 workflow app JSON command contract 触发 workflow，不直接 import graph/runtime" },
+    { "ref": "D024", "brief": "LangGraph checkpoint 默认写入 data/trader-workflows/checkpoints.sqlite，可由 TRADER_WORKFLOWS_CHECKPOINT_DB 覆盖" },
+    { "ref": "D025", "brief": "Stage 1 backend API 统一挂在 /api/intel/stage1，负责 domain facts 的 create/list/detail 与不可变写入约束" },
+    { "ref": "D026", "brief": "apps/trader-workflows 自有 LLM provider；CLI provider 只可作为 env 命名参考，不可 import" },
+    { "ref": "D027", "brief": "DecisionGraph 预创建 decision_outcomes pending rows；OutcomeGraph 只 finalize due pending rows" },
+    { "ref": "D028", "brief": "S1 采用 @langchain/langgraph + 项目内 SQLite checkpoint/run-store facade" }
+  ],
+  "contracts": {
+    "graphs": [
+      "DecisionGraph",
+      "OutcomeGraph",
+      "EvaluationGraph",
+      "InsightExplorationGraph"
+    ],
+    "app_boundaries": {
+      "apps/trader-workflows": "LangGraph durable runtime, graph implementations, checkpoint store, and graph-level tests",
+      "apps/trader-agent/backend": "market_intel.db domain schema/API only; no LangGraph runtime",
+      "apps/trader-cli": "thin command wrappers only; no graph implementation"
+    },
+    "reference_only_modules": {
+      "apps/trader-cli/src/api/client.ts": "Read for TRADER_API_BASE convention only; apps/trader-workflows must own its own api client and must not import from trader-cli.",
+      "apps/trader-cli/src/llm/provider.ts": "Read for LLM env naming only; apps/trader-workflows must own apps/trader-workflows/src/llm/provider.ts and must not import from trader-cli."
+    },
+    "workflow_cli_contract": {
+      "workflow_app_script": "npm --prefix apps/trader-workflows run workflows --",
+      "root_script": "npm run trader-workflows --",
+      "workflow_app_package": {
+        "name": "trader-workflows",
+        "type": "module",
+        "bin": { "trader-workflows": "./src/index.ts" },
+        "scripts": {
+          "workflows": "tsx src/index.ts",
+          "test": "tsx --test"
+        },
+        "required_dependencies": ["@langchain/langgraph", "better-sqlite3"],
+        "required_dev_dependencies": ["@types/better-sqlite3", "@types/node", "tsx", "typescript"]
+      },
+      "wrapper_rule": "apps/trader-cli commands spawn the workflow app command with --json, pass through non-zero exit codes, and do not import apps/trader-workflows source files.",
+      "json_envelope": {
+        "ok": "boolean",
+        "command": "string",
+        "run_id": "string | null",
+        "status": "queued | running | interrupted | succeeded | failed | cancelled | null",
+        "data": "object | null",
+        "error": "object | null"
+      },
+      "commands": [
+        {
+          "cli": "trader runs list --json",
+          "workflow": "runs list --json",
+          "expect": "Lists workflow runtime runs from the checkpoint/run store."
+        },
+        {
+          "cli": "trader runs show RUN_ID --json",
+          "workflow": "runs show RUN_ID --json",
+          "expect": "Shows run metadata, current node, status, timestamps, checkpoint reference, and latest error if any."
+        },
+        {
+          "cli": "trader runs resume RUN_ID --json",
+          "workflow": "runs resume RUN_ID --json",
+          "expect": "Resumes an interrupted or resumable run without creating a duplicate domain decision."
+        },
+        {
+          "cli": "trader decide SYMBOL --json",
+          "workflow": "decide SYMBOL --json",
+          "expect": "Starts DecisionGraph v0 and returns run_id plus persisted decision_id when completed."
+        },
+        {
+          "cli": "trader outcomes run --due --json",
+          "workflow": "outcomes run --due --json",
+          "expect": "Labels due outcome horizons only."
+        },
+        {
+          "cli": "trader eval summary --json",
+          "workflow": "eval summary --json",
+          "expect": "Returns latest evaluation report with hold or needs_more_data recommendation."
+        },
+        {
+          "cli": "trader insights explore --symbol SYMBOL --window WINDOW --json",
+          "workflow": "insights explore --symbol SYMBOL --window WINDOW --json",
+          "expect": "Creates InsightCandidate only."
+        }
+      ]
+    },
+    "runtime_state_contract": {
+      "checkpoint_env": "TRADER_WORKFLOWS_CHECKPOINT_DB",
+      "default_checkpoint_db": "data/trader-workflows/checkpoints.sqlite",
+      "test_checkpoint_db": "temporary test directory; never data/trader-agent/market_intel.db",
+      "dependency_strategy": {
+        "langgraph_package": "@langchain/langgraph",
+        "sqlite_driver": "better-sqlite3",
+        "adapter": "apps/trader-workflows/src/runtime/checkpointStore.ts exports a Stage1CheckpointStore facade over the local SQLite checkpoint/run store",
+        "rule": "Graph code depends on Stage1CheckpointStore, not raw SQLite. If an official LangGraph SQLite saver is added later, wrap it behind the same facade without changing graph or CLI contracts."
+      },
+      "runtime_state_only": [
+        "graph run state",
+        "current node",
+        "resume or interrupt metadata",
+        "checkpoint lineage",
+        "latest runtime error"
+      ],
+      "run_status": ["queued", "running", "interrupted", "succeeded", "failed", "cancelled"],
+      "separation_rule": "Runtime run metadata and checkpoints live in the LangGraph checkpoint/run store; trading-domain facts live only behind the backend Stage 1 API."
+    },
+    "stage1_api_contract": {
+      "base_path": "/api/intel/stage1",
+      "client_base_env": "TRADER_API_BASE",
+      "default_client_base": "http://127.0.0.1:8000/api/intel",
+      "idempotency_rule": "Create endpoints must accept deterministic ids or idempotency keys. Repeating the same id with the same payload returns the existing record; repeating with different immutable payload returns 409.",
+      "error_semantics": {
+        "400": "invalid query or unsupported operation",
+        "404": "record not found",
+        "409": "immutable record conflict or duplicate different payload",
+        "422": "schema validation failed"
+      },
+      "tables": {
+        "context_snapshots": {
+          "immutable": true,
+          "fields": ["snapshot_id", "symbol", "asof_ts", "context_version", "items_json", "evidence_refs_json", "weighting_policy_version", "context_hash", "created_at"],
+          "unique_constraints": [
+            { "name": "pk_context_snapshots", "columns": ["snapshot_id"] },
+            { "name": "uq_context_snapshots_context_hash", "columns": ["context_hash"] }
+          ],
+          "routes": ["POST /context-snapshots", "GET /context-snapshots/{snapshot_id}", "GET /context-snapshots?symbol=&limit="]
+        },
+        "model_decisions": {
+          "immutable_fields": ["decision_json", "snapshot_id", "model_provider", "model_name", "model_version", "action", "created_at"],
+          "append_only_fields": ["human_overrides_json"],
+          "fields": ["decision_id", "run_id", "snapshot_id", "symbol", "model_provider", "model_name", "model_version", "action", "confidence", "uncertainty", "decision_json", "human_overrides_json", "status", "created_at"],
+          "routes": ["POST /model-decisions", "GET /model-decisions/{decision_id}", "GET /model-decisions?symbol=&model_version=&limit=", "POST /model-decisions/{decision_id}/human-overrides"]
+        },
+        "decision_outcomes": {
+          "lifecycle": "DecisionGraph pre-creates one pending row per decision_id + horizon + path. OutcomeGraph reads due pending rows and finalizes each row exactly once.",
+          "mutable_until_final": true,
+          "immutable_after_status": ["labeled", "skipped", "failed"],
+          "status_values": ["pending", "labeled", "skipped", "failed"],
+          "fields": ["outcome_id", "decision_id", "symbol", "horizon", "path", "status", "due_at", "scheduled_at", "reference_price", "future_price", "absolute_return_pct", "benchmark_symbol", "benchmark_return_pct", "relative_return_pct", "hit_invalidation_proxy", "hit_target_proxy", "label", "outcome_json", "created_at", "updated_at", "labeled_at"],
+          "unique_constraints": [
+            { "name": "pk_decision_outcomes", "columns": ["outcome_id"] },
+            { "name": "uq_decision_outcomes_decision_horizon_path", "columns": ["decision_id", "horizon", "path"] }
+          ],
+          "routes": ["POST /decision-outcomes/schedule", "GET /decision-outcomes/due?now=&limit=&symbol=", "POST /decision-outcomes/{outcome_id}/label", "GET /decision-outcomes?decision_id=&symbol=&status=&limit="],
+          "transition_rules": [
+            "schedule creates pending rows only",
+            "label can transition pending to labeled, skipped, or failed",
+            "final rows cannot be relabeled or rewritten",
+            "duplicate schedule with same decision_id + horizon + path and same payload is idempotent",
+            "duplicate schedule with different payload returns 409"
+          ]
+        },
+        "insight_candidates": {
+          "immutable": true,
+          "fields": ["insight_id", "run_id", "symbols_json", "window_start", "window_end", "thesis", "evidence_refs_json", "verification_status", "weight_cap", "candidate_json", "created_at"],
+          "routes": ["POST /insight-candidates", "GET /insight-candidates/{insight_id}", "GET /insight-candidates?symbol=&verification_status=&limit="]
+        },
+        "evaluation_reports": {
+          "immutable": true,
+          "fields": ["report_id", "model_version", "window_start", "window_end", "metrics_json", "recommendation", "report_json", "created_at"],
+          "routes": ["POST /evaluation-reports", "GET /evaluation-reports/{report_id}", "GET /evaluation-reports?model_version=&limit="],
+          "recommendation_values": ["hold", "needs_more_data"]
+        },
+        "weighting_policy_stats": {
+          "immutable_snapshots": false,
+          "fields": ["policy_version", "source_key", "stats_json", "updated_at"],
+          "routes": ["GET /weighting-policy-stats", "POST /weighting-policy-stats"]
+        }
+      }
+    },
+    "llm_provider_contract": {
+      "owner": "apps/trader-workflows/src/llm/provider.ts",
+      "reference_only": "apps/trader-cli/src/llm/provider.ts",
+      "env": ["LLM_PROVIDER", "LLM_API_KEY", "OPENAI_API_KEY", "LLM_MODEL", "LLM_BASE_URL"],
+      "rule": "DecisionGraph and InsightExplorationGraph use the workflow-owned provider. Do not import the CLI provider into apps/trader-workflows."
+    },
+    "normal_services": [
+      "data_fetch",
+      "ocr_or_image_caption",
+      "chunking",
+      "embedding",
+      "kline_feature_extraction",
+      "calendar_normalization",
+      "vector_indexing"
+    ],
+    "domain_tables": [
+      "context_snapshots",
+      "model_decisions",
+      "decision_outcomes",
+      "insight_candidates",
+      "evaluation_reports",
+      "weighting_policy_stats"
+    ],
+    "outcome_horizons": ["30m", "1h", "EOD", "1d", "3d"],
+    "outcome_label_fields": [
+      "absolute_return_pct",
+      "benchmark_symbol",
+      "benchmark_return_pct",
+      "relative_return_pct",
+      "hit_invalidation_proxy",
+      "hit_target_proxy",
+      "label"
+    ],
+    "decision_actions": [
+      "NO_TRADE",
+      "WATCH",
+      "WAIT_TRIGGER",
+      "PAPER_ENTER_CANDIDATE",
+      "PAPER_EXIT_CANDIDATE",
+      "INVALIDATE"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "A101",
+      "check": "ADR and spec record LangGraph minimal durable runtime as Stage 1 architecture and supersede old Decision Store + TUI-only T006 direction",
+      "verified_by": ["V101", "V102"]
+    },
+    {
+      "id": "A102",
+      "check": "Stage 1 architecture separates market_intel.db domain facts from LangGraph checkpoint store runtime state",
+      "verified_by": ["V102", "V203"]
+    },
+    {
+      "id": "A103",
+      "check": "Context pipeline is defined as Raw Evidence -> processors -> WeightedContextItem -> immutable ContextSnapshot",
+      "verified_by": ["V102", "V202"]
+    },
+    {
+      "id": "A104",
+      "check": "DecisionGraph, OutcomeGraph, EvaluationGraph, and InsightExplorationGraph v0 are the only Stage 1 durable graphs",
+      "verified_by": ["V102", "V203", "V204", "V205", "V206", "V207"]
+    },
+    {
+      "id": "A105",
+      "check": "OutcomeGraph covers 30m/1h/EOD/1d/3d and labels absolute return, relative benchmark return, invalidation proxy, and target proxy",
+      "verified_by": ["V102", "V205"]
+    },
+    {
+      "id": "A106",
+      "check": "InsightExplorationGraph v0 can only persist InsightCandidate; AcceptedLesson requires replay/outcome evidence and is not part of Stage 1 auto-promotion",
+      "verified_by": ["V102", "V207"]
+    },
+    {
+      "id": "A107",
+      "check": "HumanOverride preserves immutable original DecisionEnvelope and uses model_path / override_path dual-track evaluation",
+      "verified_by": ["V102", "V206"]
+    },
+    {
+      "id": "A108",
+      "check": "Stage 1 defers self-built TUI pages, paper execution, broker mirror, auto-training, auto-promotion, and complete model registry",
+      "verified_by": ["V102", "V208"]
+    },
+    {
+      "id": "A109",
+      "check": "CLI wrappers use the workflow app JSON command contract and do not import graph/runtime implementation",
+      "verified_by": ["V203", "V208"]
+    },
+    {
+      "id": "A110",
+      "check": "Stage 1 backend API exposes explicit create/list/detail routes with immutable/idempotent write semantics",
+      "verified_by": ["V201", "V202", "V204", "V205", "V206", "V207"]
+    },
+    {
+      "id": "A111",
+      "check": "Workflow runtime owns checkpoint path, Stage1CheckpointStore facade, and LLM provider instead of importing CLI internals",
+      "verified_by": ["V203", "V204", "V207", "V208"]
+    },
+    {
+      "id": "A112",
+      "check": "DecisionGraph pre-creates pending decision_outcomes rows and OutcomeGraph finalizes due pending rows exactly once",
+      "verified_by": ["V201", "V204", "V205"]
+    }
+  ],
+  "non_goals": [
+    "self-built TUI pages for Decisions/Outcomes/Insights/Eval in Stage 1",
+    "paper order submit/query/cancel",
+    "Broker Mirror or Reconciler",
+    "automatic model promotion or model switching",
+    "complete Model Registry",
+    "automatic model training",
+    "full multimodal intelligence schema",
+    "rewriting historical ContextSnapshot weights",
+    "LLM-only promotion from InsightCandidate to AcceptedLesson",
+    "legacy hypotheses/predictions dual-write"
+  ],
+  "verification": [
+    {
+      "id": "V101",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/self-evolving-agent-stage1/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/self-evolving-agent-stage1/decision-record.json | ConvertFrom-Json | Out-Null",
+      "expect": "Stage 1 spec and decision record parse as JSON",
+      "blocking": true
+    },
+    {
+      "id": "V102",
+      "command": "manual: Review Stage 1 architecture against project-docs/research-reports/deep-research-report.md, CONTEXT.md, and project-docs/adr/0001-langgraph-minimal-stage1.md",
+      "expect": "Accepted decisions, non-goals, graph boundaries, storage split, outcome horizons, and T006 supersession are consistent",
+      "blocking": true
+    },
+    {
+      "id": "V103",
+      "command": "git diff --check -- CONTEXT.md project-docs/adr/0001-langgraph-minimal-stage1.md .agent-dev/specs/self-evolving-agent-stage1 .agent-dev/specs/model-decision-store .agent-dev/tasks/T006.json .agent-dev/tasks/T006.md .agent-dev/tasks/T006-slices .agent-dev/model-decision-store-worker-prompt.md .agent-dev/self-evolving-agent-stage1-worker-prompt.md",
+      "expect": "No whitespace errors in architecture artifacts",
+      "blocking": true
+    },
+    {
+      "id": "V201",
+      "command": ".venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_stage1_schema_api.py -v --tb=short",
+      "expect": "Stage 1 domain schema/API tests pass for context snapshots, decisions, outcomes, insight candidates, evaluation reports, and weighting policy stats",
+      "blocking": true
+    },
+    {
+      "id": "V202",
+      "command": "cd apps/trader-workflows && npm test -- src/services/contextSnapshots.test.ts",
+      "expect": "WeightedContextItem and immutable ContextSnapshot service tests pass",
+      "blocking": true
+    },
+    {
+      "id": "V203",
+      "command": "cd apps/trader-workflows && npm test -- src/runtime/stage1Runtime.test.ts",
+      "expect": "LangGraph runtime foundation supports checkpoint, resume, run status, and checkpoint/domain-store separation",
+      "blocking": true
+    },
+    {
+      "id": "V204",
+      "command": "cd apps/trader-workflows && npm test -- src/graphs/decisionGraph.test.ts",
+      "expect": "DecisionGraph validates immutable DecisionEnvelope, persists decision/context snapshot, and pre-creates pending outcome rows for fixed horizons without paper execution",
+      "blocking": true
+    },
+    {
+      "id": "V205",
+      "command": "cd apps/trader-workflows && npm test -- src/graphs/outcomeGraph.test.ts src/services/outcomes.test.ts",
+      "expect": "OutcomeGraph reads due pending rows and finalizes them exactly once with 30m/1h/EOD/1d/3d labels, absolute return, benchmark-relative return, invalidation proxy, and target proxy fields",
+      "blocking": true
+    },
+    {
+      "id": "V206",
+      "command": "cd apps/trader-workflows && npm test -- src/graphs/evaluationGraph.test.ts src/services/evaluation.test.ts",
+      "expect": "EvaluationGraph reports model_path, override_path, human override delta, and hold/needs_more_data recommendation without auto-promotion",
+      "blocking": true
+    },
+    {
+      "id": "V207",
+      "command": "cd apps/trader-workflows && npm test -- src/graphs/insightExplorationGraph.test.ts src/services/insightCandidates.test.ts",
+      "expect": "InsightExplorationGraph controlled ReAct persists InsightCandidate only and cannot create AcceptedLesson, trade, train, or promote",
+      "blocking": true
+    },
+    {
+      "id": "V208",
+      "command": "manual: run `npm run trader-cli -- runs list --json`, `npm run trader-cli -- decide TSLA.US --json`, capture `run_id`, run `npm run trader-cli -- runs show <RUN_ID_FROM_DECIDE> --json`, `npm run trader-cli -- outcomes run --due --json`, `npm run trader-cli -- eval summary --json`, and `npm run trader-cli -- insights explore --symbol TSLA.US --window 30d --json`; then review diff against forbidden/non-goal modules",
+      "expect": "CLI commands return the workflow JSON envelope, wrappers remain thin, report artifacts work, and diff contains no self-built TUI, paper execution, broker mirror, auto-training, auto-promotion, or legacy hypotheses/predictions dual-write",
+      "blocking": true
+    }
+  ]
+}

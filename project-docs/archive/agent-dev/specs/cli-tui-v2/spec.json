@@ -1,0 +1,161 @@
+{
+  "id": "cli-tui-v2",
+  "title": "CLI TUI 升级 + 缓存系统 + 新闻爬取",
+  "status": "approved",
+  "source_docs": [
+    ".agent-dev/specs/cli-tui-v2/dev-plan.md",
+    ".agent-dev/cli-tui-v2-worker-prompt.md",
+    ".agent-dev/specs/forward-market-intel/spec.json",
+    ".agent-dev/context/code_map.md"
+  ],
+  "scope": {
+    "create": [
+      "apps/trader-cli/src/tui/**",
+      "apps/trader-cli/src/cache/**",
+      "apps/trader-cli/src/commands/report.ts",
+      "apps/trader-cli/src/commands/chart.ts",
+      "apps/trader-cli/src/commands/config.ts",
+      "apps/trader-cli/src/commands/server.ts",
+      "apps/trader-cli/src/commands/data.ts",
+      "apps/trader-agent/backend/app/intel/ingestion/news_crawler.py",
+      "apps/trader-agent/backend/app/intel/features/cross_asset.py",
+      "apps/trader-agent/backend/app/intel/features/pattern_matcher.py",
+      "apps/trader-agent/backend/app/intel/api/report_cache.py",
+      "apps/trader-agent/backend/app/intel/api/news.py",
+      "apps/trader-agent/backend/tests/test_intel_cache_report.py",
+      "apps/trader-agent/backend/tests/test_intel_cache_market_ttl.py",
+      "apps/trader-agent/backend/tests/test_intel_news_crawler.py",
+      "apps/trader-agent/backend/tests/test_intel_pattern_matcher.py"
+    ],
+    "modify": [
+      "apps/trader-cli/package.json",
+      "apps/trader-cli/src/index.ts",
+      "apps/trader-cli/src/llm/tools.ts",
+      "apps/trader-cli/src/commands/chat.ts",
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-agent/backend/app/intel/db/__init__.py",
+      "apps/trader-agent/backend/app/intel/api/__init__.py",
+      "apps/trader-agent/backend/app/intel/api/context.py",
+      "apps/trader-agent/backend/app/intel/api/signals.py",
+      "apps/trader-agent/backend/app/intel/api/hypotheses.py",
+      "apps/trader-agent/backend/app/intel/features/scanner.py",
+      "apps/trader-agent/backend/app/intel/ingestion/market_data.py",
+      "apps/trader-agent/backend/app/main.py"
+    ],
+    "forbidden": [
+      "apps/trader-agent/backend/app/modules/**",
+      "apps/trader-agent/backend/app/core/**",
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "data/trader-agent/trader-agent.db"
+    ],
+    "readonly_import": [
+      "apps/trader-agent/backend/app/modules/corpus_search.py",
+      "apps/trader-agent/backend/app/modules/_json.py",
+      "apps/trader-agent/backend/app/modules/evidence_ref.py",
+      "apps/trader-agent/backend/app/core/time.py",
+      "apps/trader-agent/backend/app/core/config.py",
+      "apps/trader-agent/backend/app/core/events.py",
+      "apps/trader-agent/backend/app/db/session.py"
+    ]
+  },
+  "decisions": [
+    {"ref": "D101", "brief": "TUI: ink v7 + Commander.js 共存。ink 负责 trader / trader chat（无 --eval）两个 TUI 入口，Commander 负责其余命令行路由"},
+    {"ref": "D102", "brief": "context/build 注入 related_hypotheses（同 symbol 最近 3 条 hypothesis 业务记录），来源是 hypotheses 表 SQL 查询，跟 chat session 内存无关"},
+    {"ref": "D103", "brief": "新闻爬取: RSS + API + Web 全覆盖。清洗后存 events 表（source_type='news'），不另做备份。LLM 直接处理 events 中的 raw_text"},
+    {"ref": "D104", "brief": "Phase 划分: P0 是 TUI 框架的强前提；P1-P5 在 P0 完成后可并行（task.json depends_on 体现星型依赖）"},
+    {"ref": "D105", "brief": "report_cache: (symbol, report_date, latest_signal_ts) 唯一键；latest_signal_ts 由服务端在 /report/check 时实时算 MAX(ts) FROM signals 注入（见 D113）"},
+    {"ref": "D106", "brief": "服务管理: trader server start/stop/status。跨平台 Windows + macOS（process.platform 分支），Linux 暂不支持"},
+    {"ref": "D107", "brief": "K 线图: ASCII/Braille 渲染。P4 实现。基于 market_bars 数据，依赖 asciichart npm 包，不需要额外 API 请求"},
+    {"ref": "D108", "brief": "chat 对话历史: 在 ChatPage.tsx 客户端 state 维护（最近 20 轮 messages 数组），每次调 LLM 时作为 messages 传入。跟 related_hypotheses（业务记录注入）是两套独立机制"},
+    {"ref": "D109", "brief": "市场数据 TTL short-circuit: ingest_symbol 在 _latest_bar_ts + ingested_at 满足 TTL 时直接 return，不调用 fetch_*_bars，节省 HTTP 配额（A108 真实诉求）"},
+    {"ref": "D110", "brief": "patterns.trigger_sql 加列后必须在 _migrate_pattern_trigger_sql(conn) 里 UPDATE 回填 5 条 MVP_PATTERNS，否则 INSERT OR IGNORE 保留 NULL，pattern_matcher 静默失效"},
+    {"ref": "D111", "brief": "cross_asset / pattern_matcher 不进 SCANNERS registry（类型不匹配 per-symbol Callable），作为独立 pass 在 scan_all_symbols 之外计算，结果 attach 到 /signals/scan 响应"},
+    {"ref": "D112", "brief": "chat --eval <prompt> 走旧 readline/generateText 路径（保留 CI smoke 兼容），无参数 chat 进 ink TUI ChatPage"},
+    {"ref": "D113", "brief": "report_cache invalidate 策略: /report/check 服务端实时 SELECT MAX(ts) FROM signals WHERE symbol=:symbol，作为 latest_signal_ts 与 cache 行做 join 匹配；任何新信号入库自动让旧 cache 失效（无侵入 scanner）"},
+    {"ref": "D114", "brief": "schema 演进沿用 schema.py 单文件 + _migrate_*_columns 模式（与现有 _migrate_lessons_columns 一致），不新建 migrations_v2.py。新表加入 _SCHEMA_STATEMENTS，新列加入对应 _migrate_*_columns 表"}
+  ],
+  "acceptance": [
+    {"id": "A101", "check": "CLI 启动后展示 ink TUI 主界面（侧边菜单 + 内容区 + 快捷键栏）", "verified_by": ["V101"]},
+    {"id": "A102", "check": "trader chat 模式下 LLM 通过 context/build 拿到 related_hypotheses（同 symbol 最近 3 条业务记录）作为上下文", "verified_by": ["V109"]},
+    {"id": "A103", "check": "trader data ingest 仅在 market_bars 未过 TTL 时跳过 yfinance HTTP 调用（不仅是不 INSERT，而是不发请求）", "verified_by": ["V108"]},
+    {"id": "A104", "check": "trader report TSLA 首次生成调 LLM，同一天重复生成（无新信号）走 report_cache 命中；scan 产生新信号后下次 report 自动 miss 重算", "verified_by": ["V104"]},
+    {"id": "A105", "check": "trader chart TSLA 显示 ASCII K 线图", "verified_by": ["V103"]},
+    {"id": "A106", "check": "新闻爬虫支持 RSS/API/Web 源，爬取结果写入 events 表（source_type='news'）", "verified_by": ["V106"]},
+    {"id": "A107", "check": "trader server start/stop/status 可管理后端服务生命周期（Windows + macOS）", "verified_by": ["V107"]},
+    {"id": "A108", "check": "所有数据源请求前先查 DB TTL，命中则跳过 HTTP（API 友好策略）", "verified_by": ["V108"]},
+    {"id": "A109", "check": "chat 客户端对话历史在 ChatPage state 维护最近 20 轮，generateText messages 参数携带", "verified_by": ["V102"]},
+    {"id": "A110", "check": "chat --eval <prompt> 仍走旧 readline 一次性路径，CI smoke 不回归", "verified_by": ["V109"]},
+    {"id": "A111", "check": "pattern_matcher 遍历 patterns.trigger_sql 非 NULL 行，触发条件满足时生成 pattern_alert signal；5 条 MVP_PATTERNS 在 migration 后均有 trigger_sql 值", "verified_by": ["V110"]}
+  ],
+  "non_goals": [
+    "不做 GUI 桌面应用",
+    "不做实时行情推送（WebSocket）",
+    "不做多用户服务管理",
+    "不做复杂新闻 NLP 处理（仅爬取+存储+关键词过滤）",
+    "不做 Level 2 / tick 数据缓存",
+    "不支持 Linux 平台的 trader server 管理（MVP 仅 Windows + macOS）"
+  ],
+  "verification": [
+    {
+      "id": "V101",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts",
+      "expect": "启动 ink TUI 主界面（侧栏菜单可见，Ctrl+C 退出）",
+      "blocking": true
+    },
+    {
+      "id": "V102",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts chat",
+      "expect": "启动 TUI ChatPage，对话历史在 state 维护，LLM 可调 tool 获取上下文",
+      "blocking": true
+    },
+    {
+      "id": "V103",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts chart TSLA",
+      "expect": "终端渲染 ASCII K 线图（基于 market_bars 1d/30 条），命令行输出不启动 TUI",
+      "blocking": false
+    },
+    {
+      "id": "V104",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts report TSLA && npx tsx src/index.ts report TSLA",
+      "expect": "第一次调 LLM 生成报表，第二次 <1s 返回并提示 [缓存命中]（report_cache 表 latest_signal_ts join 匹配）",
+      "blocking": true
+    },
+    {
+      "id": "V105",
+      "command": ".venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_cache_report.py -v --tb=short",
+      "expect": "all pass: 插入命中、新信号入库自动失效、同 symbol 不同 date 隔离",
+      "blocking": true
+    },
+    {
+      "id": "V106",
+      "command": "curl -s -X POST localhost:8000/api/intel/news/ingest && .venv/Scripts/python.exe -c \"import sqlite3; c=sqlite3.connect('data/market_intel.db'); n=c.execute(\\\"SELECT COUNT(*) FROM events WHERE source_type='news'\\\").fetchone()[0]; assert n>0, f'expected events.source_type=news rows, got {n}'\"",
+      "expect": "/news/ingest 端点返回 200，events 表至少有 1 条 source_type='news'",
+      "blocking": true
+    },
+    {
+      "id": "V107",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts server status",
+      "expect": "输出包含 status:ok 与 intel_route_count>=14（验 server status 子命令可调 /health；start/stop 通过单元测试覆盖）",
+      "blocking": true
+    },
+    {
+      "id": "V108",
+      "command": ".venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_cache_market_ttl.py -v --tb=short",
+      "expect": "all pass: TTL 内 ingest_symbol 不调 fetch_daily_bars / fetch_minute_bars（mock 断言 0 calls）；TTL 过期重新拉取",
+      "blocking": true
+    },
+    {
+      "id": "V109",
+      "command": "cd apps/trader-cli && npx tsx src/index.ts chat --eval \"列出 TSLA 之前的假设记录\"",
+      "expect": "走旧 readline 一次性路径（不进 TUI），LLM 调 buildContext 拿到 related_hypotheses，输出文本包含至少 1 条历史 claim 或明确说明无历史记录",
+      "blocking": false
+    },
+    {
+      "id": "V110",
+      "command": ".venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_pattern_matcher.py -v --tb=short",
+      "expect": "all pass: migration 后 5 条 MVP_PATTERNS 的 trigger_sql 非 NULL；pattern_matcher 在触发条件满足时插入 pattern_alert signal",
+      "blocking": true
+    }
+  ]
+}

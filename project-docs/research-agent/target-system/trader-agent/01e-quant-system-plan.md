@@ -18,7 +18,7 @@ Confirmed: 2026-05-30 (all 6 decisions resolved)
 
 | # | 决策 | 结论 |
 |---|---|---|
-| 1 | Cockpit Phase B-C | 不做。terminal 交互替代 Web UI |
+| 1 | Web Cockpit Phase B-C | 不做。Web UI 已移除，terminal / CLI 交互替代 Web UI |
 | 2 | 交互形态 | TS CLI + agent 对话，都做 |
 | 3 | 行情数据源 | yfinance 主力，Alpha Vantage + Longbridge 备援。架构支持多源，默认只启 yfinance |
 | 4 | 数据缓存 | SQLite 缓存表，TTL 60s |
@@ -41,7 +41,7 @@ Confirmed: 2026-05-30 (all 6 decisions resolved)
 
 ## 2. 非目标
 
-- 不做 Cockpit 前端开发
+- 不做 Web UI / Cockpit 前端开发
 - 不接入港股
 - 不涉及实盘交易执行
 - 不修改 RulePack setup 逻辑
@@ -265,7 +265,7 @@ trader chat                    # 进入 agent 对话模式
 - Rule Engine / Risk Engine / Scoring 核心逻辑
 - M0-M6 模块（market_data 可导入但不修改）
 - `document_chunks` / `document_chunks_fts`
-- Cockpit 前端代码（保留不动，但不再开发）
+- Web Cockpit 前端代码（已从 active workspace 移除；历史材料见 `project-docs/archive/trader-cockpit/`）
 
 ## 10. 测试
 

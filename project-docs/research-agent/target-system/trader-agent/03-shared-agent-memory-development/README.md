@@ -48,7 +48,7 @@ Source Artifact
 | 6 | [06-context-injection-policy.md](./06-context-injection-policy.md) | 定义 Agent 如何选择 active memory 注入上下文 |
 | 7 | [07-audit-and-rebuild-workflow.md](./07-audit-and-rebuild-workflow.md) | 定义 JSONL 审计、hash 检测、索引重建和回放 |
 
-实施计划放在 [plans/](./plans/)；不要放入 `02-web-agent-cockpit-development/plans/`。
+已完成的 M0-M6 实施计划已归档到 `project-docs/archive/shared-agent-memory/plans/`。本目录保留当前设计入口和模块说明。
 
 ## 4. 实现顺序
 
@@ -127,13 +127,13 @@ Agent Core 使用本模块：
 - 为 signal explanation 提供记忆引用。
 - 选择 active memory 注入结构化模型调用。
 
-### 6.2 Web Cockpit
+### 6.2 Workflow / CLI
 
-Cockpit 使用本模块：
+Workflow / CLI 使用本模块：
 
-- `/cockpit/settings/memory` 管理 candidate 和 active memory。
-- `/cockpit/learning` 从后验验证生成 candidate。
-- `/cockpit/agent` 展示回答使用了哪些 memory。
+- CLI memory review 命令管理 candidate 和 active memory。
+- Workflow learning 结果生成 candidate。
+- CLI/TUI answer trace 展示回答使用了哪些 memory。
 
 ### 6.3 Shared Platform
 

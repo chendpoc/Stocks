@@ -1,0 +1,66 @@
+{
+  "review_id": "PR-T005-20260601",
+  "task_id": "T005",
+  "spec_id": "trader-longbridge-agent-cli",
+  "reviewer": "plan-review-agent",
+  "findings": [
+    {
+      "id": "P001",
+      "severity": "critical",
+      "category": "source_conflict",
+      "file": ".agent-dev/tasks/T005.md",
+      "line": 5,
+      "description": "T005.json marks the task and all S0-S8 steps as done, but T005.md still says status=in_progress and the S0 drift table still describes pre-patch code state. The task cannot be used as a reliable source of truth until the markdown artifacts are reconciled with the JSON status."
+    },
+    {
+      "id": "P002",
+      "severity": "critical",
+      "category": "verification_gap",
+      "file": ".agent-dev/tasks/T005.json",
+      "line": 108,
+      "description": "S8 is marked done, but its verification only references V303 while the step description and exit criteria require V303, V304, and V306 manual evidence. A local run of the planned V306 command measured about 2167ms, not the stated <300ms target."
+    },
+    {
+      "id": "P003",
+      "severity": "important",
+      "category": "artifact_gap",
+      "file": ".agent-dev/tasks/T005.json",
+      "line": 8,
+      "description": "The durable plan reference points to c:\\Users\\31089\\.cursor\\plans\\t005_开发计划深度_review_53319747.plan.md instead of a repo-versioned dev-plan artifact. project-docs/workflows/agent-dev-workflow.md expects project artifacts under .agent-dev so a fresh reviewer can rehydrate the plan without local Cursor state."
+    },
+    {
+      "id": "P004",
+      "severity": "important",
+      "category": "verification_gap",
+      "file": "apps/trader-cli/src/llm/longbridgeTools.test.ts",
+      "line": 65,
+      "description": "The task/spec require getLongbridgeQuote to accept symbols:string[<=10], but the added test only covers the >10 MULTI_SYMBOL_LIMIT failure. The success path for a valid multi-symbol array is not verified."
+    }
+  ],
+  "summary": {
+    "critical_count": 2,
+    "important_count": 2,
+    "minor_count": 0,
+    "verdict": "revise_required"
+  },
+  "evidence": {
+    "codegraph": "CodeGraph CLI was available and codegraph context/query was used. MCP tools were not available in this session; codegraph callers for ensureLongbridgeAgentOnStartup returned no callers despite source imports, so direct file reads and rg were used as primary evidence.",
+    "verification": [
+      {
+        "command": "npm test -- src/services/longbridgeAgent.test.ts src/services/longbridgeCli.test.ts src/llm/longbridgeTools.test.ts",
+        "cwd": "apps/trader-cli",
+        "result": "exit 0; 35 passed"
+      },
+      {
+        "command": "npm test",
+        "cwd": "apps/trader-cli",
+        "result": "exit 0; 35 passed"
+      },
+      {
+        "command": "Measure-Command { npx tsx src/index.ts scan --help > $null }",
+        "cwd": "apps/trader-cli",
+        "result": "exit 0; about 2167ms"
+      }
+    ]
+  }
+}

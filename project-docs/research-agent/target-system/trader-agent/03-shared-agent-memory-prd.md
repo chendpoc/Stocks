@@ -10,7 +10,6 @@
 
 - [00-system-overview.md](./00-system-overview.md)
 - [01-agent-core-backend-prd.md](./01-agent-core-backend-prd.md)
-- [02-web-agent-cockpit-prd.md](./02-web-agent-cockpit-prd.md)
 - [03-shared-platform-roadmap-prd.md](./03-shared-platform-roadmap-prd.md)
 
 并行边界参考：
@@ -96,8 +95,8 @@ docs/search_index.json                # 现有轻量搜索索引雏形
 - SQLite FTS5 本地全文检索。
 - 图片和聊天记录的轻量 catalog。
 - 从资料片段和 learning 结果中生成 `MemoryCandidate`。
-- `/cockpit/settings/memory` 中的候选记忆管理。
-- `/cockpit/learning` 与 memory candidate 的连接。
+- 后端 API / CLI 中的候选记忆管理。
+- workflow learning 结果与 memory candidate 的连接。
 - active memory 的上下文注入策略。
 - JSONL 审计与索引重建流程。
 
@@ -412,9 +411,9 @@ created_at
 updated_at
 ```
 
-## 8. UI 入口
+## 8. Operator 入口
 
-### 8.1 `/cockpit/settings/memory`
+### 8.1 Backend / CLI memory review
 
 管理通用 shared memory：
 
@@ -437,7 +436,7 @@ Candidate table 支持：
 - 查看来源 section。
 - 查看将如何影响 Agent 上下文注入。
 
-### 8.2 `/cockpit/learning`
+### 8.2 Workflow learning integration
 
 管理市场学习和后验验证：
 
@@ -446,7 +445,7 @@ Candidate table 支持：
 - 新规律发现。
 - Learning Discovery 生成 Memory Candidate。
 
-### 8.3 `/cockpit/agent`
+### 8.3 CLI / TUI answer trace
 
 Agent 对话和活动视图只展示当前回答使用了哪些 memory，不在第一版承担完整 memory 编辑。
 
@@ -529,7 +528,7 @@ MemoryContextService.select_context(task, page, symbols, tags)
 MemoryAuditService.record(event)
 ```
 
-后续 Cockpit 接入时再补 REST API。
+后续如重新立项 Web UI，再补对应 REST/API 入口；当前默认面向 backend、workflow 和 CLI。
 
 ## 12. 验收标准
 
@@ -542,8 +541,8 @@ MemoryAuditService.record(event)
 5. Memory Candidate 必须关联 `EvidenceRef`，且至少一个 evidence 可解析。
 6. Candidate 只能人工确认后进入 active memory。
 7. Agent 不能静默更新或覆盖 active memory。
-8. `/cockpit/settings/memory` 是 memory 管理入口。
-9. `/cockpit/learning` 是市场 learning 管理入口。
+8. Backend / CLI 是 memory 管理入口。
+9. Workflow learning integration 是市场 learning 管理入口。
 10. JSONL audit 可以追踪 candidate 创建、确认、拒绝、合并、废弃和重建事件。
 11. PRD / 工程文档默认 `memory_eligible = false`，不会自动生成金融 memory candidate。
 

@@ -10,7 +10,7 @@
 
 本系统的目标不是构建一个普通量化机器人，也不是做一个新闻总结工具，而是构建一个：
 
-> **以顶级个人交易员历史语料为认知核心，以市场工具为验证能力，以规则和风控为行动边界，以复盘为学习机制，以 Web 工作台为人机协作界面的专业交易 Agent 系统。**
+> **以顶级个人交易员历史语料为认知核心，以市场工具为验证能力，以规则和风控为行动边界，以复盘为学习机制，以 workflow / CLI / TUI 为当前人机协作界面的专业交易 Agent 系统。**
 
 系统需要做到：
 
@@ -23,7 +23,7 @@
 → 输出 watch / waiting_trigger / triggered / invalidated 等清晰状态
 → 必要时生成条件型 trade ticket
 → 每日/每周复盘并提出规则优化建议
-→ 通过 Web 工作台让用户实时观察、对话、控制、审批和纠正 agent
+→ 通过 workflow / CLI / TUI 让用户观察、对话、控制、审批和纠正 agent
 ```
 
 ---
@@ -40,8 +40,8 @@
 Layer 1：Agent Core Backend
 负责 agent 的认知、判断、工具调用、规则、风控、学习和信号生成。
 
-Layer 2：Web Agent Cockpit
-负责用户与 agent 的实时交互、观察、控制、审批、任务设置和规则配置。
+Layer 2：Workflow / CLI Operator Interface
+负责用户与 agent 的交互、观察、控制、审批、任务设置和规则配置。
 
 Layer 3：Shared Platform Layer
 负责数据库、事件总线、API、任务调度、缓存、权限、审计、日志和工具网关。
@@ -51,8 +51,8 @@ Layer 3：Shared Platform Layer
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│                    Web Agent Cockpit                         │
-│   Live Dashboard / Chat / Tasks / Rules / Approvals / Journal│
+│              Workflow / CLI Operator Interface               │
+│      CLI / TUI / Run Viewer / Tasks / Rules / Approvals      │
 └───────────────────────────────┬──────────────────────────────┘
                                 │
                  REST / WebSocket / SSE / API
@@ -77,7 +77,7 @@ Layer 3：Shared Platform Layer
 | 层级 | 名称 | 核心职责 |
 |---|---|---|
 | Layer 1 | Agent Core Backend | 让 agent 会理解交易员、会分析市场、会发现机会、会风控、会学习 |
-| Layer 2 | Web Agent Cockpit | 让用户能实时看到、询问、控制、审批、纠正 agent |
+| Layer 2 | Workflow / CLI Operator Interface | 让用户能通过 workflow、CLI、TUI 观察、询问、控制、审批、纠正 agent |
 | Layer 3 | Shared Platform Layer | 让系统稳定运行，提供数据、事件、任务、工具、权限、日志和审计 |
 
 ---
@@ -218,7 +218,7 @@ Risk Engine 风控
     ↓
 生成 SignalCandidate
     ↓
-推送 Web Dashboard
+输出到 workflow run / CLI / TUI
     ↓
 必要时生成主动消息或审批请求
 ```
@@ -226,7 +226,7 @@ Risk Engine 风控
 ### 4.3 用户交互流程
 
 ```text
-用户在 Web 工作台查看 signal
+用户在 CLI / TUI 查看 signal
     ↓
 用户询问 agent
     ↓
@@ -377,17 +377,14 @@ LangGraph
 5. 不为“看起来专业”增加基础设施；每个组件必须对应明确瓶颈。
 ```
 
-### Frontend
+### Operator Interface
 
 ```text
-Next.js
-React
 TypeScript
-Tailwind CSS
-shadcn/ui
-TradingView Lightweight Charts
-TanStack Query
-Zustand
+Commander
+Ink TUI
+LangGraph CLI / Studio where applicable
+Local run viewer and JSON output
 ```
 
 ### Tool / Agent

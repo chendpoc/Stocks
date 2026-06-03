@@ -1,0 +1,345 @@
+{
+  "review_id": "R001",
+  "spec_id": "forward-market-intel",
+  "task_id": "T001",
+  "reviewer": "code-review-agent",
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/markdown_section_indexer.py",
+      "line": 131,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). Added artifact_ids parameter to index_markdown_sections()."
+    },
+    {
+      "id": "F002",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/market_snapshot.py",
+      "line": 3,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). EvidenceRef type migration and _evidence_ref_for_item() added."
+    },
+    {
+      "id": "F003",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/memory_service.py",
+      "line": 20,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). Added 'review_flags_json' to _JSON_FIELDS."
+    },
+    {
+      "id": "F004",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/playbook.py",
+      "line": 16,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). Changes related to memory_service imports and playbook aggregation."
+    },
+    {
+      "id": "F005",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/rebuild.py",
+      "line": 1,
+      "description": "NEW FILE in forbidden module (scope.forbidden: app/modules/**). 361-line rebuild module with backup, incremental_rebuild, scan_evidence_health."
+    },
+    {
+      "id": "F006",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/rule_engine.py",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). EvidenceRef type migration changes."
+    },
+    {
+      "id": "F007",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/runtime_orchestrator.py",
+      "line": 18,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). EvidenceRef integration and context_selector import retained (117 line diff)."
+    },
+    {
+      "id": "F008",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/scoring.py",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). Scoring weight and evidence ref changes."
+    },
+    {
+      "id": "F009",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/setup_detection.py",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). Setup detection changes (29 lines)."
+    },
+    {
+      "id": "F010",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/modules/signal_manager.py",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: app/modules/**). Major refactor: removed _event_payload(), switched to record_agent_event(), event_type renamed to 'signal_persisted' (90 lines)."
+    },
+    {
+      "id": "F011",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/core/config.py",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: app/core/**). Added os import and ALPHAVANTAGE_API_KEY env fallback logic."
+    },
+    {
+      "id": "F012",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/core/config.py",
+      "line": 1,
+      "description": "Modified readonly_import module (scope.readonly_import: app/core/config.py). Importing is allowed; MODIFYING is not."
+    },
+    {
+      "id": "F013",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-cockpit/components/cockpit/settings/SettingsWorkspace.tsx",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: apps/trader-cockpit/**). Added Link import and memory management navigation."
+    },
+    {
+      "id": "F014",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-cockpit/lib/cockpit/adapter.ts",
+      "line": 382,
+      "description": "Modified forbidden module (scope.forbidden: apps/trader-cockpit/**). Added 10+ knowledge types and memory/candidate/search interfaces."
+    },
+    {
+      "id": "F015",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-cockpit/lib/cockpit/mock-adapter.ts",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: apps/trader-cockpit/**). Added mock implementations for new knowledge endpoints."
+    },
+    {
+      "id": "F016",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-cockpit/lib/cockpit/real-readonly-adapter.ts",
+      "line": 1,
+      "description": "Modified forbidden module (scope.forbidden: apps/trader-cockpit/**). Added 10+ knowledge API methods (backup, rebuild, evidenceHealth, memory CRUD, etc)."
+    },
+    {
+      "id": "F017",
+      "severity": "blocker",
+      "rule": "scope_violation",
+      "file": "apps/trader-cockpit/next.config.ts",
+      "line": 10,
+      "description": "Modified forbidden module (scope.forbidden: apps/trader-cockpit/**). Added /api/knowledge/:path* proxy rewrite."
+    },
+    {
+      "id": "F018",
+      "severity": "blocker",
+      "rule": "decision_violation",
+      "file": "apps/trader-agent/backend/app/api/agent.py",
+      "line": 31,
+      "description": "Decision D010: '移除 context_selector.py + memory_service.py 只读引用'. Still imports select_context from app.modules.context_selector."
+    },
+    {
+      "id": "F019",
+      "severity": "blocker",
+      "rule": "decision_violation",
+      "file": "apps/trader-agent/backend/app/api/agent.py",
+      "line": 37,
+      "description": "Decision D010: '移除 context_selector.py + memory_service.py 只读引用'. Still imports 7 symbols from app.modules.memory_service."
+    },
+    {
+      "id": "F020",
+      "severity": "blocker",
+      "rule": "decision_violation",
+      "file": "apps/trader-agent/backend/app/modules/runtime_orchestrator.py",
+      "line": 18,
+      "description": "Decision D010: '移除 context_selector.py + memory_service.py 只读引用'. Still imports select_context from app.modules.context_selector."
+    },
+    {
+      "id": "F021",
+      "severity": "blocker",
+      "rule": "decision_violation",
+      "file": "apps/trader-agent/backend/app/modules/playbook.py",
+      "line": 16,
+      "description": "Decision D010: '移除 context_selector.py + memory_service.py 只读引用'. Still imports MemoryItemConflictError and create_memory_item from app.modules.memory_service."
+    },
+    {
+      "id": "F022",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/api/agent.py",
+      "line": 47,
+      "description": "Unexpected modify: file not in scope.create, scope.modify, or scope.forbidden. Added 5 rebuild endpoints (backup, incremental-rebuild, rebuild-artifacts, rebuild-status, evidence-health) and import from app.modules.rebuild."
+    },
+    {
+      "id": "F023",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/db/migrations.py",
+      "line": 10,
+      "description": "Unexpected modify: file not in scope. Added review_flags_json column patch for memory_items table."
+    },
+    {
+      "id": "F024",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/app/db/models.py",
+      "line": 260,
+      "description": "Unexpected modify: file not in scope. Added review_flags_json column to memory_items table definition."
+    },
+    {
+      "id": "F025",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/tests/test_explanation_service.py",
+      "line": 71,
+      "description": "Unexpected modify: file not in scope.create (only test_intel_*.py allowed). Updated event_type from dot-notation to 'signal_persisted'."
+    },
+    {
+      "id": "F026",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/tests/test_health.py",
+      "line": 11,
+      "description": "Unexpected modify: file not in scope.create. Added intel_route_count assertion (>= 14)."
+    },
+    {
+      "id": "F027",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/tests/test_migrations.py",
+      "line": 44,
+      "description": "Unexpected modify: file not in scope.create. Added test_bootstrap_adds_missing_review_flags_json_column."
+    },
+    {
+      "id": "F028",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/tests/test_rebuild.py",
+      "line": 1,
+      "description": "NEW FILE not in scope.create (only test_intel_*.py allowed). 802-line rebuild test suite with 16 tests."
+    },
+    {
+      "id": "F029",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/tests/test_runtime_orchestrator.py",
+      "line": 1,
+      "description": "Unexpected modify: file not in scope.create. EvidenceRef type changes across multiple test functions (81 lines)."
+    },
+    {
+      "id": "F030",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "apps/trader-agent/backend/tests/test_signal_pipeline.py",
+      "line": 1,
+      "description": "Unexpected modify: file not in scope.create. EvidenceRef type migration, event_type rename, and signal_manager refactor (50 lines)."
+    },
+    {
+      "id": "F031",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "PROJECT_META.md",
+      "line": 8,
+      "description": "Unexpected modify: root-level project meta not in scope. Updated scope to include Trader Agent, Cockpit, Forward Market Intel, Agent Dev Workflow."
+    },
+    {
+      "id": "F032",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "package.json",
+      "line": 31,
+      "description": "Unexpected modify: root-level config not in scope. Added trader-agent:backend:stop, trader-agent:backend:dev, trader-agent:backend:verify, trader-agent:intel:ping, trader-cli scripts."
+    },
+    {
+      "id": "F033",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "project-docs/research-agent/target-system/trader-agent/00-workflow-router.md",
+      "line": 69,
+      "description": "Unexpected modify: docs not in scope. Added §4.1 双文件 Artifact 规范 section."
+    },
+    {
+      "id": "F034",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/07-audit-and-rebuild-workflow.md",
+      "line": 36,
+      "description": "Unexpected modify: docs not in scope. Expanded event registry with Pipeline events, canonical-vs-legacy event name mapping."
+    },
+    {
+      "id": "F035",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/README.md",
+      "line": 1,
+      "description": "Unexpected modify: docs not in scope."
+    },
+    {
+      "id": "F036",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/06-m6-audit-rebuild.md",
+      "line": 1,
+      "description": "NEW FILE not in scope. 229-line M6 audit-rebuild plan."
+    },
+    {
+      "id": "F037",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/06-m6-worker-prompt.md",
+      "line": 1,
+      "description": "NEW FILE not in scope. 296-line M6 worker prompt."
+    },
+    {
+      "id": "F038",
+      "severity": "warning",
+      "rule": "scope_violation",
+      "file": "project-docs/research-agent/target-system/trader-agent/03-shared-agent-memory-development/plans/README.md",
+      "line": 14,
+      "description": "Unexpected modify: docs not in scope. Added M6 audit-rebuild row to plan table."
+    },
+    {
+      "id": "F039",
+      "severity": "info",
+      "rule": "missing_verification",
+      "file": "apps/trader-agent/backend/app/intel/",
+      "description": "scope.create expects app/intel/** — directory exists (untracked) with expected structure (api, context, db, features, ingestion, jobs, postmortem, trade). app/intel/llm/ correctly absent (D003 compliant). However, intel files are not committed to git."
+    },
+    {
+      "id": "F040",
+      "severity": "info",
+      "rule": "missing_verification",
+      "file": "apps/trader-cli/",
+      "description": "scope.create expects apps/trader-cli/** — directory exists (untracked) with src/ subdirectory but not committed to git."
+    },
+    {
+      "id": "F041",
+      "severity": "info",
+      "rule": "missing_verification",
+      "file": "apps/trader-agent/backend/tests/test_intel_*.py",
+      "description": "scope.create expects test_intel_*.py files — none found in git diff or tree. No Intel-specific tests created."
+    },
+    {
+      "id": "F042",
+      "severity": "info",
+      "rule": "missing_verification",
+      "file": "apps/trader-agent/backend/app/modules/context_selector.py",
+      "description": "Decision D010: '移除 context_selector.py'. File still exists on disk at apps/trader-agent/backend/app/modules/context_selector.py and is actively imported by agent.py:31 and runtime_orchestrator.py:18."
+    }
+  ],
+  "summary": {
+    "blocker_count": 21,
+    "warning_count": 17,
+    "verdict": "fix_required"
+  }
+}

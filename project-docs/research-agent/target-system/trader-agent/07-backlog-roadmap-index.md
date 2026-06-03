@@ -4,7 +4,7 @@
 
 This is the backlog index for trader-agent target-system work.
 
-It consolidates recorded but not-yet-implemented requirements from Agent Core, Cockpit, workflow orchestration, and self-learning/model-learning roadmaps.
+It consolidates recorded but not-yet-implemented requirements from Agent Core, workflow orchestration, CLI/TUI operator surfaces, and self-learning/model-learning roadmaps.
 
 This file does not replace the source documents. It only answers:
 
@@ -36,7 +36,7 @@ This file does not replace the source documents. It only answers:
 | Item | What it does | Source | Entry note |
 |---|---|---|---|
 | MarketJudgmentGraph v0 | Produce `MarketRead`, opportunity bias, watchlist, triggers, invalidations, and risk warnings from current market context. | [06-self-learning-market-judgment-model-roadmap.md](./06-self-learning-market-judgment-model-roadmap.md) | Should come after the deterministic signal/risk base is usable. |
-| Agent Explanation Service | Translate decisions into conclusion, evidence, missing conditions, risks, and next action for Cockpit/chat. | [01-agent-core-development/20-agent-explanation-service.md](./01-agent-core-development/20-agent-explanation-service.md) | It explains existing facts; it must not invent evidence or mutate signal state. |
+| Agent Explanation Service | Translate decisions into conclusion, evidence, missing conditions, risks, and next action for CLI/TUI/chat-like output. | [01-agent-core-development/20-agent-explanation-service.md](./01-agent-core-development/20-agent-explanation-service.md) | It explains existing facts; it must not invent evidence or mutate signal state. |
 | Real Run Trace Viewer | Show the real execution chain for one agent run, backed by run metadata and agent events. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Useful before building editable workflow surfaces. |
 | Run Monitor | Show active and historical workflow runs, failed nodes, retries, resume state, and audit events. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Needed for long-running graphs such as future model learning runs. |
 | Reflection Engine | Run daily/weekly learning summaries, mistake analysis, and rule proposal generation without activating rules. | [01-agent-core-development/18-reflection-engine.md](./01-agent-core-development/18-reflection-engine.md) | Should hand candidates to Rule Discovery instead of changing active policy. |
@@ -51,14 +51,14 @@ This file does not replace the source documents. It only answers:
 | Workflow Builder | Let users manually edit workflow drafts. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Should wait until runtime schemas are stable. |
 | Agent-generated Workflow Candidate | Let the agent propose new workflow candidates based on learning results. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Agent can propose, but cannot activate. |
 | Trade Ticket Generator | Turn a gated opportunity into a reviewable trade-ticket draft with trigger, stop, invalidation, target, and risk notes. | [01-agent-core-development/17-trade-ticket-generator.md](./01-agent-core-development/17-trade-ticket-generator.md) | Does not execute orders or approve itself. |
-| Custom evidence detail UI | Let users inspect raw evidence behind decisions, including news, filings, bars, context items, weighted evidence, and tool results. | [.agent-dev/specs/langgraph-native-decisiongraph/spec.md](../../../../.agent-dev/specs/langgraph-native-decisiongraph/spec.md) | Large evidence objects belong in domain stores, not LangGraph checkpoint state. |
+| Evidence detail operator surface | Let users inspect raw evidence behind decisions, including news, filings, bars, context items, weighted evidence, and tool results. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Re-spec as CLI/TUI or workflow run detail. Old T007 notes are archived history only. |
 
 ## 6. Blocked By Contract
 
 | Item | Blocker | Required contract or gate |
 |---|---|---|
-| `/cockpit/workflows` | No canonical workflow definition and run schema yet. | Shared Platform workflow runtime contract plus Agent Core run lifecycle. |
-| `/cockpit/workflows/:id/runs/:runId` | Run history, node state, retry/resume, and audit event contract are not stable yet. | Workflow run schema and event stream contract. |
+| Workflow run monitor | No canonical workflow definition and run schema yet. | Shared Platform workflow runtime contract plus Agent Core run lifecycle. |
+| Workflow run detail viewer | Run history, node state, retry/resume, and audit event contract are not stable yet. | Workflow run schema and event stream contract. |
 | Task scheduling | Scheduler ownership, run durability, failure policy, and retry semantics need a platform contract. | Shared Platform task/runtime contract. |
 | Approval workflows | Approval request schema, permission model, capability gate, and audit semantics must exist first. | Shared Platform approval and capability policy. |
 | Execution surfaces | Account, order, position, fill, risk, and broker-mirror semantics are not part of current scope. | Separate execution PRD, broker mirror, and risk-control policy. |

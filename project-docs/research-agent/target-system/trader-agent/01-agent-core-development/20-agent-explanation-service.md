@@ -1,7 +1,7 @@
 # 20 - Agent Explanation Service
 
 Source module: `01-agent-core-backend-prd.md` module 20.  
-Phase: Phase 3 cockpit dependency.  
+Phase: Phase 3 operator explanation dependency.
 Domain: Reflection and runtime chain.
 
 ## Module Goal
@@ -75,7 +75,7 @@ Explanation response:
 - Uses Playbook Engine or Trader Brain evidence.
 - Uses Rule Engine and Risk Engine outputs.
 - Uses Tool Gateway only if chat asks for fresh external evidence and policy allows.
-- Feeds Web Agent Cockpit chat, inbox, and signal detail.
+- Feeds CLI/TUI answer traces, run detail, and signal explanation output.
 - Does not bypass approval requirements.
 
 ## Implementation Steps

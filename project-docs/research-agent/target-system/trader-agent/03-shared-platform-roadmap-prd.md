@@ -2,6 +2,7 @@
 
 版本：`v0.2`  
 文档定位：共享基础设施、数据库 Schema、RulePack、开发路线、MVP 验收标准。  
+当前边界：本文仍作为 Shared Platform / Schema 的历史规格来源；Web Cockpit 路线已移除，当前 operator surface 是 workflow runtime、CLI/TUI 和 backend API。
 建议读者：平台工程 agent、后端基础设施 agent、DevOps agent、数据库 agent。
 
 ---
@@ -12,7 +13,7 @@
 
 ## 1. Layer 3 总目标
 
-Shared Platform Layer 是 Agent Core 和 Web Cockpit 之间的基础设施层。它负责：
+Shared Platform Layer 是 Agent Core、workflow runtime、CLI/TUI operator interface 和 backend API 之间的基础设施层。它负责：
 
 ```text
 数据存储
@@ -1443,7 +1444,7 @@ Agent action 可写入 agent_events
 
 ---
 
-## Phase 3：Web Cockpit MVP
+## Phase 3：CLI/TUI Operator Interface
 
 ### Tasks
 
@@ -1623,7 +1624,7 @@ Web 工作台交互
 外部工具 = 验证能力
 Rule Engine = 执行边界
 Risk Engine = 最高权限
-Web Cockpit = 人机协作入口
+CLI/TUI Operator Interface = 人机协作入口
 Reflection Engine = 自我成长机制
 Shared Platform = 稳定运行基础
 ```
@@ -1702,6 +1703,6 @@ trader-agent/
 6. 所有高风险动作必须审批。
 7. 所有规则升级必须经过 proposal → backtest → approval → versioning。
 8. Agent 自我学习必须受控，不允许黑箱自改策略。
-9. Web Cockpit 是人机协作入口，不是简单展示面板。
+9. 当前人机协作入口是 CLI/TUI operator interface，不是已移除的 Web Cockpit 路线。
 10. MVP 先跑通闭环，再扩展工具和股票池。
 ```
