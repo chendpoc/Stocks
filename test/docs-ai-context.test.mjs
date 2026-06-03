@@ -127,9 +127,7 @@ test("AI routes have small default read sets and avoid corpus or legacy by defau
     "trader_agent_system",
     "trader_workflows",
     "trader_cli_tui",
-    "trader_cockpit",
     "corpus_research",
-    "legacy_migration",
   ]);
 
   assert.deepEqual(new Set(routes.map((route) => route.task_type)), expectedRouteNames);
@@ -147,15 +145,18 @@ test("AI routes have small default read sets and avoid corpus or legacy by defau
       assert.doesNotMatch(route.read_first, /docs\/trading-experiences\//);
     }
 
-    if (route.task_type !== "legacy_migration") {
-      assert.doesNotMatch(route.read_first, /docs\/research-agent\/modules\//);
-      assert.doesNotMatch(route.read_first, /docs\/research-agent\/trading-workbench-master-plan\.md/);
-      assert.doesNotMatch(route.read_first, /project-docs\/research-agent\/modules\//);
-      assert.doesNotMatch(
-        route.read_first,
-        /project-docs\/research-agent\/trading-workbench-master-plan\.md/,
-      );
-    }
+    assert.doesNotMatch(route.read_first, /docs\/research-agent\/modules\//);
+    assert.doesNotMatch(route.read_first, /docs\/research-agent\/trading-workbench-master-plan\.md/);
+    assert.doesNotMatch(route.read_first, /project-docs\/research-agent\/modules\//);
+    assert.doesNotMatch(route.read_first, /project-docs\/archive\//);
+    assert.doesNotMatch(route.read_if_needed, /apps\/research-console/);
+    assert.doesNotMatch(route.read_if_needed, /apps\/trader-cockpit/);
+    assert.doesNotMatch(route.read_first, /\.agent-dev\/tasks\/T00/);
+    assert.doesNotMatch(route.read_if_needed, /\.agent-dev\/tasks\/T00/);
+    assert.doesNotMatch(
+      route.read_if_needed,
+      /\.agent-dev\/specs\/(self-evolving-agent-stage1|langgraph-native-decisiongraph|model-decision-store|cli-tui-v2|cli-tui-integration|trader-longbridge-agent-cli)/,
+    );
 
     assert.doesNotMatch(route.read_first, /\.agent-dev\/context\/code_map\.md/);
     assert.doesNotMatch(route.read_first, /docs\/assets\//);
@@ -183,6 +184,8 @@ test("module map is bounded and keeps coarse module guidance", async () => {
     /\| Module \| Role \| Allowed first reads \| Codegraph starting point \| Default avoid \| Verification \|/,
   );
   assert.match(moduleMap, /High-Risk Paths/);
+  assert.doesNotMatch(moduleMap, /apps\/research-console/);
+  assert.doesNotMatch(moduleMap, /apps\/trader-cockpit/);
   assert.doesNotMatch(moduleMap, /\| task_type \|/);
   assert.doesNotMatch(moduleMap, /Route Table/);
   assert.doesNotMatch(moduleMap, /Spec-Driven Development Workflow/);
@@ -227,17 +230,18 @@ test("research-agent docs expose small boundary entrypoints", async () => {
     "project-docs/research-agent/README.md": [
       "Do not broad-read this tree",
       "target-system/trader-agent/",
-      "modules/",
+      "../archive/research-console/",
     ],
     "project-docs/research-agent/target-system/README.md": [
       "Active target-system definitions",
       "trader-agent/README.md",
       "Legacy files",
     ],
-    "project-docs/research-agent/modules/README.md": [
-      "historical module plans",
-      "not the current trader-agent source-of-truth",
-      "Do not add new active plans here",
+    "project-docs/archive/README.md": [
+      "not the current source of truth",
+      "research-console/",
+      "trader-cockpit/",
+      "agent-dev/",
     ],
   };
 
@@ -253,7 +257,7 @@ test("research-agent docs expose small boundary entrypoints", async () => {
 test("internal project docs are separated from VitePress docs", async () => {
   const movedDocs = [
     ["docs/research-agent/README.md", "project-docs/research-agent/README.md"],
-    ["docs/superpowers", "project-docs/plans/superpowers"],
+    ["docs/superpowers", "project-docs/archive/research-console/plans"],
     ["docs/adr/0001-langgraph-minimal-stage1.md", "project-docs/adr/0001-langgraph-minimal-stage1.md"],
     ["docs/project-overview.md", "project-docs/overview.md"],
     ["docs/workflow.md", "project-docs/workflows/agent-dev-workflow.md"],
@@ -267,6 +271,26 @@ test("internal project docs are separated from VitePress docs", async () => {
     await assert.rejects(access(oldPath), `${oldPath} should not remain under docs`);
     await access(newPath);
   }
+
+  await assert.rejects(access("project-docs/plans/superpowers"));
+  await assert.rejects(access("project-docs/research-agent/modules/README.md"));
+  await access("project-docs/archive/research-console/modules/README.md");
+  await assert.rejects(access("project-docs/research-agent/target-system/trader-agent/02-web-agent-cockpit-prd.md"));
+  await access("project-docs/archive/trader-cockpit/02-web-agent-cockpit-prd.md");
+  await access("project-docs/archive/agent-dev/README.md");
+  await access("project-docs/archive/agent-dev/tasks/T001.json");
+  await access("project-docs/archive/agent-dev/tasks/T006.json");
+  await access("project-docs/archive/agent-dev/tasks/T007.json");
+  await access("project-docs/archive/agent-dev/specs/self-evolving-agent-stage1/spec.json");
+  await access("project-docs/archive/agent-dev/specs/langgraph-native-decisiongraph/spec.json");
+  await access("project-docs/archive/agent-dev/worker-prompts/langgraph-native-decisiongraph-worker-prompt.md");
+  await assert.rejects(access(".agent-dev/tasks/T001.json"));
+  await assert.rejects(access(".agent-dev/tasks/T006.json"));
+  await assert.rejects(access(".agent-dev/tasks/T007.json"));
+  await assert.rejects(access(".agent-dev/specs/self-evolving-agent-stage1/spec.json"));
+  await assert.rejects(access(".agent-dev/langgraph-native-decisiongraph-worker-prompt.md"));
+  await access(".agent-dev/tasks/README.md");
+  await access(".agent-dev/specs/README.md");
 
   const projectDocsReadme = await read("project-docs/README.md");
   assert.ok(lineCount(projectDocsReadme) <= 80, "project-docs/README.md should stay concise");

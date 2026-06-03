@@ -10,8 +10,9 @@ Last updated: 2026-06-03
 1. Read `.agent-dev/context/ai-index.md`.
 2. Pick exactly one `task_type` from that index.
 3. Read only that route's `read_first` documents before deciding the next step.
-4. Read `.agent-dev/specs/**` and `.agent-dev/tasks/**` only when the route or
-   task requires implementation, review, or non-trivial planning.
+4. Read `.agent-dev/specs/**` and `.agent-dev/tasks/**` only for an active
+   unarchived task. Historical T001-T007 artifacts live in
+   `project-docs/archive/agent-dev/` and are not default context.
 5. Read `.agent-dev/context/code_map.md` only when entering code work and the
    code path is not already obvious.
 6. Read `.agent-dev/context/module_map.md` only after task scope is narrowed and
@@ -52,7 +53,7 @@ Do not expand beyond that unless the selected route says to.
   `Get-ChildItem project-docs` unless the selected route explicitly requires a
   bounded subdirectory.
 - Use `project-docs/README.md` and route entrypoints for orientation; use
-  `project-docs/research-agent/modules/**` only in `legacy_migration`.
+  `project-docs/archive/**` only when historical context is explicitly in scope.
 
 ## Dirty Worktree Rules
 
@@ -71,9 +72,7 @@ Do not expand beyond that unless the selected route says to.
 | `apps/trader-workflows` | Stage 1 LangGraph workflows | Independent npm package. |
 | `apps/trader-cli` | TypeScript CLI and Ink TUI | Wraps backend and workflows. |
 | `apps/trader-chart` | Rust ratatui chart UI | Cargo workspace member. |
-| `apps/trader-cockpit` | Web cockpit | Touch only when route/spec allows it. |
-| `apps/research-console` | Legacy research console | Reference only unless route/spec allows it. |
-| `.agent-dev` | Specs, tasks, reviews, private AI context | Primary private agent artifact area. |
+| `.agent-dev` | Active specs/tasks and private AI context | Historical artifacts are archived under `project-docs/archive/agent-dev/`. |
 | `project-docs` | Internal project, architecture, roadmap, ADR docs | Read through `.agent-dev/context/ai-index.md`. |
 | `docs` | VitePress site content, public corpus, site assets | Do not mix internal docs back into this tree. |
 
