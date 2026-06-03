@@ -1,7 +1,7 @@
 # Plan Review Agent - Pre-Implementation Quality Gate
 
 > Role: read-only reviewer for development plans, task specs, and worker prompts before implementation.
-> Scope: reusable for any `.agent-dev/tasks/T00X.*` plan, including future T006/T008/T009.
+> Scope: reusable for any active `.agent-dev/tasks/T00X.*` plan.
 > Not a plan builder, implementer, code reviewer, fixer, or committer.
 
 ---

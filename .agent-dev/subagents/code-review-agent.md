@@ -1,7 +1,7 @@
 # Code Review Agent - Subagent Review Protocol
 
 > Role: read-only reviewer for spec-driven task changes.
-> Scope: reusable for any `.agent-dev/tasks/T00X.*` task, including future T006/T008/T009.
+> Scope: reusable for any active `.agent-dev/tasks/T00X.*` task.
 > Not a planner, implementer, fixer, or committer.
 
 ---

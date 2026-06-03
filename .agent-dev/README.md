@@ -16,14 +16,18 @@ route.read_first
 
 Only read more when the selected route requires it:
 
-- `.agent-dev/specs/<feature>/spec.json`: implementation, review, or non-trivial
-  planning.
-- `.agent-dev/tasks/T00X.json`: task execution, status checks, or review.
+- `.agent-dev/specs/<feature>/spec.json`: active implementation, review, or
+  non-trivial planning.
+- `.agent-dev/tasks/T00X.json`: active task execution, status checks, or review.
 - `.agent-dev/context/code_map.md`: code work when paths are not already clear.
 - `.agent-dev/context/module_map.md`: coarse module hints only after
   spec/task/review scope has narrowed the code area.
 - Worker prompts: only when executing or reviewing that worker task.
 - Review JSON/Markdown: only when reviewing that review artifact.
+- `project-docs/archive/**`: never by default; only for explicitly requested
+  historical context.
+- `project-docs/archive/agent-dev/**`: historical T001-T007 specs, tasks,
+  prompts, reviews, presentations, and design notes.
 
 ## Directory Contract
 
@@ -38,18 +42,20 @@ Only read more when the selected route requires it:
     schemas.md         # JSON schema definitions for specs/tasks/reviews
     cursor-setup.md
   specs/<feature>/
+    README.md          # active specs only; historical specs are archived
     spec.md
     spec.json
     dev-plan.md
     decision-record.json
     clarification-questions.{md,json}
   tasks/
+    README.md          # active tasks only; historical tasks are archived
     T00X.{md,json}
     T00X-slices/
-  reviews/
-  changesets/
-  presentations/
-  *-worker-prompt.md
+  reviews/             # active review artifacts only
+  changesets/          # active PR/change packaging only
+  presentations/       # active presentation artifacts only
+  *-worker-prompt.md   # active worker prompt only
 ```
 
 ## Artifact Rules
@@ -59,13 +65,20 @@ Only read more when the selected route requires it:
 | `context/ai-index.md` | Route AI to the minimal source set | yes |
 | `context/code_map.md` | Locate the next code-work context after route/spec narrowing | no |
 | `context/module_map.md` | Coarse module first reads after scope narrowing | no |
-| `specs/<feature>/spec.json` | Machine-readable scope, decisions, verification | route-dependent |
-| `specs/<feature>/spec.md` | Human-readable spec | route-dependent |
-| `tasks/T00X.json` | Machine-readable task steps and dependencies | route-dependent |
-| `tasks/T00X.md` | Human-readable task | route-dependent |
-| `*-worker-prompt.md` | Worker execution prompt | no |
-| `reviews/*` | Review evidence | no |
+| `specs/<feature>/spec.json` | Active machine-readable scope, decisions, verification | route-dependent |
+| `specs/<feature>/spec.md` | Active human-readable spec | route-dependent |
+| `tasks/T00X.json` | Active machine-readable task steps and dependencies | route-dependent |
+| `tasks/T00X.md` | Active human-readable task | route-dependent |
+| `*-worker-prompt.md` | Active worker execution prompt | no |
+| `reviews/*` | Active review evidence | no |
 | `changesets/*` | PR/change packaging | no |
+
+## Archive Contract
+
+Completed, superseded, corrupted, or historical execution artifacts should not
+stay in `.agent-dev` as default context. Move them to
+`project-docs/archive/agent-dev/` and leave only the active artifact or a small
+README in `.agent-dev`.
 
 ## Spec/Task Workflow
 
