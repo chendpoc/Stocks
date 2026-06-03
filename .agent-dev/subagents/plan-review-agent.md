@@ -37,10 +37,14 @@ From that single task id, the plan review agent must resolve:
 6. `.agent-dev/specs/<spec_id>/spec.md`
 7. `.agent-dev/specs/<spec_id>/decision-record.json`
 8. `.agent-dev/specs/<spec_id>/dev-plan.md`, if present
-9. `worker_prompt_path` from task JSON, if present
-10. `.agent-dev/context/code_map.md`
-11. `project-docs/workflows/agent-dev-workflow.md`
-12. current source files or tests referenced by the plan
+9. `worker_prompt_path` path value from task JSON, without reading the full
+   worker prompt unless the review target is `worker prompt` or the slice
+   explicitly requires prompt review
+10. `project-docs/workflows/agent-dev-workflow.md`
+
+Do not default-read current source files, tests, full worker prompts, complete
+source trees, or broad diffs. First derive the review boundary from
+`spec.scope`, task steps, slice docs, and `task.steps[].files_expected`.
 
 If `T00X.json` does not exist yet, report that the plan is not reviewable as a task artifact. The parent agent may instead provide an explicit draft plan path or pasted draft, but the finding must say that the plan has not reached the project artifact gate.
 
@@ -72,17 +76,19 @@ Read in this order:
 2. `CLAUDE.md`
 3. `.agent-dev/README.md`
 4. `.agent-dev/memory/schemas.md`
-5. `.agent-dev/context/code_map.md`
-6. `.agent-dev/tasks/T00X.json`
-7. `.agent-dev/tasks/T00X.md`
-8. `.agent-dev/tasks/T00X-slices/*`, if relevant
-9. `.agent-dev/specs/<spec_id>/spec.json`
-10. `.agent-dev/specs/<spec_id>/spec.md`
-11. `.agent-dev/specs/<spec_id>/decision-record.json`
-12. `.agent-dev/specs/<spec_id>/dev-plan.md`, if present
-13. worker prompt path from task JSON, if present
-14. CodeGraph MCP context for referenced modules and symbols, when available
-15. current source files, tests, scripts, and package commands referenced by the plan
+5. `.agent-dev/tasks/T00X.json`
+6. `.agent-dev/tasks/T00X.md`
+7. `.agent-dev/tasks/T00X-slices/*`, if relevant
+8. `.agent-dev/specs/<spec_id>/spec.json`
+9. `.agent-dev/specs/<spec_id>/spec.md`
+10. `.agent-dev/specs/<spec_id>/decision-record.json`
+11. `.agent-dev/specs/<spec_id>/dev-plan.md`, if present
+12. worker prompt excerpt only if the review target requires it
+13. `.agent-dev/context/code_map.md` and `.agent-dev/context/module_map.md` only
+    when module ownership is unclear after scope review
+14. CodeGraph MCP context for scoped modules and symbols, when available
+15. exact source files, tests, scripts, or package commands only after the
+    allowed review scope is narrowed
 
 Conflict handling:
 
@@ -114,7 +120,7 @@ Compare the plan against:
 
 - project workflow in `project-docs/workflows/agent-dev-workflow.md`
 - repo rules in `CLAUDE.md`
-- module map in `.agent-dev/context/code_map.md`
+- module hints in `.agent-dev/context/module_map.md`, only when needed
 - spec scope, non-goals, acceptance, and verification
 - confirmed decisions
 - current code and tests
@@ -178,7 +184,10 @@ Flag any missing item that would force a worker to invent behavior.
 
 ### G. CodeGraph Context Gate
 
-Use `.agent-dev/context/code_map.md` to identify relevant modules. Then use CodeGraph MCP when available:
+Use `spec.scope`, task steps, and slice docs first. If the code area is still
+unclear, read `.agent-dev/context/code_map.md` and then
+`.agent-dev/context/module_map.md` for coarse module ownership. Then use
+CodeGraph MCP when available:
 
 ```text
 codegraph_context  -> planned module or symbol
@@ -188,7 +197,9 @@ codegraph_callers  -> public function or API entry the plan intends to change
 codegraph_callees  -> planned function with non-trivial downstream calls
 ```
 
-If CodeGraph MCP is unavailable, state that explicitly in the review handoff and fall back to `rg`, direct file reads, and package/script inspection.
+If CodeGraph MCP is unavailable, state that explicitly in the review handoff and
+fall back to `rg`, direct file reads, and package/script inspection inside the
+already narrowed paths only.
 
 ### H. Re-Review Mode
 

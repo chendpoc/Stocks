@@ -14,7 +14,9 @@ Last updated: 2026-06-03
    task requires implementation, review, or non-trivial planning.
 5. Read `.agent-dev/context/code_map.md` only when entering code work and the
    code path is not already obvious.
-6. Use codegraph for code symbols, call paths, and impact analysis. Do not use
+6. Read `.agent-dev/context/module_map.md` only after task scope is narrowed and
+   module ownership is still unclear.
+7. Use codegraph for code symbols, call paths, and impact analysis. Do not use
    codegraph to decide which docs are authoritative.
 
 Default read set:

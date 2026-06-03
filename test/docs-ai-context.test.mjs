@@ -6,7 +6,17 @@ const ENTRY_DOCS = [
   "CLAUDE.md",
   ".agent-dev/context/ai-index.md",
   ".agent-dev/context/code_map.md",
+  ".agent-dev/context/module_map.md",
   ".agent-dev/README.md",
+];
+
+const SUBAGENT_PROTOCOL_DOCS = [
+  ".agent-dev/subagents/plan-review-agent.md",
+  ".agent-dev/subagents/code-task-worker.md",
+  ".agent-dev/subagents/code-review-agent.md",
+  ".agent-dev/subagents/plan-review-dispatch-template.md",
+  ".agent-dev/subagents/code-review-dispatch-template.md",
+  ".agent-dev/subagents/README.md",
 ];
 
 const MOJIBAKE_MARKERS = [
@@ -65,7 +75,8 @@ test("private AI entry docs stay within context budgets", async () => {
   const budgets = {
     "CLAUDE.md": 180,
     ".agent-dev/context/ai-index.md": 220,
-    ".agent-dev/context/code_map.md": 140,
+    ".agent-dev/context/code_map.md": 120,
+    ".agent-dev/context/module_map.md": 120,
     ".agent-dev/README.md": 120,
   };
 
@@ -157,8 +168,49 @@ test("code map is not a docs router or workflow replacement", async () => {
   assert.doesNotMatch(codeMap, /\| task_type \|/);
   assert.doesNotMatch(codeMap, /Route Table/);
   assert.doesNotMatch(codeMap, /Spec-Driven Development Workflow/);
+  assert.doesNotMatch(codeMap, /Common Code Entry Points/);
+  assert.doesNotMatch(codeMap, /\| Area \| Role \| Primary entry \|/);
   assert.doesNotMatch(codeMap, /docs\/workflow\.md/);
   assert.doesNotMatch(codeMap, /project-docs\/workflows\/agent-dev-workflow\.md/);
+  assert.match(codeMap, /\.agent-dev\/context\/module_map\.md/);
+});
+
+test("module map is bounded and keeps coarse module guidance", async () => {
+  const moduleMap = await read(".agent-dev/context/module_map.md");
+  assert.ok(lineCount(moduleMap) <= 120, ".agent-dev/context/module_map.md exceeds 120 lines");
+  assert.match(
+    moduleMap,
+    /\| Module \| Role \| Allowed first reads \| Codegraph starting point \| Default avoid \| Verification \|/,
+  );
+  assert.match(moduleMap, /High-Risk Paths/);
+  assert.doesNotMatch(moduleMap, /\| task_type \|/);
+  assert.doesNotMatch(moduleMap, /Route Table/);
+  assert.doesNotMatch(moduleMap, /Spec-Driven Development Workflow/);
+});
+
+test("subagent protocols enforce scoped reads and scoped diffs", async () => {
+  const combined = await Promise.all(SUBAGENT_PROTOCOL_DOCS.map((path) => read(path))).then((parts) =>
+    parts.join("\n---\n"),
+  );
+
+  for (const field of [
+    "spec.scope.create",
+    "spec.scope.modify",
+    "spec.scope.readonly_import",
+    "spec.scope.forbidden",
+    "task.steps[].files_expected",
+  ]) {
+    assert.match(combined, new RegExp(field.replaceAll(".", "\\.").replaceAll("[", "\\[").replaceAll("]", "\\]")));
+  }
+
+  assert.match(combined, /git status --short/);
+  assert.match(combined, /git diff --name-only/);
+  assert.match(combined, /git diff -- <scoped-path>/);
+  assert.match(combined, /git diff --stat -- <scoped-path>/);
+  assert.match(combined, /Use CodeGraph|Use codegraph/);
+  assert.match(combined, /rg.*narrowed paths|narrowed paths.*rg/s);
+  assert.doesNotMatch(combined, /current diff/i);
+  assert.doesNotMatch(combined, /worker prompt if present/i);
 });
 
 test("private AI entry docs are free of obvious mojibake", async () => {

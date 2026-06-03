@@ -7,6 +7,23 @@
 
 ---
 
+## Scope Execution Semantics
+
+Do not add a separate `code_scope` field. Agents must execute code-reading,
+editing, and review boundaries from existing schema fields:
+
+- `spec.scope.create` and `spec.scope.modify`: allowed edit paths and the
+  primary reading scope for implementation.
+- `spec.scope.readonly_import`: readable dependency context only; never edit.
+- `spec.scope.forbidden`: default no-read and no-edit boundary unless the user
+  explicitly asks for a scoped audit.
+- `task.steps[].files_expected`: slice-level first-read and scoped-diff default.
+- `git status --short`: dirty worktree identification only.
+- `git diff --name-only`: changed-file audit only; it does not replace scoped
+  review.
+- `git diff -- <scoped-path>` and `git diff --stat -- <scoped-path>`: allowed
+  diff forms after scope has been derived.
+
 ## 1. clarification-questions.json + .md（新增）
 
 grill-me 对 spec 做压力测试后产出。Phase 2 → Phase 3 的桥梁。

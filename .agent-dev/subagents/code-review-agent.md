@@ -37,7 +37,7 @@ From that single task id, the review agent must resolve:
 6. `.agent-dev/specs/<spec_id>/spec.md`
 7. `.agent-dev/specs/<spec_id>/decision-record.json`
 8. `worker_prompt_path` from task JSON, if present
-9. current `git diff`, changed files, and verification evidence
+9. changed file list, scoped per-file diffs, and verification evidence
 
 The parent agent may provide a richer packet when reviewing a slice, a re-review, or a PR diff:
 
@@ -54,11 +54,12 @@ spec files:
 - .agent-dev/specs/<spec_id>/spec.md
 - .agent-dev/specs/<spec_id>/decision-record.json
 implementation evidence:
-- git diff / changed files / worker handoff
+- changed file list / scoped per-file diffs / worker handoff
 - verification commands already run, with exit codes
 - known failures or skipped checks
 code intelligence:
-- .agent-dev/context/code_map.md
+- .agent-dev/context/code_map.md, only if scoped paths are unclear
+- .agent-dev/context/module_map.md, only if module ownership is unclear
 - CodeGraph MCP context when available (`codegraph_context`, `codegraph_explore`, `codegraph_search`, `codegraph_callers`, `codegraph_callees`)
 review target:
 - full task, specific slice, re-review of findings, or PR diff
@@ -75,20 +76,21 @@ Read in this order:
 1. `CLAUDE.md`
 2. `.agent-dev/README.md`
 3. `.agent-dev/memory/schemas.md`
-4. `.agent-dev/context/code_map.md`
-5. `.agent-dev/specs/<spec_id>/spec.json`
-6. `.agent-dev/specs/<spec_id>/decision-record.json`
-7. `.agent-dev/tasks/T00X.json`
-8. Relevant task markdown / slice markdown / worker prompt
-9. `.agent-dev/context/code_map.md` module map for changed areas
+4. `.agent-dev/specs/<spec_id>/spec.json`
+5. `.agent-dev/specs/<spec_id>/decision-record.json`
+6. `.agent-dev/tasks/T00X.json`
+7. Relevant task markdown / slice markdown
+8. Worker prompt excerpt only if needed to review a worker-specific claim
+9. `.agent-dev/context/code_map.md` and `.agent-dev/context/module_map.md` only
+   if scoped changed paths or module ownership are unclear
 10. CodeGraph MCP context for changed symbols and dependency edges, when available
-11. Actual changed files and tests from the current diff
+11. Changed file list, scoped per-file diffs, and exact tests named by the task
 
 Conflict handling:
 
 - `decision-record.json` beats worker prompt text.
 - `spec.scope.forbidden` beats implementation convenience.
-- Current diff beats worker claims.
+- Scoped diffs beat worker claims.
 - If spec and task disagree, surface a blocker or open question instead of guessing.
 
 ---
@@ -100,10 +102,16 @@ Conflict handling:
 Run or inspect:
 
 ```bash
+git status --short
 git diff --name-only
-git diff --stat
-git diff -- <changed-file>
+git diff -- <scoped-path>
+git diff --stat -- <scoped-path>
 ```
+
+`git status --short` is for dirty worktree identification only.
+`git diff --name-only` is for changed-file audit only. It does not replace
+scoped review. Do not read an unrestricted `git diff` or unrestricted
+`git diff --stat` by default.
 
 Check every changed file against:
 
@@ -133,7 +141,11 @@ codegraph_callers  -> public function or API entry changed by the diff
 codegraph_callees  -> changed function with non-trivial downstream calls
 ```
 
-Use `.agent-dev/context/code_map.md` first to choose the right module path, then use CodeGraph to verify actual dependency direction and call sites.
+Use `spec.scope`, task steps, slice docs, and `task.steps[].files_expected`
+first. Read `.agent-dev/context/code_map.md` and
+`.agent-dev/context/module_map.md` only if the scoped changed paths are still
+unclear, then use CodeGraph to verify actual dependency direction and call
+sites.
 
 If CodeGraph MCP is unavailable, state that explicitly in the review handoff and fall back to `rg`, direct file reads, tests, and `git diff`. Do not pretend CodeGraph evidence was used.
 

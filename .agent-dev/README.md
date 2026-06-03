@@ -20,6 +20,8 @@ Only read more when the selected route requires it:
   planning.
 - `.agent-dev/tasks/T00X.json`: task execution, status checks, or review.
 - `.agent-dev/context/code_map.md`: code work when paths are not already clear.
+- `.agent-dev/context/module_map.md`: coarse module hints only after
+  spec/task/review scope has narrowed the code area.
 - Worker prompts: only when executing or reviewing that worker task.
 - Review JSON/Markdown: only when reviewing that review artifact.
 
@@ -31,6 +33,7 @@ Only read more when the selected route requires it:
   context/
     ai-index.md        # private AI route index
     code_map.md        # code locator, not a default entrypoint
+    module_map.md      # coarse module guide, not a default entrypoint
   memory/
     schemas.md         # JSON schema definitions for specs/tasks/reviews
     cursor-setup.md
@@ -54,7 +57,8 @@ Only read more when the selected route requires it:
 | Artifact | Purpose | Read by default |
 |---|---|---|
 | `context/ai-index.md` | Route AI to the minimal source set | yes |
-| `context/code_map.md` | Locate code modules after route/spec narrowing | no |
+| `context/code_map.md` | Locate the next code-work context after route/spec narrowing | no |
+| `context/module_map.md` | Coarse module first reads after scope narrowing | no |
 | `specs/<feature>/spec.json` | Machine-readable scope, decisions, verification | route-dependent |
 | `specs/<feature>/spec.md` | Human-readable spec | route-dependent |
 | `tasks/T00X.json` | Machine-readable task steps and dependencies | route-dependent |
@@ -72,8 +76,9 @@ non-trivial implementation or review:
 2. Read the relevant `tasks/T00X.json`.
 3. Confirm scope, forbidden files, decisions, and verification.
 4. Use `context/code_map.md` only if code paths are unclear.
-5. Use codegraph for symbols, flows, callers, callees, and impact.
-6. Run the task-specific verification commands.
+5. Use `context/module_map.md` only if module ownership is still unclear.
+6. Use codegraph for symbols, flows, callers, callees, and impact.
+7. Run the task-specific verification commands.
 
 Do not let `.agent-dev` artifacts override current user instructions or active
 source-of-truth docs.

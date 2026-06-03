@@ -53,7 +53,8 @@ route calls for them.
 
 - `CLAUDE.md`: target under 180 lines.
 - `.agent-dev/context/ai-index.md`: target under 220 lines.
-- `.agent-dev/context/code_map.md`: target under 140 lines.
+- `.agent-dev/context/code_map.md`: target under 120 lines.
+- `.agent-dev/context/module_map.md`: target under 120 lines.
 - `read_first`: 1 to 3 entries per route.
 
 These budgets are guardrails. A route is invalid if it stays small but points to
@@ -65,7 +66,8 @@ the wrong documents.
   route marks `spec_task_required = yes`.
 - Need to find code paths: read `.agent-dev/context/code_map.md` only if the
   route marks `code_map_required = yes` or `conditional` and the path is not
-  obvious.
+  obvious. Read `.agent-dev/context/module_map.md` only after route, spec, or
+  task scope has narrowed the code area but module ownership is still unclear.
 - Need symbol/call/impact details: use codegraph after route and spec context.
 - Need market evidence or historical rules: switch to `corpus_research`.
 - Need old research-console modules: switch to `legacy_migration`.
