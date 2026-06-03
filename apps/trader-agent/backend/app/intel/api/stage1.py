@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import uuid4
 
@@ -24,8 +23,8 @@ from app.intel.schemas.stage1_records import (
     WeightingPolicyStatsListOut,
     WeightingPolicyStatsOut,
 )
-from app.modules._json import dumps, loads
 from app.modules.json_row_codec import (
+    canonical_json_text,
     deserialize_json_fields_in_row,
     serialize_json_field,
     serialize_json_field_optional,
@@ -38,12 +37,7 @@ _VALID_RECOMMENDATIONS = frozenset({"hold", "needs_more_data"})
 
 
 def _canonical_json(value: Any) -> str:
-    if isinstance(value, str):
-        try:
-            value = loads(value)
-        except Exception:
-            return value
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return canonical_json_text(value)
 
 
 def _conflict_if_different(existing: str | None, incoming: str, field: str) -> None:

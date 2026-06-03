@@ -10,7 +10,8 @@ from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
 from app.db.session import create_sqlite_engine
-from app.modules._json import json_array_like_pattern, loads
+from app.modules._json import json_array_like_pattern
+from app.modules.json_row_codec import coerce_json_value
 from app.modules.markdown_section_indexer import ensure_sections_fts
 
 MAX_SEARCH_LIMIT = 50
@@ -122,7 +123,7 @@ def search_corpus(
         rows = [
             row
             for row in rows
-            if target in loads(row.get("symbols_json"), [])
+            if target in coerce_json_value(row.get("symbols_json"), [])
         ]
 
     return [_row_to_result(row, normalized_query) for row in rows[:limit]]
@@ -244,7 +245,7 @@ def _row_to_result(row: dict[str, Any], query: str) -> CorpusSearchResult:
         source_date=source_date,
         start_line=row["start_line"],
         end_line=row["end_line"],
-        symbols=loads(row["symbols_json"], []),
+        symbols=coerce_json_value(row["symbols_json"], []),
         timestamp=source_date,
     )
 

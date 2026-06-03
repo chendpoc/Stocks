@@ -6,7 +6,8 @@ from typing import Any
 from sqlalchemy import text
 
 from app.intel import logger
-from app.modules._json import json_array_like_pattern, loads
+from app.modules._json import json_array_like_pattern
+from app.modules.json_row_codec import coerce_json_value
 
 CONFIDENCE_THRESHOLD = 0.5
 SOURCE_TYPE_SCORE = {"postmortem": 10, "seed": 6, "manual": 4}
@@ -24,7 +25,7 @@ def _normalize_list(value: Any) -> list:
     if isinstance(value, list):
         return value
     if isinstance(value, str):
-        return loads(value, default=[])
+        return coerce_json_value(value, [])
     return []
 
 

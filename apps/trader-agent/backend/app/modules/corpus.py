@@ -15,7 +15,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import trader_raw_messages
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 
 @dataclass(frozen=True)
@@ -143,7 +143,7 @@ def _normalize_record(record: dict[str, Any], *, default_source: str | None) -> 
         "author": author_text,
         "timestamp": timestamp,
         "raw_text": raw_text,
-        "attachments": dumps(attachments),
+        "attachments": serialize_json_field(attachments),
         "reply_to": record.get("reply_to"),
         "imported_at": utc_now_iso(),
         "content_hash": content_hash,

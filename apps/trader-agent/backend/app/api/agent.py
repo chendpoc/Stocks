@@ -11,7 +11,7 @@ from app.core.events import record_agent_event
 from app.db.migrations import bootstrap_database
 from app.db.models import signals
 from app.db.session import create_sqlite_engine
-from app.modules import _json
+from app.modules.json_row_codec import coerce_json_value
 from app.modules.artifact_catalog import build_artifact_catalog
 from app.modules.candidate_extractor import (
     draft_candidates_with_llm,
@@ -723,9 +723,9 @@ def _serialize_signal_row(row: dict) -> dict:
     """Deserialize JSON columns so the API returns objects, not strings."""
     return {
         **row,
-        "evidence": _json.loads(row.get("evidence"), {}),
-        "risk_flags": _json.loads(row.get("risk_flags"), []),
-        "tool_outputs": _json.loads(row.get("tool_outputs"), {}),
+        "evidence": coerce_json_value(row.get("evidence"), {}),
+        "risk_flags": coerce_json_value(row.get("risk_flags"), []),
+        "tool_outputs": coerce_json_value(row.get("tool_outputs"), {}),
     }
 
 

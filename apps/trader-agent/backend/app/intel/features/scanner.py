@@ -10,7 +10,7 @@ from app.core.time import utc_now_iso
 from app.intel import logger
 from app.intel.db.schema import MVP_SYMBOLS
 from app.intel.ingestion.market_data import get_bars_from_db
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 MVP_SYMBOL_LIST = [row[0] for row in MVP_SYMBOLS]
 
@@ -266,7 +266,7 @@ def scan_symbol(engine, symbol: str, qqq_bars: list[dict]) -> list[dict]:
             "signal_type": signal_type,
             "raw_description": result.description or desc_tpl.format(symbol=symbol),
             "severity": result.severity,
-            "feature_snapshot": dumps(result.feature_snapshot),
+            "feature_snapshot": serialize_json_field(result.feature_snapshot),
             "status": "new",
         }
         signals.append(signal)

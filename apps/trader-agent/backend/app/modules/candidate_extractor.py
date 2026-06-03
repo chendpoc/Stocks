@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.db.models import document_sections, source_artifacts
 from app.db.session import create_sqlite_engine
-from app.modules._json import loads
+from app.modules.json_row_codec import coerce_json_value
 from app.modules.evidence_ref import EvidenceRef, RefType
 
 EXTRACTION_RULES: list[tuple[str, str, float]] = [
@@ -101,8 +101,8 @@ def _candidate_from_section(
         "title": row["heading_path"],
         "summary": section_text[:500],
         "normalized_rule": section_text,
-        "symbols_json": loads(row.get("symbols_json"), []),
-        "tags_json": loads(row.get("tags_json"), []),
+        "symbols_json": coerce_json_value(row.get("symbols_json"), []),
+        "tags_json": coerce_json_value(row.get("tags_json"), []),
         "confidence": confidence,
         "candidate_status": "candidate",
         "created_by": "rule_based",
@@ -156,7 +156,7 @@ def fetch_sections_for_llm(
             "source_date": row.get("source_date") or row.get("artifact_source_date"),
             "section_key": row["section_key"],
             "text_digest": row["text_digest"],
-            "symbols_json": loads(row.get("symbols_json"), []),
+            "symbols_json": coerce_json_value(row.get("symbols_json"), []),
         }
         for row in rows
     ]

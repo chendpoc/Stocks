@@ -9,7 +9,7 @@ from app.core.time import utc_now_iso
 from app.intel import logger
 from app.intel.ingestion.market_data import get_bars_from_db, get_latest_close
 from app.intel.postmortem.lessons import create_lesson_from_outcome
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 WINDOW_DAYS = {"1D": 1, "3D": 3, "5D": 5, "1W": 7}
 
@@ -113,7 +113,7 @@ def evaluate_due_predictions(settings: Settings, engine) -> dict[str, int]:
                     "mae": mae,
                     "invalidation_triggered": invalidation_triggered,
                     "verdict": verdict,
-                    "notes": dumps({"reference_price": ref_price, "final_close": final_close}),
+                    "notes": serialize_json_field({"reference_price": ref_price, "final_close": final_close}),
                 },
             )
             conn.execute(

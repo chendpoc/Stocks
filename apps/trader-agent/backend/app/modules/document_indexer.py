@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.core.time import utc_now_iso
 from app.db.models import document_chunks
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 from app.modules.knowledge_source_registry import KnowledgeSource, list_local_knowledge_sources
 
 SYMBOL_PATTERN = re.compile(r"\b[A-Z][A-Z0-9.-]{1,9}\b")
@@ -64,7 +64,7 @@ def index_local_knowledge(
                     source_path=chunk.source_path,
                     source_type=chunk.source_type,
                     chunk_index=chunk.chunk_index,
-                    symbol_hints=dumps(chunk.symbol_hints),
+                    symbol_hints=serialize_json_field(chunk.symbol_hints),
                     timestamp_hint=chunk.timestamp_hint,
                     confidence=chunk.confidence,
                     raw_text=chunk.raw_text,

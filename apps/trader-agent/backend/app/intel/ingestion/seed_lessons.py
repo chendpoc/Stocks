@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.core.time import utc_now_iso
 from app.intel import logger
 from app.intel.db.connection import get_intel_engine
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 SEED_LESSONS = [
     {
@@ -77,11 +77,11 @@ def seed_lessons_if_empty(settings: Settings | None = None, engine=None) -> int:
                     "lesson_id": f"seed_{uuid4().hex[:8]}",
                     "ts": ts,
                     "symbol": symbols[0] if symbols else None,
-                    "symbols_json": dumps(symbols),
+                    "symbols_json": serialize_json_field(symbols),
                     "lesson_text": seed["lesson_text"],
                     "summary": seed["summary"][:200],
                     "rule_text": seed["rule_text"],
-                    "tags_json": dumps(seed["tags_json"]),
+                    "tags_json": serialize_json_field(seed["tags_json"]),
                     "confidence": seed["confidence"],
                     "source_type": seed["source_type"],
                     "when_to_apply": seed["rule_text"],

@@ -9,7 +9,8 @@ from sqlalchemy import text
 
 from app.core.time import utc_now_iso
 from app.intel import logger
-from app.modules._json import dumps, json_array_like_pattern
+from app.modules._json import json_array_like_pattern
+from app.modules.json_row_codec import coerce_json_value, serialize_json_field
 
 
 def create_event(
@@ -27,7 +28,7 @@ def create_event(
     url: str | None = None,
 ) -> dict:
     event_id = str(uuid4())
-    symbols_json = dumps(affected_symbols or [])
+    symbols_json = serialize_json_field(affected_symbols or [])
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -93,7 +94,7 @@ def list_events(
     result = []
     for row in rows:
         item = dict(row)
-        item["affected_symbols"] = json.loads(item["affected_symbols"] or "[]")
+        item["affected_symbols"] = coerce_json_value(item.get("affected_symbols"), [])
         result.append(item)
     return result
 

@@ -6,7 +6,8 @@ from sqlalchemy import text
 
 from app.core.time import utc_now_iso
 from app.intel import logger
-from app.modules._json import dumps, json_array_like_pattern
+from app.modules._json import json_array_like_pattern
+from app.modules.json_row_codec import serialize_json_field
 
 _VERDICT_CONFIDENCE = {
     "supported": 0.8,
@@ -35,14 +36,14 @@ def create_lesson_from_outcome(
         "lesson_id": lesson_id,
         "ts": utc_now_iso(),
         "symbol": symbol,
-        "symbols_json": dumps([symbol] if symbol else []),
+        "symbols_json": serialize_json_field([symbol] if symbol else []),
         "pattern_id": None,
         "explanation_type": "postmortem",
         "market_regime": None,
         "lesson_text": lesson_text,
         "summary": summary,
         "rule_text": rule_text[:600],
-        "tags_json": dumps(["lesson", "postmortem", verdict]),
+        "tags_json": serialize_json_field(["lesson", "postmortem", verdict]),
         "confidence": _VERDICT_CONFIDENCE.get(verdict, 0.5),
         "source_type": "postmortem",
         "when_to_apply": hypothesis.get("professional_explanation"),

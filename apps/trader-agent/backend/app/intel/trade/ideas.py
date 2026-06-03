@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.core.time import utc_now_iso
 from app.intel import logger
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 TRADE_IDEA_STATUSES = [
     "no_trade",
@@ -84,7 +84,7 @@ def generate_trade_idea_from_hypothesis(engine, hypothesis: dict) -> dict | None
         "trigger_conditions": trigger,
         "invalidation_conditions": hypothesis.get("invalidation_condition"),
         "suggested_structure": None,
-        "risk_notes": dumps(hypothesis.get("audit_warnings") or []),
+        "risk_notes": serialize_json_field(hypothesis.get("audit_warnings") or []),
         "confidence": hypothesis.get("confidence", 0.5),
         "hypothesis_id": hypothesis.get("hypothesis_id"),
     }

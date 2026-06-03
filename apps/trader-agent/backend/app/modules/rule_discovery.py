@@ -17,7 +17,7 @@ from app.db.models import (
     trader_semantic_events,
 )
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, loads
+from app.modules.json_row_codec import coerce_json_value, serialize_json_field
 from app.tools.local_adapter import (
     MARKET_BARS_FIXTURE,
     CapabilityDisabledError,
@@ -109,14 +109,14 @@ def create_rule_candidate_from_semantic_event(
                 created_at=now,
                 updated_at=now,
                 source="semantic_event",
-                source_ref=dumps({"event_id": event_id}),
+                source_ref=serialize_json_field({"event_id": event_id}),
                 hypothesis=_hypothesis_from_event(event),
-                symbols=dumps(symbols),
+                symbols=serialize_json_field(symbols),
                 trigger_definition=event["setup_hint"] or event["entry_condition"],
                 entry_condition=event["entry_condition"] or "research_measurement_only",
                 exit_condition="evaluate_to_sample_window_final_bar",
                 invalidation=event["invalidation"] or "insufficient_confirming_evidence",
-                data_requirements=dumps(DEFAULT_DATA_REQUIREMENTS),
+                data_requirements=serialize_json_field(DEFAULT_DATA_REQUIREMENTS),
                 risk_notes=event["risk_notes"],
                 status=DRAFT,
                 confidence=event["confidence"],
@@ -158,15 +158,15 @@ def create_manual_rule_candidate(
                 created_at=now,
                 updated_at=now,
                 source="manual",
-                source_ref=dumps(payload.get("source_ref", {"input": "structured_payload"})),
+                source_ref=serialize_json_field(payload.get("source_ref", {"input": "structured_payload"})),
                 hypothesis=_require_text(payload, "hypothesis"),
-                symbols=dumps(symbols),
+                symbols=serialize_json_field(symbols),
                 trigger_definition=_require_text(payload, "trigger_definition"),
                 entry_condition=_require_text(payload, "entry_condition"),
                 exit_condition=payload.get("exit_condition", "evaluate_to_sample_window_final_bar"),
                 invalidation=_require_text(payload, "invalidation"),
-                data_requirements=dumps(data_requirements),
-                risk_notes=dumps(risk_notes),
+                data_requirements=serialize_json_field(data_requirements),
+                risk_notes=serialize_json_field(risk_notes),
                 status=DRAFT,
                 confidence=payload.get("confidence"),
                 created_by=created_by,
@@ -338,32 +338,32 @@ def run_lite_backtest(
         "data_window_start": start,
         "data_window_end": end,
         "sample_size": metrics["sample_size"],
-        "trigger_logic": dumps(
+        "trigger_logic": serialize_json_field(
             {
                 "type": "sharp_drop",
                 "threshold_return": DROP_THRESHOLD,
                 "uses_bars": "current and prior bars only",
             }
         ),
-        "entry_logic": dumps(
+        "entry_logic": serialize_json_field(
             {
                 "type": "next_bar_measurement",
                 "entry_price": "next_bar_open",
                 "mode": "research_only_no_action",
             }
         ),
-        "exit_logic": dumps({"type": "sample_final_bar_close"}),
-        "invalidation_logic": dumps({"definition": candidate.invalidation}),
+        "exit_logic": serialize_json_field({"type": "sample_final_bar_close"}),
+        "invalidation_logic": serialize_json_field({"definition": candidate.invalidation}),
         "win_rate": metrics["win_rate"],
         "avg_return": metrics["avg_return"],
         "median_return": metrics["median_return"],
         "max_adverse_excursion": metrics["max_adverse_excursion"],
         "max_favorable_excursion": metrics["max_favorable_excursion"],
-        "cost_model": dumps(DEFAULT_COST_MODEL),
+        "cost_model": serialize_json_field(DEFAULT_COST_MODEL),
         "spread_assumption": "5 bps fixture assumption",
         "slippage_assumption": "5 bps fixture assumption",
-        "evidence_gaps": dumps(gaps),
-        "quality_flags": dumps({"flags": quality_flags, "failure_cases": failure_cases}),
+        "evidence_gaps": serialize_json_field(gaps),
+        "quality_flags": serialize_json_field({"flags": quality_flags, "failure_cases": failure_cases}),
         "decision": recommended_decision,
         "reason": reason,
         "next_review_trigger": _next_review_trigger(recommended_decision),
@@ -423,8 +423,8 @@ def run_lite_backtest(
         "decision": recommended_decision,
         "reason": reason,
         "next_review_trigger": report_payload["next_review_trigger"],
-        "trigger_logic": loads(report_payload["trigger_logic"]),
-        "entry_logic": loads(report_payload["entry_logic"]),
+        "trigger_logic": coerce_json_value(report_payload["trigger_logic"]),
+        "entry_logic": coerce_json_value(report_payload["entry_logic"]),
     }
 
 
@@ -487,8 +487,8 @@ def _candidate_from_row(row: Any) -> Candidate:
     return Candidate(
         id=row["id"],
         status=row["status"],
-        symbols=list(loads(row["symbols"], [])),
-        data_requirements=list(loads(row["data_requirements"], [])),
+        symbols=list(coerce_json_value(row["symbols"], [])),
+        data_requirements=list(coerce_json_value(row["data_requirements"], [])),
         latest_report_id=row["latest_report_id"],
         trigger_definition=row["trigger_definition"],
         entry_condition=row["entry_condition"],
@@ -565,10 +565,10 @@ def _requirement_row(
         "created_at": utc_now_iso(),
         "requirement_type": requirement["requirement_type"],
         "provider_capability": requirement["provider_capability"],
-        "query_scope": dumps(query_scope),
-        "required_quality": dumps(requirement.get("required_quality")),
+        "query_scope": serialize_json_field(query_scope),
+        "required_quality": serialize_json_field(requirement.get("required_quality")),
         "status": status if gap is None else "gap",
-        "evidence_refs": dumps(evidence_refs or []),
+        "evidence_refs": serialize_json_field(evidence_refs or []),
         "gap_reason": None if gap is None else gap["reason"],
     }
 
@@ -587,7 +587,7 @@ def _stored_evidence_gaps(settings: Settings, candidate_id: str) -> list[dict[st
             "provider_capability": row["provider_capability"],
             "reason": row["gap_reason"],
             "requirement_type": row["requirement_type"],
-            "symbol": loads(row["query_scope"], {}).get("symbol"),
+            "symbol": coerce_json_value(row["query_scope"], {}).get("symbol"),
         }
         for row in rows
     ]

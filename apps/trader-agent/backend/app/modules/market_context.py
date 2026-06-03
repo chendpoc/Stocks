@@ -11,7 +11,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import market_context_snapshots, trader_raw_messages, trader_semantic_events
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, loads
+from app.modules.json_row_codec import coerce_json_value, serialize_json_field
 
 CONTEXT_BUILDER_VERSION = "market-context-v0.1"
 
@@ -40,7 +40,7 @@ def build_context_snapshots_for_events(settings: Settings) -> ContextBuildSummar
             .all()
         )
         for row in rows:
-            sidecar = loads(row["attachments"], default={}) or {}
+            sidecar = coerce_json_value(row["attachments"], default={}) or {}
             context = sidecar.get("context") or {}
             evidence_gap = not bool(context)
             if evidence_gap:
@@ -66,15 +66,15 @@ def build_context_snapshots_for_events(settings: Settings) -> ContextBuildSummar
                     symbol_above_vwap=context.get("symbol_above_vwap"),
                     symbol_relative_strength_vs_qqq=context.get("symbol_relative_strength_vs_qqq"),
                     symbol_relative_volume=context.get("symbol_relative_volume"),
-                    spy_state=dumps(context.get("spy_state") or {"evidence_gap": evidence_gap}),
-                    qqq_state=dumps(context.get("qqq_state") or {"evidence_gap": evidence_gap}),
-                    vix_state=dumps(context.get("vix_state") or {"evidence_gap": evidence_gap}),
-                    btc_state=dumps(context.get("btc_state") or {"evidence_gap": evidence_gap}),
-                    eth_state=dumps(context.get("eth_state") or {"evidence_gap": evidence_gap}),
-                    news_summary=dumps(
+                    spy_state=serialize_json_field(context.get("spy_state") or {"evidence_gap": evidence_gap}),
+                    qqq_state=serialize_json_field(context.get("qqq_state") or {"evidence_gap": evidence_gap}),
+                    vix_state=serialize_json_field(context.get("vix_state") or {"evidence_gap": evidence_gap}),
+                    btc_state=serialize_json_field(context.get("btc_state") or {"evidence_gap": evidence_gap}),
+                    eth_state=serialize_json_field(context.get("eth_state") or {"evidence_gap": evidence_gap}),
+                    news_summary=serialize_json_field(
                         context.get("news_summary") or {"evidence_gap": evidence_gap}
                     ),
-                    options_summary=dumps(
+                    options_summary=serialize_json_field(
                         context.get("options_summary") or {"evidence_gap": evidence_gap}
                     ),
                     context_builder_version=CONTEXT_BUILDER_VERSION,
@@ -93,7 +93,7 @@ def build_context_snapshots_for_events(settings: Settings) -> ContextBuildSummar
 
 
 def _symbol_from_aliases(aliases: str | None) -> str | None:
-    payload: dict[str, Any] = loads(aliases, default={}) or {}
+    payload: dict[str, Any] = coerce_json_value(aliases, default={}) or {}
     for candidate in payload.get("ticker_context", []):
         if candidate.get("status") in {"context_asset", "candidate"}:
             return candidate.get("symbol")

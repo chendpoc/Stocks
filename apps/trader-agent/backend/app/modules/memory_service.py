@@ -13,7 +13,9 @@ from app.db.models import memory_candidates, memory_items
 from app.db.session import create_sqlite_engine
 from app.modules._json import json_array_contains
 from app.modules.json_row_codec import (
+    coerce_json_value,
     deserialize_json_fields_in_row,
+    serialize_json_field,
     serialize_json_fields_in_row,
 )
 from app.modules.conflict_detector import find_conflicts
@@ -144,9 +146,7 @@ def _require_pending_candidate(candidate: dict[str, Any]) -> None:
 
 
 def _memory_item_has_symbol(item: dict[str, Any], symbol: str) -> bool:
-    symbols = item.get("symbols_json") or []
-    if isinstance(symbols, str):
-        symbols = loads(symbols, [])
+    symbols = coerce_json_value(item.get("symbols_json"), [])
     target = symbol.strip().upper()
     return target in {str(value).upper() for value in symbols if value}
 
@@ -193,7 +193,7 @@ def _activate_candidate_in_conn(
         "reviewed_at": now,
     }
     if review_flags is not None:
-        candidate_updates["review_flags_json"] = dumps(review_flags)
+        candidate_updates["review_flags_json"] = serialize_json_field(review_flags)
     conn.execute(
         memory_candidates.update()
         .where(memory_candidates.c.id == candidate_id)
@@ -719,7 +719,7 @@ def merge_candidate(
             memory_items.update()
             .where(memory_items.c.id == target_memory_item_id)
             .values(
-                evidence_refs_json=dumps(merged_refs),
+                evidence_refs_json=serialize_json_field(merged_refs),
                 updated_at=now,
                 updated_by="human",
             )

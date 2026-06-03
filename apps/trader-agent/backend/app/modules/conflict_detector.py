@@ -5,7 +5,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import memory_items
 from app.db.session import create_sqlite_engine
-from app.modules._json import loads
+from app.modules.json_row_codec import coerce_json_value
 
 _BULLISH_KEYWORDS = frozenset(
     {"buy", "long", "做多", "bull", "bullish", "call", "above", "breakout", "long-only"}
@@ -17,13 +17,13 @@ _BEARISH_KEYWORDS = frozenset(
 
 def _normalize_symbols(symbols: list[str] | str | None) -> set[str]:
     if isinstance(symbols, str):
-        symbols = loads(symbols, [])
+        symbols = coerce_json_value(symbols, [])
     return {symbol.upper() for symbol in (symbols or []) if symbol}
 
 
 def _normalize_tags(tags: list[str] | str | None) -> set[str]:
     if isinstance(tags, str):
-        tags = loads(tags, [])
+        tags = coerce_json_value(tags, [])
     return {tag.strip().lower() for tag in (tags or []) if tag}
 
 

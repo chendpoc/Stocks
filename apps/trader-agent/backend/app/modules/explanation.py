@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.db.migrations import bootstrap_database
 from app.db.models import agent_events, signals
 from app.db.session import create_sqlite_engine
-from app.modules import _json
+from app.modules.json_row_codec import coerce_json_value
 
 FORBIDDEN_UI_PHRASES = (
     "automatic buy",
@@ -39,8 +39,8 @@ def build_signal_explanation(settings: Settings, signal_id: str) -> dict[str, An
         )
 
     signal_payload = dict(signal_row)
-    evidence = _as_dict(_json.loads(signal_payload.get("evidence"), {}))
-    risk_flags = _sanitize_json(_as_list(_json.loads(signal_payload.get("risk_flags"), [])))
+    evidence = _as_dict(coerce_json_value(signal_payload.get("evidence"), {}))
+    risk_flags = _sanitize_json(_as_list(coerce_json_value(signal_payload.get("risk_flags"), [])))
     rule_hits = _rule_hits(evidence)
     missing_evidence = _missing_evidence(signal_payload, evidence, rule_hits)
     missing_conditions = _missing_rule_conditions(rule_hits)
@@ -293,8 +293,8 @@ def _serialize_event(row: Any) -> dict[str, Any]:
         "status": _safe_text(row["status"]),
         "title": _safe_text(row["title"]),
         "summary": _safe_text(row["summary"]),
-        "input_summary": _as_dict(_sanitize_json(_json.loads(row["input_summary"], {}))),
-        "output_summary": _as_dict(_sanitize_json(_json.loads(row["output_summary"], {}))),
+        "input_summary": _as_dict(_sanitize_json(coerce_json_value(row["input_summary"], {}))),
+        "output_summary": _as_dict(_sanitize_json(coerce_json_value(row["output_summary"], {}))),
         "tool_name": _safe_text(row["tool_name"]),
         "duration_ms": row["duration_ms"],
         "error": _safe_text(row["error"]),

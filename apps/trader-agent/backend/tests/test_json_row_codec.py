@@ -2,10 +2,22 @@ import json
 
 from app.intel.schemas.stage1_records import ContextSnapshotOut
 from app.modules.json_row_codec import (
+    canonical_json_text,
+    coerce_json_value,
     deserialize_json_fields_in_row,
     serialize_json_field,
     serialize_json_fields_in_row,
 )
+
+
+def test_canonical_json_text_matches_sorted_encoding() -> None:
+    assert canonical_json_text({"b": 1, "a": 2}) == '{"a":2,"b":1}'
+
+
+def test_coerce_json_value_parses_text_and_is_idempotent() -> None:
+    assert coerce_json_value('[{"a":1}]', []) == [{"a": 1}]
+    assert coerce_json_value([{"a": 1}], []) == [{"a": 1}]
+    assert coerce_json_value(None, []) == []
 
 
 def test_serialize_and_deserialize_round_trip() -> None:

@@ -11,7 +11,7 @@ from app.core.time import utc_now_iso
 from app.db.models import memory_items
 from app.db.session import create_sqlite_engine
 from app.modules._json import json_array_contains
-from app.modules.json_row_codec import deserialize_json_fields_in_row
+from app.modules.json_row_codec import coerce_json_value, deserialize_json_fields_in_row
 
 SELECTOR_VERSION = "v1"
 CONFIDENCE_THRESHOLD = 0.5
@@ -81,7 +81,7 @@ def _normalize_list(value: Any) -> list:
     if isinstance(value, list):
         return value
     if isinstance(value, str):
-        return loads(value, [])
+        return coerce_json_value(value, [])
     return []
 
 

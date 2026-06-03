@@ -12,7 +12,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import trader_raw_messages, trader_semantic_events
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 from app.modules.ticker_alias import TickerAliasResolver
 from app.rulepack.loader import load_rulepack
 
@@ -165,7 +165,7 @@ def _extract_message(conn: Any, message: Any, resolver: TickerAliasResolver) -> 
                 raw_message_id=message["id"],
                 timestamp=message["timestamp"],
                 symbol=primary_symbol,
-                aliases=dumps({"ticker_context": ticker_context}),
+                aliases=serialize_json_field({"ticker_context": ticker_context}),
                 asset_class="equity" if primary_symbol else "market_context",
                 action=rule.action,
                 direction=_direction_from_text(text),
@@ -177,8 +177,8 @@ def _extract_message(conn: Any, message: Any, resolver: TickerAliasResolver) -> 
                 target=None,
                 stop=None,
                 thesis=text,
-                catalyst=dumps(_catalyst_from_text(text)),
-                risk_notes=dumps(rule.risk_notes),
+                catalyst=serialize_json_field(_catalyst_from_text(text)),
+                risk_notes=serialize_json_field(rule.risk_notes),
                 language_strength="explicit",
                 confidence=rule.confidence,
                 extractor_version=EXTRACTOR_VERSION,

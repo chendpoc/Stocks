@@ -15,7 +15,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import document_sections, source_artifacts
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, loads
+from app.modules.json_row_codec import coerce_json_value, serialize_json_field
 
 ATX_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 TABLE_ROW_RE = re.compile(r"^\|.+\|$")
@@ -229,10 +229,10 @@ def index_markdown_sections(
                             start_line=parsed.start_line,
                             end_line=parsed.end_line,
                             source_date=source_date,
-                            symbols_json=dumps(symbols),
-                            tags_json=dumps(tags),
-                            speaker_refs_json=dumps(speaker_refs),
-                            metadata_json=dumps(metadata),
+                            symbols_json=serialize_json_field(symbols),
+                            tags_json=serialize_json_field(tags),
+                            speaker_refs_json=serialize_json_field(speaker_refs),
+                            metadata_json=serialize_json_field(metadata),
                             created_at=now,
                             updated_at=now,
                         )
@@ -281,7 +281,7 @@ def index_markdown_sections(
             except Exception as exc:
                 failed += 1
                 now = utc_now_iso()
-                metadata = loads(row.get("metadata_json"), default={}) or {}
+                metadata = coerce_json_value(row.get("metadata_json"), default={}) or {}
                 if not isinstance(metadata, dict):
                     metadata = {}
                 metadata["index_error"] = str(exc)
@@ -290,7 +290,7 @@ def index_markdown_sections(
                     .where(source_artifacts.c.id == artifact_id)
                     .values(
                         index_status="failed",
-                        metadata_json=dumps(metadata),
+                        metadata_json=serialize_json_field(metadata),
                         updated_at=now,
                     )
                 )

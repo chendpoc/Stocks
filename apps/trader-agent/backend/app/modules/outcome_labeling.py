@@ -10,7 +10,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import event_outcomes, trader_raw_messages, trader_semantic_events
 from app.db.session import create_sqlite_engine
-from app.modules._json import loads
+from app.modules.json_row_codec import coerce_json_value
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ def label_event_outcomes_from_raw_message_fixtures(settings: Settings) -> Outcom
             .all()
         )
         for row in rows:
-            sidecar = loads(row["attachments"], default={}) or {}
+            sidecar = coerce_json_value(row["attachments"], default={}) or {}
             outcome = sidecar.get("outcome")
             if not outcome:
                 skipped_count += 1

@@ -10,7 +10,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
 from app.db.session import create_sqlite_engine
-from app.modules._json import loads
+from app.modules.json_row_codec import coerce_json_value
 from app.modules.document_indexer import ensure_knowledge_fts
 
 MAX_SEARCH_LIMIT = 50
@@ -202,7 +202,7 @@ def _filter_rows_by_query_terms(rows: list[Any], query: str) -> list[Any]:
 
 
 def _row_to_result(row: Any, query: str) -> KnowledgeSearchResult:
-    symbol_hints = loads(row["symbol_hints"], [])
+    symbol_hints = coerce_json_value(row["symbol_hints"], [])
     return KnowledgeSearchResult(
         evidence_id=row["evidence_id"],
         source_path=row["source_path"],

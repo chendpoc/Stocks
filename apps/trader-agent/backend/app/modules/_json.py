@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Low-level JSON helpers.
+
+``dumps`` / ``loads`` are implementation details for ``json_row_codec`` and legacy
+call sites. New SQLite ``*_json`` TEXT column I/O should use ``json_row_codec``
+instead of importing ``dumps`` / ``loads`` from this module.
+"""
+
 import json
 from typing import Any
 

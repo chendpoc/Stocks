@@ -14,7 +14,7 @@ from app.intel.ingestion.market_data import get_bars_from_db
 from app.intel.postmortem.evaluator import _parse_window_days
 from app.intel.postmortem.lessons import list_lessons
 from app.intel.trade.ideas import generate_trade_idea_from_hypothesis
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 router = APIRouter()
 
@@ -69,12 +69,12 @@ def save_hypothesis(request: Request, payload: HypothesisInput) -> dict:
         "claim": payload.claim,
         "professional_explanation": payload.professional_explanation,
         "plain_language_explanation": payload.plain_language_explanation,
-        "candidate_explanations": dumps(payload.candidate_explanations),
-        "evidence_for": dumps(payload.evidence_for),
-        "evidence_against": dumps(payload.evidence_against),
+        "candidate_explanations": serialize_json_field(payload.candidate_explanations),
+        "evidence_for": serialize_json_field(payload.evidence_for),
+        "evidence_against": serialize_json_field(payload.evidence_against),
         "reasoning_gap": payload.reasoning_gap,
-        "missing_evidence": dumps(payload.missing_evidence),
-        "audit_warnings": dumps(payload.audit_warnings),
+        "missing_evidence": serialize_json_field(payload.missing_evidence),
+        "audit_warnings": serialize_json_field(payload.audit_warnings),
         "confidence": payload.confidence,
         "tradability": payload.tradability,
         "invalidation_condition": payload.invalidation_condition,

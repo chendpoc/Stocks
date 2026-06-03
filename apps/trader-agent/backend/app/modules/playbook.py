@@ -12,7 +12,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import event_outcomes, playbooks, trader_semantic_events
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 
 @dataclass(frozen=True)
@@ -78,13 +78,13 @@ def aggregate_playbooks(
             values = {
                 "name": setup_hint.replace("_", " ").title(),
                 "description": f"Aggregated deterministic playbook for {setup_hint}.",
-                "symbols": dumps(symbols),
+                "symbols": serialize_json_field(symbols),
                 "setup_type": setup_hint,
-                "required_market_regime": dumps({"evidence": "fixture_or_missing_context"}),
-                "required_conditions": dumps(required_conditions),
-                "invalidation_conditions": dumps(invalidation_conditions),
+                "required_market_regime": serialize_json_field({"evidence": "fixture_or_missing_context"}),
+                "required_conditions": serialize_json_field(required_conditions),
+                "invalidation_conditions": serialize_json_field(invalidation_conditions),
                 "preferred_timeframe": examples[0]["timeframe"],
-                "preferred_instrument": dumps({"instrument": examples[0]["instrument"]}),
+                "preferred_instrument": serialize_json_field({"instrument": examples[0]["instrument"]}),
                 "historical_win_rate": win_rate,
                 "avg_return": _avg([row["return_1d"] for row in outcome_examples]),
                 "avg_mfe": _avg([row["mfe"] for row in outcome_examples]),

@@ -11,7 +11,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import agent_events, memory_items, source_artifacts
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, loads
+from app.modules.json_row_codec import coerce_json_value, serialize_json_field
 from app.modules.artifact_catalog import CatalogResult, build_artifact_catalog
 from app.modules.evidence_ref import EvidenceRef, ResolverStatus
 from app.modules.markdown_section_indexer import (
@@ -60,7 +60,7 @@ def _merge_evidence_review_flags(
 
 
 def _normalize_review_flags(raw_flags) -> list[str]:
-    flags = loads(raw_flags, [])
+    flags = coerce_json_value(raw_flags, [])
     if not isinstance(flags, list):
         return []
     return list(flags)
@@ -92,7 +92,7 @@ def _scan_memory_evidence(
     for row in rows:
         total_memory_items += 1
         item_id = str(row["id"])
-        refs = loads(row.get("evidence_refs_json"), [])
+        refs = coerce_json_value(row.get("evidence_refs_json"), [])
         if not isinstance(refs, list):
             refs = []
 
@@ -128,7 +128,7 @@ def _scan_memory_evidence(
                     "WHERE id = :item_id"
                 ),
                 {
-                    "review_flags_json": dumps(merged_flags),
+                    "review_flags_json": serialize_json_field(merged_flags),
                     "updated_at": now,
                     "item_id": item_id,
                 },
@@ -166,7 +166,7 @@ def _conflict_event_already_recorded(
         ).all()
 
     for (input_summary,) in rows:
-        payload = loads(input_summary, {})
+        payload = coerce_json_value(input_summary, {})
         if not isinstance(payload, dict):
             continue
         if (

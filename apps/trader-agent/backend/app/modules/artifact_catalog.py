@@ -15,7 +15,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import source_artifacts
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps
+from app.modules.json_row_codec import serialize_json_field
 
 # Data scan roots are always relative to settings.repo_root, not settings.data_dir.
 DATE_PREFIX_PATTERN = re.compile(r"^(20\d{2})[-_](\d{2})[-_](\d{2})(?:[-_]|$)")
@@ -182,7 +182,7 @@ def build_artifact_catalog(settings: Settings, docs_root: Path | None = None) ->
                 title = _extract_title(file_path)
                 source_date = _extract_source_date(logical_path, file_path)
                 market_session = _extract_market_session(file_path)
-                metadata_json = dumps(
+                metadata_json = serialize_json_field(
                     {
                         "logical_path": logical_path,
                         "source_type": source_type,
@@ -431,7 +431,7 @@ def _upsert_excluded_artifact(
     title = _extract_title(file_path)
     source_date = _extract_source_date(logical_path, file_path)
     market_session = _extract_market_session(file_path)
-    metadata_json = dumps(
+    metadata_json = serialize_json_field(
         {
             "logical_path": logical_path,
             "source_type": source_type,
@@ -517,7 +517,7 @@ def _upsert_failed_artifact(
     source_date = _extract_source_date(logical_path, file_path)
     market_session = _extract_market_session(file_path)
     mime_type = _mime_type(file_path)
-    metadata_json = dumps({"logical_path": logical_path, "error": error})
+    metadata_json = serialize_json_field({"logical_path": logical_path, "error": error})
 
     existing = existing_rows.get(physical_rel)
     if existing is not None and existing.get("index_status") == "failed":

@@ -9,7 +9,7 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import signals
 from app.db.session import create_sqlite_engine
-from app.modules import _json
+from app.modules.json_row_codec import coerce_json_value, serialize_json_field
 from app.modules.market_snapshot import MarketSnapshot
 from app.modules.risk_engine import LEGAL_SIGNAL_STATES, RiskAssessment
 from app.modules.rule_engine import RuleEvaluation
@@ -53,9 +53,9 @@ def persist_signal(
         "entry_trigger": candidate.trigger_condition,
         "invalidation": candidate.invalidation,
         "preferred_instrument": rule_result.preferred_instrument,
-        "evidence": _json.dumps(_evidence(candidate, rule_result, snapshot)),
-        "risk_flags": _json.dumps(risk_result.risk_flags),
-        "tool_outputs": _json.dumps(_tool_outputs(score_result, risk_result)),
+        "evidence": serialize_json_field(_evidence(candidate, rule_result, snapshot)),
+        "risk_flags": serialize_json_field(risk_result.risk_flags),
+        "tool_outputs": serialize_json_field(_tool_outputs(score_result, risk_result)),
         "rule_version": rule_result.rule_version,
         "agent_version": AGENT_VERSION,
     }
@@ -154,7 +154,7 @@ def _trader_playbook_match(score_result: ScoreResult) -> float:
 def _serialize_signal(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         **payload,
-        "evidence": _json.loads(payload["evidence"], {}),
-        "risk_flags": _json.loads(payload["risk_flags"], []),
-        "tool_outputs": _json.loads(payload["tool_outputs"], {}),
+        "evidence": coerce_json_value(payload["evidence"], {}),
+        "risk_flags": coerce_json_value(payload["risk_flags"], []),
+        "tool_outputs": coerce_json_value(payload["tool_outputs"], {}),
     }

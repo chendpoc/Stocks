@@ -11,7 +11,7 @@ from app.intel.db.connection import get_intel_engine
 from app.intel.features.scanner import get_signal, list_signals
 from app.intel.ingestion.events_ingest import list_events
 from app.intel.ingestion.market_data import get_bars_from_db
-from app.modules._json import loads
+from app.modules.json_row_codec import coerce_json_value
 from app.modules.corpus_search import search_corpus
 
 router = APIRouter()
@@ -90,7 +90,7 @@ def _list_events_for_symbols(engine, symbols: list[str], days: int = 7) -> list[
     for event in events:
         affected = event.get("affected_symbols") or []
         if isinstance(affected, str):
-            affected = loads(affected, default=[])
+            affected = coerce_json_value(affected, default=[])
         if not affected or sym_set.intersection({a.upper() for a in affected}):
             filtered.append(event)
     return filtered[:20]
@@ -111,7 +111,7 @@ def _list_patterns(engine, symbols: list[str]) -> list[dict]:
     result = []
     sym_set = {s.upper() for s in symbols}
     for row in rows:
-        assets = loads(row["affected_assets"], default=[])
+        assets = coerce_json_value(row["affected_assets"], default=[])
         if not symbols or sym_set.intersection({a.upper() for a in assets}):
             result.append(dict(row))
     return result

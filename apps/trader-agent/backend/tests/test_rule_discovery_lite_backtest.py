@@ -15,7 +15,7 @@ from app.db.models import (
     trader_semantic_events,
 )
 from app.db.session import create_sqlite_engine
-from app.modules._json import loads
+from app.modules.json_row_codec import coerce_json_value
 from app.modules.corpus import import_jsonl
 from app.modules.rule_discovery import (
     InvalidCandidateTransitionError,
@@ -89,8 +89,8 @@ def test_creates_candidate_from_semantic_event_without_rulepack_or_trade_side_ef
         ).all()
 
     assert candidate["source"] == "semantic_event"
-    assert loads(candidate["source_ref"]) == {"event_id": event_id}
-    assert loads(candidate["symbols"]) == [expected_symbol]
+    assert coerce_json_value(candidate["source_ref"]) == {"event_id": event_id}
+    assert coerce_json_value(candidate["symbols"]) == [expected_symbol]
     assert candidate["status"] == "draft"
     assert candidate["latest_report_id"] is None
     assert candidate["approval_request_id"] is None
@@ -123,7 +123,7 @@ def test_manual_candidate_records_market_bar_requirement_and_waits_for_validatio
         ).mappings().one()
 
     assert candidate["status"] == "draft"
-    assert loads(candidate["data_requirements"]) == [
+    assert coerce_json_value(candidate["data_requirements"]) == [
         {
             "provider_capability": "market_bars.fixture",
             "requirement_type": "market_bars",
@@ -231,7 +231,7 @@ def test_lite_backtest_uses_fixture_bars_and_updates_candidate_after_report(
     assert candidate["latest_report_id"] == report["latest_report_id"]
     assert candidate["status"] == "backtested"
     assert report["candidate_status"] == "backtested"
-    stored_quality = loads(stored_report["quality_flags"])
+    stored_quality = coerce_json_value(stored_report["quality_flags"])
     assert stored_quality["flags"] == report["quality_flags"]
     assert stored_quality["failure_cases"] == report["failure_cases"]
     assert completion_event == ("rule_discovery.lite_backtest_completed", "completed")
