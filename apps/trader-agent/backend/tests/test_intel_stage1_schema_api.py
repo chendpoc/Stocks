@@ -9,8 +9,6 @@ from app.core.config import Settings
 from app.core.time import utc_now_iso
 from app.intel.db.connection import get_intel_engine, set_intel_db_path
 from app.main import create_app
-from app.modules._json import loads
-
 STAGE1_PREFIX = "/api/intel/stage1"
 
 FORBIDDEN_CHECKPOINT_COLUMNS = frozenset(
@@ -109,7 +107,10 @@ def test_context_snapshot_idempotent_and_conflict(tmp_path: Path) -> None:
 
     first = client.post(f"{STAGE1_PREFIX}/context-snapshots", json=payload)
     assert first.status_code == 200
-    assert first.json()["snapshot_id"] == "snap-1"
+    first_body = first.json()
+    assert first_body["snapshot_id"] == "snap-1"
+    assert isinstance(first_body["items_json"], list)
+    assert isinstance(first_body["evidence_refs_json"], list)
 
     second = client.post(f"{STAGE1_PREFIX}/context-snapshots", json=payload)
     assert second.status_code == 200
@@ -133,7 +134,11 @@ def test_context_snapshot_idempotent_and_conflict(tmp_path: Path) -> None:
 
     detail = client.get(f"{STAGE1_PREFIX}/context-snapshots/snap-1")
     assert detail.status_code == 200
-    assert detail.json()["context_hash"] == "hash-abc"
+    body = detail.json()
+    assert body["context_hash"] == "hash-abc"
+    assert isinstance(body["items_json"], list)
+    assert isinstance(body["evidence_refs_json"], list)
+    assert body["items_json"][0]["source"] == "signal"
 
 
 def test_model_decision_human_override_and_conflict(tmp_path: Path) -> None:
@@ -143,7 +148,10 @@ def test_model_decision_human_override_and_conflict(tmp_path: Path) -> None:
     payload = _decision_payload()
     created = client.post(f"{STAGE1_PREFIX}/model-decisions", json=payload)
     assert created.status_code == 200
-    assert created.json()["decision_id"] == "dec-1"
+    created_body = created.json()
+    assert created_body["decision_id"] == "dec-1"
+    assert isinstance(created_body["decision_json"], dict)
+    assert isinstance(created_body.get("human_overrides_json", []), list)
 
     dup = client.post(f"{STAGE1_PREFIX}/model-decisions", json=payload)
     assert dup.status_code == 200
@@ -168,7 +176,8 @@ def test_model_decision_human_override_and_conflict(tmp_path: Path) -> None:
     assert override.status_code == 200
     after = override.json()
     assert after["decision_json"] == before["decision_json"]
-    overrides = loads(after["human_overrides_json"])
+    overrides = after["human_overrides_json"]
+    assert isinstance(overrides, list)
     assert len(overrides) == 1
     assert overrides[0]["override"]["action"] == "hold"
 

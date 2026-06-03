@@ -20,8 +20,8 @@ export interface PersistedModelDecision {
   action: string;
   confidence?: number | null;
   uncertainty?: number | null;
-  decision_json: string;
-  human_overrides_json?: string;
+  decision_json: Record<string, unknown>;
+  human_overrides_json?: unknown[];
   status?: string;
   created_at?: string;
 }

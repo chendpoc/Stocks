@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 
 import { fetchStage1 } from "../api/client.js";
 import {
+  listContextSnapshots,
   MAX_COMPOSITE_WEIGHT,
+  type ContextSnapshotRecord,
   type EvidenceRef,
   type WeightedContextItem,
 } from "./contextSnapshots.js";
@@ -23,15 +25,6 @@ export interface ParsedExplorationWindow {
   window: string;
   window_start: string;
   window_end: string;
-}
-
-export interface ContextSnapshotListRow {
-  snapshot_id: string;
-  symbol: string;
-  asof_ts: string;
-  items_json: WeightedContextItem[] | string;
-  evidence_refs_json?: EvidenceRef[] | string;
-  created_at?: string;
 }
 
 export interface InsightCandidatePayload {
@@ -63,13 +56,6 @@ export interface InsightReActStepRecord {
   tool: InsightReActToolName;
   input: Record<string, unknown>;
   observation: unknown;
-}
-
-function parseJsonField<T>(value: T | string): T {
-  if (typeof value === "string") {
-    return JSON.parse(value) as T;
-  }
-  return value;
 }
 
 export function parseExplorationWindow(
@@ -139,14 +125,11 @@ export function enforceInsightProposal(proposal: InsightProposal): InsightPropos
 }
 
 export function extractWeightedItemsFromSnapshots(
-  snapshots: ContextSnapshotListRow[],
+  snapshots: ContextSnapshotRecord[],
 ): WeightedContextItem[] {
   const items: WeightedContextItem[] = [];
   for (const snapshot of snapshots) {
-    const parsed = parseJsonField<WeightedContextItem[]>(snapshot.items_json);
-    if (Array.isArray(parsed)) {
-      items.push(...parsed);
-    }
+    items.push(...snapshot.items_json);
   }
   return items.sort((a, b) => b.composite_weight - a.composite_weight);
 }
@@ -201,15 +184,11 @@ export function buildInsightCandidatePayload(input: {
 export async function fetchContextSnapshotsForSymbol(input: {
   symbol: string;
   limit?: number;
-}): Promise<ContextSnapshotListRow[]> {
-  const params = new URLSearchParams();
-  params.set("symbol", input.symbol.toUpperCase());
-  if (input.limit !== undefined) {
-    params.set("limit", String(input.limit));
-  }
-  const response = await fetchStage1<{ items: ContextSnapshotListRow[]; count: number }>(
-    `/context-snapshots?${params.toString()}`,
-  );
+}): Promise<ContextSnapshotRecord[]> {
+  const response = await listContextSnapshots({
+    symbol: input.symbol,
+    limit: input.limit,
+  });
   return response.items;
 }
 

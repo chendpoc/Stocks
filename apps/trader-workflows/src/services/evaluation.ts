@@ -20,7 +20,7 @@ export interface ModelDecisionSummary {
   model_version?: string | null;
   symbol: string;
   created_at?: string;
-  human_overrides_json?: string | null;
+  human_overrides_json?: unknown[] | null;
 }
 
 export interface PathMetrics {
@@ -53,9 +53,9 @@ export interface EvaluationReportRecord {
   model_version: string;
   window_start: string | null;
   window_end: string | null;
-  metrics_json: EvaluationMetrics | string;
+  metrics_json: EvaluationMetrics;
   recommendation: EvaluationRecommendation;
-  report_json: Record<string, unknown> | string;
+  report_json: Record<string, unknown>;
   created_at?: string;
 }
 

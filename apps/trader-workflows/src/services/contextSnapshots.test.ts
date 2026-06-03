@@ -17,7 +17,6 @@ import {
   weightedItemsFromIntelBuild,
   WEIGHTING_POLICY_VERSION,
 } from "./contextSnapshots.js";
-
 const SAMPLE_BUILD: IntelContextBuildResponse = {
   market_data: {
     TSLA: {
@@ -280,4 +279,34 @@ test("Stage1ApiError preserves HTTP status for callers", () => {
   const error = new Stage1ApiError(409, "conflict");
   assert.equal(error.status, 409);
   assert.match(error.message, /conflict/);
+});
+
+test("persistContextSnapshot expects Stage1 API to return parsed JSON arrays", async () => {
+  const payload = buildContextSnapshotPayload({
+    symbol: "TSLA",
+    items: weightedItemsFromIntelBuild(SAMPLE_BUILD, "TSLA", "2026-06-01T12:00:00Z"),
+    asof_ts: "2026-06-01T12:00:00Z",
+    snapshot_id: "snap-api-parsed",
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ...payload,
+        created_at: "2026-06-01T12:00:01Z",
+      }),
+    }) as Response) as typeof fetch;
+
+  try {
+    const record = await persistContextSnapshot(payload);
+    assert.equal(Array.isArray(record.items_json), true);
+    assert.ok(record.items_json.length > 0);
+    assert.equal(typeof record.items_json[0]?.item_id, "string");
+    const refs = record.items_json.map((item) => item.evidence_ref);
+    assert.ok(refs.every((ref) => ref.ref_type && ref.ref_id));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

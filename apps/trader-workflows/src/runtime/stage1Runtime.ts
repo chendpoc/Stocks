@@ -8,6 +8,7 @@ import {
   type DecisionGraphDeps,
   type DecisionGraphResult,
 } from "../graphs/decisionGraph.js";
+import { toContextSnapshotSummary } from "../services/contextSnapshots.js";
 import {
   type Stage1CheckpointRecord,
   Stage1CheckpointStore,
@@ -100,6 +101,7 @@ function toBoundedDecisionOutput(result: DecisionGraphResult): Record<string, un
     action: result.envelope.action,
     scheduled_outcome_count: result.scheduled_outcomes.length,
     paper_execution_submitted: result.paper_execution_submitted,
+    context_snapshot: toContextSnapshotSummary(result.snapshot),
   };
 }
 

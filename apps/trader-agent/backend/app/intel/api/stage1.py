@@ -10,7 +10,26 @@ from sqlalchemy import text
 
 from app.core.time import utc_now_iso
 from app.intel.db.connection import get_intel_engine
+from app.intel.schemas.stage1_records import (
+    ContextSnapshotListOut,
+    ContextSnapshotOut,
+    DecisionOutcomeListOut,
+    DecisionOutcomeOut,
+    EvaluationReportListOut,
+    EvaluationReportOut,
+    InsightCandidateListOut,
+    InsightCandidateOut,
+    ModelDecisionListOut,
+    ModelDecisionOut,
+    WeightingPolicyStatsListOut,
+    WeightingPolicyStatsOut,
+)
 from app.modules._json import dumps, loads
+from app.modules.json_row_codec import (
+    deserialize_json_fields_in_row,
+    serialize_json_field,
+    serialize_json_field_optional,
+)
 
 router = APIRouter()
 
@@ -144,12 +163,14 @@ def _fetch_many(conn, sql: str, params: dict) -> list[dict]:
     return [dict(r) for r in conn.execute(text(sql), params).mappings().fetchall()]
 
 
-@router.post("/context-snapshots")
-def create_context_snapshot(request: Request, payload: ContextSnapshotInput) -> dict:
+@router.post("/context-snapshots", response_model=ContextSnapshotOut)
+def create_context_snapshot(
+    request: Request, payload: ContextSnapshotInput
+) -> ContextSnapshotOut:
     engine = get_intel_engine(request.app.state.settings)
     sym = payload.symbol.upper()
-    items = dumps(payload.items_json)
-    evidence = dumps(payload.evidence_refs_json)
+    items = serialize_json_field(payload.items_json)
+    evidence = serialize_json_field(payload.evidence_refs_json)
     now = utc_now_iso()
 
     with engine.begin() as conn:
@@ -174,7 +195,7 @@ def create_context_snapshot(request: Request, payload: ContextSnapshotInput) -> 
                 payload.weighting_policy_version,
                 "weighting_policy_version",
             )
-            return existing
+            return ContextSnapshotOut.from_db_row(existing)
 
         by_hash = _fetch_one(
             conn,
@@ -182,7 +203,7 @@ def create_context_snapshot(request: Request, payload: ContextSnapshotInput) -> 
             {"h": payload.context_hash},
         )
         if by_hash:
-            return by_hash
+            return ContextSnapshotOut.from_db_row(by_hash)
 
         conn.execute(
             text(
@@ -206,15 +227,16 @@ def create_context_snapshot(request: Request, payload: ContextSnapshotInput) -> 
                 "created_at": now,
             },
         )
-        return _fetch_one(
+        inserted = _fetch_one(
             conn,
             "SELECT * FROM context_snapshots WHERE snapshot_id = :id",
             {"id": payload.snapshot_id},
-        ) or {}
+        )
+        return ContextSnapshotOut.from_db_row(inserted)
 
 
-@router.get("/context-snapshots/{snapshot_id}")
-def get_context_snapshot(request: Request, snapshot_id: str) -> dict:
+@router.get("/context-snapshots/{snapshot_id}", response_model=ContextSnapshotOut)
+def get_context_snapshot(request: Request, snapshot_id: str) -> ContextSnapshotOut:
     engine = get_intel_engine(request.app.state.settings)
     with engine.connect() as conn:
         row = _fetch_one(
@@ -224,15 +246,15 @@ def get_context_snapshot(request: Request, snapshot_id: str) -> dict:
         )
     if not row:
         raise HTTPException(status_code=404, detail="context snapshot not found")
-    return row
+    return ContextSnapshotOut.from_db_row(row)
 
 
-@router.get("/context-snapshots")
+@router.get("/context-snapshots", response_model=ContextSnapshotListOut)
 def list_context_snapshots(
     request: Request,
     symbol: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
-) -> dict:
+) -> ContextSnapshotListOut:
     engine = get_intel_engine(request.app.state.settings)
     params: dict[str, Any] = {"limit": limit}
     where = ""
@@ -250,14 +272,17 @@ def list_context_snapshots(
             """,
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return ContextSnapshotListOut(
+        items=[ContextSnapshotOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.post("/model-decisions")
-def create_model_decision(request: Request, payload: ModelDecisionInput) -> dict:
+@router.post("/model-decisions", response_model=ModelDecisionOut)
+def create_model_decision(request: Request, payload: ModelDecisionInput) -> ModelDecisionOut:
     engine = get_intel_engine(request.app.state.settings)
     sym = payload.symbol.upper()
-    decision_json = dumps(payload.decision_json)
+    decision_json = serialize_json_field(payload.decision_json)
     now = utc_now_iso()
 
     with engine.begin() as conn:
@@ -280,7 +305,7 @@ def create_model_decision(request: Request, payload: ModelDecisionInput) -> dict
             _conflict_scalar(existing.get("confidence"), payload.confidence, "confidence")
             _conflict_scalar(existing.get("uncertainty"), payload.uncertainty, "uncertainty")
             _conflict_scalar(existing.get("status"), payload.status, "status")
-            return existing
+            return ModelDecisionOut.from_db_row(existing)
 
         conn.execute(
             text(
@@ -310,15 +335,16 @@ def create_model_decision(request: Request, payload: ModelDecisionInput) -> dict
                 "created_at": now,
             },
         )
-        return _fetch_one(
+        inserted = _fetch_one(
             conn,
             "SELECT * FROM model_decisions WHERE decision_id = :id",
             {"id": payload.decision_id},
-        ) or {}
+        )
+        return ModelDecisionOut.from_db_row(inserted)
 
 
-@router.get("/model-decisions/{decision_id}")
-def get_model_decision(request: Request, decision_id: str) -> dict:
+@router.get("/model-decisions/{decision_id}", response_model=ModelDecisionOut)
+def get_model_decision(request: Request, decision_id: str) -> ModelDecisionOut:
     engine = get_intel_engine(request.app.state.settings)
     with engine.connect() as conn:
         row = _fetch_one(
@@ -328,16 +354,16 @@ def get_model_decision(request: Request, decision_id: str) -> dict:
         )
     if not row:
         raise HTTPException(status_code=404, detail="model decision not found")
-    return row
+    return ModelDecisionOut.from_db_row(row)
 
 
-@router.get("/model-decisions")
+@router.get("/model-decisions", response_model=ModelDecisionListOut)
 def list_model_decisions(
     request: Request,
     symbol: str | None = None,
     model_version: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
-) -> dict:
+) -> ModelDecisionListOut:
     engine = get_intel_engine(request.app.state.settings)
     clauses: list[str] = []
     params: dict[str, Any] = {"limit": limit}
@@ -359,13 +385,16 @@ def list_model_decisions(
             """,
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return ModelDecisionListOut(
+        items=[ModelDecisionOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.post("/model-decisions/{decision_id}/human-overrides")
+@router.post("/model-decisions/{decision_id}/human-overrides", response_model=ModelDecisionOut)
 def append_human_override(
     request: Request, decision_id: str, payload: HumanOverrideInput
-) -> dict:
+) -> ModelDecisionOut:
     engine = get_intel_engine(request.app.state.settings)
     now = utc_now_iso()
     entry = {
@@ -383,7 +412,12 @@ def append_human_override(
         )
         if not row:
             raise HTTPException(status_code=404, detail="model decision not found")
-        overrides = loads(row["human_overrides_json"] or "[]")
+        decoded = deserialize_json_fields_in_row(
+            row,
+            ("human_overrides_json",),
+            defaults={"human_overrides_json": []},
+        )
+        overrides = decoded["human_overrides_json"]
         if not isinstance(overrides, list):
             overrides = []
         overrides.append(entry)
@@ -395,20 +429,23 @@ def append_human_override(
                 WHERE decision_id = :id
                 """
             ),
-            {"overrides": dumps(overrides), "id": decision_id},
+            {"overrides": serialize_json_field(overrides), "id": decision_id},
         )
-        return _fetch_one(
+        updated = _fetch_one(
             conn,
             "SELECT * FROM model_decisions WHERE decision_id = :id",
             {"id": decision_id},
-        ) or {}
+        )
+        return ModelDecisionOut.from_db_row(updated)
 
 
-@router.post("/decision-outcomes/schedule")
-def schedule_decision_outcomes(request: Request, payload: OutcomeScheduleInput) -> dict:
+@router.post("/decision-outcomes/schedule", response_model=DecisionOutcomeListOut)
+def schedule_decision_outcomes(
+    request: Request, payload: OutcomeScheduleInput
+) -> DecisionOutcomeListOut:
     engine = get_intel_engine(request.app.state.settings)
     now = utc_now_iso()
-    created: list[dict] = []
+    created: list[DecisionOutcomeOut] = []
 
     with engine.begin() as conn:
         for item in payload.outcomes:
@@ -436,7 +473,7 @@ def schedule_decision_outcomes(request: Request, payload: OutcomeScheduleInput) 
                         status_code=409,
                         detail="decision outcome schedule conflict",
                     )
-                created.append(existing)
+                created.append(DecisionOutcomeOut.from_db_row(existing))
                 continue
 
             conn.execute(
@@ -467,17 +504,17 @@ def schedule_decision_outcomes(request: Request, payload: OutcomeScheduleInput) 
                 {"id": outcome_id},
             )
             if row:
-                created.append(row)
-    return {"items": created, "count": len(created)}
+                created.append(DecisionOutcomeOut.from_db_row(row))
+    return DecisionOutcomeListOut(items=created, count=len(created))
 
 
-@router.get("/decision-outcomes/due")
+@router.get("/decision-outcomes/due", response_model=DecisionOutcomeListOut)
 def list_due_decision_outcomes(
     request: Request,
     now: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
     symbol: str | None = None,
-) -> dict:
+) -> DecisionOutcomeListOut:
     engine = get_intel_engine(request.app.state.settings)
     asof = now or utc_now_iso()
     params: dict[str, Any] = {"asof": asof, "limit": limit}
@@ -496,13 +533,16 @@ def list_due_decision_outcomes(
             """,
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return DecisionOutcomeListOut(
+        items=[DecisionOutcomeOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.post("/decision-outcomes/{outcome_id}/label")
+@router.post("/decision-outcomes/{outcome_id}/label", response_model=DecisionOutcomeOut)
 def label_decision_outcome(
     request: Request, outcome_id: str, payload: OutcomeLabelInput
-) -> dict:
+) -> DecisionOutcomeOut:
     if payload.status not in _FINAL_OUTCOME_STATUSES:
         raise HTTPException(status_code=422, detail="status must be labeled, skipped, or failed")
 
@@ -561,29 +601,28 @@ def label_decision_outcome(
                     else None
                 ),
                 "label": payload.label,
-                "outcome_json": (
-                    dumps(payload.outcome_json) if payload.outcome_json is not None else None
-                ),
+                "outcome_json": serialize_json_field_optional(payload.outcome_json),
                 "updated_at": now,
                 "labeled_at": now,
                 "outcome_id": outcome_id,
             },
         )
-        return _fetch_one(
+        updated = _fetch_one(
             conn,
             "SELECT * FROM decision_outcomes WHERE outcome_id = :id",
             {"id": outcome_id},
-        ) or {}
+        )
+        return DecisionOutcomeOut.from_db_row(updated)
 
 
-@router.get("/decision-outcomes")
+@router.get("/decision-outcomes", response_model=DecisionOutcomeListOut)
 def list_decision_outcomes(
     request: Request,
     decision_id: str | None = None,
     symbol: str | None = None,
     status: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
-) -> dict:
+) -> DecisionOutcomeListOut:
     engine = get_intel_engine(request.app.state.settings)
     clauses: list[str] = []
     params: dict[str, Any] = {"limit": limit}
@@ -608,15 +647,20 @@ def list_decision_outcomes(
             """,
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return DecisionOutcomeListOut(
+        items=[DecisionOutcomeOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.post("/insight-candidates")
-def create_insight_candidate(request: Request, payload: InsightCandidateInput) -> dict:
+@router.post("/insight-candidates", response_model=InsightCandidateOut)
+def create_insight_candidate(
+    request: Request, payload: InsightCandidateInput
+) -> InsightCandidateOut:
     engine = get_intel_engine(request.app.state.settings)
-    symbols = dumps(payload.symbols_json)
-    evidence = dumps(payload.evidence_refs_json)
-    candidate = dumps(payload.candidate_json)
+    symbols = serialize_json_field(payload.symbols_json)
+    evidence = serialize_json_field(payload.evidence_refs_json)
+    candidate = serialize_json_field(payload.candidate_json)
     now = utc_now_iso()
 
     with engine.begin() as conn:
@@ -641,7 +685,7 @@ def create_insight_candidate(request: Request, payload: InsightCandidateInput) -
                 "verification_status",
             )
             _conflict_scalar(existing.get("weight_cap"), payload.weight_cap, "weight_cap")
-            return existing
+            return InsightCandidateOut.from_db_row(existing)
 
         conn.execute(
             text(
@@ -668,15 +712,16 @@ def create_insight_candidate(request: Request, payload: InsightCandidateInput) -
                 "created_at": now,
             },
         )
-        return _fetch_one(
+        inserted = _fetch_one(
             conn,
             "SELECT * FROM insight_candidates WHERE insight_id = :id",
             {"id": payload.insight_id},
-        ) or {}
+        )
+        return InsightCandidateOut.from_db_row(inserted)
 
 
-@router.get("/insight-candidates/{insight_id}")
-def get_insight_candidate(request: Request, insight_id: str) -> dict:
+@router.get("/insight-candidates/{insight_id}", response_model=InsightCandidateOut)
+def get_insight_candidate(request: Request, insight_id: str) -> InsightCandidateOut:
     engine = get_intel_engine(request.app.state.settings)
     with engine.connect() as conn:
         row = _fetch_one(
@@ -686,16 +731,16 @@ def get_insight_candidate(request: Request, insight_id: str) -> dict:
         )
     if not row:
         raise HTTPException(status_code=404, detail="insight candidate not found")
-    return row
+    return InsightCandidateOut.from_db_row(row)
 
 
-@router.get("/insight-candidates")
+@router.get("/insight-candidates", response_model=InsightCandidateListOut)
 def list_insight_candidates(
     request: Request,
     symbol: str | None = None,
     verification_status: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
-) -> dict:
+) -> InsightCandidateListOut:
     engine = get_intel_engine(request.app.state.settings)
     clauses: list[str] = []
     params: dict[str, Any] = {"limit": limit}
@@ -717,11 +762,16 @@ def list_insight_candidates(
             """,
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return InsightCandidateListOut(
+        items=[InsightCandidateOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.post("/evaluation-reports")
-def create_evaluation_report(request: Request, payload: EvaluationReportInput) -> dict:
+@router.post("/evaluation-reports", response_model=EvaluationReportOut)
+def create_evaluation_report(
+    request: Request, payload: EvaluationReportInput
+) -> EvaluationReportOut:
     if payload.recommendation not in _VALID_RECOMMENDATIONS:
         raise HTTPException(
             status_code=422,
@@ -729,8 +779,8 @@ def create_evaluation_report(request: Request, payload: EvaluationReportInput) -
         )
 
     engine = get_intel_engine(request.app.state.settings)
-    metrics = dumps(payload.metrics_json) if payload.metrics_json is not None else None
-    report = dumps(payload.report_json)
+    metrics = serialize_json_field_optional(payload.metrics_json)
+    report = serialize_json_field(payload.report_json)
     now = utc_now_iso()
 
     with engine.begin() as conn:
@@ -748,7 +798,7 @@ def create_evaluation_report(request: Request, payload: EvaluationReportInput) -
             _conflict_scalar(existing.get("window_start"), payload.window_start, "window_start")
             _conflict_scalar(existing.get("window_end"), payload.window_end, "window_end")
             _conflict_if_different(existing.get("metrics_json"), metrics, "metrics_json")
-            return existing
+            return EvaluationReportOut.from_db_row(existing)
 
         conn.execute(
             text(
@@ -771,15 +821,16 @@ def create_evaluation_report(request: Request, payload: EvaluationReportInput) -
                 "created_at": now,
             },
         )
-        return _fetch_one(
+        inserted = _fetch_one(
             conn,
             "SELECT * FROM evaluation_reports WHERE report_id = :id",
             {"id": payload.report_id},
-        ) or {}
+        )
+        return EvaluationReportOut.from_db_row(inserted)
 
 
-@router.get("/evaluation-reports/{report_id}")
-def get_evaluation_report(request: Request, report_id: str) -> dict:
+@router.get("/evaluation-reports/{report_id}", response_model=EvaluationReportOut)
+def get_evaluation_report(request: Request, report_id: str) -> EvaluationReportOut:
     engine = get_intel_engine(request.app.state.settings)
     with engine.connect() as conn:
         row = _fetch_one(
@@ -789,15 +840,15 @@ def get_evaluation_report(request: Request, report_id: str) -> dict:
         )
     if not row:
         raise HTTPException(status_code=404, detail="evaluation report not found")
-    return row
+    return EvaluationReportOut.from_db_row(row)
 
 
-@router.get("/evaluation-reports")
+@router.get("/evaluation-reports", response_model=EvaluationReportListOut)
 def list_evaluation_reports(
     request: Request,
     model_version: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
-) -> dict:
+) -> EvaluationReportListOut:
     engine = get_intel_engine(request.app.state.settings)
     params: dict[str, Any] = {"limit": limit}
     where = ""
@@ -815,14 +866,17 @@ def list_evaluation_reports(
             """,
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return EvaluationReportListOut(
+        items=[EvaluationReportOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.get("/weighting-policy-stats")
+@router.get("/weighting-policy-stats", response_model=WeightingPolicyStatsListOut)
 def list_weighting_policy_stats(
     request: Request,
     policy_version: str | None = None,
-) -> dict:
+) -> WeightingPolicyStatsListOut:
     engine = get_intel_engine(request.app.state.settings)
     params: dict[str, Any] = {}
     where = ""
@@ -835,15 +889,18 @@ def list_weighting_policy_stats(
             f"SELECT * FROM weighting_policy_stats {where} ORDER BY updated_at DESC",
             params,
         )
-    return {"items": rows, "count": len(rows)}
+    return WeightingPolicyStatsListOut(
+        items=[WeightingPolicyStatsOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
 
 
-@router.post("/weighting-policy-stats")
+@router.post("/weighting-policy-stats", response_model=WeightingPolicyStatsOut)
 def upsert_weighting_policy_stats(
     request: Request, payload: WeightingPolicyStatsInput
-) -> dict:
+) -> WeightingPolicyStatsOut:
     engine = get_intel_engine(request.app.state.settings)
-    stats = dumps(payload.stats_json)
+    stats = serialize_json_field(payload.stats_json)
     now = utc_now_iso()
 
     with engine.begin() as conn:
@@ -865,7 +922,7 @@ def upsert_weighting_policy_stats(
                 "updated_at": now,
             },
         )
-        return _fetch_one(
+        row = _fetch_one(
             conn,
             """
             SELECT * FROM weighting_policy_stats
@@ -875,4 +932,5 @@ def upsert_weighting_policy_stats(
                 "policy_version": payload.policy_version,
                 "source_key": payload.source_key,
             },
-        ) or {}
+        )
+        return WeightingPolicyStatsOut.from_db_row(row)

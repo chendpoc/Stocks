@@ -254,9 +254,15 @@ export async function fetchModelDecisionById(decision_id: string): Promise<{
   decision_id: string;
   symbol: string;
   action: string;
-  decision_json: string | Record<string, unknown>;
+  decision_json: Record<string, unknown>;
 }> {
-  return fetchStage1(`/model-decisions/${decision_id}`);
+  const row = await fetchStage1<{
+    decision_id: string;
+    symbol: string;
+    action: string;
+    decision_json: Record<string, unknown>;
+  }>(`/model-decisions/${decision_id}`);
+  return row;
 }
 
 export async function fetchMarketBars(
@@ -273,13 +279,6 @@ export async function fetchMarketBars(
   return response.bars ?? [];
 }
 
-function parseDecisionJson(raw: string | Record<string, unknown>): Record<string, unknown> {
-  if (typeof raw === "string") {
-    return JSON.parse(raw) as Record<string, unknown>;
-  }
-  return raw;
-}
-
 export async function buildOutcomeLabelPayload(input: {
   outcome: DecisionOutcomeRow;
   symbolBars?: MarketBar[];
@@ -289,7 +288,7 @@ export async function buildOutcomeLabelPayload(input: {
     decision_id: string;
     symbol: string;
     action: string;
-    decision_json: string | Record<string, unknown>;
+    decision_json: Record<string, unknown>;
   }>;
 }): Promise<OutcomeLabelPayload> {
   const fetchBars = input.fetchBars ?? fetchMarketBars;
@@ -297,7 +296,7 @@ export async function buildOutcomeLabelPayload(input: {
 
   try {
     const decision = await fetchDecision(input.outcome.decision_id);
-    const decisionJson = parseDecisionJson(decision.decision_json);
+    const decisionJson = decision.decision_json;
     const benchmark = resolveBenchmarkSymbol(input.outcome.symbol);
     const barQuery = resolveOutcomeBarQuery(input.outcome.horizon);
 
@@ -405,7 +404,7 @@ export async function finalizeDueOutcome(input: {
     decision_id: string;
     symbol: string;
     action: string;
-    decision_json: string | Record<string, unknown>;
+    decision_json: Record<string, unknown>;
   }>;
   label?: (outcome_id: string, payload: OutcomeLabelPayload) => Promise<DecisionOutcomeRow>;
 }): Promise<DecisionOutcomeRow> {

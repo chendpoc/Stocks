@@ -59,6 +59,62 @@ export interface ContextSnapshotRecord extends ContextSnapshotPayload {
   created_at?: string;
 }
 
+export interface ContextSnapshotSummary {
+  snapshot_id: string;
+  context_hash: string;
+  context_version: string;
+  item_count: number;
+  evidence_ref_count: number;
+  source_type_counts: Record<string, number>;
+}
+
+export interface WeightedContextItemSummary {
+  item_id: string;
+  source_type: ContextSourceType;
+  summary: string;
+  composite_weight: number;
+  evidence_ref: EvidenceRef;
+}
+
+export function sourceTypeCounts(
+  items: WeightedContextItem[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    counts[item.source_type] = (counts[item.source_type] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function toContextSnapshotSummary(
+  snapshot: ContextSnapshotPayload,
+): ContextSnapshotSummary {
+  return {
+    snapshot_id: snapshot.snapshot_id,
+    context_hash: snapshot.context_hash,
+    context_version: snapshot.context_version,
+    item_count: snapshot.items_json.length,
+    evidence_ref_count: snapshot.evidence_refs_json.length,
+    source_type_counts: sourceTypeCounts(snapshot.items_json),
+  };
+}
+
+export function toTopWeightedItemSummaries(
+  items: WeightedContextItem[],
+  limit = 5,
+): WeightedContextItemSummary[] {
+  return [...items]
+    .sort((a, b) => b.composite_weight - a.composite_weight)
+    .slice(0, limit)
+    .map((item) => ({
+      item_id: item.item_id,
+      source_type: item.source_type,
+      summary: item.summary,
+      composite_weight: item.composite_weight,
+      evidence_ref: item.evidence_ref,
+    }));
+}
+
 export interface IntelContextBuildResponse {
   market_data?: Record<string, { daily?: unknown[]; minute?: unknown[] }>;
   benchmark?: Record<string, unknown[]>;
@@ -563,6 +619,30 @@ export async function persistContextSnapshot(
     }
     throw error;
   }
+}
+
+export async function fetchContextSnapshot(
+  snapshotId: string,
+): Promise<ContextSnapshotRecord> {
+  return fetchStage1<ContextSnapshotRecord>(
+    `/context-snapshots/${encodeURIComponent(snapshotId)}`,
+  );
+}
+
+export async function listContextSnapshots(input: {
+  symbol?: string;
+  limit?: number;
+} = {}): Promise<{ items: ContextSnapshotRecord[]; count: number }> {
+  const params = new URLSearchParams();
+  if (input.symbol) {
+    params.set("symbol", input.symbol.toUpperCase());
+  }
+  if (input.limit !== undefined) {
+    params.set("limit", String(input.limit));
+  }
+  const query = params.toString();
+  const path = query ? `/context-snapshots?${query}` : "/context-snapshots";
+  return fetchStage1<{ items: ContextSnapshotRecord[]; count: number }>(path);
 }
 
 export async function buildAndPersistContextSnapshot(input: {

@@ -10,7 +10,11 @@ from app.core.config import Settings
 from app.core.time import utc_now_iso
 from app.db.models import memory_candidates
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, json_array_contains, loads
+from app.modules._json import json_array_contains
+from app.modules.json_row_codec import (
+    deserialize_json_fields_in_row,
+    serialize_json_fields_in_row,
+)
 
 _JSON_FIELDS = (
     "trigger_conditions_json",
@@ -73,12 +77,8 @@ def _is_possible_duplicate(candidate: dict[str, Any], existing: dict[str, Any]) 
     )
     if title_ratio <= 0.7:
         return False
-    candidate_symbols = candidate.get("symbols_json")
-    if isinstance(candidate_symbols, str):
-        candidate_symbols = loads(candidate_symbols, [])
-    existing_symbols = existing.get("symbols_json")
-    if isinstance(existing_symbols, str):
-        existing_symbols = loads(existing_symbols, [])
+    candidate_symbols = candidate.get("symbols_json") or []
+    existing_symbols = existing.get("symbols_json") or []
     return _symbol_overlap(candidate_symbols, existing_symbols)
 
 
@@ -100,30 +100,27 @@ def _serialize_candidate_row(
         "summary": candidate.get("summary"),
         "normalized_rule": candidate.get("normalized_rule"),
         "applicability": candidate.get("applicability"),
-        "trigger_conditions_json": dumps(candidate.get("trigger_conditions_json")),
-        "invalidation_conditions_json": dumps(candidate.get("invalidation_conditions_json")),
-        "evidence_refs_json": dumps(evidence_refs_value),
-        "symbols_json": dumps(candidate.get("symbols_json")),
-        "related_symbols_json": dumps(candidate.get("related_symbols_json")),
-        "asset_classes_json": dumps(candidate.get("asset_classes_json")),
-        "tags_json": dumps(candidate.get("tags_json")),
+        "trigger_conditions_json": candidate.get("trigger_conditions_json"),
+        "invalidation_conditions_json": candidate.get("invalidation_conditions_json"),
+        "evidence_refs_json": evidence_refs_value,
+        "symbols_json": candidate.get("symbols_json"),
+        "related_symbols_json": candidate.get("related_symbols_json"),
+        "asset_classes_json": candidate.get("asset_classes_json"),
+        "tags_json": candidate.get("tags_json"),
         "market_scope": candidate.get("market_scope"),
         "confidence": candidate.get("confidence"),
         "candidate_status": candidate.get("candidate_status", "candidate"),
-        "review_flags_json": dumps(review_flags) if review_flags else None,
+        "review_flags_json": review_flags,
         "created_by": candidate["created_by"],
         "created_at": utc_now_iso(),
         "reviewed_at": None,
         "review_note": None,
     }
-    return row
+    return serialize_json_fields_in_row(row, _JSON_FIELDS)
 
 
-def _deserialize_candidate_row(row: dict[str, Any]) -> dict[str, Any]:
-    payload = dict(row)
-    for field_name in _JSON_FIELDS:
-        if field_name in payload:
-            payload[field_name] = loads(payload[field_name], default=None)
+def _candidate_row_from_db(row: dict[str, Any]) -> dict[str, Any]:
+    payload = deserialize_json_fields_in_row(row, _JSON_FIELDS, default=None)
     if payload.get("confidence") is not None:
         payload["confidence"] = float(payload["confidence"])
     return payload
@@ -183,7 +180,7 @@ def list_candidates(
 
     with engine.connect() as conn:
         rows = conn.execute(stmt).mappings().all()
-    return [_deserialize_candidate_row(dict(row)) for row in rows]
+    return [_candidate_row_from_db(dict(row)) for row in rows]
 
 
 def get_candidate(settings: Settings, candidate_id: str) -> dict[str, Any] | None:
@@ -196,4 +193,4 @@ def get_candidate(settings: Settings, candidate_id: str) -> dict[str, Any] | Non
         )
     if row is None:
         return None
-    return _deserialize_candidate_row(dict(row))
+    return _candidate_row_from_db(dict(row))

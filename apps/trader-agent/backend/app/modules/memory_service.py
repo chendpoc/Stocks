@@ -11,7 +11,11 @@ from app.core.events import record_agent_event
 from app.core.time import utc_now_iso
 from app.db.models import memory_candidates, memory_items
 from app.db.session import create_sqlite_engine
-from app.modules._json import dumps, json_array_contains, loads
+from app.modules._json import json_array_contains
+from app.modules.json_row_codec import (
+    deserialize_json_fields_in_row,
+    serialize_json_fields_in_row,
+)
 from app.modules.conflict_detector import find_conflicts
 
 _JSON_FIELDS = (
@@ -68,23 +72,10 @@ RESOLVE_CONFLICT_ACTIONS = frozenset(
 )
 
 
-def _deserialize_memory_row(row: dict[str, Any]) -> dict[str, Any]:
-    payload = dict(row)
-    for field_name in _JSON_FIELDS:
-        if field_name in payload and payload[field_name] is not None:
-            value = payload[field_name]
-            if isinstance(value, str):
-                payload[field_name] = loads(value, default=None)
+def _memory_item_from_row(row: dict[str, Any]) -> dict[str, Any]:
+    payload = deserialize_json_fields_in_row(row, _JSON_FIELDS, default=None)
     if payload.get("confidence") is not None:
         payload["confidence"] = float(payload["confidence"])
-    return payload
-
-
-def _serialize_json_fields(item: dict[str, Any]) -> dict[str, Any]:
-    payload = dict(item)
-    for field_name in _JSON_FIELDS:
-        if field_name in payload and payload[field_name] is not None:
-            payload[field_name] = dumps(payload[field_name])
     return payload
 
 
@@ -125,13 +116,11 @@ def _load_active_memory_items(conn) -> list[dict[str, Any]]:
         .mappings()
         .all()
     )
-    return [_deserialize_memory_row(dict(row)) for row in rows]
+    return [_memory_item_from_row(dict(row)) for row in rows]
 
 
 def _candidate_review_flags(candidate: dict[str, Any]) -> list[str]:
     flags = candidate.get("review_flags_json") or []
-    if isinstance(flags, str):
-        flags = loads(flags, [])
     return list(flags)
 
 
@@ -142,11 +131,8 @@ def _should_skip_batch_candidate(candidate: dict[str, Any]) -> bool:
     return "possible_conflict" in flags
 
 
-def _deserialize_candidate_row(row: dict[str, Any]) -> dict[str, Any]:
-    candidate = dict(row)
-    for field_name in _CANDIDATE_JSON_FIELDS:
-        if field_name in candidate:
-            candidate[field_name] = loads(candidate[field_name], default=None)
+def _memory_candidate_from_row(row: dict[str, Any]) -> dict[str, Any]:
+    candidate = deserialize_json_fields_in_row(row, _CANDIDATE_JSON_FIELDS, default=None)
     if candidate.get("confidence") is not None:
         candidate["confidence"] = float(candidate["confidence"])
     return candidate
@@ -199,8 +185,8 @@ def _activate_candidate_in_conn(
         "created_at": now,
         "updated_at": now,
     }
-    conn.execute(memory_items.insert().values(**_serialize_json_fields(row)))
-    active_items.append(_deserialize_memory_row(row))
+    conn.execute(memory_items.insert().values(**serialize_json_fields_in_row(row, _JSON_FIELDS)))
+    active_items.append(_memory_item_from_row(row))
 
     candidate_updates: dict[str, Any] = {
         "candidate_status": "activated",
@@ -255,7 +241,7 @@ def _conflict_summaries(conn, conflict_ids: list[str]) -> list[dict[str, Any]]:
         )
         if row is None:
             continue
-        item = _deserialize_memory_row(dict(row))
+        item = _memory_item_from_row(dict(row))
         summaries.append(
             {
                 "memory_item_id": conflict_id,
@@ -313,7 +299,7 @@ def create_memory_item(
         "created_at": now,
         "updated_at": now,
     }
-    serialized = _serialize_json_fields(row)
+    serialized = serialize_json_fields_in_row(row, _JSON_FIELDS)
     pending_events: list[_PendingEvent] = []
     conflict_ids: list[str] = []
 
@@ -344,7 +330,7 @@ def create_memory_item(
         )
     _flush_pending_events(settings, pending_events)
 
-    result = _deserialize_memory_row(row)
+    result = _memory_item_from_row(row)
     if conflict_ids:
         result["conflicts_found"] = conflict_ids
     return result
@@ -375,7 +361,7 @@ def list_memory_items(
 
     with engine.connect() as conn:
         rows = conn.execute(stmt).mappings().all()
-    items = [_deserialize_memory_row(dict(row)) for row in rows]
+    items = [_memory_item_from_row(dict(row)) for row in rows]
     if symbol:
         normalized_symbol = symbol.strip().upper()
         items = [item for item in items if _memory_item_has_symbol(item, normalized_symbol)]
@@ -392,7 +378,7 @@ def get_memory_item(settings: Settings, item_id: str) -> dict[str, Any] | None:
         )
     if row is None:
         return None
-    return _deserialize_memory_row(dict(row))
+    return _memory_item_from_row(dict(row))
 
 
 def update_memory_item(
@@ -423,7 +409,7 @@ def update_memory_item(
     payload = {key: value for key, value in updates.items() if key in allowed}
     payload["updated_by"] = updated_by
     payload["updated_at"] = now
-    serialized = _serialize_json_fields(payload)
+    serialized = serialize_json_fields_in_row(payload, _JSON_FIELDS)
 
     with engine.begin() as conn:
         existing = (
@@ -441,7 +427,7 @@ def update_memory_item(
             .mappings()
             .one()
         )
-    return _deserialize_memory_row(dict(row))
+    return _memory_item_from_row(dict(row))
 
 
 def deprecate_memory_item(settings: Settings, item_id: str) -> dict[str, Any] | None:
@@ -472,7 +458,7 @@ def deprecate_memory_item(settings: Settings, item_id: str) -> dict[str, Any] | 
         status="completed",
         input_summary={"memory_item_id": item_id},
     )
-    return _deserialize_memory_row(dict(row))
+    return _memory_item_from_row(dict(row))
 
 
 def _merge_evidence_refs(
@@ -517,8 +503,8 @@ def resolve_memory_conflict(
         if left_row is None or right_row is None:
             raise ValueError("memory item not found")
 
-        left = _deserialize_memory_row(dict(left_row))
-        right = _deserialize_memory_row(dict(right_row))
+        left = _memory_item_from_row(dict(left_row))
+        right = _memory_item_from_row(dict(right_row))
         if left.get("status") not in {"conflicted", "active"} or right.get("status") not in {
             "conflicted",
             "active",
@@ -577,7 +563,7 @@ def resolve_memory_conflict(
             conn.execute(
                 memory_items.update()
                 .where(memory_items.c.id == winner_id)
-                .values(**_serialize_json_fields(updates))
+                .values(**serialize_json_fields_in_row(updates, _JSON_FIELDS))
             )
             conn.execute(
                 memory_items.update()
@@ -612,7 +598,7 @@ def resolve_memory_conflict(
             ).mappings().all()
         return {
             "resolution": resolution,
-            "items": [_deserialize_memory_row(dict(row)) for row in rows],
+            "items": [_memory_item_from_row(dict(row)) for row in rows],
         }
 
     result_id = winner_id if winner_id else item_id
@@ -641,7 +627,7 @@ def activate_candidate(settings: Settings, candidate_id: str) -> ActivateResult:
         )
         if candidate_row is None:
             raise ValueError("candidate not found")
-        candidate = _deserialize_candidate_row(dict(candidate_row))
+        candidate = _memory_candidate_from_row(dict(candidate_row))
         active_items = _load_active_memory_items(conn)
         memory_item_id, conflicts_found = _activate_candidate_in_conn(
             conn,
@@ -676,7 +662,7 @@ def reject_candidate(settings: Settings, candidate_id: str) -> dict[str, Any]:
         )
         if candidate_row is None:
             raise ValueError("candidate not found")
-        candidate = _deserialize_candidate_row(dict(candidate_row))
+        candidate = _memory_candidate_from_row(dict(candidate_row))
         _require_pending_candidate(candidate)
         conn.execute(
             memory_candidates.update()
@@ -710,7 +696,7 @@ def merge_candidate(
         )
         if candidate_row is None:
             raise ValueError("candidate not found")
-        candidate = _deserialize_candidate_row(dict(candidate_row))
+        candidate = _memory_candidate_from_row(dict(candidate_row))
         _require_pending_candidate(candidate)
 
         target_row = (
@@ -723,7 +709,7 @@ def merge_candidate(
         if target_row is None:
             raise ValueError("memory item not found")
 
-        target = _deserialize_memory_row(dict(target_row))
+        target = _memory_item_from_row(dict(target_row))
         merged_refs = list(target.get("evidence_refs_json") or [])
         for ref in candidate.get("evidence_refs_json") or []:
             if ref not in merged_refs:
@@ -786,7 +772,7 @@ def batch_process(
                 skipped.append(candidate_id)
                 continue
 
-            candidate = _deserialize_candidate_row(dict(candidate_row))
+            candidate = _memory_candidate_from_row(dict(candidate_row))
             if _should_skip_batch_candidate(candidate):
                 skipped.append(candidate_id)
                 continue

@@ -196,6 +196,14 @@ test("native DecisionGraph run registry uses thread_id = run_id and bounded meta
       action: "NO_TRADE",
       scheduled_outcome_count: OUTCOME_HORIZONS.length,
       paper_execution_submitted: false,
+      context_snapshot: {
+        snapshot_id: "snap-runtime-1",
+        context_hash: "hash-runtime",
+        context_version: "stage1-context-v0",
+        item_count: 1,
+        evidence_ref_count: 1,
+        source_type_counts: { signal: 1 },
+      },
     });
 
     const shown = runtime.showRun(executed.run.run_id);
@@ -241,6 +249,14 @@ test("native DecisionGraph interruption can resume through LangGraph checkpoint 
       action: "NO_TRADE",
       scheduled_outcome_count: OUTCOME_HORIZONS.length,
       paper_execution_submitted: false,
+      context_snapshot: {
+        snapshot_id: "snap-runtime-1",
+        context_hash: "hash-runtime",
+        context_version: "stage1-context-v0",
+        item_count: 1,
+        evidence_ref_count: 1,
+        source_type_counts: { signal: 1 },
+      },
     });
     assert.equal(resumed.checkpoints.length, 0);
   } finally {

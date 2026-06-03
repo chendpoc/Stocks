@@ -10,7 +10,8 @@ from app.core.config import Settings
 from app.core.time import utc_now_iso
 from app.db.models import memory_items
 from app.db.session import create_sqlite_engine
-from app.modules._json import json_array_contains, loads
+from app.modules._json import json_array_contains
+from app.modules.json_row_codec import deserialize_json_fields_in_row
 
 SELECTOR_VERSION = "v1"
 CONFIDENCE_THRESHOLD = 0.5
@@ -96,13 +97,8 @@ def _days_ago(n: int) -> str:
     return (datetime.now(UTC) - timedelta(days=n)).isoformat()
 
 
-def _deserialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    payload = dict(row)
-    for field_name in _JSON_FIELDS:
-        if field_name in payload and payload[field_name] is not None:
-            value = payload[field_name]
-            if isinstance(value, str):
-                payload[field_name] = loads(value, default=None)
+def _memory_row_from_db(row: dict[str, Any]) -> dict[str, Any]:
+    payload = deserialize_json_fields_in_row(row, _JSON_FIELDS, default=None)
     if payload.get("confidence") is not None:
         payload["confidence"] = float(payload["confidence"])
     return payload
@@ -280,7 +276,7 @@ def select_context(
         candidate_rows = conn.execute(candidate_stmt).mappings().all()
 
     pool_ids = {str(row[0]) for row in pool_rows}
-    items = [_deserialize_row(dict(row)) for row in candidate_rows]
+    items = [_memory_row_from_db(dict(row)) for row in candidate_rows]
     candidate_ids = {str(item["id"]) for item in items}
 
     excluded_reasons: dict[str, str] = {
