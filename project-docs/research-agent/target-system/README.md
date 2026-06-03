@@ -7,7 +7,8 @@ system is `trader-agent/`.
 
 1. `trader-agent/README.md`
 2. `trader-agent/00-workflow-router.md`
-3. The route-specific PRD, roadmap, or development package named by the router.
+3. `trader-agent/08-agent-engineering-principles-proposal.md` when adding agentic workflow, tool/MCP, skill, or long-running run behavior.
+4. The route-specific PRD, roadmap, or development package named by the router.
 
 ## Authority
 

@@ -30,6 +30,9 @@ This file does not replace the source documents. It only answers:
 | Rule Discovery / Lite Backtest Engine | Convert market ideas and model-generated insights into `RuleCandidate`, evidence requirements, and `LiteBacktestReport`. | [01-agent-core-development/21-rule-discovery-lite-backtest-engine.md](./01-agent-core-development/21-rule-discovery-lite-backtest-engine.md) | Required before claiming rule discovery or self-evolution. |
 | Candidate family integration | Use the finite `CandidateFamily` taxonomy when creating or validating `InsightCandidate` / `RuleCandidate`. | [01-agent-core-development/21-rule-discovery-lite-backtest-engine.md](./01-agent-core-development/21-rule-discovery-lite-backtest-engine.md) | Keep it as an enum constraint, not a registry or storage framework. |
 | AlphaResearchGraph spec | Define the bounded workflow for turning event/context windows into candidate rules and lite backtest reports. | [06-self-learning-market-judgment-model-roadmap.md](./06-self-learning-market-judgment-model-roadmap.md) | Should reuse Rule Discovery instead of inventing a separate validation path. |
+| Alpha candidate contract | Promote alpha candidate shape from loose JSON into validated fields: `candidate_family`, `sub_family`, `mechanism`, `horizon`, `trigger`, `invalidation`, `required_evidence`, and `backtest_plan`. | [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md) | Required before AlphaResearchGraph can be considered production-shaped. |
+| Alpha run artifact contract | Define minimal persisted artifacts for long-running alpha research runs. | [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md), [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Start with AlphaResearchGraph v0; do not force every existing graph to migrate first. |
+| Alpha policy check nodes | Add explicit checks for family validity, evidence completeness, trigger/invalidation readiness, backtest readiness, and promotion boundary. | [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md) | These nodes inspect facts and emit audit output; they do not fetch new data. |
 
 ## 4. Next
 
@@ -40,6 +43,7 @@ This file does not replace the source documents. It only answers:
 | Real Run Trace Viewer | Show the real execution chain for one agent run, backed by run metadata and agent events. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Useful before building editable workflow surfaces. |
 | Run Monitor | Show active and historical workflow runs, failed nodes, retries, resume state, and audit events. | [05-agent-workflow-orchestration-roadmap.md](./05-agent-workflow-orchestration-roadmap.md) | Needed for long-running graphs such as future model learning runs. |
 | Reflection Engine | Run daily/weekly learning summaries, mistake analysis, and rule proposal generation without activating rules. | [01-agent-core-development/18-reflection-engine.md](./01-agent-core-development/18-reflection-engine.md) | Should hand candidates to Rule Discovery instead of changing active policy. |
+| Compact evidence summary builder | Aggregate raw market/news/filing/backtest evidence into small LLM-ready summaries with `EvidenceRef` links to raw data. | [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md), [04-ai-rag-mcp-platform-roadmap-prd.md](./04-ai-rag-mcp-platform-roadmap-prd.md) | Prevents large tool results from polluting workflow context. |
 
 ## 5. Later
 
@@ -76,10 +80,13 @@ Recommended path from here:
 1. deterministic signal pipeline
 2. Rule Discovery / Lite Backtest Engine
 3. AlphaResearchGraph spec
-4. MarketJudgmentGraph v0 spec
-5. Agent Explanation Service
-6. Real Run Trace Viewer / Run Monitor
-7. ModelLearningGraph v0 for opportunity_ranking_model
+4. Alpha candidate contract
+5. Alpha run artifact contract
+6. Alpha policy check nodes
+7. MarketJudgmentGraph v0 spec
+8. Agent Explanation Service
+9. Real Run Trace Viewer / Run Monitor
+10. ModelLearningGraph v0 for opportunity_ranking_model
 ```
 
 Do not pull execution, workflow builder, or automatic promotion forward before the contract blockers are resolved.

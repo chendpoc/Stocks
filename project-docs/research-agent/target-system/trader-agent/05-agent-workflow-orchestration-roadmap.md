@@ -14,6 +14,8 @@ Workflow 编排不是一个前端图组件问题。
 
 它的本质是：把 Agent 的任务拆成可追踪、可恢复、可审计、可限制能力边界的运行图。任何 UI 或 TUI 都只能消费 runtime 事实，不能替代后端 runtime、队列、工具权限、审计和失败恢复。
 
+Agent 工程原则见 [08-agent-engineering-principles-proposal.md](./08-agent-engineering-principles-proposal.md)。新增长运行 workflow、subagent、MCP/tool surface、skill 或 alpha research workflow 前，必须先按该文档检查 harness、context、tool result、audit、approval 和 evidence 边界。
+
 因此当前阶段拆成三条线：
 
 | Track | Meaning | Current status |
@@ -192,6 +194,8 @@ type AgentWorkflowCapabilityPolicy = {
 - 有失败、取消、重试、恢复语义。
 - CLI/TUI 能只读展示 run，而不需要定义执行逻辑。
 - 所有 mutating action 都需要用户显式确认。
+- 长运行任务能输出 typed artifacts 和 audit events，不依赖聊天上下文续跑。
+- LLM 节点默认消费 compact evidence summary 与 `EvidenceRef`，不直接吞完整市场数据或大体量 tool payload。
 
 ## 11. Development Rule
 
