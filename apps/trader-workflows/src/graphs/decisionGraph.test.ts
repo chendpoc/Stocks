@@ -5,6 +5,7 @@ import {
   buildDecisionGraph,
   DECISION_GRAPH_NODE_NAMES,
   decisionGraph,
+  deterministicDecisionId,
   runDecisionGraph,
 } from "./decisionGraph.js";
 import { DecisionGraph } from "./decisionGraph.types.js";
@@ -57,6 +58,13 @@ function stubLlm(envelope: ReturnType<typeof parseDecisionEnvelope>): WorkflowLl
     },
   };
 }
+
+test("deterministicDecisionId is derived from snapshot_id", () => {
+  assert.equal(
+    deterministicDecisionId("snap-abc123def4567890"),
+    "dec_abc123def4567890",
+  );
+});
 
 test("validateDecisionEnvelope enforces action-specific plan requirements", () => {
   assert.doesNotThrow(() =>

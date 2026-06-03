@@ -111,14 +111,17 @@ def select_lessons(
     clauses = ["confidence >= :min_confidence"]
     params: dict[str, Any] = {"min_confidence": CONFIDENCE_THRESHOLD, "fetch_limit": 200}
     symbol_filters: list[str] = []
-    for symbol in symbols or []:
+    for index, symbol in enumerate(symbols or []):
         normalized = symbol.strip().upper()
         if not normalized:
             continue
-        symbol_filters.append("symbol = :sym_" + normalized)
-        params["sym_" + normalized] = normalized
-        symbol_filters.append("symbols_json LIKE :pat_" + normalized)
-        params["pat_" + normalized] = json_array_like_pattern(normalized)
+        # Bind names must be identifier-safe; dots in symbols (e.g. TSLL.US) break :sym_TSLL.US.
+        sym_key = f"sym_{index}"
+        pat_key = f"pat_{index}"
+        symbol_filters.append(f"symbol = :{sym_key}")
+        params[sym_key] = normalized
+        symbol_filters.append(f"symbols_json LIKE :{pat_key}")
+        params[pat_key] = json_array_like_pattern(normalized)
 
     if symbol_filters:
         clauses.append("(" + " OR ".join(symbol_filters) + ")")

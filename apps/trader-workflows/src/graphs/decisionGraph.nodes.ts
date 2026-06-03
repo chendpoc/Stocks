@@ -40,9 +40,12 @@ export function resolveDecisionGraphNodeDeps(
   };
 }
 
-export function deterministicDecisionId(run_id: string): string {
-  const suffix = run_id.startsWith("run_") ? run_id.slice(4) : run_id;
-  return `dec_${suffix}`;
+/** One persisted model decision per context snapshot (immutable decision_json). */
+export function deterministicDecisionId(snapshot_id: string): string {
+  const suffix = snapshot_id.startsWith("snap-")
+    ? snapshot_id.slice(5)
+    : snapshot_id;
+  return `dec_${suffix.replace(/-/g, "")}`;
 }
 
 export function createDecisionGraphNodes(
@@ -112,7 +115,7 @@ export function createDecisionGraphNodes(
   ): Promise<Partial<DecisionGraphState>> {
     const snapshot = state.snapshot as ContextSnapshotRecord;
     const decision = await ensureDeps().persistDecision({
-      decision_id: deterministicDecisionId(state.run_id),
+      decision_id: deterministicDecisionId(snapshot.snapshot_id),
       run_id: state.run_id,
       snapshot_id: snapshot.snapshot_id,
       envelope: state.envelope!,

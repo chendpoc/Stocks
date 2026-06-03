@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { fetchStage1 } from "../api/client.js";
+import { fetchStage1, Stage1ApiError } from "../api/client.js";
 import {
   extractDecisionJson,
   type DecisionEnvelope,
@@ -76,6 +76,14 @@ export function computeOutcomeDueAt(horizon: OutcomeHorizon, asof_ts: string): s
   }
 }
 
+export async function fetchModelDecision(
+  decision_id: string,
+): Promise<PersistedModelDecision> {
+  return fetchStage1<PersistedModelDecision>(
+    `/model-decisions/${encodeURIComponent(decision_id)}`,
+  );
+}
+
 export async function persistModelDecision(input: {
   decision_id?: string;
   run_id?: string;
@@ -86,23 +94,43 @@ export async function persistModelDecision(input: {
   model_version?: string;
 }): Promise<PersistedModelDecision> {
   const decision_id = input.decision_id ?? `dec_${randomUUID().replace(/-/g, "")}`;
-  return fetchStage1<PersistedModelDecision>("/model-decisions", {
-    method: "POST",
-    body: JSON.stringify({
-      decision_id,
-      run_id: input.run_id,
-      snapshot_id: input.snapshot_id,
-      symbol: input.envelope.symbol,
-      model_provider: input.model_provider ?? process.env.LLM_PROVIDER ?? "deepseek",
-      model_name: input.model_name ?? process.env.LLM_MODEL ?? "deepseek-chat",
-      model_version: input.model_version ?? "stage1-v0",
-      action: mapActionToApi(input.envelope.action),
-      confidence: input.envelope.confidence,
-      uncertainty: input.envelope.uncertainty,
-      decision_json: extractDecisionJson(input.envelope),
-      status: "active",
-    }),
-  });
+  const body = {
+    decision_id,
+    run_id: input.run_id,
+    snapshot_id: input.snapshot_id,
+    symbol: input.envelope.symbol,
+    model_provider: input.model_provider ?? process.env.LLM_PROVIDER ?? "deepseek",
+    model_name: input.model_name ?? process.env.LLM_MODEL ?? "deepseek-chat",
+    model_version: input.model_version ?? "stage1-v0",
+    action: mapActionToApi(input.envelope.action),
+    confidence: input.envelope.confidence,
+    uncertainty: input.envelope.uncertainty,
+    decision_json: extractDecisionJson(input.envelope),
+    status: "active",
+  };
+  try {
+    return await fetchStage1<PersistedModelDecision>("/model-decisions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (
+      error instanceof Stage1ApiError &&
+      error.status === 409 &&
+      input.decision_id
+    ) {
+      const existing = await fetchModelDecision(decision_id);
+      if (existing.snapshot_id === input.snapshot_id) {
+        return existing;
+      }
+      throw new Error(
+        `Model decision ${decision_id} already exists for snapshot ${existing.snapshot_id}; ` +
+        `cannot persist a different envelope for snapshot ${input.snapshot_id}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }
 
 export async function scheduleModelPathOutcomes(input: {
