@@ -95,6 +95,7 @@ export function createDecisionGraphNodes(
     const snapshot = state.snapshot as ContextSnapshotRecord;
     const envelope = await ensureDeps().llm.generateDecisionEnvelope({
       symbol: state.symbol,
+      asof_ts: state.asof_ts,
       contextItems: snapshot.items_json,
     });
     return { envelope };

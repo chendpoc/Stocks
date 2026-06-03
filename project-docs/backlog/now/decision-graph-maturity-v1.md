@@ -77,6 +77,13 @@ First-slice inspection is intentionally small:
 Do not add a custom UI, new table, full raw data browser, evidence resolver, or
 artifact store in this slice.
 
+## Out of Scope (v1)
+
+- Backend **1m** fetch, intraday bar wiring into weighted context, and minute-level
+  pattern discovery. DecisionGraph may **cite** intraday summaries later; it is not
+  the owner for 1m ingestion. See
+  [Intraday 1m context and minute-level analysis](../later/intraday-1m-context-and-minute-analysis.md).
+
 ## Next Action
 
 Operator CLI for the first slice is documented in

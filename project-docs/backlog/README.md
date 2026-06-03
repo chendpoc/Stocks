@@ -64,6 +64,7 @@ current target-system document still records the need.
 | [Agent-generated Workflow Candidate](./later/agent-generated-workflow-candidate.md) | workflow orchestration roadmap |
 | [Trade Ticket Generator](./later/trade-ticket-generator.md) | trader-agent Agent Core development |
 | [Evidence detail operator surface](./later/evidence-detail-operator-surface.md) | workflow orchestration roadmap |
+| [Intraday 1m context and minute-level analysis](./later/intraday-1m-context-and-minute-analysis.md) | product/architecture discussion (2026-06); future analysis priority |
 
 ## Supporting Dependencies
 

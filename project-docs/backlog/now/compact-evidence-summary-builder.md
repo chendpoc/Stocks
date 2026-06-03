@@ -25,3 +25,8 @@ evidence references and must not become the source of truth itself.
 
 Define a compact summary schema and evidence reference contract usable by
 AlphaResearchGraph and future explanation flows.
+
+## Related
+
+- [Intraday 1m context and minute-level analysis](../later/intraday-1m-context-and-minute-analysis.md)
+  — intraday bars should use this builder pattern; not DecisionGraph-owned ingestion.
