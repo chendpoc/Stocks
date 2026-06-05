@@ -1,4 +1,25 @@
 #!/usr/bin/env node
+export {
+  alphaResearchGraph,
+  buildAlphaResearchGraph,
+  runAlphaResearchGraph,
+} from "./graphs/04-alphaResearch/alphaResearchGraph.js";
+export type {
+  AlphaResearchGraphDeps,
+  AlphaResearchGraphInput,
+  AlphaResearchGraphResult,
+} from "./graphs/04-alphaResearch/alphaResearchGraph.types.js";
+export {
+  buildRuleCandidateRequest,
+  validateAlphaResearchInput,
+  type AlphaResearchInput,
+  type AlphaInputValidationReport,
+} from "./services/alphaResearch.js";
+export {
+  buildAlphaSeedV1,
+  type AlphaSeedV1,
+} from "./services/insightCandidates.js";
+
 import { fetchStage1 } from "./api/client.js";
 import {
   type Stage1RunStatus,

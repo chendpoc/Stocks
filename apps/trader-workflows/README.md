@@ -8,7 +8,8 @@ trader-agent system.
 The current product direction is workflow + CLI/TUI + backend/shared contracts.
 This package owns graph execution, checkpointable runs, and workflow-level
 composition. It does not own backend persistence rules, RulePack activation,
-broker execution, or UI surfaces.
+broker execution, or UI surfaces. In the two-layer target architecture, this
+package is part of the AI Analysis Layer.
 
 Project-wide agent engineering principles live in
 [08-agent-engineering-principles-proposal.md](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md).
@@ -22,15 +23,43 @@ Current backlog focus is workflow maturity:
 
 | Area | State |
 |---|---|
-| Native LangGraph graphs | All four feedback-loop graphs in `langgraph.json`: `decision_graph`, `outcome_graph`, `evaluation_graph`, `insight_exploration_graph` |
+| Native LangGraph graphs | Five graphs in `langgraph.json`: `decision_graph`, `outcome_graph`, `evaluation_graph`, `insight_exploration_graph`, `alpha_research_graph` |
 | DecisionGraph maturity v1 | Operator inspection done: `runs show` context summary, `context snapshots list/show`, structured LLM thesis prompts |
 | Feedback loop graphs | [T010–T012](../../.agent-dev/tasks/) maturity v1 **done** (Outcome → Evaluation → Insight) |
-| Alpha / judgment / reflection | Planned; see backlog **Now** / **Next** / **Later** |
+| AlphaResearchGraph v0 | Implemented (T013); review blockers still need closeout |
+| Roadmap target | Two-layer system: AI Analysis Layer now, Execution Simulation Layer later |
+| Analysis workflow target | `DecisionWorkflow`, `FeedbackLearningWorkflow`, `AlphaValidationWorkflow` |
 
 **Product north star (this package):** verifiable market reading, repeatable pattern
 discovery, and outcome-linked learning—not broker execution or automatic RulePack
-promotion. Execution and approval automation are out of scope for the current
-phase; see roadmap non-goals.
+promotion. The analysis layer may produce opportunity maps, risk envelopes,
+exploration plans, and execution policies, but it must not submit orders.
+Execution and approval automation are out of scope for the current phase; see
+roadmap non-goals.
+
+## Two-Layer System Target
+
+The broader product target is documented in
+[Two-Layer Market Analysis And Execution System](../../project-docs/backlog/two-layer-market-analysis-and-execution-system.md).
+
+| Layer | Core function | Primary artifacts | Boundary |
+|---|---|---|---|
+| AI Analysis Layer | Interpret market context, monitor compact live state, form judgments, learn from outcomes, and validate rule candidates. | `ContextSnapshot`, `DecisionEnvelope`, `EvaluationReport`, `InsightCandidate`, `RuleCandidate`, `OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` | No direct order submission. This package owns the LangGraph workflow side. |
+| Execution Simulation Layer | Consume quote/depth/trade streams, simulate orders, track fills, positions, PnL, and execution quality. | `QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, `OrderIntent`, `RiskDecision`, `OrderEvent`, `PositionSnapshot`, `ExecutionFeedback` | Deterministic order state machine. Future live broker path requires approval and risk gates. |
+
+Layer handoff:
+
+```text
+Analysis Layer
+OpportunityMap / RiskEnvelope / ExplorationPlan / ExecutionPolicy
+  -> focused paper or shadow exploration
+  -> OrderEvent / PositionSnapshot / ExecutionFeedback
+  -> FeedbackLearningWorkflow
+```
+
+Real-time market data belongs to `LiveMarketDataPlane`, not to a tick-by-tick
+LLM loop. AI nodes should consume compact market state snapshots, anomaly
+summaries, and typed evidence.
 
 ## Quick Start
 
@@ -47,7 +76,7 @@ npm run workflows -- eval summary --symbol TSLA.US --json
 npm run workflows -- insights explore --symbol TSLA.US --window 30d --json
 ```
 
-LangGraph Studio (all four native graphs):
+LangGraph Studio (all five native graphs):
 
 ```bash
 cd apps/trader-workflows
@@ -60,24 +89,35 @@ Studio input must be top-level JSON (not wrapped in an `input` field), for examp
 - `outcome_graph`: `{ "limit": 50, "symbol": "TSLA" }`
 - `evaluation_graph`: `{ "symbol": "TSLA", "model_version": "stage1-v0", "limit": 500 }`
 - `insight_exploration_graph`: `{ "symbol": "TSLA", "window": "30d" }`
+- `alpha_research_graph`: `{ "insight_id": "ins-1", "symbol": "TSLA", "thesis": "sharp drop may stabilize", "evidence_refs": [{ "ref_type": "signal", "ref_id": "sig-1" }], "alpha_seed": { "schema_version": "alpha_seed.v1", "candidate_family": "mean_reversion", "mechanism": "sharp drop may stabilize", "trigger_hint": "sharp adverse move", "entry_condition_hint": "measure_next_bar_after_trigger_2m", "invalidation_hint": "adverse move resumes", "required_evidence_hint": ["market_bars:TSLA"] }, "backtest_window_start": "2026-05-22", "backtest_window_end": "2026-05-22" }`
 
-Loads env from repo root via `langgraph.json`.
+Loads env from repo root via `langgraph.json`. Alpha research also needs trader-agent backend `POST /api/rule-candidates` (set `TRADER_RULE_CANDIDATES_API_BASE` if not on default `http://127.0.0.1:8000/api/rule-candidates`).
 
 ## Workflow Catalog
 
 Blank doc cells mean the workflow has no standalone development doc yet.
 
+Within the AI Analysis Layer, future planning should start from three product
+workflow lanes. Existing graph names are implementation artifacts inside those
+lanes, not a mandate to keep adding standalone graphs.
+
+| Target workflow | Core function | Core chain | Current implementation artifacts |
+|---|---|---|---|
+| `DecisionWorkflow` | Make the current market judgment from bounded context. | `context -> decision -> schedule future outcome` | `DecisionGraph`, `Stage1Runtime`, context snapshot inspection |
+| `FeedbackLearningWorkflow` | Verify past judgments, summarize what failed or worked, and propose new insight candidates. | `due outcomes -> label results -> evaluate patterns -> propose insights` | `OutcomeGraph`, `EvaluationGraph`, `InsightExplorationGraph` |
+| `AlphaValidationWorkflow` | Validate whether an insight can become a rule candidate. | `insight -> rule candidate -> lite backtest -> safe review state` | `AlphaResearchGraph v0`, backend Rule Discovery / Lite Backtest |
+
 | Workflow | Status | Doc |
 |---|---|---|
 | `Stage1Runtime` | implemented | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
 | `DecisionGraph` | implemented (maturity v1 operator slice done) | [DecisionGraph maturity v1](../../project-docs/backlog/now/decision-graph-maturity-v1.md) |
-| `OutcomeGraph` | implemented | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
-| `EvaluationGraph` | implemented | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
-| `InsightExplorationGraph` | implemented | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
-| `AlphaResearchGraph` | planned | [AlphaResearchGraph spec](../../project-docs/backlog/now/alpha-research-graph-spec.md) |
-| `MarketJudgmentGraph` | planned |  |
-| `ModelLearningGraph` | planned |  |
-| `ReflectionGraph` | planned | [Reflection Engine](../../project-docs/research-agent/target-system/trader-agent/01-agent-core-development/18-reflection-engine.md) |
+| `OutcomeGraph` | implemented artifact of `FeedbackLearningWorkflow` | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
+| `EvaluationGraph` | implemented artifact of `FeedbackLearningWorkflow` | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
+| `InsightExplorationGraph` | implemented artifact of `FeedbackLearningWorkflow` | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
+| `AlphaResearchGraph` | implemented v0 artifact of `AlphaValidationWorkflow` | [T013: AlphaResearchGraph v0](../../.agent-dev/tasks/T013-alpha-research-graph-v0.md) |
+| `MarketJudgmentGraph` | deferred; operator view unless split-boundary test passes |  |
+| `ModelLearningGraph` | deferred; later gated capability unless split-boundary test passes |  |
+| `ReflectionGraph` | deferred; feedback report/proposal sections unless split-boundary test passes | [Reflection Engine](../../project-docs/research-agent/target-system/trader-agent/01-agent-core-development/18-reflection-engine.md) |
 | `RuntimeOrchestrator` | backend dependency | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
 | `Rule Discovery / Lite Backtest` | backend dependency | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
 | `Memory Review / Activation` | backend dependency | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
@@ -86,33 +126,69 @@ Blank doc cells mean the workflow has no standalone development doc yet.
 
 ## Project Milestones And Delivery Plan
 
-The remaining workflow roadmap is dependency-ordered, not table-order driven.
-Use a **strict serial gate for M0-M3**, then allow only lightweight spec
-preparation for later milestones. Do not implement multiple planned graphs in
-parallel while shared contracts are still moving.
+The remaining roadmap is dependency-ordered, not table-order driven. Use a
+**strict serial gate** while shared contracts are still moving. The target is to
+build the full loop from market facts to analysis, paper execution, execution
+feedback, and learning.
 
 | Milestone | Goal | Deliverable | Exit Criteria |
 |---|---|---|---|
-| M0 Feedback Loop Closeout | Finish the implemented feedback loop slice | T010-T012 status/docs alignment, known backend pytest environment blocker recorded | Task docs and JSON agree; workflow tests pass; backend verification blocker is explicit |
-| M1 AlphaResearchGraph Spec Gate | Lock the alpha workflow contract before coding | `T013 AlphaResearchGraph v0` spec/task, candidate contract, run artifact contract, policy checks, acceptance criteria | Plan review passes; backend gaps are listed; RulePack activation and auto-promotion remain forbidden |
-| M2 Alpha Backend Minimal Slice | Add only the backend APIs AlphaResearchGraph needs | Minimal `RuleCandidate`, `LiteBacktestReport`, safe review states, API/tests | Backend contract tests pass; candidates can end in `needs_more_data`, `rejected`, `pending_shadow_tracking`, or `pending_manual_approval` |
-| M3 AlphaResearchGraph v0 | Turn insight candidates into validated alpha candidates | Graph, workflow service client, CLI output, tests, README updates | `InsightCandidate -> RuleCandidate -> LiteBacktestReport -> safe state` runs end to end |
-| M4 MarketJudgmentGraph v0 | Produce operator-facing market reads | Market state, opportunity/risk summary, evidence summary, daily focus output | Does not perform alpha discovery; output is inspectable from CLI/TUI surfaces |
-| M5 ReflectionGraph v0 | Generate daily/weekly learning and rule proposal drafts | Failure modes, weekly summary, proposal draft handoff | Drafts are handed to Rule Discovery / Lite Backtest; no rule activation |
-| M6 ModelLearningGraph v0 | Run bounded challenger-model evaluation | `opportunity_ranking_model` experiment orchestration, evaluation report, promotion recommendation | No automatic promotion, no hidden model switching, every metric/checkpoint is auditable |
+| M0 Analysis Core Closeout | Close the current analysis-layer work before adding execution scope | T010-T013 status alignment, review blocker closeout, workflow README/roadmap consistency | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` is inspectable, documented, and not drifting |
+| M1 Analysis-to-Execution Contract | Define how analysis can guide execution without becoming order control | `OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` spec | AI outputs opportunity/risk/constraints only; no artifact can be interpreted as a broker order command |
+| M2 LiveMarketDataPlane v0 | Establish the real-market fact inlet | `QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, provider trace, replay/inspection contract | Read-only quote/depth/trade data can be normalized, inspected, and replayed without order execution |
+| M3 PaperTradingEngine v0 | Build the deterministic simulated order core | `OrderIntent`, `RiskDecision`, `OrderEvent`, `PositionSnapshot`, PnL/slippage model, replay tests | Given market state plus policy, order state, fills, position, and PnL are reproducible |
+| M4 Guided Paper Exploration | Let analysis focus local paper/shadow exploration | `ExecutionPolicy -> RiskGate -> PaperTradingEngine -> ExecutionFeedback` path | Paper/shadow exploration runs only inside approved opportunity/risk boundaries and produces execution feedback |
+| M5 Execution Feedback Learning | Feed execution reality back into analysis | `ExecutionFeedback` evaluation inputs, report sections, insight/rule-candidate improvement handoff | Reports can distinguish judgment quality, rule edge, execution feasibility, slippage, and risk behavior |
+| M6 Operator Surface And Approval Gate | Make risk boundaries operable by a human | CLI/TUI/cockpit inspection, approval requests, kill switch, audit trail | High-risk actions are inspectable, rejectable, and auditable before activation or execution |
+| M7 Shadow / Live Broker Gate | Consider real broker integration only after paper evidence matures | Broker adapter spec, minimal shadow/live pilot plan, capability policy | No live path exists unless M1-M6 evidence is accepted and an explicit approval gate is implemented |
 
 Delivery policy:
 
-1. M0-M3 are strictly serial because they share the `InsightCandidate`,
-   `RuleCandidate`, `LiteBacktestReport`, safe state, and approval-boundary
-   contracts.
-2. After M3 is stable, later graph specs may be drafted while the current graph
-   implementation is under review, but code implementation remains gated one
-   milestone at a time.
-3. Backend work is not a separate last phase. Each workflow milestone may add
+1. M0 closes the current analysis layer. Do not start live data or paper trading
+   implementation before T013 review blockers and docs are aligned.
+2. M1 is the first new design slice. It must define `OpportunityMap`,
+   `RiskEnvelope`, `ExplorationPlan`, and `ExecutionPolicy` before execution
+   simulation work starts.
+3. `LiveMarketDataPlane` must be read-only and replayable before
+   `PaperTradingEngine` depends on it.
+4. Paper/shadow execution must use deterministic state transitions; LLMs must
+   not sit in the tick-by-tick order path.
+5. Do not split `MarketJudgmentGraph`, `ReflectionGraph`, or
+   `ModelLearningGraph` into standalone implementation work unless a reviewed
+   spec proves a distinct timing, risk, approval, source-of-truth, or recovery
+   boundary.
+6. Backend work is not a separate last phase. Each milestone may add
    the smallest backend slice required by that workflow's acceptance criteria.
-4. Do not expand backend work into a generic rule, approval, or model platform
-   unless a reviewed spec explicitly changes this roadmap.
+7. Broker adapter work is M7 only. It requires accepted paper/shadow evidence,
+   an approval gate, and a reviewed implementation spec.
+
+## Execution And Management Model
+
+Use the three workflow lanes as an operator routine and analysis layer, not as
+autonomous trading automation.
+
+| Workflow lane | When it runs | Who/what triggers it | Primary artifacts | How operators use it |
+|---|---|---|---|---|
+| `DecisionWorkflow` | On-demand or scheduled market read windows | CLI/TUI/operator scheduler | `ContextSnapshot`, `DecisionEnvelope`, scheduled future outcomes | Review the current judgment, evidence refs, and pending outcomes; no trade execution by default |
+| `FeedbackLearningWorkflow` | After outcomes are due, plus daily/weekly review windows | scheduler or operator review command | finalized outcome labels, `EvaluationReport`, `InsightCandidate` | Check what worked/failed and decide which insight candidates deserve alpha validation |
+| `AlphaValidationWorkflow` | Only for selected insight candidates with complete seed/context | operator or approved research queue | `RuleCandidate`, `LiteBacktestReport`, safe review state | Inspect backtest evidence and choose reject / needs more data / shadow track / manual approval |
+
+Management rules:
+
+1. `Stage1Runtime` manages run IDs, checkpoints, resumability, and bounded run
+   output across all lanes.
+2. Backend APIs own durable domain facts: context snapshots, decisions,
+   outcomes, reports, insight candidates, rule candidates, and audit events.
+3. CLI/TUI should be a thin operator surface: trigger runs, inspect artifacts,
+   and request approvals. It must not own workflow logic.
+4. Scheduled runs are allowed for low-risk labeling and reporting. Validation,
+   approval, promotion, RulePack mutation, model switching, and execution stay
+   manual-gated.
+5. Each lane hands off by typed artifact IDs, not by chat context or hidden
+   graph state.
+6. Execution guidance must be expressed as `OpportunityMap`, `RiskEnvelope`,
+   `ExplorationPlan`, or `ExecutionPolicy`; workflows must not emit broker order
+   commands.
 
 ## Architecture
 
@@ -121,20 +197,25 @@ Operator Surface
 apps/trader-cli / future TUI
   |
   v
+AI Analysis Layer
 Workflow Runtime
 apps/trader-workflows
   |
   |-- Stage1Runtime                 [implemented]
   |
-  |-- DecisionGraph                 [implemented]
-  |-- OutcomeGraph                  [implemented]
-  |-- EvaluationGraph               [implemented]
-  |-- InsightExplorationGraph       [implemented]
+  |-- DecisionWorkflow
+  |   `-- DecisionGraph             [implemented]
   |
-  |-- AlphaResearchGraph            [planned: Now]
-  |-- MarketJudgmentGraph           [planned: Next]
-  |-- ModelLearningGraph            [planned: Later]
-  |-- ReflectionGraph               [planned]
+  |-- FeedbackLearningWorkflow
+  |   |-- OutcomeGraph              [implemented artifact]
+  |   |-- EvaluationGraph           [implemented artifact]
+  |   `-- InsightExplorationGraph   [implemented artifact]
+  |
+  |-- AlphaValidationWorkflow
+  |   `-- AlphaResearchGraph        [implemented artifact: v0]
+  |
+  |-- Market / Reflection / Model views
+      `-- deferred unless a split-boundary spec proves they need standalone workflows
   |
   v
 Backend / Shared Platform
@@ -146,6 +227,14 @@ apps/trader-agent/shared
   |-- Memory Review / Activation    [implemented / partial]
   |-- Audit / Rebuild Workflow      [implemented]
   |-- Approval / Capability Gate    [partial schema, workflow pending]
+  |
+  v
+Execution Simulation Layer          [future spec track]
+  |-- LiveMarketDataPlane
+  |-- PaperTradingEngine
+  |-- RiskGate
+  |-- OrderEventStore
+  `-- BrokerAdapter                 [future, approval-gated]
 ```
 
 ## Implemented Workflows
@@ -412,49 +501,53 @@ This is the implemented entry closest to alpha discovery. It produces candidate
 insights, but it does not complete the formal alpha research and lite backtest
 chain.
 
-## Planned Workflows
-
 ### AlphaResearchGraph
 
-Status: planned, backlog `Now`.
+Status: implemented (v0), task [T013](../../.agent-dev/tasks/T013-alpha-research-graph-v0.md).
 
-`AlphaResearchGraph` should be the formal alpha-factor research workflow.
+`AlphaResearchGraph v0` is the formal alpha validation workflow, not the full
+research-agent harness. Run via LangGraph Studio (`alpha_research_graph`) or
+`runAlphaResearchGraph()`; **no CLI subcommand in v0**.
 
-Expected responsibilities:
+v0 responsibilities:
 
-- consume `InsightCandidate`, event windows, context windows, and historical
-  outcomes;
-- convert hypotheses into structured `RuleCandidate` records;
-- define trigger, entry condition, exit condition, invalidation, data
-  requirements, and risk notes;
-- call or coordinate Rule Discovery / Lite Backtest;
-- produce a `LiteBacktestReport`;
-- move candidates only to safe review states such as `needs_more_data`,
-  `rejected`, `pending_shadow_tracking`, or `pending_manual_approval`.
+- accept a standard `AlphaResearchInput` that already carries `insight_id`,
+  `symbol`, `thesis`, `evidence_refs`, `alpha_seed`, and a backtest window;
+- validate the input and stop as `input_validation_failed` when required fields
+  are missing (distinct from backend `needs_more_data`);
+- create a structured `RuleCandidate` through `POST /api/rule-candidates`;
+- orchestrate evidence validation, lite backtest, advance, and report fetch inside
+  the `run_lite_backtest` node;
+- return `rule_candidate_id`, `lite_backtest_report_id`, final candidate status,
+  and safety flags.
 
-Safety boundary:
-
-- no active RulePack mutation;
-- no automatic trading;
-- no automatic universe expansion;
-- no promotion without manual approval.
-
-Recommended next implementation direction:
+v0 graph shape:
 
 ```text
-InsightExplorationGraph
-  -> AlphaResearchGraph
-  -> Rule Discovery / Lite Backtest
-  -> pending_shadow_tracking | pending_manual_approval
-  -> OutcomeGraph
-  -> EvaluationGraph
+validate_input
+-> create_rule_candidate
+-> run_lite_backtest
 ```
+
+Not in v0:
+
+- no context hydrate node;
+- no open-ended research loop;
+- no LLM wording or normalization node;
+- no missing-field backfill flow;
+- no CLI wrapper.
+
+The research-agent version is tracked separately as
+[AlphaResearchAgent v1](../../project-docs/backlog/later/alpha-research-agent-v1.md).
+
+## Deferred Split Candidates
 
 ### MarketJudgmentGraph
 
-Status: planned, backlog `Next`.
+Status: deferred as a standalone workflow.
 
-`MarketJudgmentGraph` should produce the operator-facing market read.
+Market judgment should first be modeled as an operator-facing view over
+`DecisionWorkflow` and `FeedbackLearningWorkflow` artifacts.
 
 Expected responsibilities:
 
@@ -465,14 +558,15 @@ Expected responsibilities:
 - define triggers and invalidations;
 - surface risk warnings for CLI/TUI review.
 
-This graph is for market-state judgment and daily operator focus. It is not the
-same as alpha discovery.
+Only split it into `MarketJudgmentGraph` if a reviewed spec proves a distinct
+timing, risk, source-of-truth, recovery, or approval boundary. It must not become
+an alternate alpha discovery path.
 
 ### ModelLearningGraph
 
-Status: planned, backlog `Later`.
+Status: deferred as a standalone workflow.
 
-`ModelLearningGraph` should orchestrate offline challenger-model experiments.
+Model learning is a later gated capability, not the next workflow target.
 
 Expected responsibilities:
 
@@ -489,13 +583,15 @@ Safety boundary:
 - no hidden model switch in CLI, backend API, workflow scheduler, or runtime;
 - every checkpoint, metric, and recommendation must be auditable.
 
-The first reasonable target is `opportunity_ranking_model`, not a complete
-trading-policy model.
+The first reasonable target remains `opportunity_ranking_model`, not a complete
+trading-policy model. Do not split this into a standalone workflow until
+approval, audit, dataset, checkpoint, and promotion boundaries are explicit.
 
 ### ReflectionGraph
 
-Status: planned; backend module docs are mature, but this is not yet a
-standalone LangGraph workflow.
+Status: deferred as a standalone workflow; backend module docs are mature, but
+reflection should first live as report and proposal sections inside
+`FeedbackLearningWorkflow`.
 
 Expected responsibilities:
 
@@ -511,6 +607,9 @@ Safety boundary:
 - no automatic rule activation;
 - no direct Risk Engine policy mutation;
 - no black-box strategy changes.
+
+Only split reflection into its own workflow if it needs a separate cadence,
+approval gate, recovery semantics, or source-of-truth ownership.
 
 ## Backend Workflows This Package Depends On
 

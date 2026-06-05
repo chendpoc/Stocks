@@ -4,7 +4,8 @@
     "decision_graph": "./src/graphs/00-decision/decisionGraph.ts:decisionGraph",
     "outcome_graph": "./src/graphs/01-outcome/outcomeGraph.ts:outcomeGraph",
     "evaluation_graph": "./src/graphs/02-evaluation/evaluationGraph.ts:evaluationGraph",
-    "insight_exploration_graph": "./src/graphs/03-insightExploration/insightExplorationGraph.ts:insightExplorationGraph"
+    "insight_exploration_graph": "./src/graphs/03-insightExploration/insightExplorationGraph.ts:insightExplorationGraph",
+    "alpha_research_graph": "./src/graphs/04-alphaResearch/alphaResearchGraph.ts:alphaResearchGraph"
   },
   "env": "../../.env"
 }

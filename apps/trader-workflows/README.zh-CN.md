@@ -2,27 +2,58 @@
 
 `apps/trader-workflows` 是 trader-agent 系统的 LangGraph 工作流运行时包。
 
-当前产品方向是 **工作流 + CLI/TUI + 后端/共享契约**。本包负责图执行、可 checkpoint 的运行实例，以及工作流级编排；**不**负责后端持久化规则、RulePack 激活、券商执行或 UI 界面。
+当前产品方向是 **工作流 + CLI/TUI + 后端/共享契约**。本包负责图执行、可 checkpoint 的运行实例，以及工作流级编排；**不**负责后端持久化规则、RulePack 激活、券商执行或 UI 界面。在两层目标架构中，本包属于 AI Analysis Layer。
 
 项目级 agent 工程原则见 [08-agent-engineering-principles-proposal.md](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md)。新增长运行 run、subagent、MCP/tool surface、skill 或 alpha research workflow 前，先按该文档检查边界。
 
 当前 backlog 主线是 workflow 成熟度：[workflow-maturity-roadmap.md](../../project-docs/backlog/workflow-maturity-roadmap.md)。
 
+## 两层系统目标
+
+完整产品目标见 [Two-Layer Market Analysis And Execution System](../../project-docs/backlog/two-layer-market-analysis-and-execution-system.md)。
+
+| 层 | 核心职能 | 主要 artifact | 边界 |
+|---|---|---|---|
+| AI Analysis Layer | 理解市场 context、监控紧凑实时状态、形成判断、从 outcome 学习、验证 rule candidate | `ContextSnapshot`、`DecisionEnvelope`、`EvaluationReport`、`InsightCandidate`、`RuleCandidate`、`OpportunityMap`、`RiskEnvelope`、`ExplorationPlan`、`ExecutionPolicy` | 不直接下单；本包负责 LangGraph workflow 部分 |
+| Execution Simulation Layer | 消费 quote/depth/trade 实时流，模拟订单，记录成交、仓位、PnL 与执行质量 | `QuoteSnapshot`、`OrderBookSnapshot`、`TradeTick`、`MarketStateSnapshot`、`OrderIntent`、`RiskDecision`、`OrderEvent`、`PositionSnapshot`、`ExecutionFeedback` | 确定性订单状态机；未来实盘券商路径必须经过 approval 与 risk gate |
+
+层间交接：
+
+```text
+Analysis Layer
+OpportunityMap / RiskEnvelope / ExplorationPlan / ExecutionPolicy
+  -> 聚焦的 paper/shadow exploration
+  -> OrderEvent / PositionSnapshot / ExecutionFeedback
+  -> FeedbackLearningWorkflow
+```
+
+实时市场数据属于 `LiveMarketDataPlane`，不是逐 tick LLM loop。AI 节点应消费紧凑的
+market state snapshot、异常摘要和 typed evidence。
+
 ## 工作流清单
 
 表中空白链接表示该 workflow 还没有独立开发文档。
+
+在 AI Analysis Layer 内，后续规划从三条产品 workflow 出发。现有 graph 名称是这些 workflow 内的实现
+artifact，不代表每个概念都要继续拆成独立 graph。
+
+| 目标 workflow | 核心职能 | 核心链路 | 当前实现 artifact |
+|---|---|---|---|
+| `DecisionWorkflow` | 基于有边界的 context 做当前市场判断 | `context -> decision -> schedule future outcome` | `DecisionGraph`、`Stage1Runtime`、context snapshot inspection |
+| `FeedbackLearningWorkflow` | 验证过去判断，总结有效/失败模式，并提出新的 insight candidate | `due outcomes -> label results -> evaluate patterns -> propose insights` | `OutcomeGraph`、`EvaluationGraph`、`InsightExplorationGraph` |
+| `AlphaValidationWorkflow` | 验证 insight 是否能成为规则候选 | `insight -> rule candidate -> lite backtest -> safe review state` | `AlphaResearchGraph v0`、后端 Rule Discovery / Lite Backtest |
 
 | Workflow | 状态 | 文档 |
 |---|---|---|
 | `Stage1Runtime` | 已实现 | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
 | `DecisionGraph` | 已实现 | [DecisionGraph maturity v1](../../project-docs/backlog/now/decision-graph-maturity-v1.md) |
-| `OutcomeGraph` | 已实现 | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
-| `EvaluationGraph` | 已实现 | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
-| `InsightExplorationGraph` | 已实现 | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
-| `AlphaResearchGraph` | 规划中 | [AlphaResearchGraph spec](../../project-docs/backlog/now/alpha-research-graph-spec.md) |
-| `MarketJudgmentGraph` | 规划中 |  |
-| `ModelLearningGraph` | 规划中 |  |
-| `ReflectionGraph` | 规划中 | [Reflection Engine](../../project-docs/research-agent/target-system/trader-agent/01-agent-core-development/18-reflection-engine.md) |
+| `OutcomeGraph` | `FeedbackLearningWorkflow` 的已实现 artifact | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
+| `EvaluationGraph` | `FeedbackLearningWorkflow` 的已实现 artifact | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
+| `InsightExplorationGraph` | `FeedbackLearningWorkflow` 的已实现 artifact | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
+| `AlphaResearchGraph` | `AlphaValidationWorkflow` 的已实现 v0 artifact | [T013: AlphaResearchGraph v0](../../.agent-dev/tasks/T013-alpha-research-graph-v0.md) |
+| `MarketJudgmentGraph` | 暂缓；默认作为 operator view，除非通过拆分边界检查 |  |
+| `ModelLearningGraph` | 暂缓；默认作为后续 gated capability，除非通过拆分边界检查 |  |
+| `ReflectionGraph` | 暂缓；默认作为 feedback report / proposal section，除非通过拆分边界检查 | [Reflection Engine](../../project-docs/research-agent/target-system/trader-agent/01-agent-core-development/18-reflection-engine.md) |
 | `RuntimeOrchestrator` | 后端依赖 | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
 | `Rule Discovery / Lite Backtest` | 后端依赖 | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
 | `Memory Review / Activation` | 后端依赖 | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
@@ -31,30 +62,57 @@
 
 ## 项目里程碑与推进计划
 
-后续 roadmap 按依赖顺序推进，不按表格顺序机械实现。M0-M3 使用
-**严格串行门禁**；M3 稳定后，后续 milestone 只允许轻量 spec 预研，
-不允许多个规划中 graph 并行实现。
+后续 roadmap 按依赖顺序推进，不按表格顺序机械实现。共享契约仍在变化时使用
+**严格串行门禁**。目标是打通“市场事实 -> 分析判断 -> 模拟执行 -> 执行反馈 -> 学习”的完整闭环。
 
 | Milestone | 目标 | 交付物 | 退出标准 |
 |---|---|---|---|
-| M0 Feedback Loop Closeout | 收尾已实现的反馈闭环 | T010–T012 状态/docs/review 已对齐；记录后端 pytest 环境 blocker | task docs 与 JSON 均为 `done`；workflow 测试 101/101；后端验证 blocker 明确 |
-| M1 AlphaResearchGraph Spec Gate | 编码前锁定 alpha workflow 契约 | `T013 AlphaResearchGraph v0` spec/task、candidate contract、run artifact contract、policy checks、验收标准 | plan review 通过；后端 gap 列清楚；RulePack 激活与自动晋升仍禁止 |
-| M2 Alpha Backend Minimal Slice | 只补 AlphaResearchGraph 必需的后端 API | 最小 `RuleCandidate`、`LiteBacktestReport`、safe review states、API/tests | 后端契约测试通过；候选可进入 `needs_more_data`、`rejected`、`pending_shadow_tracking` 或 `pending_manual_approval` |
-| M3 AlphaResearchGraph v0 | 将 insight candidate 转成已验证 alpha candidate | graph、workflow service client、CLI 输出、tests、README 更新 | `InsightCandidate -> RuleCandidate -> LiteBacktestReport -> safe state` 可端到端运行 |
-| M4 MarketJudgmentGraph v0 | 产出操作者市场判断 | 市场状态、机会/风险摘要、证据摘要、每日焦点输出 | 不做 alpha discovery；输出可从 CLI/TUI 检查 |
-| M5 ReflectionGraph v0 | 生成日/周学习与 rule proposal draft | failure modes、weekly summary、proposal draft handoff | draft 交给 Rule Discovery / Lite Backtest；不激活规则 |
-| M6 ModelLearningGraph v0 | 运行有边界的 challenger model evaluation | `opportunity_ranking_model` 实验编排、评估报告、晋升建议 | 不自动晋升；不隐藏切换模型；每个指标与 checkpoint 可审计 |
+| M0 Analysis Core Closeout | 在增加 execution scope 前关闭当前分析层工作 | T010-T013 状态对齐、review blocker closeout、workflow README/roadmap 一致 | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` 可检查、文档一致、无漂移 |
+| M1 Analysis-to-Execution Contract | 定义分析层如何指导执行层，但不变成订单控制 | `OpportunityMap`、`RiskEnvelope`、`ExplorationPlan`、`ExecutionPolicy` spec | AI 只输出机会/风险/约束；任何 artifact 都不能被解释为券商订单命令 |
+| M2 LiveMarketDataPlane v0 | 建立实盘事实入口 | `QuoteSnapshot`、`OrderBookSnapshot`、`TradeTick`、`MarketStateSnapshot`、provider trace、replay/inspection contract | 只读 quote/depth/trade 可归一化、可检查、可 replay，且不涉及订单执行 |
+| M3 PaperTradingEngine v0 | 建立确定性模拟订单内核 | `OrderIntent`、`RiskDecision`、`OrderEvent`、`PositionSnapshot`、PnL/slippage model、replay tests | 给定 market state + policy，订单状态、成交、仓位与 PnL 可复现 |
+| M4 Guided Paper Exploration | 让分析层指导局部 paper/shadow exploration | `ExecutionPolicy -> RiskGate -> PaperTradingEngine -> ExecutionFeedback` 路径 | paper/shadow exploration 只在已批准的机会/风险边界内运行，并产出执行反馈 |
+| M5 Execution Feedback Learning | 将执行现实回流分析层 | `ExecutionFeedback` evaluation inputs、report sections、insight/rule-candidate improvement handoff | report 能区分判断质量、规则边际、执行可行性、滑点与风险行为 |
+| M6 Operator Surface And Approval Gate | 让人能管理风险边界 | CLI/TUI/cockpit inspection、approval requests、kill switch、audit trail | 高风险动作在激活或执行前可检查、可拒绝、可审计 |
+| M7 Shadow / Live Broker Gate | 只在 paper 证据成熟后考虑真实券商集成 | broker adapter spec、最小 shadow/live pilot plan、capability policy | M1-M6 证据被接受且 approval gate 已实现前，不存在 live path |
 
 交付策略：
 
-1. M0-M3 必须严格串行，因为它们共享 `InsightCandidate`、`RuleCandidate`、
-   `LiteBacktestReport`、safe state 和 approval boundary 契约。
-2. M3 稳定后，后续 graph 的 spec 可以在当前实现 review 期间预研，但代码实现
-   仍按 milestone 一个个过门禁。
-3. 后端工作不是最后单独做的大阶段。每个 workflow milestone 只补该 workflow
-   验收所需的最小后端 slice。
-4. 除非有已 review 的 spec 明确变更 roadmap，否则不要把后端工作扩展成泛化
-   rule、approval 或 model 平台。
+1. M0 关闭当前分析层。在 T013 review blocker 和文档一致性关闭前，不启动 live data
+   或 paper trading 实现。
+2. M1 是第一个新的设计切片。必须先定义 `OpportunityMap`、`RiskEnvelope`、
+   `ExplorationPlan`、`ExecutionPolicy`，再进入执行模拟开发。
+3. `LiveMarketDataPlane` 必须先做到只读、可 replay、可 inspect，`PaperTradingEngine`
+   才能依赖它。
+4. paper/shadow execution 必须使用确定性状态迁移；LLM 不得处在逐 tick 订单路径中。
+5. 不要把 `MarketJudgmentGraph`、`ReflectionGraph`、`ModelLearningGraph`
+   拆成独立实现，除非已 review 的 spec 证明它们有独立时间节奏、风险等级、
+   approval、source-of-truth 或恢复边界。
+6. 后端工作不是最后单独做的大阶段。每个 milestone 只补验收所需的最小后端 slice。
+7. broker adapter 只属于 M7。它需要已接受的 paper/shadow 证据、approval gate 和已 review 的实现 spec。
+
+## 执行与管理模型
+
+三条 workflow lane 应作为操作者日常流程与分析层使用，而不是自动交易系统。
+
+| Workflow lane | 何时运行 | 触发方式 | 主要 artifact | 操作者怎么用 |
+|---|---|---|---|---|
+| `DecisionWorkflow` | 按需或固定市场观察窗口 | CLI/TUI/operator scheduler | `ContextSnapshot`、`DecisionEnvelope`、scheduled future outcomes | 查看当前判断、证据引用和待验证 outcome；默认不执行交易 |
+| `FeedbackLearningWorkflow` | outcome 到期后，以及日/周复盘窗口 | scheduler 或 operator review command | finalized outcome labels、`EvaluationReport`、`InsightCandidate` | 查看哪些判断有效/失败，并选择哪些 insight candidate 进入 alpha validation |
+| `AlphaValidationWorkflow` | 仅对已选中且 seed/context 完整的 insight candidate 运行 | operator 或 approved research queue | `RuleCandidate`、`LiteBacktestReport`、safe review state | 检查 backtest 证据，并选择 reject / needs more data / shadow track / manual approval |
+
+管理规则：
+
+1. `Stage1Runtime` 统一管理 run id、checkpoint、resume 和有边界的 run output。
+2. 后端 API 拥有持久领域事实：context snapshots、decisions、outcomes、reports、
+   insight candidates、rule candidates、audit events。
+3. CLI/TUI 只做薄操作者界面：触发运行、查看 artifact、发起 approval；不承载
+   workflow 逻辑。
+4. 低风险 labeling/reporting 可以 schedule。validation、approval、promotion、
+   RulePack mutation、model switching、execution 都必须人工门禁。
+5. workflow 之间通过 typed artifact id 交接，不依赖聊天上下文或隐藏 graph state。
+6. 对执行层的指导必须表达为 `OpportunityMap`、`RiskEnvelope`、`ExplorationPlan`
+   或 `ExecutionPolicy`；workflow 不得输出券商订单命令。
 
 ## 架构
 
@@ -63,20 +121,25 @@
 apps/trader-cli / 未来 TUI
   |
   v
+AI Analysis Layer
 工作流运行时
 apps/trader-workflows
   |
   |-- Stage1Runtime                 [已实现]
   |
-  |-- DecisionGraph                 [已实现]
-  |-- OutcomeGraph                  [已实现]
-  |-- EvaluationGraph               [已实现]
-  |-- InsightExplorationGraph       [已实现]
+  |-- DecisionWorkflow
+  |   `-- DecisionGraph             [已实现]
   |
-  |-- AlphaResearchGraph            [规划中: Now]
-  |-- MarketJudgmentGraph           [规划中: Next]
-  |-- ModelLearningGraph            [规划中: Later]
-  |-- ReflectionGraph               [规划中]
+  |-- FeedbackLearningWorkflow
+  |   |-- OutcomeGraph              [已实现 artifact]
+  |   |-- EvaluationGraph           [已实现 artifact]
+  |   `-- InsightExplorationGraph   [已实现 artifact]
+  |
+  |-- AlphaValidationWorkflow
+  |   `-- AlphaResearchGraph        [已实现 artifact: v0]
+  |
+  |-- Market / Reflection / Model views
+      `-- 暂缓，除非拆分边界 spec 证明需要独立 workflow
   |
   v
 后端 / 共享平台
@@ -88,6 +151,14 @@ apps/trader-agent/shared
   |-- Memory Review / Activation    [已实现 / 部分]
   |-- Audit / Rebuild Workflow      [已实现]
   |-- Approval / Capability Gate    [部分 schema，工作流待建]
+  |
+  v
+Execution Simulation Layer          [未来 spec track]
+  |-- LiveMarketDataPlane
+  |-- PaperTradingEngine
+  |-- RiskGate
+  |-- OrderEventStore
+  `-- BrokerAdapter                 [未来，approval-gated]
 ```
 
 ## 已实现工作流
@@ -277,46 +348,32 @@ Stage1 API 契约（workflow 客户端见 `insightCandidates.ts` / `outcomes.ts`
 
 这是当前最接近 alpha 发现的已实现入口：产出候选 insight，但不完成正式的 alpha 研究与 lite backtest 链路。
 
-## 规划中的工作流
-
 ### AlphaResearchGraph
 
-状态：规划中，backlog **Now**。
+状态：已实现 (v0)，任务 [T013](../../.agent-dev/tasks/T013-alpha-research-graph-v0.md)。
 
-`AlphaResearchGraph` 应是正式的 alpha 因子研究工作流。
+`AlphaResearchGraph v0` 是正式 alpha 验证工作流，不是完整 research-agent harness。通过 LangGraph Studio（`alpha_research_graph`）或 `runAlphaResearchGraph()` 运行；**v0 无 CLI 子命令**。
 
-预期职责：
+v0 职责：
 
-- 消费 `InsightCandidate`、事件窗口、context 窗口与历史 outcome；
-- 将假设转化为结构化 `RuleCandidate`；
-- 定义 trigger、entry condition、exit condition、invalidation、数据需求与风险说明；
-- 调用或协调 Rule Discovery / Lite Backtest；
-- 产出 `LiteBacktestReport`；
-- 仅将候选推进到安全审查状态，如 `needs_more_data`、`rejected`、`pending_shadow_tracking` 或 `pending_manual_approval`。
+- 接收标准 `AlphaResearchInput`（`insight_id`、`symbol`、`thesis`、`evidence_refs`、`alpha_seed`、backtest window）；
+- 校验失败时以 `input_validation_failed` 停止（与后端 `needs_more_data` 区分）；
+- 通过 `POST /api/rule-candidates` 创建 `RuleCandidate`；
+- 在 `run_lite_backtest` 节点内编排 evidence → lite backtest → advance → report；
+- 返回 `rule_candidate_id`、`lite_backtest_report_id`、最终状态与安全标记。
 
-安全边界：
+Studio 输入示例字段：`insight_id`、`symbol`、`thesis`、`evidence_refs`、`alpha_seed`、`backtest_window_start`、`backtest_window_end`。
 
-- 不修改活跃 RulePack；
-- 不自动交易；
-- 不自动扩展 universe；
-- 未经人工审批不得晋升。
+v0 不做：context hydrate、开放式研究、LLM 补字段、CLI 包装。research-agent 版本见 [AlphaResearchAgent v1](../../project-docs/backlog/later/alpha-research-agent-v1.md)。
 
-推荐实现方向：
-
-```text
-InsightExplorationGraph
-  -> AlphaResearchGraph
-  -> Rule Discovery / Lite Backtest
-  -> pending_shadow_tracking | pending_manual_approval
-  -> OutcomeGraph
-  -> EvaluationGraph
-```
+## 暂缓拆分候选
 
 ### MarketJudgmentGraph
 
-状态：规划中，backlog **Next**。
+状态：暂缓作为独立 workflow。
 
-`MarketJudgmentGraph` 应产出面向操作者的市场解读。
+市场判断应先作为 `DecisionWorkflow` 与 `FeedbackLearningWorkflow` artifact
+之上的 operator-facing view。
 
 预期职责：
 
@@ -327,13 +384,15 @@ InsightExplorationGraph
 - 定义 trigger 与 invalidation；
 - 为 CLI/TUI 审查 surfaced 风险警告。
 
-该图用于市场状态判断与日常操作焦点，**不同于** alpha 发现。
+只有当已 review 的 spec 证明它有独立时间节奏、风险、source-of-truth、恢复
+或 approval 边界时，才拆成 `MarketJudgmentGraph`。它不能成为另一条 alpha
+discovery 路径。
 
 ### ModelLearningGraph
 
-状态：规划中，backlog **Later**。
+状态：暂缓作为独立 workflow。
 
-`ModelLearningGraph` 应编排离线 challenger 模型实验。
+模型学习是后续 gated capability，不是下一条默认 workflow。
 
 预期职责：
 
@@ -350,11 +409,14 @@ InsightExplorationGraph
 - 不在 CLI、后端 API、工作流调度器或运行时中隐藏切换模型；
 - 每个 checkpoint、指标与建议必须可审计。
 
-首个合理目标是 `opportunity_ranking_model`，而非完整交易策略模型。
+首个合理目标仍是 `opportunity_ranking_model`，而非完整交易策略模型。除非
+approval、audit、dataset、checkpoint、promotion 边界明确，否则不拆成独立
+workflow。
 
 ### ReflectionGraph
 
-状态：规划中；后端模块文档已较成熟，但尚未成为独立 LangGraph 工作流。
+状态：暂缓作为独立 workflow；后端模块文档已较成熟，但 reflection 应先作为
+`FeedbackLearningWorkflow` 的 report / proposal sections。
 
 预期职责：
 
