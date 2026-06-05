@@ -153,6 +153,8 @@ snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
 
 ### OutcomeGraph
 
+`OutcomeGraph` 是 **native LangGraph** 工作流（`langgraph.json` 中的 `outcome_graph`），也可通过 CLI（`outcomes run --due`）运行。
+
 `OutcomeGraph` 在市场数据足够时关闭 pending decision outcome 和 insight candidate outcome。
 
 职责：
@@ -167,6 +169,8 @@ snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
 
 ### EvaluationGraph
 
+`EvaluationGraph` 是 **native LangGraph** 工作流（`evaluation_graph`），也可通过 CLI（`eval summary`）运行。
+
 `EvaluationGraph` 将 outcome 聚合为 evaluation report。
 
 职责：
@@ -179,6 +183,8 @@ snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
 该图可以推荐或报告，但**不得**静默晋升模型、改变生产行为或修改活跃 RulePack 策略。
 
 ### InsightExplorationGraph
+
+`InsightExplorationGraph` 是 **native LangGraph** 工作流（`insight_exploration_graph`），也可通过 CLI（`insights explore --symbol … --window …`）运行。
 
 `InsightExplorationGraph` 从 snapshot、outcome 与 evidence 中探索候选 insight。
 

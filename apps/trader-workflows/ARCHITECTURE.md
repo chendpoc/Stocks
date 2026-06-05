@@ -73,7 +73,7 @@ runtime run. `decide`, `outcomes run --due`, `eval summary`, and
 | `src/runtime/checkpointStore.ts` | SQLite run registry and wrapper checkpoint storage |
 | `src/runtime/langgraphCheckpointer.ts` | LangGraph SQLite checkpoint saver for native graph checkpoints |
 | `src/api/client.ts` | Backend HTTP client for Intel and Stage 1 endpoints |
-| `langgraph.json` | LangGraph Studio registration for `decision_graph` |
+| `langgraph.json` | LangGraph Studio registration for all four native graphs |
 
 ## Runtime Persistence
 
@@ -108,27 +108,29 @@ Service-wrapper workflows store wrapper checkpoints in `workflow_checkpoints`.
 
 ### Native LangGraph
 
-Only `DecisionGraph` is currently registered as a native LangGraph graph:
+All four Stage 1 feedback-loop graphs are registered as native LangGraph graphs:
 
 ```json
 {
   "graphs": {
-    "decision_graph": "./src/graphs/decisionGraph.ts:decisionGraph"
+    "decision_graph": "./src/graphs/00-decision/decisionGraph.ts:decisionGraph",
+    "outcome_graph": "./src/graphs/01-outcome/outcomeGraph.ts:outcomeGraph",
+    "evaluation_graph": "./src/graphs/02-evaluation/evaluationGraph.ts:evaluationGraph",
+    "insight_exploration_graph": "./src/graphs/03-insightExploration/insightExplorationGraph.ts:insightExplorationGraph"
   }
 }
 ```
 
-`Stage1Runtime.runGraph({ graph_name: "DecisionGraph" })` routes to
-`runNativeDecisionGraph()`, builds the graph with a LangGraph checkpointer, and
-uses `run_id` as the LangGraph `thread_id`.
+`Stage1Runtime.runGraph()` routes native graph names to `runNative*Graph()` helpers,
+builds the graph with a LangGraph checkpointer, and uses `run_id` as the LangGraph
+`thread_id`.
 
-### Service-Wrapper Workflows
+### Legacy Wrapper Runs
 
-`OutcomeGraph`, `EvaluationGraph`, and `InsightExplorationGraph` are implemented
-classes, but they are not registered in `langgraph.json`. The CLI runs them
-through `Stage1Runtime.runGraph()` with an `execute` function. Internally,
-`Stage1Runtime.invokeGraphNode()` wraps that function in a one-node `StateGraph`
-so every command still leaves a run record and start/complete checkpoints.
+Non-native graph names still run through `Stage1Runtime.runGraph()` with an
+`execute` function. Internally, `Stage1Runtime.invokeGraphNode()` wraps that
+function in a one-node `StateGraph` so every command still leaves a run record
+and start/complete checkpoints.
 
 ## Implemented Workflows
 
@@ -251,15 +253,14 @@ registered handler map in `src/index.ts`:
 - `EvaluationGraph`
 - `InsightExplorationGraph`
 
-Native `DecisionGraph` resume uses the LangGraph checkpoint tuple when present.
-Service-wrapper resume reads the latest wrapper checkpoint and re-runs the
-registered handler from the stored run input.
+Native graph resume uses the LangGraph checkpoint tuple when present. Legacy
+wrapper resume reads the latest wrapper checkpoint and re-runs the registered
+handler from the stored run input.
 
 ## Current Boundaries And Gaps
 
-- `DecisionGraph` is the only native LangGraph graph registered for Studio.
-- Outcome, evaluation, and insight workflows are implemented but run through
-  service-wrapper execution.
+- All four Stage 1 feedback-loop graphs are native LangGraph and registered for Studio.
+- Legacy wrapper runs remain available for ad-hoc graph names during migration.
 - The package records workflow runs but relies on the backend for market facts,
   decisions, outcomes, evaluation reports, and insight candidates.
 - The package does not own broker execution, automatic RulePack activation,

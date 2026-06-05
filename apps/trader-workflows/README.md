@@ -22,7 +22,7 @@ Current backlog focus is workflow maturity:
 
 | Area | State |
 |---|---|
-| Native LangGraph graphs | `DecisionGraph` registered in `langgraph.json` as `decision_graph`; other workflows run via `Stage1Runtime` service wrappers |
+| Native LangGraph graphs | All four feedback-loop graphs in `langgraph.json`: `decision_graph`, `outcome_graph`, `evaluation_graph`, `insight_exploration_graph` |
 | DecisionGraph maturity v1 | Operator inspection done: `runs show` context summary, `context snapshots list/show`, structured LLM thesis prompts |
 | Feedback loop graphs | `OutcomeGraph`, `EvaluationGraph`, `InsightExplorationGraph` implemented with tests; maturity hardening in [T010–T012](../../.agent-dev/tasks/) |
 | Alpha / judgment / reflection | Planned; see backlog **Now** / **Next** / **Later** |
@@ -47,15 +47,21 @@ npm run workflows -- eval summary --symbol TSLA.US --json
 npm run workflows -- insights explore --symbol TSLA.US --window 30d --json
 ```
 
-LangGraph Studio (DecisionGraph only):
+LangGraph Studio (all four native graphs):
 
 ```bash
 cd apps/trader-workflows
 npm run studio
 ```
 
-Studio input must be top-level JSON, for example `{ "symbol": "TSLA.US" }` (not
-wrapped in an `input` field). Loads env from repo root via `langgraph.json`.
+Studio input must be top-level JSON (not wrapped in an `input` field), for example:
+
+- `decision_graph`: `{ "symbol": "TSLA.US" }`
+- `outcome_graph`: `{ "limit": 50, "symbol": "TSLA" }`
+- `evaluation_graph`: `{ "symbol": "TSLA", "model_version": "stage1-v0", "limit": 500 }`
+- `insight_exploration_graph`: `{ "symbol": "TSLA", "window": "30d" }`
+
+Loads env from repo root via `langgraph.json`.
 
 ## Workflow Catalog
 
@@ -250,9 +256,20 @@ plus `data.top_items` (up to 5 items by `composite_weight`):
 
 ### OutcomeGraph
 
-`OutcomeGraph` runs as a **service wrapper** (`outcomes run --due`). It closes
+`OutcomeGraph` is a **native LangGraph** workflow (`outcome_graph` in
+`langgraph.json`). It also runs via CLI (`outcomes run --due`). It closes
 pending decision outcomes and insight candidate outcomes once enough market data
 is available.
+
+Graph shape:
+
+```text
+normalize_input
+-> fetch_due_outcomes
+-> label_decision_outcomes
+-> label_insight_outcomes
+-> final_output
+```
 
 Responsibilities:
 
@@ -267,8 +284,17 @@ decisions but cannot learn whether those decisions worked.
 
 ### EvaluationGraph
 
-`EvaluationGraph` runs as a **service wrapper** (`eval summary`). It turns
-outcomes into evaluation reports.
+`EvaluationGraph` is a **native LangGraph** workflow (`evaluation_graph` in
+`langgraph.json`). It also runs via CLI (`eval summary`).
+
+Graph shape:
+
+```text
+normalize_input
+-> build_evaluation_report
+-> persist_evaluation_report
+-> final_output
+```
 
 Responsibilities:
 
@@ -282,9 +308,20 @@ change production behavior, or mutate active RulePack policy.
 
 ### InsightExplorationGraph
 
-`InsightExplorationGraph` runs as a **service wrapper**
-(`insights explore --symbol … --window …`). It explores candidate insights from
-snapshots, outcomes, and evidence.
+`InsightExplorationGraph` is a **native LangGraph** workflow
+(`insight_exploration_graph` in `langgraph.json`). It also runs via CLI
+(`insights explore --symbol … --window …`).
+
+Graph shape:
+
+```text
+normalize_input
+-> fetch_exploration_inputs
+-> run_insight_react
+-> build_insight_payload
+-> persist_insight_candidate
+-> final_output
+```
 
 Responsibilities:
 
