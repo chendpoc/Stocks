@@ -366,6 +366,30 @@ _SCHEMA_STATEMENTS = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_insight_candidates_symbol ON insight_candidates(created_at)",
     """
+    CREATE TABLE IF NOT EXISTS insight_candidate_outcomes (
+      outcome_id TEXT PRIMARY KEY,
+      insight_id TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      horizon TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      due_at TEXT,
+      scheduled_at TEXT,
+      normalized_label TEXT,
+      metrics_json TEXT,
+      reason_codes_json TEXT,
+      evidence_refs_json TEXT,
+      outcome_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      labeled_at TEXT,
+      UNIQUE(insight_id, horizon)
+    )
+    """,
+    (
+      "CREATE INDEX IF NOT EXISTS idx_insight_candidate_outcomes_due"
+      " ON insight_candidate_outcomes(status, due_at)"
+    ),
+    "CREATE INDEX IF NOT EXISTS idx_insight_candidate_outcomes_insight ON insight_candidate_outcomes(insight_id)",
+    """
     CREATE TABLE IF NOT EXISTS evaluation_reports (
       report_id TEXT PRIMARY KEY,
       model_version TEXT NOT NULL,

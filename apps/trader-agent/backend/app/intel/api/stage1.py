@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from uuid import uuid4
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -20,6 +21,8 @@ from app.intel.schemas.stage1_records import (
     InsightCandidateOut,
     ModelDecisionListOut,
     ModelDecisionOut,
+    InsightCandidateOutcomeListOut,
+    InsightCandidateOutcomeOut,
     WeightingPolicyStatsListOut,
     WeightingPolicyStatsOut,
 )
@@ -34,6 +37,25 @@ router = APIRouter()
 
 _FINAL_OUTCOME_STATUSES = frozenset({"labeled", "skipped", "failed"})
 _VALID_RECOMMENDATIONS = frozenset({"hold", "needs_more_data"})
+_VALID_INSIGHT_HORIZONS = frozenset({"1m", "2m", "5m", "30m", "1h", "2h", "4h"})
+
+
+def _compute_due_at(scheduled_at: str, horizon: str) -> str:
+    """Compute due_at from scheduled_at + horizon. Raises ValueError if horizon is unknown."""
+    dt = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+    mapping: dict[str, timedelta] = {
+        "1m": timedelta(minutes=1),
+        "2m": timedelta(minutes=2),
+        "5m": timedelta(minutes=5),
+        "30m": timedelta(minutes=30),
+        "1h": timedelta(hours=1),
+        "2h": timedelta(hours=2),
+        "4h": timedelta(hours=4),
+    }
+    if horizon not in mapping:
+        raise ValueError(f"unsupported horizon: {horizon}")
+    due = dt + mapping[horizon]
+    return due.isoformat()
 
 
 def _canonical_json(value: Any) -> str:
@@ -140,6 +162,27 @@ class EvaluationReportInput(BaseModel):
     metrics_json: Any = None
     recommendation: str
     report_json: Any
+
+
+class InsightCandidateOutcomeScheduleItem(BaseModel):
+    outcome_id: str | None = None
+    insight_id: str
+    symbol: str
+    horizon: str
+    evidence_refs_json: Any = Field(default_factory=list)
+    reason_codes_json: Any = Field(default_factory=list)
+    outcome_json: Any = None
+
+
+class InsightCandidateOutcomeScheduleInput(BaseModel):
+    outcomes: list[InsightCandidateOutcomeScheduleItem]
+
+
+class InsightCandidateOutcomeLabelInput(BaseModel):
+    status: str
+    normalized_label: str | None = None
+    reason_codes_json: Any = None
+    outcome_json: Any = None
 
 
 class WeightingPolicyStatsInput(BaseModel):
@@ -760,6 +803,230 @@ def list_insight_candidates(
         items=[InsightCandidateOut.from_db_row(row) for row in rows],
         count=len(rows),
     )
+
+
+# --- insight candidate outcomes ---
+
+
+@router.post("/insight-candidate-outcomes/schedule", response_model=InsightCandidateOutcomeListOut)
+def schedule_insight_candidate_outcomes(
+    request: Request, payload: InsightCandidateOutcomeScheduleInput
+) -> InsightCandidateOutcomeListOut:
+    engine = get_intel_engine(request.app.state.settings)
+    now = utc_now_iso()
+    created: list[InsightCandidateOutcomeOut] = []
+
+    with engine.begin() as conn:
+        for item in payload.outcomes:
+            if item.horizon not in _VALID_INSIGHT_HORIZONS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"horizon must be one of {sorted(_VALID_INSIGHT_HORIZONS)}",
+                )
+
+            outcome_id = item.outcome_id or str(uuid4())
+            sym = item.symbol.upper()
+            due_at = _compute_due_at(now, item.horizon)
+
+            existing = _fetch_one(
+                conn,
+                """
+                SELECT * FROM insight_candidate_outcomes
+                WHERE insight_id = :insight_id AND horizon = :horizon
+                """,
+                {
+                    "insight_id": item.insight_id,
+                    "horizon": item.horizon,
+                },
+            )
+            if existing:
+                _conflict_scalar(existing["symbol"], sym, "symbol")
+                outcome_id_incoming = item.outcome_id
+                if outcome_id_incoming is not None and existing["outcome_id"] != outcome_id_incoming:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="insight candidate outcome schedule conflict",
+                    )
+                created.append(InsightCandidateOutcomeOut.from_db_row(existing))
+                continue
+
+            evidence = serialize_json_field(item.evidence_refs_json)
+            reason_codes = serialize_json_field(item.reason_codes_json)
+            outcome = serialize_json_field_optional(item.outcome_json)
+
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO insight_candidate_outcomes
+                    (outcome_id, insight_id, symbol, horizon, status,
+                     due_at, scheduled_at, evidence_refs_json, reason_codes_json,
+                     outcome_json, created_at)
+                    VALUES (:outcome_id, :insight_id, :symbol, :horizon, 'pending',
+                            :due_at, :scheduled_at, :evidence_refs_json, :reason_codes_json,
+                            :outcome_json, :created_at)
+                    """
+                ),
+                {
+                    "outcome_id": outcome_id,
+                    "insight_id": item.insight_id,
+                    "symbol": sym,
+                    "horizon": item.horizon,
+                    "due_at": due_at,
+                    "scheduled_at": now,
+                    "evidence_refs_json": evidence,
+                    "reason_codes_json": reason_codes,
+                    "outcome_json": outcome,
+                    "created_at": now,
+                },
+            )
+            row = _fetch_one(
+                conn,
+                "SELECT * FROM insight_candidate_outcomes WHERE outcome_id = :id",
+                {"id": outcome_id},
+            )
+            if row:
+                created.append(InsightCandidateOutcomeOut.from_db_row(row))
+    return InsightCandidateOutcomeListOut(items=created, count=len(created))
+
+
+@router.get("/insight-candidate-outcomes/due", response_model=InsightCandidateOutcomeListOut)
+def list_due_insight_candidate_outcomes(
+    request: Request,
+    now: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    symbol: str | None = None,
+) -> InsightCandidateOutcomeListOut:
+    engine = get_intel_engine(request.app.state.settings)
+    asof = now or utc_now_iso()
+    params: dict[str, Any] = {"asof": asof, "limit": limit}
+    where = "status = 'pending' AND (due_at IS NULL OR due_at <= :asof)"
+    if symbol:
+        where += " AND symbol = :symbol"
+        params["symbol"] = symbol.upper()
+    with engine.connect() as conn:
+        rows = _fetch_many(
+            conn,
+            f"""
+            SELECT * FROM insight_candidate_outcomes
+            WHERE {where}
+            ORDER BY due_at IS NULL, due_at ASC, created_at ASC
+            LIMIT :limit
+            """,
+            params,
+        )
+    return InsightCandidateOutcomeListOut(
+        items=[InsightCandidateOutcomeOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
+
+
+@router.post(
+    "/insight-candidate-outcomes/{outcome_id}/label",
+    response_model=InsightCandidateOutcomeOut,
+)
+def label_insight_candidate_outcome(
+    request: Request, outcome_id: str, payload: InsightCandidateOutcomeLabelInput
+) -> InsightCandidateOutcomeOut:
+    if payload.status not in _FINAL_OUTCOME_STATUSES:
+        raise HTTPException(status_code=422, detail="status must be labeled, skipped, or failed")
+
+    engine = get_intel_engine(request.app.state.settings)
+    now = utc_now_iso()
+
+    with engine.begin() as conn:
+        row = _fetch_one(
+            conn,
+            "SELECT * FROM insight_candidate_outcomes WHERE outcome_id = :id",
+            {"id": outcome_id},
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="insight candidate outcome not found")
+        if row["status"] in _FINAL_OUTCOME_STATUSES:
+            raise HTTPException(status_code=409, detail="outcome already finalized")
+        if row["status"] != "pending":
+            raise HTTPException(status_code=400, detail="only pending outcomes can be labeled")
+
+        conn.execute(
+            text(
+                """
+                UPDATE insight_candidate_outcomes SET
+                  status = :status,
+                  normalized_label = :normalized_label,
+                  reason_codes_json = :reason_codes_json,
+                  outcome_json = :outcome_json,
+                  labeled_at = :labeled_at
+                WHERE outcome_id = :outcome_id
+                """
+            ),
+            {
+                "status": payload.status,
+                "normalized_label": payload.normalized_label,
+                "reason_codes_json": serialize_json_field_optional(payload.reason_codes_json),
+                "outcome_json": serialize_json_field_optional(payload.outcome_json),
+                "labeled_at": now,
+                "outcome_id": outcome_id,
+            },
+        )
+        updated = _fetch_one(
+            conn,
+            "SELECT * FROM insight_candidate_outcomes WHERE outcome_id = :id",
+            {"id": outcome_id},
+        )
+        return InsightCandidateOutcomeOut.from_db_row(updated)
+
+
+@router.get("/insight-candidate-outcomes", response_model=InsightCandidateOutcomeListOut)
+def list_insight_candidate_outcomes(
+    request: Request,
+    insight_id: str | None = None,
+    symbol: str | None = None,
+    status: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> InsightCandidateOutcomeListOut:
+    engine = get_intel_engine(request.app.state.settings)
+    clauses: list[str] = []
+    params: dict[str, Any] = {"limit": limit}
+    if insight_id:
+        clauses.append("insight_id = :insight_id")
+        params["insight_id"] = insight_id
+    if symbol:
+        clauses.append("symbol = :symbol")
+        params["symbol"] = symbol.upper()
+    if status:
+        clauses.append("status = :status")
+        params["status"] = status
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with engine.connect() as conn:
+        rows = _fetch_many(
+            conn,
+            f"""
+            SELECT * FROM insight_candidate_outcomes
+            {where}
+            ORDER BY created_at DESC
+            LIMIT :limit
+            """,
+            params,
+        )
+    return InsightCandidateOutcomeListOut(
+        items=[InsightCandidateOutcomeOut.from_db_row(row) for row in rows],
+        count=len(rows),
+    )
+
+
+@router.get("/insight-candidate-outcomes/{outcome_id}", response_model=InsightCandidateOutcomeOut)
+def get_insight_candidate_outcome(
+    request: Request, outcome_id: str
+) -> InsightCandidateOutcomeOut:
+    engine = get_intel_engine(request.app.state.settings)
+    with engine.connect() as conn:
+        row = _fetch_one(
+            conn,
+            "SELECT * FROM insight_candidate_outcomes WHERE outcome_id = :id",
+            {"id": outcome_id},
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="insight candidate outcome not found")
+    return InsightCandidateOutcomeOut.from_db_row(row)
 
 
 @router.post("/evaluation-reports", response_model=EvaluationReportOut)

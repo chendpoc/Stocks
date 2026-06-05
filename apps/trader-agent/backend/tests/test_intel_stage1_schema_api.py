@@ -28,6 +28,7 @@ STAGE1_TABLES = (
     "decision_outcomes",
     "insight_candidates",
     "evaluation_reports",
+    "insight_candidate_outcomes",
     "weighting_policy_stats",
 )
 

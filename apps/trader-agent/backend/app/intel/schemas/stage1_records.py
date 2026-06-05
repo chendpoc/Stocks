@@ -121,6 +121,39 @@ class InsightCandidateListOut(BaseModel):
     count: int
 
 
+# --- insight candidate outcomes ---
+
+
+class InsightCandidateOutcomeOut(SqliteJsonRowModel):
+    __sqlite_json_fields__ = ("metrics_json", "reason_codes_json", "evidence_refs_json", "outcome_json")
+    __sqlite_json_defaults__ = {
+        "metrics_json": {},
+        "reason_codes_json": [],
+        "evidence_refs_json": [],
+        "outcome_json": {},
+    }
+
+    outcome_id: str
+    insight_id: str
+    symbol: str
+    horizon: str
+    status: str = "pending"
+    due_at: str | None = None
+    scheduled_at: str | None = None
+    normalized_label: str | None = None
+    metrics_json: dict[str, Any] | None = None
+    reason_codes_json: list[Any] | None = None
+    evidence_refs_json: list[Any] | None = None
+    outcome_json: dict[str, Any] | None = None
+    created_at: str | None = None
+    labeled_at: str | None = None
+
+
+class InsightCandidateOutcomeListOut(BaseModel):
+    items: list[InsightCandidateOutcomeOut]
+    count: int
+
+
 # --- evaluation reports ---
 
 
