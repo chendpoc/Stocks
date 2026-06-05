@@ -14,4 +14,8 @@ Current active task groups:
 - `T011` EvaluationGraph Maturity v1
 - `T012` InsightExplorationGraph Maturity v1
 - `T013` AlphaResearchGraph v0
+- `T014` Analysis-to-Execution Contract v0
+- `T015` LiveMarketDataPlane v0
+- `T016` LiveMarketDataPlane Implementation Decision Gate
+- `T017` Workflow Runtime Observability v1
 - `T090` DecisionGraph Maturity v1
