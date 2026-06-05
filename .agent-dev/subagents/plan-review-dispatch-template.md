@@ -17,12 +17,16 @@ Protocol:
 Read `.agent-dev/subagents/plan-review-agent.md`.
 
 Expected behavior:
-- Resolve `.agent-dev/tasks/T00X.json`.
+- Resolve `T00X` to exactly one active `.agent-dev/tasks/T00X-*.json`, or use a
+  full `.agent-dev/tasks/T00X-<slug>.json` path when provided.
 - Derive `spec_id` from the task JSON.
-- Read `project-docs/workflows/agent-dev-workflow.md`, `CLAUDE.md`, `.agent-dev/README.md`, `.agent-dev/memory/schemas.md`, the matching spec, decision record, task markdown, slice docs, and dev plan if present.
+- Read `CLAUDE.md`, `.agent-dev/context/ai-index.md`, `project-docs/workflows/agent-dev-workflow.md`, `.agent-dev/README.md`, `.agent-dev/memory/schemas.md`, the matching spec, decision record, task markdown, slice docs, and dev plan if present.
 - Derive read/review boundaries from `spec.scope.create`, `spec.scope.modify`, `spec.scope.readonly_import`, `spec.scope.forbidden`, and `task.steps[].files_expected`.
 - Read `.agent-dev/context/code_map.md`, `.agent-dev/context/module_map.md`, worker prompt excerpts, or current source files only after the scope is narrowed and only when needed.
 - Use CodeGraph MCP for scoped modules and dependency edges when available.
+- Treat `apps/research-console`, `apps/trader-cockpit`, and
+  `project-docs/archive/**` as archive-only unless the user explicitly asks for
+  historical review.
 - Review whether the plan is safe to hand to a worker.
 - Produce findings first.
 - Do not build or rewrite the plan.
@@ -37,7 +41,8 @@ Draft plan to review:
 <path or pasted draft>
 
 Expected behavior:
-- Treat missing `T00X.json` or `spec_id` as an artifact-gate finding.
+- Treat missing or ambiguous active task artifacts, or missing `spec_id`, as an
+  artifact-gate finding.
 - Review only whether the draft is ready to become project artifacts.
 ```
 

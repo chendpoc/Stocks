@@ -18,7 +18,9 @@ Only read more when the selected route requires it:
 
 - `.agent-dev/specs/<feature>/spec.json`: active implementation, review, or
   non-trivial planning.
-- `.agent-dev/tasks/T00X.json`: active task execution, status checks, or review.
+- `.agent-dev/tasks/T00X-<slug>.json`: active task execution, status checks,
+  or review. Short inputs like `T010` resolve to exactly one active
+  `T010-*.json`.
 - `.agent-dev/context/code_map.md`: code work when paths are not already clear.
 - `.agent-dev/context/module_map.md`: coarse module hints only after
   spec/task/review scope has narrowed the code area.
@@ -50,8 +52,8 @@ Only read more when the selected route requires it:
     clarification-questions.{md,json}
   tasks/
     README.md          # active tasks only; historical tasks are archived
-    T00X.{md,json}
-    T00X-slices/
+    T00X-<slug>.{md,json}
+    T00X-<slug>-slices/
   reviews/             # active review artifacts only
   changesets/          # active PR/change packaging only
   presentations/       # active presentation artifacts only
@@ -67,8 +69,8 @@ Only read more when the selected route requires it:
 | `context/module_map.md` | Coarse module first reads after scope narrowing | no |
 | `specs/<feature>/spec.json` | Active machine-readable scope, decisions, verification | route-dependent |
 | `specs/<feature>/spec.md` | Active human-readable spec | route-dependent |
-| `tasks/T00X.json` | Active machine-readable task steps and dependencies | route-dependent |
-| `tasks/T00X.md` | Active human-readable task | route-dependent |
+| `tasks/T00X-<slug>.json` | Active machine-readable task steps and dependencies | route-dependent |
+| `tasks/T00X-<slug>.md` | Active human-readable task | route-dependent |
 | `*-worker-prompt.md` | Active worker execution prompt | no |
 | `reviews/*` | Active review evidence | no |
 | `changesets/*` | PR/change packaging | no |
@@ -86,7 +88,7 @@ Use this workflow only when the selected route or user request requires
 non-trivial implementation or review:
 
 1. Read the relevant `spec.json`.
-2. Read the relevant `tasks/T00X.json`.
+2. Resolve the short task id to the relevant `tasks/T00X-<slug>.json`.
 3. Confirm scope, forbidden files, decisions, and verification.
 4. Use `context/code_map.md` only if code paths are unclear.
 5. Use `context/module_map.md` only if module ownership is still unclear.

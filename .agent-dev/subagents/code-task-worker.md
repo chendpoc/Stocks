@@ -14,6 +14,11 @@
    verification or explaining a concrete blocker.
 5. No broad source reads: do not read complete source trees, complete worker
    prompts, or unrestricted diffs by default.
+6. Current target-system guard: active trader-agent work routes through
+   `project-docs/research-agent/target-system/trader-agent/` and the active app
+   paths named by the task/spec. `apps/research-console`,
+   `apps/trader-cockpit`, and `project-docs/archive/**` are archive-only unless
+   the user explicitly asks for historical work.
 
 ## 1. Intent Lock
 
@@ -30,12 +35,22 @@ blocking ambiguity: one question if more than one reasonable implementation exis
 Task source priority:
 
 ```text
-current user instruction > task slice/step > T00X.json step > spec.json >
-worker prompt excerpt, if explicitly needed
+current user instruction > task slice/step > resolved task JSON step >
+spec.json > worker prompt excerpt, if explicitly needed
 ```
 
 `decision-record.json` and `spec.scope.forbidden` override worker-prompt
 convenience. Stop and report conflicts instead of guessing.
+
+Task Artifact Resolver:
+
+- Input `T00X` resolves to exactly one `.agent-dev/tasks/T00X-*.json`.
+- Input `T00X-<slug>` resolves to `.agent-dev/tasks/T00X-<slug>.json`.
+- A direct `.agent-dev/tasks/<task-basename>.json` path is allowed.
+- Use the matching `.agent-dev/tasks/<task-basename>.md` and
+  `.agent-dev/tasks/<task-basename>-slices/` when present.
+- If no active task matches, or multiple active tasks match, stop and report the
+  missing or ambiguous artifact. Do not fall back to archived tasks.
 
 ## 2. Context Pack
 
@@ -44,7 +59,7 @@ Read in this order:
 1. `CLAUDE.md`
 2. `.agent-dev/context/ai-index.md`
 3. `.agent-dev/specs/<spec_id>/spec.json`
-4. `.agent-dev/tasks/T00X.json`
+4. resolved `.agent-dev/tasks/<task-basename>.json`
 5. relevant task markdown or slice markdown
 6. `.agent-dev/specs/<spec_id>/decision-record.json`
 7. `.agent-dev/specs/<spec_id>/spec.md`, only for acceptance details not clear in JSON

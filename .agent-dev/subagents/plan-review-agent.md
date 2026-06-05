@@ -1,7 +1,7 @@
 # Plan Review Agent - Pre-Implementation Quality Gate
 
 > Role: read-only reviewer for development plans, task specs, and worker prompts before implementation.
-> Scope: reusable for any active `.agent-dev/tasks/T00X.*` plan.
+> Scope: reusable for any active `.agent-dev/tasks/T00X-*.{json,md}` plan.
 > Not a plan builder, implementer, code reviewer, fixer, or committer.
 
 ---
@@ -16,6 +16,7 @@
 6. **Findings first**: lead with concrete blockers and important issues, not summaries.
 7. **No implementation drift**: do not turn plan review into code review. Judge whether the plan is safe to hand to a worker.
 8. **Artifact writes only if explicitly authorized**: if the parent agent asks for files, write only `.agent-dev/reviews/<task_id>-plan-review.{md,json}`. Otherwise return the payload in the handoff.
+9. **Current target-system guard**: active trader-agent work routes through `project-docs/research-agent/target-system/trader-agent/` and the active app paths named by the task/spec. `apps/research-console`, `apps/trader-cockpit`, and `project-docs/archive/**` are archive-only unless the user explicitly asks for historical review.
 
 ---
 
@@ -29,10 +30,11 @@ Review plan T00X
 
 From that single task id, the plan review agent must resolve:
 
-1. `.agent-dev/tasks/T00X.json`
+1. Active task JSON via the Task Artifact Resolver below
 2. `spec_id` from that task JSON
-3. `.agent-dev/tasks/T00X.md`
-4. `.agent-dev/tasks/T00X-slices/README.md` or relevant slice file, if present
+3. Matching task markdown with the same basename and `.md`
+4. Matching slice README or relevant slice file under
+   `.agent-dev/tasks/<task-basename>-slices/`, if present
 5. `.agent-dev/specs/<spec_id>/spec.json`
 6. `.agent-dev/specs/<spec_id>/spec.md`
 7. `.agent-dev/specs/<spec_id>/decision-record.json`
@@ -42,11 +44,19 @@ From that single task id, the plan review agent must resolve:
    explicitly requires prompt review
 10. `project-docs/workflows/agent-dev-workflow.md`
 
+Task Artifact Resolver:
+
+- Input `T00X` resolves to exactly one `.agent-dev/tasks/T00X-*.json`.
+- Input `T00X-<slug>` resolves to `.agent-dev/tasks/T00X-<slug>.json`.
+- A direct `.agent-dev/tasks/<task-basename>.json` path is allowed.
+- If no active task matches, or multiple active tasks match, report that the
+  plan is not reviewable as a task artifact. Do not fall back to archived tasks.
+
 Do not default-read current source files, tests, full worker prompts, complete
 source trees, or broad diffs. First derive the review boundary from
 `spec.scope`, task steps, slice docs, and `task.steps[].files_expected`.
 
-If `T00X.json` does not exist yet, report that the plan is not reviewable as a task artifact. The parent agent may instead provide an explicit draft plan path or pasted draft, but the finding must say that the plan has not reached the project artifact gate.
+If the resolver cannot find exactly one active task JSON, report that the plan is not reviewable as a task artifact. The parent agent may instead provide an explicit draft plan path or pasted draft, but the finding must say that the plan has not reached the project artifact gate.
 
 ---
 
@@ -72,22 +82,23 @@ If any referenced path is missing, mark it as a finding. Do not preserve non-exi
 
 Read in this order:
 
-1. `project-docs/workflows/agent-dev-workflow.md`
-2. `CLAUDE.md`
-3. `.agent-dev/README.md`
-4. `.agent-dev/memory/schemas.md`
-5. `.agent-dev/tasks/T00X.json`
-6. `.agent-dev/tasks/T00X.md`
-7. `.agent-dev/tasks/T00X-slices/*`, if relevant
-8. `.agent-dev/specs/<spec_id>/spec.json`
-9. `.agent-dev/specs/<spec_id>/spec.md`
-10. `.agent-dev/specs/<spec_id>/decision-record.json`
-11. `.agent-dev/specs/<spec_id>/dev-plan.md`, if present
-12. worker prompt excerpt only if the review target requires it
-13. `.agent-dev/context/code_map.md` and `.agent-dev/context/module_map.md` only
+1. `CLAUDE.md`
+2. `.agent-dev/context/ai-index.md`
+3. `project-docs/workflows/agent-dev-workflow.md`
+4. `.agent-dev/README.md`
+5. `.agent-dev/memory/schemas.md`
+6. resolved `.agent-dev/tasks/<task-basename>.json`
+7. matching `.agent-dev/tasks/<task-basename>.md`
+8. `.agent-dev/tasks/<task-basename>-slices/*`, if relevant
+9. `.agent-dev/specs/<spec_id>/spec.json`
+10. `.agent-dev/specs/<spec_id>/spec.md`
+11. `.agent-dev/specs/<spec_id>/decision-record.json`
+12. `.agent-dev/specs/<spec_id>/dev-plan.md`, if present
+13. worker prompt excerpt only if the review target requires it
+14. `.agent-dev/context/code_map.md` and `.agent-dev/context/module_map.md` only
     when module ownership is unclear after scope review
-14. CodeGraph MCP context for scoped modules and symbols, when available
-15. exact source files, tests, scripts, or package commands only after the
+15. CodeGraph MCP context for scoped modules and symbols, when available
+16. exact source files, tests, scripts, or package commands only after the
     allowed review scope is narrowed
 
 Conflict handling:
