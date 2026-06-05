@@ -5,27 +5,28 @@
 > Decisions: `decision-record.json`
 > Open questions: `clarification-questions.md`
 
-Status: review
+Status: done
 
 ## Purpose
 
-Define the implementation-ready plan for making the existing feedback workflows
-usable as a durable improvement loop before expanding `AlphaResearchGraph`.
+Record the completed v1 plan and evidence for making the existing feedback
+workflows usable as a durable improvement loop before expanding beyond
+`AlphaResearchGraph v0`.
 
-This is a requirements and implementation-spec artifact. It does not implement
-code.
+This is a requirements and implementation-spec artifact. The implementation
+work was completed through T010, T011, and T012.
 
 ## Current State
 
-`OutcomeGraph`, `EvaluationGraph`, and `InsightExplorationGraph` are already
-implemented and tested, but they are not yet mature workflow contracts:
+`OutcomeGraph`, `EvaluationGraph`, and `InsightExplorationGraph` are implemented
+and tested as mature v1 feedback-loop contracts:
 
 - `OutcomeGraph` currently finalizes due `decision_outcomes` and returns counts.
 - `EvaluationGraph` currently builds/persists a model-path evaluation report.
 - `InsightExplorationGraph` currently explores context snapshots and outcomes
   to persist pending insight candidates.
 
-The missing piece is a typed handoff:
+The typed handoff is:
 
 ```text
 DecisionGraph / InsightExplorationGraph

@@ -36,7 +36,7 @@ nodes remain thin and call the existing build path.
 - Primary commit: `4c84eb9d`
 - Review: `.agent-dev/reviews/T011-review-presentation.md` (PASS, 0 blockers, 1
   warning)
-- Verification (2026-06-05): `cd apps/trader-workflows && npm test` → 101/101
+- Verification (2026-06-05): `cd apps/trader-workflows && npm test` -> 115/115
 
 ## Implementation Plan (spec reference)
 

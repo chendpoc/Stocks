@@ -1,6 +1,6 @@
 # T090: DecisionGraph Maturity v1
 
-Status: pending
+Status: done
 
 Spec: `.agent-dev/specs/decision-graph-maturity-v1/spec.md`
 
@@ -9,20 +9,30 @@ Spec: `.agent-dev/specs/decision-graph-maturity-v1/spec.md`
 Make `DecisionGraph` reviewable and reproducible by hardening its context
 snapshot data-processing contract.
 
-This is a development task specification. It does not implement code.
+This is a completed development task specification.
 
 ## Current Implementation
 
 `DecisionGraph` already exists as the first native LangGraph workflow in
 `apps/trader-workflows`.
 
-The current gap is not graph shape. The gap is the context snapshot contract:
+The hardened surface is the context snapshot contract:
 
 - source mapping must be explicit and stable;
 - empty input must still produce a stable snapshot;
 - evidence refs must be deduped;
 - `runs show` needs a bounded snapshot summary;
-- read-only context snapshot inspection is missing.
+- read-only context snapshot inspection is available through the current CLI
+  entrypoint in `apps/trader-workflows/src/index.ts`.
+
+## Progress
+
+| Slice | Status |
+|---|---|
+| S1 Context snapshot contract tests | done |
+| S2 Bounded `context_snapshot` in `runs show` | done |
+| S3 Read-only `context snapshots list/show` command coverage | done |
+| S4 Docs alignment | done |
 
 ## Implementation Plan
 
@@ -57,8 +67,8 @@ Update workflow docs only if the CLI output envelope changes.
 - `apps/trader-workflows/src/services/contextSnapshots.test.ts`
 - `apps/trader-workflows/src/runtime/stage1Runtime.ts`
 - `apps/trader-workflows/src/runtime/stage1Runtime.test.ts`
-- `apps/trader-workflows/src/cli.ts`
-- `apps/trader-workflows/src/cli.test.ts`
+- `apps/trader-workflows/src/index.ts`
+- `apps/trader-workflows/src/index.test.ts`
 - `apps/trader-workflows/README.md`
 - `apps/trader-workflows/README.zh-CN.md`
 - `project-docs/backlog/now/decision-graph-maturity-v1.md`
@@ -75,6 +85,14 @@ Update workflow docs only if the CLI output envelope changes.
 ## Verification
 
 ```text
-cd apps/trader-workflows && npm test -- src/services/contextSnapshots.test.ts src/runtime/stage1Runtime.test.ts src/cli.test.ts
+cd apps/trader-workflows && npm test -- src/index.test.ts src/services/contextSnapshots.test.ts src/runtime/stage1Runtime.test.ts src/graphs/00-decision/decisionGraph.test.ts
 cd apps/trader-workflows && npm run studio
 ```
+
+Verified (2026-06-05):
+
+```text
+cd apps/trader-workflows && npm test -- src/index.test.ts src/services/contextSnapshots.test.ts src/runtime/stage1Runtime.test.ts src/graphs/00-decision/decisionGraph.test.ts
+```
+
+Result: 27/27 tests passed.

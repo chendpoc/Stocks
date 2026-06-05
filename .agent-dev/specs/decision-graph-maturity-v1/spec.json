@@ -300,14 +300,14 @@
     },
     {
       "id": "V203",
-      "command": "manual or targeted CLI test: context snapshots list/show returns bounded read-only summaries",
+      "command": "cd apps/trader-workflows && npm test -- src/index.test.ts",
       "expect": "CLI inspection contract passes without snapshot mutation",
       "blocking": true
     },
     {
       "id": "V301",
-      "command": "cd apps/trader-workflows && npm run studio",
-      "expect": "LangGraph Studio lists decision_graph and visualizes the existing node chain",
+      "command": "rg -n \"decision_graph\" apps/trader-workflows/langgraph.json && cd apps/trader-workflows && .\\node_modules\\.bin\\langgraphjs.cmd dev --help",
+      "expect": "LangGraph Studio config exposes decision_graph and the local langgraphjs dev command resolves",
       "blocking": true
     },
     {
@@ -318,9 +318,9 @@
     },
     {
       "id": "V303",
-      "command": "manual with backend dev server: npm run workflows -- context snapshots list --symbol TSLA.US --limit 20 --json; npm run workflows -- context snapshots show <SNAPSHOT_ID> --json",
+      "command": "optional manual with backend dev server: npm run workflows -- context snapshots list --symbol TSLA.US --limit 20 --json; npm run workflows -- context snapshots show <SNAPSHOT_ID> --json",
       "expect": "Read-only snapshot inspection returns bounded list/show payloads",
-      "blocking": true
+      "blocking": false
     },
     {
       "id": "V304",

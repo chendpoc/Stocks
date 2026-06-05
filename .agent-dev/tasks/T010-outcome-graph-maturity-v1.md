@@ -29,8 +29,8 @@ APIs consumed by `InsightExplorationGraph`.
 
 - Commits: `aedfee41`, `d4bd3fb8`, `f658f41f`
 - Review: `.agent-dev/reviews/T010-review-presentation.md` (PASS, 0 blockers)
-- Verification (2026-06-05): `cd apps/trader-workflows && npm test` → 101/101
-- Backend verify: `npm run trader-agent:backend:verify` — environment-dependent;
+- Verification (2026-06-05): `cd apps/trader-workflows && npm test` -> 115/115
+- Backend verify: `npm run trader-agent:backend:verify` - environment-dependent;
   test file `test_stage1_insight_candidate_outcomes.py` present
 
 ## Implementation Plan (spec reference)

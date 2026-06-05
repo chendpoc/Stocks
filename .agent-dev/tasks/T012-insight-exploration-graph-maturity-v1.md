@@ -8,7 +8,7 @@ Spec: `.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md`
 
 Depends on: `T011 EvaluationGraph Maturity v1`
 
-Readiness gate: satisfied — T011 is `done` with review evidence at
+Readiness gate: satisfied - T011 is `done` with review evidence at
 `.agent-dev/reviews/T011-review-presentation.md`.
 
 ## Goal
@@ -40,8 +40,8 @@ measured feedback, not free-form raw data exploration.
 - Commits: `f48ab876`, `20aa5b3e`, `b02d8a60`, `e055da94`, `d4a50bfc`
 - Review: `.agent-dev/reviews/T012-review-presentation.md` (PASS, 0 blockers)
 - Verification (2026-06-05):
-  - `npx tsx --test src/graphs/03-insightExploration/insightExplorationGraph.test.ts` → 19/19
-  - `cd apps/trader-workflows && npm test` → 101/101
+  - `npx tsx --test src/graphs/03-insightExploration/insightExplorationGraph.test.ts` -> 19/19
+  - `cd apps/trader-workflows && npm test` -> 115/115
 
 ## Implementation Plan (spec reference)
 
@@ -134,7 +134,7 @@ Request body:
 
 Response: `{ items: [...], count }`. Backend derives `due_at`.
 
-Partial failure: persist succeeds, schedule fails → `InsightSchedulingError`
+Partial failure: persist succeeds, schedule fails -> `InsightSchedulingError`
 with recovery payload; retry schedule with same `insight_id` + `horizon`.
 
 ### S4: Safety Invariants

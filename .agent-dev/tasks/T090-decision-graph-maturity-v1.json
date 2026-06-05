@@ -2,12 +2,12 @@
   "id": "T090",
   "spec_id": "decision-graph-maturity-v1",
   "title": "DecisionGraph Maturity v1",
-  "status": "pending",
+  "status": "done",
   "steps": [
     {
       "id": "S1",
       "description": "Harden build_context_snapshot so context snapshots have explicit source mapping, stable hashes, empty-source behavior, and deduped evidence refs.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "verification": {
         "ref": "V901",
@@ -24,7 +24,7 @@
     {
       "id": "S2",
       "description": "Expose a bounded context snapshot summary through runs show --json.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S1"
       ],
@@ -43,26 +43,26 @@
     {
       "id": "S3",
       "description": "Add read-only context snapshots list/show inspection commands.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S2"
       ],
       "verification": {
         "ref": "V903",
-        "kind": "manual",
-        "command": "cd apps/trader-workflows && npm run workflows -- context snapshots list --symbol TSLA.US --limit 20 --json",
-        "expect": "Read-only snapshot inspection returns bounded list/show payloads",
+        "kind": "test",
+        "command": "cd apps/trader-workflows && npm test -- src/index.test.ts",
+        "expect": "Read-only context snapshots list/show commands return bounded envelopes and use GET Stage1 paths",
         "blocking": true
       },
       "files_expected": [
-        "apps/trader-workflows/src/cli.ts",
-        "apps/trader-workflows/src/cli.test.ts"
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/src/index.test.ts"
       ]
     },
     {
       "id": "S4",
       "description": "Update workflow docs only if the CLI output envelope changes.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S3"
       ],

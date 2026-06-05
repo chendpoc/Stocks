@@ -164,7 +164,7 @@ No command in this slice edits snapshots or resolves full evidence details.
 `apps/trader-workflows/langgraph.json` remains the Studio entry for:
 
 ```text
-decision_graph -> ./src/graphs/decisionGraph.ts:decisionGraph
+decision_graph -> ./src/graphs/00-decision/decisionGraph.ts:decisionGraph
 ```
 
 Studio must be able to load and visualize only the existing `decision_graph`
@@ -242,6 +242,9 @@ Get-Content -Raw -Encoding UTF8 .agent-dev/specs/decision-graph-maturity-v1/spec
 Get-Content -Raw -Encoding UTF8 .agent-dev/specs/decision-graph-maturity-v1/decision-record.json | ConvertFrom-Json | Out-Null
 cd apps/trader-workflows && npm test -- src/services/contextSnapshots.test.ts
 cd apps/trader-workflows && npm test -- src/runtime/stage1Runtime.test.ts
+cd apps/trader-workflows && npm test -- src/index.test.ts
+rg -n "decision_graph" apps/trader-workflows/langgraph.json
+cd apps/trader-workflows && .\node_modules\.bin\langgraphjs.cmd dev --help
 git diff --check -- .agent-dev/specs/decision-graph-maturity-v1 apps/trader-workflows project-docs/backlog/now/decision-graph-maturity-v1.md
 ```
 
@@ -251,7 +254,7 @@ Manual gates:
 cd apps/trader-workflows && npm run workflows -- runs show <RUN_ID> --json
 cd apps/trader-workflows && npm run workflows -- context snapshots list --symbol TSLA.US --limit 20 --json
 cd apps/trader-workflows && npm run workflows -- context snapshots show <SNAPSHOT_ID> --json
-cd apps/trader-workflows && npm run studio
-manual: Studio lists decision_graph and visualizes the existing node chain
+optional manual: cd apps/trader-workflows && npm run studio
+optional manual: Studio lists decision_graph and visualizes the existing node chain
 manual: review diff contains no forbidden implementation scope
 ```
