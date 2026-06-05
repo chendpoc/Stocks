@@ -11,10 +11,18 @@ import {
 import {
   fetchDecisionOutcomesForEvaluation,
   type EvaluationOutcomeRow,
+  type EvaluationReportPayload,
+  type EvaluationReportSections,
 } from "./evaluation.js";
 
 export const DEFAULT_INSIGHT_WEIGHT_CAP = 0.5;
 export const INSIGHT_VERIFICATION_STATUS = "pending" as const;
+
+export const INSIGHT_CANDIDATE_HORIZONS = ["1m", "2m", "5m", "30m", "1h", "2h", "4h"] as const;
+export type InsightCandidateHorizon = (typeof INSIGHT_CANDIDATE_HORIZONS)[number];
+export const DEFAULT_INSIGHT_HORIZON: InsightCandidateHorizon = "2m";
+
+export type InsightCandidateOriginCategory = "failure_mode" | "positive_pattern" | "data_gap" | "mixed";
 
 export type InsightReActToolName =
   | "query_context_items"
@@ -48,6 +56,8 @@ export interface InsightProposal {
   thesis: string;
   evidence_refs: EvidenceRef[];
   weight_cap: number;
+  origin_category?: InsightCandidateOriginCategory;
+  horizon?: string;
   candidate_json: Record<string, unknown>;
 }
 
@@ -124,6 +134,30 @@ export function enforceInsightProposal(proposal: InsightProposal): InsightPropos
   };
 }
 
+export function resolveInsightHorizon(candidate_json: Record<string, unknown>): {
+  horizon: InsightCandidateHorizon;
+  horizon_source: "explicit" | "default_2m";
+} {
+  const raw = candidate_json.horizon;
+  if (
+    typeof raw === "string" &&
+    (INSIGHT_CANDIDATE_HORIZONS as readonly string[]).includes(raw)
+  ) {
+    return { horizon: raw as InsightCandidateHorizon, horizon_source: "explicit" };
+  }
+  return { horizon: DEFAULT_INSIGHT_HORIZON, horizon_source: "default_2m" };
+}
+
+export function deriveOriginCategory(
+  sections?: EvaluationReportSections | null,
+): InsightCandidateOriginCategory {
+  if (!sections) return "mixed";
+  if (sections.failure_modes.length > 0) return "failure_mode";
+  if (sections.top_positive_patterns.length > 0) return "positive_pattern";
+  if (sections.data_gaps.length > 0) return "data_gap";
+  return "mixed";
+}
+
 export function extractWeightedItemsFromSnapshots(
   snapshots: ContextSnapshotRecord[],
 ): WeightedContextItem[] {
@@ -167,6 +201,11 @@ export function buildInsightCandidatePayload(input: {
   proposal: InsightProposal;
 }): InsightCandidatePayload {
   const enforced = enforceInsightProposal(input.proposal);
+  const candidateJsonWithHorizon = {
+    ...enforced.candidate_json,
+    ...(enforced.horizon ? { horizon: enforced.horizon } : {}),
+  };
+  const { horizon, horizon_source } = resolveInsightHorizon(candidateJsonWithHorizon);
   return {
     insight_id: input.insight_id ?? `ins_${randomUUID().replace(/-/g, "")}`,
     run_id: input.run_id,
@@ -177,7 +216,12 @@ export function buildInsightCandidatePayload(input: {
     evidence_refs_json: enforced.evidence_refs,
     verification_status: INSIGHT_VERIFICATION_STATUS,
     weight_cap: enforced.weight_cap,
-    candidate_json: enforced.candidate_json,
+    candidate_json: {
+      ...enforced.candidate_json,
+      origin_category: enforced.origin_category ?? "mixed",
+      horizon,
+      horizon_source,
+    },
   };
 }
 
@@ -200,6 +244,29 @@ export async function fetchOutcomesForInsight(input: {
     symbol: input.symbol,
     limit: input.limit ?? 200,
   });
+}
+
+export async function fetchLatestEvaluationReportForInsight(input: {
+  evaluation_report_id?: string;
+  symbol?: string;
+  limit?: number;
+}): Promise<EvaluationReportPayload | null> {
+  if (input.evaluation_report_id) {
+    return fetchStage1<EvaluationReportPayload>(
+      `/evaluation-reports/${input.evaluation_report_id}`,
+    );
+  }
+  const params = new URLSearchParams();
+  if (input.symbol) {
+    params.set("symbol", input.symbol.toUpperCase());
+  }
+  params.set("limit", String(input.limit ?? 1));
+  const query = params.toString();
+  const response = await fetchStage1<{
+    items: EvaluationReportPayload[];
+    count: number;
+  }>(`/evaluation-reports${query ? `?${query}` : ""}`);
+  return response.items[0] ?? null;
 }
 
 export async function createInsightCandidate(
@@ -255,6 +322,7 @@ export interface InsightReActDeciderInput {
   contextItems: WeightedContextItem[];
   outcomes: EvaluationOutcomeRow[];
   exploration_prompt?: string;
+  evaluation_report?: EvaluationReportPayload | null;
 }
 
 export type InsightReActDecider = (
@@ -280,6 +348,7 @@ export async function runControlledInsightReAct(input: {
   decider?: InsightReActDecider;
   propose?: (args: InsightReActDeciderInput) => Promise<InsightProposal>;
   exploration_prompt?: string;
+  evaluation_report?: EvaluationReportPayload | null;
 }): Promise<{ steps: InsightReActStepRecord[]; proposal: InsightProposal }> {
   const maxSteps = input.maxSteps ?? 5;
   const decider = input.decider ?? defaultInsightReActDecider;
@@ -292,6 +361,7 @@ export async function runControlledInsightReAct(input: {
       contextItems: input.contextItems,
       outcomes: input.outcomes,
       exploration_prompt: input.exploration_prompt,
+      evaluation_report: input.evaluation_report,
     });
 
     if (next === "complete") {
@@ -330,6 +400,7 @@ export async function runControlledInsightReAct(input: {
       contextItems: input.contextItems,
       outcomes: input.outcomes,
       exploration_prompt: input.exploration_prompt,
+      evaluation_report: input.evaluation_report,
     }),
   );
 
@@ -378,10 +449,13 @@ export function buildHeuristicInsightProposal(
     input.exploration_prompt?.trim() ||
     `Observed ${topItems.length} weighted context signals and ${labeled.length} labeled outcomes (${positive} positive) for ${input.symbol.toUpperCase()}.`;
 
+  const origin_category = deriveOriginCategory(input.evaluation_report?.sections);
+
   return enforceInsightProposal({
     thesis,
     evidence_refs: evidenceRefsFromContextItems(topItems),
     weight_cap: DEFAULT_INSIGHT_WEIGHT_CAP,
+    origin_category,
     candidate_json: {
       exploration_prompt: input.exploration_prompt ?? null,
       react_step_count: input.steps.length,

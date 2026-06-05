@@ -151,10 +151,49 @@ export function mapToInsightCandidateOutcomeRow(
   };
 }
 
+export const DEFAULT_INSIGHT_CANDIDATE_OUTCOME_HORIZON: InsightCandidateOutcomeHorizon = "2m";
+
 export function isSupportedInsightCandidateOutcomeHorizon(
   horizon: string,
 ): horizon is InsightCandidateOutcomeHorizon {
   return (INSIGHT_CANDIDATE_OUTCOME_HORIZONS as readonly string[]).includes(horizon);
+}
+
+export interface ScheduleInsightCandidateOutcomePayload {
+  insight_id: string;
+  symbol: string;
+  horizon: InsightCandidateOutcomeHorizon;
+  evidence_refs?: unknown[];
+  reason_codes?: string[];
+  outcome_json?: Record<string, unknown>;
+}
+
+export async function scheduleInsightCandidateOutcome(
+  payload: ScheduleInsightCandidateOutcomePayload,
+): Promise<InsightCandidateOutcomeRow> {
+  if (!isSupportedInsightCandidateOutcomeHorizon(payload.horizon)) {
+    throw new Error(`Unsupported insight candidate outcome horizon: ${payload.horizon}`);
+  }
+  const response = await fetchStage1<{ items: Record<string, unknown>[]; count: number }>(
+    "/insight-candidate-outcomes/schedule",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        outcomes: [{
+          insight_id: payload.insight_id,
+          symbol: payload.symbol,
+          horizon: payload.horizon,
+          evidence_refs_json: payload.evidence_refs ?? [],
+          reason_codes_json: payload.reason_codes ?? [],
+          outcome_json: payload.outcome_json ?? {},
+        }],
+      }),
+    },
+  );
+  if (!response.items.length) {
+    throw new Error(`schedule returned empty items for insight_id=${payload.insight_id}`);
+  }
+  return mapToInsightCandidateOutcomeRow(response.items[0]);
 }
 
 export function resolveInsightCandidateOutcomeBarQuery(horizon: string): {
