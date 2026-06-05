@@ -6,9 +6,12 @@ import {
   applyRerankAdjustments,
   buildAndPersistContextSnapshot,
   buildContextSnapshotPayload,
+  collectEvidenceRefs,
   computeContextHash,
   ContextSnapshotConflictError,
+  fetchContextSnapshot,
   finalizeWeightedItems,
+  listContextSnapshots,
   MAX_COMPOSITE_WEIGHT,
   MAX_RERANK_DELTA,
   persistContextSnapshot,
@@ -180,6 +183,39 @@ test("buildContextSnapshotPayload includes evidence refs and deterministic hash"
   }));
 });
 
+test("empty source data produces a stable empty snapshot payload", () => {
+  const asof = "2026-06-01T12:00:00Z";
+  const items = weightedItemsFromIntelBuild({}, "TSLA", asof);
+  const first = buildContextSnapshotPayload({ symbol: "tsla", items, asof_ts: asof });
+  const second = buildContextSnapshotPayload({ symbol: "TSLA", items, asof_ts: asof });
+
+  assert.deepEqual(items, []);
+  assert.equal(first.symbol, "TSLA");
+  assert.deepEqual(first.items_json, []);
+  assert.deepEqual(first.evidence_refs_json, []);
+  assert.equal(first.context_hash, second.context_hash);
+  assert.equal(first.snapshot_id, second.snapshot_id);
+});
+
+test("buildContextSnapshotPayload dedupes evidence refs by ref_type and ref_id", () => {
+  const asof = "2026-06-01T12:00:00Z";
+  const [firstItem] = weightedItemsFromIntelBuild(SAMPLE_BUILD, "TSLA", asof);
+  const duplicateItem = {
+    ...firstItem,
+    item_id: `${firstItem.item_id}-duplicate`,
+    summary: "Duplicate summary for the same evidence ref",
+  };
+  const refs = collectEvidenceRefs([firstItem, duplicateItem]);
+  const payload = buildContextSnapshotPayload({
+    symbol: "TSLA",
+    items: [firstItem, duplicateItem],
+    asof_ts: asof,
+  });
+
+  assert.deepEqual(refs, [firstItem.evidence_ref]);
+  assert.deepEqual(payload.evidence_refs_json, [firstItem.evidence_ref]);
+});
+
 test("buildAndPersistContextSnapshot is idempotent for same payload", async () => {
   const persisted: unknown[] = [];
   const fetchBuild = async () => SAMPLE_BUILD;
@@ -244,6 +280,56 @@ test("persistContextSnapshot surfaces backend 409 conflicts", async () => {
         assert.equal(error.status, 409);
         return true;
       },
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("context snapshot read APIs use bounded read-only Stage1 paths", async () => {
+  const payload = buildContextSnapshotPayload({
+    symbol: "TSLA",
+    items: weightedItemsFromIntelBuild(SAMPLE_BUILD, "TSLA", "2026-06-01T12:00:00Z"),
+    asof_ts: "2026-06-01T12:00:00Z",
+    snapshot_id: "snap-readonly-1",
+  });
+  const record = { ...payload, created_at: "2026-06-01T12:00:01Z" };
+  const calls: Array<{ url: string; method: string }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input, options = {}) => {
+    const url = String(input);
+    calls.push({ url, method: options.method ?? "GET" });
+    if (url.endsWith("/stage1/context-snapshots?symbol=TSLA&limit=2")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [record], count: 1 }),
+      } as Response;
+    }
+    if (url.endsWith("/stage1/context-snapshots/snap-readonly-1")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => record,
+      } as Response;
+    }
+    return {
+      ok: false,
+      status: 404,
+      text: async () => `unexpected ${url}`,
+    } as Response;
+  }) as typeof fetch;
+
+  try {
+    const listed = await listContextSnapshots({ symbol: "tsla", limit: 2 });
+    const shown = await fetchContextSnapshot("snap-readonly-1");
+
+    assert.equal(listed.count, 1);
+    assert.equal(listed.items[0]?.snapshot_id, "snap-readonly-1");
+    assert.equal(shown.snapshot_id, "snap-readonly-1");
+    assert.deepEqual(
+      calls.map((call) => call.method),
+      ["GET", "GET"],
     );
   } finally {
     globalThis.fetch = originalFetch;

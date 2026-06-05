@@ -316,6 +316,7 @@ test("internal project docs are separated from VitePress docs", async () => {
   assert.match(backlogReadme, /\| Blocked by Contract \|/);
   assert.match(backlogReadme, /\]\(\.\/workflow-maturity-roadmap\.md\)/);
   assert.match(backlogReadme, /\]\(\.\/now\/workflow-runtime-run-checkpoint-audit-alignment\.md\)/);
+  assert.match(backlogReadme, /It is not parallel implementation permission/);
   assert.match(backlogReadme, /\]\(\.\/now\/alpha-research-graph-spec\.md\)/);
   assert.match(backlogReadme, /\]\(\.\/supporting\/rule-discovery-lite-backtest-engine\.md\)/);
   assert.match(backlogReadme, /\]\(\.\/blocked-by-contract\/automatic-active-rulepack-mutation\.md\)/);
@@ -327,8 +328,15 @@ test("internal project docs are separated from VitePress docs", async () => {
   assert.match(workflowMaturity, /policy gates/);
 
   const alphaSpec = await read("project-docs/backlog/now/alpha-research-graph-spec.md");
-  assert.match(alphaSpec, /Status: Now/);
+  assert.match(alphaSpec, /Status: done \(T013 v0\)/);
+  assert.match(alphaSpec, /Do not reimplement T013/);
   assert.match(alphaSpec, /\.agent-dev\/specs\/alpha-research-graph\//);
+
+  const insightSpec = await read("project-docs/backlog/now/insight-exploration-graph-spec.md");
+  assert.match(insightSpec, /Status: done \(T012 maturity v1\)/);
+  assert.match(insightSpec, /Do not restart this from a new/);
+  assert.match(insightSpec, /\.agent-dev\/tasks\/T012-insight-exploration-graph-maturity-v1\.md/);
+  assert.doesNotMatch(insightSpec, /Create `.agent-dev\/specs\/insight-exploration-graph\/`/);
 
   const ruleDiscovery = await read("project-docs/backlog/supporting/rule-discovery-lite-backtest-engine.md");
   assert.match(ruleDiscovery, /Status: Supporting dependency/);
@@ -340,4 +348,77 @@ test("internal project docs are separated from VitePress docs", async () => {
   const legacyBacklog = await read("project-docs/research-agent/target-system/trader-agent/07-backlog-roadmap-index.md");
   assert.match(legacyBacklog, /compatibility entry/);
   assert.match(legacyBacklog, /project-docs\/backlog\/README\.md/);
+});
+
+test("T016 live market data gate blocks M2 implementation until confirmation", async () => {
+  const gateSpec = JSON.parse(
+    await read(".agent-dev/specs/live-market-data-plane-implementation-decision-gate/spec.json"),
+  );
+  assert.equal(gateSpec.contracts.gate_status, "pending_user_confirmation");
+  assert.equal(gateSpec.contracts.implementation_may_start, false);
+
+  const gateTask = await read(".agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.md");
+  assert.match(gateTask, /Status: in_progress/);
+  assert.match(gateTask, /\| S5 \| User confirms or changes D501-D508 \| pending \|/);
+
+  const gateDoc = await read("project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md");
+  assert.match(gateDoc, /pending_user_confirmation/);
+  assert.match(gateDoc, /implementation_may_start: false/);
+  assert.match(gateDoc, /Implementation May Not Start Until/);
+
+  const roadmap = await read("project-docs/backlog/workflow-maturity-roadmap.md");
+  assert.match(roadmap, /M2 implementation remains gated by T016/);
+
+  const backlog = await read("project-docs/backlog/README.md");
+  assert.match(backlog, /current gate: T016/);
+
+  const workflowReadme = await read("apps/trader-workflows/README.md");
+  assert.match(workflowReadme, /implementation must first\s+pass the M2\s+\[implementation decision gate\]/);
+  assert.doesNotMatch(
+    [gateDoc, roadmap, backlog, workflowReadme].join("\n"),
+    /M2 implementation may start|LiveMarketDataPlane implementation may start/i,
+  );
+});
+
+test("T017 local observability does not unlock cross-system run controls", async () => {
+  const localMonitor = await read("project-docs/backlog/now/run-monitor.md");
+  const localTrace = await read("project-docs/backlog/now/real-run-trace-viewer.md");
+  const blockedMonitor = await read("project-docs/backlog/blocked-by-contract/workflow-run-monitor.md");
+  const blockedTrace = await read("project-docs/backlog/blocked-by-contract/workflow-run-detail-viewer.md");
+  const backlog = await read("project-docs/backlog/README.md");
+
+  assert.match(localMonitor, /Status: done \(T017 runtime read-model slice\)/);
+  assert.match(localTrace, /Status: done \(T017 runtime read-model slice\)/);
+  assert.match(blockedMonitor, /Local `Stage1Runtime` run monitoring is already covered/);
+  assert.match(blockedTrace, /Local `Stage1Runtime` run trace inspection is already covered/);
+  assert.match(blockedMonitor, /Do not treat the T017 local read\s+model as permission/s);
+  assert.match(blockedTrace, /Do not treat\s+the T017 local trace read model as permission/s);
+  assert.match(backlog, /Cross-system workflow run detail viewer/);
+  assert.doesNotMatch(
+    [blockedMonitor, blockedTrace].join("\n"),
+    /No canonical workflow definition and run schema yet\.\s*$/m,
+  );
+});
+
+test("deferred standalone graphs do not remain in the next backlog", async () => {
+  await assert.rejects(access("project-docs/backlog/next/market-judgment-graph-v0.md"));
+  await access("project-docs/backlog/later/market-judgment-graph-v0.md");
+  await assert.rejects(access("project-docs/backlog/now/reflection-engine.md"));
+  await access("project-docs/backlog/supporting/reflection-engine.md");
+
+  const marketJudgment = await read("project-docs/backlog/later/market-judgment-graph-v0.md");
+  const reflection = await read("project-docs/backlog/supporting/reflection-engine.md");
+  const roadmap = await read("project-docs/backlog/workflow-maturity-roadmap.md");
+  const backlog = await read("project-docs/backlog/README.md");
+
+  assert.match(marketJudgment, /Status: Later \(deferred as standalone workflow\)/);
+  assert.match(marketJudgment, /Do not treat this item\s+as the next implementation target/s);
+  assert.match(marketJudgment, /split-boundary spec proves/);
+  assert.match(reflection, /Status: Supporting dependency/);
+  assert.match(reflection, /not\s+a standalone LangGraph workflow target/s);
+  assert.match(reflection, /Do not\s+promote this into a standalone graph/s);
+  assert.match(roadmap, /not the\s+next default standalone workflow targets/s);
+  assert.match(backlog, /\| None \| Current route remains T016 gate -> M2 implementation after confirmation\. \|/);
+  assert.doesNotMatch(backlog, /\]\(\.\/next\/market-judgment-graph-v0\.md\)/);
+  assert.doesNotMatch(backlog, /\]\(\.\/now\/reflection-engine\.md\)/);
 });

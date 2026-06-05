@@ -52,6 +52,33 @@ descriptions.
 | **ReflectionProposal** | A proposed improvement derived from outcomes or evaluation reports without automatic activation. | lesson, mutation, upgrade |
 | **Promotion** | Movement of a candidate or proposal toward shadow tracking, manual approval, or active system use. | activation, auto update |
 
+## Analysis To Execution
+
+| Term | Definition | Aliases to avoid |
+|---|---|---|
+| **OpportunityMap** | An analysis artifact that identifies symbols, windows, setups, and evidence-backed focus regions worth monitoring or later paper/shadow exploration. It is not an order. | signal, buy list, trade command |
+| **RiskEnvelope** | An analysis artifact that defines exposure, liquidity, event-risk, invalidation, and validity-window constraints for future exploration. | risk note, prompt warning |
+| **ExplorationPlan** | A plan describing what the execution simulation layer should observe locally, at what cadence, and under which trigger/stop conditions. | execution plan, order plan |
+| **ExecutionPolicy** | A deterministic permission boundary that may allow observe-only, paper simulation, or shadow tracking after required preconditions and future RiskGate checks pass. | order, trade ticket, broker instruction |
+| **LiveMarketDataPlane** | The read-only data infrastructure that normalizes quote, depth, trade, and derived market-state facts for analysis and execution simulation. | market graph, live trading loop |
+| **ProviderTrace** | Metadata that links a normalized market fact back to its provider, source channel, request or subscription, entitlement state, timestamp, and normalization version. | vendor note, provider blob |
+| **DataQualityFlag** | A visible warning or error attached to a market data artifact when data is stale, delayed, missing, replay-only, fallback-sourced, or inconsistent. | hidden fallback, best effort |
+| **QuoteSnapshot** | A normalized top-of-book quote artifact containing bid/ask facts and quote timing metadata. | price quote, ticker row |
+| **OrderBookSnapshot** | A normalized depth artifact containing visible bid/ask levels when provider and entitlement allow it. | depth dump, broker book |
+| **TradeTick** | A normalized executed trade print with price, size, time, and optional aggressor hint. | order side, trade order |
+| **SecondBar** | A normalized one-second bar derived from trade ticks, replay fixtures, or a provider bar source with explicit construction metadata. | native second candle |
+| **MinuteBar** | A normalized one-minute bar with explicit construction and provider trace metadata. | chart bar |
+| **MarketMicrostructureFeatures** | Deterministic features derived from quote, depth, and trade facts, such as spread, mid price, quote age, depth imbalance, and trade intensity. | AI signal, strategy rule |
+| **MarketStateSnapshot** | A compact normalized live-market state artifact derived from quote, depth, trade, bars, and microstructure features. | raw ticks, context snapshot |
+| **ReplayCursor** | A replay position over normalized market data facts for deterministic inspection and test windows. | live stream state, backtest cursor |
+| **RiskGate** | A deterministic allow/reject/reduce gate that evaluates future order intents against policy, liquidity, exposure, and event-risk constraints. | LLM risk reviewer, risk prompt |
+| **PaperTradingEngine** | A deterministic simulator for order lifecycle, fills, slippage, positions, PnL, and replay. | broker, backtest, toy trade loop |
+| **OrderIntent** | A future proposed paper/live action generated after policy and risk evaluation begins; it is not produced by the AI Analysis Layer in M1. | DecisionEnvelope, ExecutionPolicy |
+| **RiskDecision** | A future RiskGate output that allows, rejects, or reduces an order intent with reason codes. | LLM confidence, approval |
+| **OrderEvent** | An append-only future event for submitted, accepted, filled, canceled, rejected, or expired simulated/broker orders. | log line, trade row |
+| **PositionSnapshot** | A future position and exposure state artifact with realized/unrealized PnL. | portfolio note |
+| **ExecutionFeedback** | A feedback artifact summarizing fill quality, slippage, rule adherence, stop behavior, and execution outcome for learning. | trade result, outcome label |
+
 ## Agent Boundaries
 
 | Term | Definition | Aliases to avoid |
