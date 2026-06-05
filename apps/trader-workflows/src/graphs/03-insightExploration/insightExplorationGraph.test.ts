@@ -575,6 +575,11 @@ test("S1: InsightExplorationGraph fetches and uses evaluation report when provid
   assert.equal(persistedPayload?.candidate_json.origin_category, "failure_mode");
   assert.equal(persistedPayload?.candidate_json.horizon, "5m");
   assert.equal(persistedPayload?.candidate_json.horizon_source, "explicit");
+  assert.ok(persistedPayload?.candidate_json.alpha_seed);
+  assert.equal(
+    (persistedPayload?.candidate_json.alpha_seed as { schema_version: string }).schema_version,
+    "alpha_seed.v1",
+  );
   assert.ok(result.proposal);
 });
 

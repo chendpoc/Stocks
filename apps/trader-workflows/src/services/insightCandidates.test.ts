@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { CANDIDATE_FAMILIES } from "./candidateFamilies.js";
 import {
+  ALPHA_SEED_SCHEMA_VERSION,
+  buildAlphaSeedV1,
   buildInsightCandidatePayload,
   clampInsightWeightCap,
   DEFAULT_INSIGHT_WEIGHT_CAP,
@@ -10,6 +13,8 @@ import {
   executeInsightReActTool,
   filterOutcomesInWindow,
   INSIGHT_VERIFICATION_STATUS,
+  isAlphaSeedV1,
+  mapOriginCategoryToCandidateFamily,
   parseExplorationWindow,
   runControlledInsightReAct,
   type InsightProposal,
@@ -79,6 +84,45 @@ test("buildInsightCandidatePayload always persists pending verification", () => 
   assert.ok(payload.evidence_refs_json.length > 0);
   assert.equal(payload.weight_cap, 0.4);
   assert.deepEqual(payload.symbols_json, ["TSLA"]);
+});
+
+test("buildAlphaSeedV1 maps origin_category to whitelisted candidate_family", () => {
+  assert.equal(mapOriginCategoryToCandidateFamily("failure_mode"), "mean_reversion");
+  assert.equal(mapOriginCategoryToCandidateFamily("positive_pattern"), "momentum_trend");
+  assert.equal(mapOriginCategoryToCandidateFamily("mixed"), "event_driven");
+
+  const seed = buildAlphaSeedV1({
+    origin_category: "failure_mode",
+    thesis: "sharp drop may stabilize",
+    horizon: "2m",
+    symbol: "TSLA",
+  });
+  assert.equal(seed.schema_version, ALPHA_SEED_SCHEMA_VERSION);
+  assert.ok(CANDIDATE_FAMILIES.includes(seed.candidate_family));
+  assert.ok(seed.required_evidence_hint.length > 0);
+  assert.ok(isAlphaSeedV1(seed));
+});
+
+test("buildInsightCandidatePayload embeds alpha_seed in candidate_json", () => {
+  const window = parseExplorationWindow("7d", new Date("2026-06-02T12:00:00.000Z"));
+  const payload = buildInsightCandidatePayload({
+    run_id: "run-test",
+    symbol: "NVDA",
+    window,
+    proposal: {
+      thesis: "momentum continuation",
+      evidence_refs: [{ ref_type: "signal", ref_id: "sig-1" }],
+      weight_cap: 0.4,
+      origin_category: "positive_pattern",
+      candidate_json: { status: "candidate" },
+    },
+  });
+
+  assert.ok(isAlphaSeedV1(payload.candidate_json.alpha_seed));
+  assert.equal(
+    (payload.candidate_json.alpha_seed as { candidate_family: string }).candidate_family,
+    "momentum_trend",
+  );
 });
 
 test("runControlledInsightReAct queries context and outcomes before proposing", async () => {

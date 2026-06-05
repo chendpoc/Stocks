@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import { fetchStage1 } from "../api/client.js";
 import {
+  CANDIDATE_FAMILIES,
+  isCandidateFamily,
+  type CandidateFamily,
+} from "./candidateFamilies.js";
+import {
   listContextSnapshots,
   MAX_COMPOSITE_WEIGHT,
   type ContextSnapshotRecord,
@@ -23,6 +28,90 @@ export type InsightCandidateHorizon = (typeof INSIGHT_CANDIDATE_HORIZONS)[number
 export const DEFAULT_INSIGHT_HORIZON: InsightCandidateHorizon = "2m";
 
 export type InsightCandidateOriginCategory = "failure_mode" | "positive_pattern" | "data_gap" | "mixed";
+
+export const ALPHA_SEED_SCHEMA_VERSION = "alpha_seed.v1" as const;
+
+export interface AlphaSeedV1 {
+  schema_version: typeof ALPHA_SEED_SCHEMA_VERSION;
+  candidate_family: CandidateFamily;
+  mechanism: string;
+  trigger_hint: string;
+  entry_condition_hint: string;
+  invalidation_hint: string;
+  required_evidence_hint: string[];
+  risk_notes?: string[];
+  exit_condition_hint?: string;
+}
+
+export function mapOriginCategoryToCandidateFamily(
+  origin_category: InsightCandidateOriginCategory,
+): CandidateFamily {
+  switch (origin_category) {
+    case "failure_mode":
+      return "mean_reversion";
+    case "positive_pattern":
+      return "momentum_trend";
+    case "data_gap":
+      return "cross_sectional_filter";
+    default:
+      return "event_driven";
+  }
+}
+
+export function buildAlphaSeedV1(input: {
+  origin_category: InsightCandidateOriginCategory;
+  thesis: string;
+  horizon: InsightCandidateHorizon;
+  symbol: string;
+}): AlphaSeedV1 {
+  const symbol = input.symbol.toUpperCase();
+  const family = mapOriginCategoryToCandidateFamily(input.origin_category);
+  const mechanism = input.thesis.trim().slice(0, 240) || `${family} hypothesis for ${symbol}`;
+  const triggerHint =
+    input.origin_category === "failure_mode"
+      ? "sharp adverse move with potential stabilization"
+      : input.origin_category === "positive_pattern"
+        ? "sustained strength or breakout confirmation"
+        : "context-weighted signal cluster";
+  const entryHint = `measure_next_bar_after_trigger_${input.horizon}`;
+  const invalidationHint =
+    input.origin_category === "failure_mode"
+      ? "adverse move resumes with expanding participation"
+      : "thesis-supporting evidence fails to persist";
+
+  return {
+    schema_version: ALPHA_SEED_SCHEMA_VERSION,
+    candidate_family: family,
+    mechanism,
+    trigger_hint: triggerHint,
+    entry_condition_hint: entryHint,
+    invalidation_hint: invalidationHint,
+    required_evidence_hint: [
+      `market_bars:${symbol}`,
+      `labeled_outcomes:${input.horizon}`,
+      `context_evidence:${symbol}`,
+    ],
+    risk_notes: ["heuristic_alpha_seed_v0", "research_measurement_only"],
+    exit_condition_hint: "evaluate_to_sample_window_final_bar",
+  };
+}
+
+export function isAlphaSeedV1(value: unknown): value is AlphaSeedV1 {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const seed = value as Record<string, unknown>;
+  return (
+    seed.schema_version === ALPHA_SEED_SCHEMA_VERSION &&
+    typeof seed.candidate_family === "string" &&
+    isCandidateFamily(seed.candidate_family) &&
+    typeof seed.mechanism === "string" &&
+    typeof seed.trigger_hint === "string" &&
+    typeof seed.entry_condition_hint === "string" &&
+    typeof seed.invalidation_hint === "string" &&
+    Array.isArray(seed.required_evidence_hint)
+  );
+}
 
 export type InsightReActToolName =
   | "query_context_items"
@@ -206,6 +295,13 @@ export function buildInsightCandidatePayload(input: {
     ...(enforced.horizon ? { horizon: enforced.horizon } : {}),
   };
   const { horizon, horizon_source } = resolveInsightHorizon(candidateJsonWithHorizon);
+  const origin_category = enforced.origin_category ?? "mixed";
+  const alpha_seed = buildAlphaSeedV1({
+    origin_category,
+    thesis: enforced.thesis,
+    horizon,
+    symbol: input.symbol,
+  });
   return {
     insight_id: input.insight_id ?? `ins_${randomUUID().replace(/-/g, "")}`,
     run_id: input.run_id,
@@ -218,9 +314,10 @@ export function buildInsightCandidatePayload(input: {
     weight_cap: enforced.weight_cap,
     candidate_json: {
       ...enforced.candidate_json,
-      origin_category: enforced.origin_category ?? "mixed",
+      origin_category,
       horizon,
       horizon_source,
+      alpha_seed,
     },
   };
 }
