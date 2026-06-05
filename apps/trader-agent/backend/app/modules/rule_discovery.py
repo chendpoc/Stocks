@@ -136,14 +136,56 @@ def create_rule_candidate_from_semantic_event(
     return candidate_id
 
 
+ALLOWED_CANDIDATE_SOURCES = {"manual", "insight_candidate"}
+
+
 def create_manual_rule_candidate(
     settings: Settings,
     payload: dict[str, Any],
     created_by: str = "manual",
 ) -> str:
+    return create_structured_rule_candidate(
+        settings,
+        payload,
+        source="manual",
+        created_by=created_by,
+    )
+
+
+def create_insight_candidate_rule_candidate(
+    settings: Settings,
+    payload: dict[str, Any],
+    created_by: str = "alpha_research_graph",
+) -> str:
+    return create_structured_rule_candidate(
+        settings,
+        payload,
+        source="insight_candidate",
+        created_by=created_by,
+    )
+
+
+def create_structured_rule_candidate(
+    settings: Settings,
+    payload: dict[str, Any],
+    *,
+    source: str,
+    created_by: str,
+) -> str:
+    if source not in ALLOWED_CANDIDATE_SOURCES:
+        raise ValueError(f"Unsupported rule candidate source: {source}")
+
     symbols = [normalize_symbol(symbol) for symbol in payload.get("symbols", [])]
     if not symbols:
-        raise ValueError("Manual rule candidate requires at least one symbol")
+        raise ValueError("Rule candidate requires at least one symbol")
+
+    source_ref = payload.get("source_ref") or {}
+    if source == "manual" and not source_ref:
+        source_ref = {"input": "structured_payload"}
+    if source == "insight_candidate":
+        insight_id = source_ref.get("insight_id")
+        if not isinstance(insight_id, str) or not insight_id.strip():
+            raise ValueError("insight_candidate source requires source_ref.insight_id")
 
     candidate_id = str(uuid4())
     now = utc_now_iso()
@@ -157,8 +199,8 @@ def create_manual_rule_candidate(
                 id=candidate_id,
                 created_at=now,
                 updated_at=now,
-                source="manual",
-                source_ref=serialize_json_field(payload.get("source_ref", {"input": "structured_payload"})),
+                source=source,
+                source_ref=serialize_json_field(source_ref),
                 hypothesis=_require_text(payload, "hypothesis"),
                 symbols=serialize_json_field(symbols),
                 trigger_definition=_require_text(payload, "trigger_definition"),
@@ -177,12 +219,52 @@ def create_manual_rule_candidate(
         settings,
         event_type="rule_discovery.candidate_created",
         status="completed",
-        title="Manual rule candidate created",
-        input_summary={"source": "manual", "symbols": symbols},
+        title="Rule candidate created",
+        input_summary={"source": source, "symbols": symbols},
         output_summary={"candidate_id": candidate_id, "status": DRAFT},
         symbol=symbols[0],
     )
     return candidate_id
+
+
+def get_rule_candidate(settings: Settings, candidate_id: str) -> dict[str, Any]:
+    engine = create_sqlite_engine(settings)
+    with engine.connect() as conn:
+        row = conn.execute(
+            select(rule_candidates).where(rule_candidates.c.id == candidate_id)
+        ).mappings().one_or_none()
+    if row is None:
+        raise ValueError(f"Rule candidate not found: {candidate_id}")
+    return _serialize_candidate_row(row)
+
+
+def get_lite_backtest_report(
+    settings: Settings,
+    candidate_id: str,
+    *,
+    report_id: str | None = None,
+) -> dict[str, Any]:
+    engine = create_sqlite_engine(settings)
+    with engine.connect() as conn:
+        candidate = conn.execute(
+            select(rule_candidates.c.latest_report_id).where(rule_candidates.c.id == candidate_id)
+        ).mappings().one_or_none()
+        if candidate is None:
+            raise ValueError(f"Rule candidate not found: {candidate_id}")
+
+        resolved_report_id = report_id or candidate["latest_report_id"]
+        if not resolved_report_id:
+            raise ValueError(f"No lite backtest report for candidate: {candidate_id}")
+
+        row = conn.execute(
+            select(lite_backtest_reports).where(
+                lite_backtest_reports.c.id == resolved_report_id,
+                lite_backtest_reports.c.candidate_id == candidate_id,
+            )
+        ).mappings().one_or_none()
+    if row is None:
+        raise ValueError(f"Lite backtest report not found: {resolved_report_id}")
+    return _serialize_lite_backtest_report_row(row)
 
 
 def validate_candidate_evidence_requirements(
@@ -464,6 +546,66 @@ def _hypothesis_from_event(event: Any) -> str:
     setup_hint = event["setup_hint"] or "semantic_event_rule"
     thesis = event["thesis"] or ""
     return f"{setup_hint}: {thesis[:240]}"
+
+
+def _serialize_candidate_row(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "source": row["source"],
+        "source_ref": coerce_json_value(row["source_ref"], {}),
+        "hypothesis": row["hypothesis"],
+        "symbols": list(coerce_json_value(row["symbols"], [])),
+        "trigger_definition": row["trigger_definition"],
+        "entry_condition": row["entry_condition"],
+        "exit_condition": row["exit_condition"],
+        "invalidation": row["invalidation"],
+        "data_requirements": list(coerce_json_value(row["data_requirements"], [])),
+        "risk_notes": coerce_json_value(row["risk_notes"]),
+        "status": row["status"],
+        "confidence": float(row["confidence"]) if row["confidence"] is not None else None,
+        "created_by": row["created_by"],
+        "latest_report_id": row["latest_report_id"],
+    }
+
+
+def _serialize_lite_backtest_report_row(row: Any) -> dict[str, Any]:
+    quality_flags = coerce_json_value(row["quality_flags"], {})
+    return {
+        "id": row["id"],
+        "candidate_id": row["candidate_id"],
+        "created_at": row["created_at"],
+        "data_window_start": row["data_window_start"],
+        "data_window_end": row["data_window_end"],
+        "sample_size": row["sample_size"],
+        "trigger_logic": coerce_json_value(row["trigger_logic"], {}),
+        "entry_logic": coerce_json_value(row["entry_logic"], {}),
+        "exit_logic": coerce_json_value(row["exit_logic"]),
+        "invalidation_logic": coerce_json_value(row["invalidation_logic"], {}),
+        "win_rate": float(row["win_rate"]) if row["win_rate"] is not None else None,
+        "avg_return": float(row["avg_return"]) if row["avg_return"] is not None else None,
+        "median_return": float(row["median_return"]) if row["median_return"] is not None else None,
+        "max_adverse_excursion": (
+            float(row["max_adverse_excursion"])
+            if row["max_adverse_excursion"] is not None
+            else None
+        ),
+        "max_favorable_excursion": (
+            float(row["max_favorable_excursion"])
+            if row["max_favorable_excursion"] is not None
+            else None
+        ),
+        "cost_model": coerce_json_value(row["cost_model"], {}),
+        "spread_assumption": row["spread_assumption"],
+        "slippage_assumption": row["slippage_assumption"],
+        "evidence_gaps": list(coerce_json_value(row["evidence_gaps"], [])),
+        "quality_flags": quality_flags.get("flags", quality_flags),
+        "failure_cases": quality_flags.get("failure_cases", []),
+        "decision": row["decision"],
+        "reason": row["reason"],
+        "next_review_trigger": row["next_review_trigger"],
+    }
 
 
 def _require_text(payload: dict[str, Any], key: str) -> str:
