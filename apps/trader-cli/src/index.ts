@@ -16,6 +16,7 @@ import { registerDecideCommand } from "./commands/decide";
 import { registerOutcomesCommands } from "./commands/outcomes";
 import { registerEvalCommands } from "./commands/eval";
 import { registerInsightsCommands } from "./commands/insights";
+import { registerGuidedPaperCommands } from "./commands/guidedPaper";
 import { marketPlane } from "./commands/marketPlane";
 import { registerRunsCommands } from "./commands/runs";
 import { scan } from "./commands/scan";
@@ -84,7 +85,7 @@ program
   .action(data);
 program
   .command("market-plane")
-  .argument("<action>", "symbols | state | ingest")
+  .argument("<action>", "symbols | state | ingest | stream-start | stream-stop | stream-status")
   .argument("[symbol]", "Symbol for state/ingest")
   .description("LiveMarketDataPlane v0 inspection (M2)")
   .action(marketPlane);
@@ -101,6 +102,7 @@ registerDecideCommand(program);
 registerOutcomesCommands(program);
 registerEvalCommands(program);
 registerInsightsCommands(program);
+registerGuidedPaperCommands(program);
 
 program.parseAsync(process.argv).catch((error) => {
   console.error(error);

@@ -2,12 +2,27 @@ import {
   getMarketState,
   ingestMarketPlaneSymbol,
   listMarketPlaneSymbols,
+  marketPlaneStreamStatus,
+  startMarketPlaneStream,
+  stopMarketPlaneStream,
 } from "../services/liveMarketPlane.js";
 import { printJson } from "../ui/display.js";
 
 export async function marketPlane(action: string, symbol?: string): Promise<void> {
   if (action === "symbols") {
     printJson("M2 symbols", await listMarketPlaneSymbols());
+    return;
+  }
+  if (action === "stream-status") {
+    printJson("Market plane WebSocket", await marketPlaneStreamStatus());
+    return;
+  }
+  if (action === "stream-start") {
+    printJson("Start Longbridge quote stream", await startMarketPlaneStream());
+    return;
+  }
+  if (action === "stream-stop") {
+    printJson("Stop Longbridge quote stream", await stopMarketPlaneStream());
     return;
   }
   if (!symbol) {

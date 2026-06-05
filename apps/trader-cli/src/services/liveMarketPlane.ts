@@ -25,3 +25,15 @@ export async function ingestMarketPlaneSymbol(symbol: string): Promise<unknown> 
     method: "POST",
   });
 }
+
+export async function marketPlaneStreamStatus(): Promise<unknown> {
+  return fetchMarketPlane("/api/market-plane/stream/status");
+}
+
+export async function startMarketPlaneStream(): Promise<unknown> {
+  return fetchMarketPlane("/api/market-plane/stream/start", { method: "POST" });
+}
+
+export async function stopMarketPlaneStream(): Promise<unknown> {
+  return fetchMarketPlane("/api/market-plane/stream/stop", { method: "POST" });
+}
