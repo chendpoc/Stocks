@@ -6,6 +6,7 @@ import {
   buildHeuristicInsightProposal,
   createInsightCandidate,
   fetchContextSnapshotsForSymbol,
+  fetchLatestEvaluationReportForInsight,
   fetchOutcomesForInsight,
   runControlledInsightReAct,
   type InsightCandidateRecord,
@@ -13,6 +14,10 @@ import {
   type InsightProposal,
   type ParsedExplorationWindow,
 } from "../../services/insightCandidates.js";
+import {
+  scheduleInsightCandidateOutcome,
+  type InsightCandidateOutcomeRow,
+} from "../../services/outcomes.js";
 
 export const INSIGHT_REACT_MAX_STEPS = 5;
 
@@ -21,6 +26,7 @@ export interface InsightExplorationGraphInput {
   window: string;
   run_id?: string;
   exploration_prompt?: string;
+  evaluation_report_id?: string;
   persist?: boolean;
   snapshot_limit?: number;
   outcome_limit?: number;
@@ -33,14 +39,17 @@ export interface InsightExplorationGraphResult {
   react_steps: InsightReActStepRecord[];
   proposal: InsightProposal;
   persisted_candidate: InsightCandidateRecord | null;
+  scheduled_outcome: InsightCandidateOutcomeRow | null;
 }
 
 export interface InsightExplorationGraphDeps {
   fetchSnapshots?: typeof fetchContextSnapshotsForSymbol;
   fetchOutcomes?: typeof fetchOutcomesForInsight;
+  fetchEvaluationReport?: typeof fetchLatestEvaluationReportForInsight;
   runReAct?: typeof runControlledInsightReAct;
   llm?: WorkflowLlmProvider;
   persist?: typeof createInsightCandidate;
+  scheduleOutcome?: typeof scheduleInsightCandidateOutcome;
 }
 
 /** @deprecated Use runInsightExplorationGraph or the compiled insightExplorationGraph export. */

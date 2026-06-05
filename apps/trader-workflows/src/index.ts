@@ -290,6 +290,8 @@ async function handleInsightsExploreCommandAsync(
       evidence_ref_count: result.proposal.evidence_refs.length,
       thesis: result.proposal.thesis,
       persisted_candidate: result.persisted_candidate,
+      scheduled_outcome_id: result.scheduled_outcome?.outcome_id ?? null,
+      scheduled_outcome_horizon: result.scheduled_outcome?.horizon ?? null,
     },
   });
 }

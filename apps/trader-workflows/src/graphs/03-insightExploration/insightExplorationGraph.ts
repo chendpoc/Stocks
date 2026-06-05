@@ -41,9 +41,11 @@ function depsToNodeDeps(
   return {
     fetchSnapshots: deps.fetchSnapshots,
     fetchOutcomes: deps.fetchOutcomes,
+    fetchEvaluationReport: deps.fetchEvaluationReport,
     runReAct: deps.runReAct,
     llm: deps.llm,
     persist: deps.persist,
+    scheduleOutcome: deps.scheduleOutcome,
   };
 }
 
@@ -88,6 +90,7 @@ export async function runInsightExplorationGraph(
       symbol: input.symbol.toUpperCase(),
       window: input.window,
       exploration_prompt: input.exploration_prompt,
+      evaluation_report_id: input.evaluation_report_id,
       snapshot_limit: input.snapshot_limit ?? 20,
       outcome_limit: input.outcome_limit ?? 200,
       persist: input.persist ?? true,

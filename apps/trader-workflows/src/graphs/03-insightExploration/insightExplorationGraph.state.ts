@@ -1,7 +1,7 @@
 import { Annotation } from "@langchain/langgraph";
 
 import type { WeightedContextItem } from "../../services/contextSnapshots.js";
-import type { EvaluationOutcomeRow } from "../../services/evaluation.js";
+import type { EvaluationOutcomeRow, EvaluationReportPayload } from "../../services/evaluation.js";
 import type {
   InsightCandidateRecord,
   InsightCandidatePayload,
@@ -10,6 +10,7 @@ import type {
   ParsedExplorationWindow,
 } from "../../services/insightCandidates.js";
 import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
+import type { InsightCandidateOutcomeRow } from "../../services/outcomes.js";
 
 export const InsightExplorationGraphStateAnnotation = Annotation.Root({
   run_id: Annotation<string>(),
@@ -28,6 +29,11 @@ export const InsightExplorationGraphStateAnnotation = Annotation.Root({
   outcome_limit: Annotation<number>({
     reducer: (_left, right) => right ?? 200,
     default: () => 200,
+  }),
+  evaluation_report_id: Annotation<string | undefined>(),
+  evaluation_report: Annotation<EvaluationReportPayload | null>({
+    reducer: (_left, right) => right ?? null,
+    default: () => null,
   }),
   persist: Annotation<boolean>({
     reducer: (_left, right) => right ?? true,
@@ -63,6 +69,10 @@ export const InsightExplorationGraphStateAnnotation = Annotation.Root({
     default: () => null,
   }),
   persisted_candidate: Annotation<InsightCandidateRecord | null>({
+    reducer: (_left, right) => right ?? null,
+    default: () => null,
+  }),
+  scheduled_outcome: Annotation<InsightCandidateOutcomeRow | null>({
     reducer: (_left, right) => right ?? null,
     default: () => null,
   }),
