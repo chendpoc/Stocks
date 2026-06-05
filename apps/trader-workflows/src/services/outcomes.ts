@@ -1,8 +1,20 @@
 import { fetchIntel, fetchStage1 } from "../api/client.js";
-import type { OutcomeHorizon } from "./decisions.js";
+import type { OutcomeHorizon, ScheduledDecisionOutcome } from "./decisions.js";
 import { OUTCOME_HORIZONS } from "./decisions.js";
 
+export const INSIGHT_CANDIDATE_OUTCOME_HORIZONS = [
+  "1m", "2m", "5m", "30m", "1h", "2h", "4h",
+] as const;
+export type InsightCandidateOutcomeHorizon = (typeof INSIGHT_CANDIDATE_OUTCOME_HORIZONS)[number];
+
 export type OutcomeFinalStatus = "labeled" | "skipped" | "failed";
+export type OutcomeSourceType = "decision" | "insight_candidate";
+export type NormalizedOutcomeLabel =
+  | "hit"
+  | "miss"
+  | "neutral"
+  | "invalid"
+  | "insufficient_data";
 
 export interface DecisionOutcomeRow {
   outcome_id: string;
@@ -13,7 +25,34 @@ export interface DecisionOutcomeRow {
   status: string;
   due_at?: string | null;
   scheduled_at?: string | null;
+  label?: string | null;
   created_at?: string;
+}
+
+export interface InsightCandidateOutcomeRow {
+  outcome_id: string;
+  insight_id: string;
+  symbol: string;
+  horizon: string;
+  status: string;
+  due_at?: string | null;
+  scheduled_at?: string | null;
+  normalized_label?: string | null;
+  metrics_json?: Record<string, unknown> | null;
+  reason_codes_json?: string[] | null;
+  evidence_refs_json?: unknown[] | null;
+  outcome_json?: Record<string, unknown> | null;
+  created_at?: string;
+  labeled_at?: string | null;
+}
+
+export type OutcomeRow = DecisionOutcomeRow | InsightCandidateOutcomeRow;
+
+export function isDecisionOutcome(row: OutcomeRow): row is DecisionOutcomeRow {
+  return "decision_id" in row;
+}
+export function isInsightCandidateOutcome(row: OutcomeRow): row is InsightCandidateOutcomeRow {
+  return "insight_id" in row;
 }
 
 export interface MarketBar {
@@ -54,6 +93,80 @@ const DEFAULT_BENCHMARK_BY_SYMBOL: Record<string, string> = {
   COIN: "QQQ",
   BMNR: "QQQ",
 };
+
+export function normalizeOutcomeLabel(input: {
+  source_label: string;
+  source_type: OutcomeSourceType;
+}): NormalizedOutcomeLabel {
+  const { source_label } = input;
+  switch (source_label) {
+    case "hit":
+    case "target_hit":
+    case "positive":
+    case "candidate_supported":
+      return "hit";
+    case "miss":
+    case "invalidated":
+    case "negative":
+    case "candidate_contradicted":
+      return "miss";
+    case "neutral":
+      return "neutral";
+    case "invalid":
+    case "failed":
+      return "invalid";
+    case "insufficient_data":
+      return "insufficient_data";
+    default:
+      return "neutral";
+  }
+}
+
+export function normalizeDecisionLabel(source_label: string): NormalizedOutcomeLabel {
+  return normalizeOutcomeLabel({ source_label, source_type: "decision" });
+}
+
+export function normalizeInsightLabel(source_label: string): NormalizedOutcomeLabel {
+  return normalizeOutcomeLabel({ source_label, source_type: "insight_candidate" });
+}
+
+export function mapToInsightCandidateOutcomeRow(
+  raw: Record<string, unknown>,
+): InsightCandidateOutcomeRow {
+  return {
+    outcome_id: String(raw.outcome_id ?? ""),
+    insight_id: String(raw.insight_id ?? ""),
+    symbol: String(raw.symbol ?? ""),
+    horizon: String(raw.horizon ?? ""),
+    status: String(raw.status ?? "pending"),
+    due_at: raw.due_at as string | null | undefined,
+    scheduled_at: raw.scheduled_at as string | null | undefined,
+    normalized_label: raw.normalized_label as string | null | undefined,
+    metrics_json: raw.metrics_json as Record<string, unknown> | null | undefined,
+    reason_codes_json: raw.reason_codes_json as string[] | null | undefined,
+    evidence_refs_json: raw.evidence_refs_json as unknown[] | null | undefined,
+    outcome_json: raw.outcome_json as Record<string, unknown> | null | undefined,
+    created_at: raw.created_at as string | undefined,
+    labeled_at: raw.labeled_at as string | null | undefined,
+  };
+}
+
+export function isSupportedInsightCandidateOutcomeHorizon(
+  horizon: string,
+): horizon is InsightCandidateOutcomeHorizon {
+  return (INSIGHT_CANDIDATE_OUTCOME_HORIZONS as readonly string[]).includes(horizon);
+}
+
+export function resolveInsightCandidateOutcomeBarQuery(horizon: string): {
+  timeframe: string;
+  limit: number;
+} {
+  if (!isSupportedInsightCandidateOutcomeHorizon(horizon)) {
+    return { timeframe: "1d", limit: 10 };
+  }
+  const limit = horizon === "4h" ? 200 : 50;
+  return { timeframe: "1m", limit };
+}
 
 function normalizeSymbol(symbol: string): string {
   return symbol.toUpperCase().replace(/\.(US|HK|SH|SZ|SG)$/i, "");
@@ -395,6 +508,13 @@ export async function labelDecisionOutcome(
   });
 }
 
+export interface InsightCandidateOutcomeLabelPayload {
+  status: OutcomeFinalStatus;
+  normalized_label: NormalizedOutcomeLabel;
+  reason_codes_json?: string[];
+  outcome_json?: Record<string, unknown>;
+}
+
 export async function finalizeDueOutcome(input: {
   outcome: DecisionOutcomeRow;
   symbolBars?: MarketBar[];
@@ -413,6 +533,160 @@ export async function finalizeDueOutcome(input: {
   }
   const payload = await buildOutcomeLabelPayload(input);
   const label = input.label ?? labelDecisionOutcome;
+  return label(input.outcome.outcome_id, payload);
+}
+
+export async function fetchDueInsightCandidateOutcomes(input: {
+  now?: string;
+  limit?: number;
+  symbol?: string;
+}): Promise<InsightCandidateOutcomeRow[]> {
+  const params = new URLSearchParams();
+  if (input.now) {
+    params.set("now", input.now);
+  }
+  if (input.limit !== undefined) {
+    params.set("limit", String(input.limit));
+  }
+  if (input.symbol) {
+    params.set("symbol", input.symbol.toUpperCase());
+  }
+  const query = params.toString();
+  const response = await fetchStage1<{ items: Record<string, unknown>[]; count: number }>(
+    `/insight-candidate-outcomes/due${query ? `?${query}` : ""}`,
+  );
+  return response.items.map(mapToInsightCandidateOutcomeRow);
+}
+
+export async function labelInsightCandidateOutcome(
+  outcome_id: string,
+  payload: InsightCandidateOutcomeLabelPayload,
+): Promise<InsightCandidateOutcomeRow> {
+  const raw = await fetchStage1<Record<string, unknown>>(
+    `/insight-candidate-outcomes/${outcome_id}/label`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        status: payload.status,
+        normalized_label: payload.normalized_label,
+        reason_codes_json: payload.reason_codes_json,
+        outcome_json: payload.outcome_json,
+      }),
+    },
+  );
+  return mapToInsightCandidateOutcomeRow(raw);
+}
+
+export function buildCompactEvidenceSummary(input: {
+  symbol: string;
+  horizon: string;
+  reference_price: number;
+  future_price: number;
+  benchmark_symbol: string;
+  benchmark_return_pct: number;
+  absolute_return_pct: number;
+  relative_return_pct: number;
+}): string {
+  const lines = [
+    `symbol: ${input.symbol}  horizon: ${input.horizon}`,
+    `ref: ${input.reference_price.toFixed(2)}  now: ${input.future_price.toFixed(2)}`,
+    `return: ${input.absolute_return_pct.toFixed(2)}%  vs ${input.benchmark_symbol}: ${input.relative_return_pct.toFixed(2)}%`,
+    `benchmark_return: ${input.benchmark_return_pct.toFixed(2)}%`,
+  ];
+  return lines.join("\n");
+}
+
+export async function buildInsightCandidateOutcomeLabelPayload(input: {
+  outcome: InsightCandidateOutcomeRow;
+  symbolBars?: MarketBar[];
+  benchmarkBars?: MarketBar[];
+  fetchBars?: (symbol: string, timeframe: string, limit: number) => Promise<MarketBar[]>;
+}): Promise<InsightCandidateOutcomeLabelPayload> {
+  const fetchBars = input.fetchBars ?? fetchMarketBars;
+
+  try {
+    const benchmark = resolveBenchmarkSymbol(input.outcome.symbol);
+    const barQuery = resolveInsightCandidateOutcomeBarQuery(input.outcome.horizon);
+
+    const symbolBars =
+      input.symbolBars ??
+      (await fetchBars(input.outcome.symbol, barQuery.timeframe, barQuery.limit));
+    const benchmarkBars =
+      input.benchmarkBars ??
+      (await fetchBars(benchmark, barQuery.timeframe, barQuery.limit));
+
+    if (symbolBars.length < 2 || benchmarkBars.length < 2) {
+      return {
+        status: "skipped",
+        normalized_label: "insufficient_data",
+        reason_codes_json: ["insufficient_market_bars"],
+        outcome_json: {
+          reason: "insufficient_market_bars",
+          horizon: input.outcome.horizon,
+        },
+      };
+    }
+
+    const reference_price = symbolBars[0].close;
+    const future_price = symbolBars[symbolBars.length - 1].close;
+    const absolute_return_pct = ((future_price - reference_price) / reference_price) * 100;
+    const benchmark_return_pct =
+      ((benchmarkBars[benchmarkBars.length - 1].close - benchmarkBars[0].close) /
+        benchmarkBars[0].close) * 100;
+    const relative_return_pct = absolute_return_pct - benchmark_return_pct;
+
+    return {
+      status: "labeled",
+      normalized_label: relative_return_pct > 0.5 ? "hit" : relative_return_pct < -0.5 ? "miss" : "neutral",
+      reason_codes_json: [],
+      outcome_json: {
+        horizon: input.outcome.horizon,
+        reference_price,
+        future_price,
+        absolute_return_pct,
+        benchmark_symbol: benchmark,
+        benchmark_return_pct,
+        relative_return_pct,
+        evidence_summary: buildCompactEvidenceSummary({
+          symbol: input.outcome.symbol,
+          horizon: input.outcome.horizon,
+          reference_price,
+          future_price,
+          benchmark_symbol: benchmark,
+          benchmark_return_pct,
+          absolute_return_pct,
+          relative_return_pct,
+        }),
+      },
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      normalized_label: "invalid",
+      reason_codes_json: [],
+      outcome_json: {
+        reason: error instanceof Error ? error.message : "unknown_error",
+        horizon: input.outcome.horizon,
+      },
+    };
+  }
+}
+
+export async function finalizeDueInsightCandidateOutcome(input: {
+  outcome: InsightCandidateOutcomeRow;
+  symbolBars?: MarketBar[];
+  benchmarkBars?: MarketBar[];
+  fetchBars?: (symbol: string, timeframe: string, limit: number) => Promise<MarketBar[]>;
+  label?: (
+    outcome_id: string,
+    payload: InsightCandidateOutcomeLabelPayload,
+  ) => Promise<InsightCandidateOutcomeRow>;
+}): Promise<InsightCandidateOutcomeRow> {
+  if (input.outcome.status !== "pending") {
+    throw new Error(`outcome ${input.outcome.outcome_id} is not pending`);
+  }
+  const payload = await buildInsightCandidateOutcomeLabelPayload(input);
+  const label = input.label ?? labelInsightCandidateOutcome;
   return label(input.outcome.outcome_id, payload);
 }
 

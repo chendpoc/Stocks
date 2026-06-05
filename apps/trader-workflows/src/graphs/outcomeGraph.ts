@@ -3,7 +3,15 @@ import { randomUUID } from "node:crypto";
 import {
   fetchDueDecisionOutcomes,
   finalizeDueOutcome,
+  fetchDueInsightCandidateOutcomes,
+  finalizeDueInsightCandidateOutcome,
+  normalizeDecisionLabel,
+  normalizeOutcomeLabel,
   type DecisionOutcomeRow,
+  type InsightCandidateOutcomeRow,
+  type NormalizedOutcomeLabel,
+  type OutcomeRow,
+  type OutcomeSourceType,
 } from "../services/outcomes.js";
 
 export interface OutcomeGraphRunInput {
@@ -19,43 +27,100 @@ export interface OutcomeGraphRunResult {
   labeled_count: number;
   skipped_count: number;
   failed_count: number;
-  outcomes: DecisionOutcomeRow[];
+  counts_by_source_type: Record<OutcomeSourceType, number>;
+  counts_by_normalized_label: Record<NormalizedOutcomeLabel, number>;
+  outcomes: OutcomeRow[];
 }
 
 export interface OutcomeGraphDeps {
-  fetchDue?: typeof fetchDueDecisionOutcomes;
-  finalize?: typeof finalizeDueOutcome;
+  fetchDueDecision?: typeof fetchDueDecisionOutcomes;
+  finalizeDecision?: typeof finalizeDueOutcome;
+  fetchDueInsight?: typeof fetchDueInsightCandidateOutcomes;
+  finalizeInsight?: typeof finalizeDueInsightCandidateOutcome;
 }
+
+const ZERO_COUNTS_BY_SOURCE: Record<OutcomeSourceType, number> = {
+  decision: 0,
+  insight_candidate: 0,
+};
+
+const ZERO_COUNTS_BY_LABEL: Record<NormalizedOutcomeLabel, number> = {
+  hit: 0,
+  miss: 0,
+  neutral: 0,
+  invalid: 0,
+  insufficient_data: 0,
+};
 
 export class OutcomeGraph {
   private readonly deps: Required<OutcomeGraphDeps>;
 
   constructor(deps: OutcomeGraphDeps = {}) {
     this.deps = {
-      fetchDue: deps.fetchDue ?? fetchDueDecisionOutcomes,
-      finalize: deps.finalize ?? finalizeDueOutcome,
+      fetchDueDecision: deps.fetchDueDecision ?? fetchDueDecisionOutcomes,
+      finalizeDecision: deps.finalizeDecision ?? finalizeDueOutcome,
+      fetchDueInsight: deps.fetchDueInsight ?? fetchDueInsightCandidateOutcomes,
+      finalizeInsight: deps.finalizeInsight ?? finalizeDueInsightCandidateOutcome,
     };
   }
 
   async runDue(input: OutcomeGraphRunInput = {}): Promise<OutcomeGraphRunResult> {
     const run_id = input.run_id ?? `run_${randomUUID().replace(/-/g, "")}`;
-    const due = await this.deps.fetchDue({
-      now: input.now,
-      limit: input.limit ?? 100,
-      symbol: input.symbol,
-    });
 
-    const outcomes: DecisionOutcomeRow[] = [];
+    const [decisionRows, insightRows] = await Promise.all([
+      this.deps.fetchDueDecision({
+        now: input.now,
+        limit: input.limit ?? 100,
+        symbol: input.symbol,
+      }),
+      this.deps.fetchDueInsight({
+        now: input.now,
+        limit: input.limit ?? 100,
+        symbol: input.symbol,
+      }),
+    ]);
+
+    const outcomes: OutcomeRow[] = [];
     let labeled_count = 0;
     let skipped_count = 0;
     let failed_count = 0;
+    const counts_by_source_type = { ...ZERO_COUNTS_BY_SOURCE };
+    const counts_by_normalized_label = { ...ZERO_COUNTS_BY_LABEL };
 
-    for (const row of due) {
+    // Process decision outcomes
+    for (const row of decisionRows) {
       if (row.status !== "pending") {
         continue;
       }
-      const finalized = await this.deps.finalize({ outcome: row });
+      const finalized = await this.deps.finalizeDecision({ outcome: row });
+      const normalized_label = normalizeDecisionLabel(
+        typeof finalized.label === "string" ? finalized.label : "neutral",
+      );
       outcomes.push(finalized);
+      counts_by_source_type.decision += 1;
+      counts_by_normalized_label[normalized_label] += 1;
+      if (finalized.status === "labeled") {
+        labeled_count += 1;
+      } else if (finalized.status === "skipped") {
+        skipped_count += 1;
+      } else if (finalized.status === "failed") {
+        failed_count += 1;
+      }
+    }
+
+    // Process insight candidate outcomes
+    for (const row of insightRows) {
+      if (row.status !== "pending") {
+        continue;
+      }
+      const finalized = await this.deps.finalizeInsight({ outcome: row });
+      const normalized_label = normalizeOutcomeLabel({
+        source_label: finalized.normalized_label ?? "neutral",
+        source_type: "insight_candidate",
+      });
+      outcomes.push(finalized);
+      counts_by_source_type.insight_candidate += 1;
+      counts_by_normalized_label[normalized_label] += 1;
       if (finalized.status === "labeled") {
         labeled_count += 1;
       } else if (finalized.status === "skipped") {
@@ -71,6 +136,8 @@ export class OutcomeGraph {
       labeled_count,
       skipped_count,
       failed_count,
+      counts_by_source_type,
+      counts_by_normalized_label,
       outcomes,
     };
   }

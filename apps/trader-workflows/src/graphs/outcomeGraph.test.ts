@@ -3,9 +3,9 @@ import test from "node:test";
 
 import { OutcomeGraph } from "./outcomeGraph.js";
 import { OUTCOME_HORIZONS } from "../services/decisions.js";
-import type { DecisionOutcomeRow } from "../services/outcomes.js";
+import type { DecisionOutcomeRow, InsightCandidateOutcomeRow } from "../services/outcomes.js";
 
-function pendingOutcome(
+function pendingDecisionOutcome(
   horizon: string,
   outcome_id: string,
 ): DecisionOutcomeRow {
@@ -20,15 +20,30 @@ function pendingOutcome(
   };
 }
 
-test("OutcomeGraph finalizes each due pending row exactly once", async () => {
+function pendingInsightOutcome(
+  outcome_id: string,
+  overrides: Partial<InsightCandidateOutcomeRow> = {},
+): InsightCandidateOutcomeRow {
+  return {
+    outcome_id,
+    insight_id: "ins-test-1",
+    symbol: "TSLA",
+    horizon: "2m",
+    status: "pending",
+    due_at: "2026-06-01T09:30:00Z",
+    ...overrides,
+  };
+}
+
+test("OutcomeGraph finalizes each due pending decision row exactly once", async () => {
   const dueRows = OUTCOME_HORIZONS.map((horizon, index) =>
-    pendingOutcome(horizon, `out-${index}`),
+    pendingDecisionOutcome(horizon, `out-${index}`),
   );
   const labeled = new Set<string>();
 
   const result = await new OutcomeGraph({
-    fetchDue: async () => dueRows,
-    finalize: async ({ outcome }) => {
+    fetchDueDecision: async () => dueRows,
+    finalizeDecision: async ({ outcome }) => {
       assert.equal(outcome.status, "pending");
       assert.ok(!labeled.has(outcome.outcome_id));
       labeled.add(outcome.outcome_id);
@@ -38,6 +53,7 @@ test("OutcomeGraph finalizes each due pending row exactly once", async () => {
         label: "positive",
       };
     },
+    fetchDueInsight: async () => [],
   }).runDue({ now: "2026-06-02T12:00:00Z" });
 
   assert.equal(result.processed_count, OUTCOME_HORIZONS.length);
@@ -59,11 +75,12 @@ test("OutcomeGraph does not mutate context snapshots", async () => {
 
   try {
     await new OutcomeGraph({
-      fetchDue: async () => [pendingOutcome("1d", "out-1")],
-      finalize: async ({ outcome }) => ({
+      fetchDueDecision: async () => [pendingDecisionOutcome("1d", "out-1")],
+      finalizeDecision: async ({ outcome }) => ({
         ...outcome,
         status: "labeled",
       }),
+      fetchDueInsight: async () => [],
     }).runDue();
     assert.equal(contextSnapshotWrites, 0);
   } finally {
@@ -71,14 +88,14 @@ test("OutcomeGraph does not mutate context snapshots", async () => {
   }
 });
 
-test("OutcomeGraph aggregates skipped and failed counts", async () => {
+test("OutcomeGraph aggregates skipped and failed counts for decisions", async () => {
   const result = await new OutcomeGraph({
-    fetchDue: async () => [
-      pendingOutcome("30m", "out-a"),
-      pendingOutcome("1h", "out-b"),
-      pendingOutcome("EOD", "out-c"),
+    fetchDueDecision: async () => [
+      pendingDecisionOutcome("30m", "out-a"),
+      pendingDecisionOutcome("1h", "out-b"),
+      pendingDecisionOutcome("EOD", "out-c"),
     ],
-    finalize: async ({ outcome }) => ({
+    finalizeDecision: async ({ outcome }) => ({
       ...outcome,
       status:
         outcome.horizon === "1h"
@@ -86,11 +103,102 @@ test("OutcomeGraph aggregates skipped and failed counts", async () => {
           : outcome.horizon === "EOD"
             ? "failed"
             : "labeled",
+      label: "neutral",
     }),
+    fetchDueInsight: async () => [],
   }).runDue();
 
   assert.equal(result.processed_count, 3);
   assert.equal(result.labeled_count, 1);
   assert.equal(result.skipped_count, 1);
   assert.equal(result.failed_count, 1);
+  assert.equal(result.counts_by_source_type.decision, 3);
+  assert.equal(result.counts_by_source_type.insight_candidate, 0);
+});
+
+test("OutcomeGraph includes counts_by_source_type and counts_by_normalized_label", async () => {
+  const result = await new OutcomeGraph({
+    fetchDueDecision: async () => [
+      pendingDecisionOutcome("1d", "d1"),
+      pendingDecisionOutcome("3d", "d2"),
+    ],
+    finalizeDecision: async ({ outcome }) => ({
+      ...outcome,
+      status: "labeled",
+      label: outcome.horizon === "1d" ? "target_hit" : "invalidated",
+    }),
+    fetchDueInsight: async () => [],
+  }).runDue();
+
+  assert.equal(result.counts_by_source_type.decision, 2);
+  assert.equal(result.counts_by_source_type.insight_candidate, 0);
+  assert.equal(result.counts_by_normalized_label.hit, 1);
+  assert.equal(result.counts_by_normalized_label.miss, 1);
+  assert.equal(result.counts_by_normalized_label.neutral, 0);
+});
+
+test("OutcomeGraph processes both decision and insight candidate outcomes", async () => {
+  const result = await new OutcomeGraph({
+    fetchDueDecision: async () => [
+      pendingDecisionOutcome("1d", "d1"),
+    ],
+    finalizeDecision: async ({ outcome }) => ({
+      ...outcome,
+      status: "labeled",
+      label: "positive",
+    }),
+    fetchDueInsight: async () => [
+      pendingInsightOutcome("i1", { horizon: "2m" }),
+      pendingInsightOutcome("i2", { horizon: "5m" }),
+    ],
+    finalizeInsight: async ({ outcome }) => ({
+      ...outcome,
+      status: outcome.outcome_id === "i1" ? "labeled" : "skipped",
+      normalized_label: outcome.outcome_id === "i1" ? "hit" : "insufficient_data",
+    }),
+  }).runDue();
+
+  assert.equal(result.processed_count, 3);
+  assert.equal(result.labeled_count, 2);
+  assert.equal(result.skipped_count, 1);
+  assert.equal(result.counts_by_source_type.decision, 1);
+  assert.equal(result.counts_by_source_type.insight_candidate, 2);
+  assert.equal(result.counts_by_normalized_label.hit, 2);
+  assert.equal(result.counts_by_normalized_label.insufficient_data, 1);
+});
+
+test("OutcomeGraph skips non-pending rows for insight outcomes", async () => {
+  const result = await new OutcomeGraph({
+    fetchDueDecision: async () => [],
+    fetchDueInsight: async () => [
+      pendingInsightOutcome("i1"),
+      { ...pendingInsightOutcome("i2"), status: "labeled" },
+    ],
+    finalizeInsight: async ({ outcome }) => ({
+      ...outcome,
+      status: "labeled",
+      normalized_label: "neutral",
+    }),
+  }).runDue();
+
+  assert.equal(result.processed_count, 1);
+  assert.equal(result.counts_by_source_type.insight_candidate, 1);
+});
+
+test("OutcomeGraph aggregate counts reflect final status, not source label", async () => {
+  const result = await new OutcomeGraph({
+    fetchDueDecision: async () => [],
+    fetchDueInsight: async () => [
+      pendingInsightOutcome("i1"),
+      pendingInsightOutcome("i2"),
+    ],
+    finalizeInsight: async ({ outcome }) => ({
+      ...outcome,
+      status: "failed",
+      normalized_label: "invalid",
+    }),
+  }).runDue();
+
+  assert.equal(result.failed_count, 2);
+  assert.equal(result.counts_by_normalized_label.invalid, 2);
 });

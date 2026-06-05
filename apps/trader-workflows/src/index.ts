@@ -426,6 +426,8 @@ async function handleOutcomesRunCommandAsync(
       labeled_count: result.labeled_count,
       skipped_count: result.skipped_count,
       failed_count: result.failed_count,
+      counts_by_source_type: result.counts_by_source_type,
+      counts_by_normalized_label: result.counts_by_normalized_label,
       outcomes: result.outcomes,
     },
   });
