@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import { fetchStage1 } from "../api/client.js";
-import type { DecisionOutcomeRow } from "./outcomes.js";
+import type { DecisionOutcomeRow, InsightCandidateOutcomeRow, NormalizedOutcomeLabel } from "./outcomes.js";
+import { normalizeDecisionLabel, normalizeInsightLabel, mapToInsightCandidateOutcomeRow } from "./outcomes.js";
 
 export type EvaluationRecommendation = "hold" | "needs_more_data";
 export type EvaluationPath = "model_path" | "override_path";
@@ -59,6 +60,44 @@ export interface EvaluationReportRecord {
   created_at?: string;
 }
 
+export interface DecisionOutcomeSummary {
+  decision_id: string;
+  symbol: string;
+  horizon: string;
+  path: string;
+  normalized_label: NormalizedOutcomeLabel;
+  relative_return_pct: number | null;
+  absolute_return_pct: number | null;
+}
+
+export interface InsightCandidateOutcomeSummary {
+  outcome_id: string;
+  insight_id: string;
+  symbol: string;
+  horizon: string;
+  normalized_label: NormalizedOutcomeLabel;
+  reason_codes: string[];
+}
+
+export interface EvaluationReportSections {
+  decision_performance: {
+    total: number;
+    by_label: Record<string, number>;
+    mean_relative_return_pct: number | null;
+    mean_absolute_return_pct: number | null;
+  };
+  insight_candidate_performance: {
+    total: number;
+    by_label: Record<string, number>;
+    hit_rate: number | null;
+  };
+  top_positive_patterns: string[];
+  top_negative_patterns: string[];
+  failure_modes: string[];
+  data_gaps: string[];
+  evidence_refs: string[];
+}
+
 export interface BuildEvaluationReportInput {
   model_version?: string;
   symbol?: string;
@@ -75,6 +114,7 @@ export interface EvaluationReportPayload {
   window_end: string | null;
   metrics_json: EvaluationMetrics;
   recommendation: EvaluationRecommendation;
+  sections: EvaluationReportSections;
   report_json: Record<string, unknown>;
 }
 
@@ -239,8 +279,231 @@ export function filterOutcomesForModelVersion(input: {
   return input.outcomes.filter((outcome) => decisionIds.has(outcome.decision_id));
 }
 
+export function toDecisionOutcomeSummaries(
+  outcomes: EvaluationOutcomeRow[],
+): DecisionOutcomeSummary[] {
+  return outcomes
+    .filter((row) => row.status === "labeled" && row.label)
+    .map((row) => ({
+      decision_id: row.decision_id,
+      symbol: row.symbol,
+      horizon: row.horizon,
+      path: row.path,
+      normalized_label: normalizeDecisionLabel(row.label!),
+      relative_return_pct: parseNumber(row.relative_return_pct),
+      absolute_return_pct: parseNumber(row.absolute_return_pct),
+    }));
+}
+
+export function toInsightCandidateOutcomeSummaries(
+  outcomes: InsightCandidateOutcomeRow[],
+): InsightCandidateOutcomeSummary[] {
+  return outcomes
+    .filter((row) => row.status === "labeled" && row.normalized_label)
+    .map((row) => ({
+      outcome_id: row.outcome_id,
+      insight_id: row.insight_id,
+      symbol: row.symbol,
+      horizon: row.horizon,
+      normalized_label: normalizeInsightLabel(row.normalized_label!),
+      reason_codes: row.reason_codes_json ?? [],
+    }));
+}
+
+function countByLabel(labels: NormalizedOutcomeLabel[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const label of labels) {
+    counts[label] = (counts[label] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function rankSymbolsByFrequency(items: { symbol: string }[]): string[] {
+  const freq = new Map<string, number>();
+  for (const item of items) {
+    freq.set(item.symbol, (freq.get(item.symbol) ?? 0) + 1);
+  }
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([symbol, count]) => `${symbol}(${count})`);
+}
+
+function rankHorizonsByFrequency(items: { horizon: string }[]): string[] {
+  const freq = new Map<string, number>();
+  for (const item of items) {
+    freq.set(item.horizon, (freq.get(item.horizon) ?? 0) + 1);
+  }
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([horizon, count]) => `${horizon}(${count})`);
+}
+
+function detectPositivePatterns(
+  decisionSummaries: DecisionOutcomeSummary[],
+  insightSummaries: InsightCandidateOutcomeSummary[],
+): string[] {
+  const patterns: string[] = [];
+  const hitDecisions = decisionSummaries.filter((d) => d.normalized_label === "hit");
+  if (hitDecisions.length > 0) {
+    const topSymbols = rankSymbolsByFrequency(hitDecisions);
+    patterns.push(`decision hits by symbol: ${topSymbols.join(", ")}`);
+    const topHorizons = rankHorizonsByFrequency(hitDecisions);
+    if (topHorizons.length > 0) {
+      patterns.push(`decision hit horizons: ${topHorizons.join(", ")}`);
+    }
+  }
+  const hitInsights = insightSummaries.filter((i) => i.normalized_label === "hit");
+  if (hitInsights.length > 0) {
+    const topSymbols = rankSymbolsByFrequency(hitInsights);
+    patterns.push(`insight candidate hits by symbol: ${topSymbols.join(", ")}`);
+    const topHorizons = rankHorizonsByFrequency(hitInsights);
+    if (topHorizons.length > 0) {
+      patterns.push(`insight candidate hit horizons: ${topHorizons.join(", ")}`);
+    }
+  }
+  return patterns.slice(0, 5);
+}
+
+function detectNegativePatterns(
+  decisionSummaries: DecisionOutcomeSummary[],
+  insightSummaries: InsightCandidateOutcomeSummary[],
+): string[] {
+  const patterns: string[] = [];
+  const missDecisions = decisionSummaries.filter((d) => d.normalized_label === "miss");
+  if (missDecisions.length > 0) {
+    const topSymbols = rankSymbolsByFrequency(missDecisions);
+    patterns.push(`decision misses by symbol: ${topSymbols.join(", ")}`);
+    const topHorizons = rankHorizonsByFrequency(missDecisions);
+    if (topHorizons.length > 0) {
+      patterns.push(`decision miss horizons: ${topHorizons.join(", ")}`);
+    }
+  }
+  const missInsights = insightSummaries.filter((i) => i.normalized_label === "miss");
+  if (missInsights.length > 0) {
+    const topSymbols = rankSymbolsByFrequency(missInsights);
+    patterns.push(`insight candidate misses by symbol: ${topSymbols.join(", ")}`);
+    const topHorizons = rankHorizonsByFrequency(missInsights);
+    if (topHorizons.length > 0) {
+      patterns.push(`insight candidate miss horizons: ${topHorizons.join(", ")}`);
+    }
+  }
+  return patterns.slice(0, 5);
+}
+
+function detectFailureModes(
+  decisionSummaries: DecisionOutcomeSummary[],
+  insightSummaries: InsightCandidateOutcomeSummary[],
+): string[] {
+  const modes: string[] = [];
+  const invalidDecisions = decisionSummaries.filter((d) => d.normalized_label === "invalid");
+  if (invalidDecisions.length > 0) {
+    const topSymbols = rankSymbolsByFrequency(invalidDecisions);
+    modes.push(`${invalidDecisions.length} decision outcome(s) invalid — ${topSymbols.join(", ")}`);
+  }
+  const invalidInsights = insightSummaries.filter((i) => i.normalized_label === "invalid");
+  if (invalidInsights.length > 0) {
+    const topSymbols = rankSymbolsByFrequency(invalidInsights);
+    modes.push(`${invalidInsights.length} insight candidate outcome(s) invalid — ${topSymbols.join(", ")}`);
+  }
+  const insufficientInsights = insightSummaries.filter(
+    (i) => i.normalized_label === "insufficient_data",
+  );
+  if (insufficientInsights.length > 0) {
+    const topHorizons = rankHorizonsByFrequency(insufficientInsights);
+    modes.push(`${insufficientInsights.length} insight outcome(s) insufficient data — horizons: ${topHorizons.join(", ")}`);
+  }
+  return modes.slice(0, 5);
+}
+
+function detectDataGaps(
+  decisionSummaries: DecisionOutcomeSummary[],
+  insightSummaries: InsightCandidateOutcomeSummary[],
+  rawDecisionOutcomes: EvaluationOutcomeRow[],
+): string[] {
+  const gaps: string[] = [];
+  const skippedDecisions = rawDecisionOutcomes.filter((r) => r.status === "skipped");
+  if (skippedDecisions.length > 0) {
+    gaps.push(`${skippedDecisions.length} decision outcome(s) skipped (no market data)`);
+  }
+  if (decisionSummaries.length === 0) {
+    gaps.push("no labeled decision outcomes available for evaluation");
+  }
+  if (insightSummaries.length === 0) {
+    gaps.push("no labeled insight candidate outcomes available for evaluation");
+  }
+  const insufficientReasonCodes = insightSummaries
+    .flatMap((i) => i.reason_codes)
+    .filter((c) => c === "insufficient_market_bars");
+  if (insufficientReasonCodes.length > 0) {
+    gaps.push(`${insufficientReasonCodes.length} insight outcome(s) flagged insufficient market bars`);
+  }
+  return gaps.slice(0, 5);
+}
+
+function collectEvidenceRefs(
+  decisionSummaries: DecisionOutcomeSummary[],
+  insightSummaries: InsightCandidateOutcomeSummary[],
+): string[] {
+  const refs: string[] = [];
+  if (decisionSummaries.length > 0) {
+    refs.push(`decision_outcomes: ${decisionSummaries.length} labeled records`);
+  }
+  if (insightSummaries.length > 0) {
+    refs.push(`insight_candidate_outcomes: ${insightSummaries.length} labeled records`);
+  }
+  const decisionSymbols = [...new Set(decisionSummaries.map((d) => d.symbol))];
+  const insightSymbols = [...new Set(insightSummaries.map((i) => i.symbol))];
+  const allSymbols = [...new Set([...decisionSymbols, ...insightSymbols])];
+  if (allSymbols.length > 0) {
+    refs.push(`symbols_covered: ${allSymbols.slice(0, 10).join(", ")}`);
+  }
+  return refs;
+}
+
+export function buildEvaluationReportSections(input: {
+  decisionOutcomes: EvaluationOutcomeRow[];
+  insightCandidateOutcomes: InsightCandidateOutcomeRow[];
+}): EvaluationReportSections {
+  const decisionSummaries = toDecisionOutcomeSummaries(input.decisionOutcomes);
+  const insightSummaries = toInsightCandidateOutcomeSummaries(input.insightCandidateOutcomes);
+
+  const decisionLabels = decisionSummaries.map((d) => d.normalized_label);
+  const insightLabels = insightSummaries.map((i) => i.normalized_label);
+
+  const decisionReturns = decisionSummaries
+    .map((d) => d.relative_return_pct)
+    .filter((v): v is number => v !== null);
+  const decisionAbsReturns = decisionSummaries
+    .map((d) => d.absolute_return_pct)
+    .filter((v): v is number => v !== null);
+
+  const insightHits = insightLabels.filter((l) => l === "hit").length;
+
+  return {
+    decision_performance: {
+      total: decisionSummaries.length,
+      by_label: countByLabel(decisionLabels),
+      mean_relative_return_pct: mean(decisionReturns),
+      mean_absolute_return_pct: mean(decisionAbsReturns),
+    },
+    insight_candidate_performance: {
+      total: insightSummaries.length,
+      by_label: countByLabel(insightLabels),
+      hit_rate: insightSummaries.length > 0 ? insightHits / insightSummaries.length : null,
+    },
+    top_positive_patterns: detectPositivePatterns(decisionSummaries, insightSummaries),
+    top_negative_patterns: detectNegativePatterns(decisionSummaries, insightSummaries),
+    failure_modes: detectFailureModes(decisionSummaries, insightSummaries),
+    data_gaps: detectDataGaps(decisionSummaries, insightSummaries, input.decisionOutcomes),
+    evidence_refs: collectEvidenceRefs(decisionSummaries, insightSummaries),
+  };
+}
+
 export function buildEvaluationReportPayload(input: {
   outcomes: EvaluationOutcomeRow[];
+  insightCandidateOutcomes?: InsightCandidateOutcomeRow[];
   model_version: string;
   report_id?: string;
   window_start?: string | null;
@@ -250,6 +513,11 @@ export function buildEvaluationReportPayload(input: {
   const recommendation = deriveRecommendation(metrics_json);
   const inferredWindow = inferEvaluationWindow(input.outcomes);
 
+  const sections = buildEvaluationReportSections({
+    decisionOutcomes: input.outcomes,
+    insightCandidateOutcomes: input.insightCandidateOutcomes ?? [],
+  });
+
   return {
     report_id: input.report_id ?? `eval_${randomUUID().replace(/-/g, "")}`,
     model_version: input.model_version,
@@ -257,9 +525,11 @@ export function buildEvaluationReportPayload(input: {
     window_end: input.window_end ?? inferredWindow.window_end,
     metrics_json,
     recommendation,
+    sections,
     report_json: {
       summary: "Stage 1 single-arm evaluation; no auto-promotion",
       outcome_count: input.outcomes.length,
+      insight_candidate_outcome_count: (input.insightCandidateOutcomes ?? []).length,
       recommendation_reason:
         recommendation === "hold"
           ? "sufficient labeled model_path outcomes"
@@ -293,6 +563,25 @@ export async function fetchDecisionOutcomesForEvaluation(input: {
     `/decision-outcomes${query ? `?${query}` : ""}`,
   );
   return response.items;
+}
+
+export async function fetchInsightCandidateOutcomesForEvaluation(input: {
+  symbol?: string;
+  limit?: number;
+}): Promise<InsightCandidateOutcomeRow[]> {
+  const params = new URLSearchParams();
+  if (input.symbol) {
+    params.set("symbol", input.symbol.toUpperCase());
+  }
+  if (input.limit !== undefined) {
+    params.set("limit", String(input.limit));
+  }
+  params.set("status", "labeled");
+  const query = params.toString();
+  const response = await fetchStage1<{ items: Record<string, unknown>[]; count: number }>(
+    `/insight-candidate-outcomes${query ? `?${query}` : ""}`,
+  );
+  return response.items.map(mapToInsightCandidateOutcomeRow);
 }
 
 export async function fetchModelDecisionsForEvaluation(input: {
@@ -332,7 +621,7 @@ export async function buildEvaluationReport(
   const model_version = input.model_version ?? "stage1-v0";
   const limit = input.limit ?? 500;
 
-  const [outcomes, decisions] = await Promise.all([
+  const [outcomes, decisions, insightCandidateOutcomes] = await Promise.all([
     fetchDecisionOutcomesForEvaluation({
       symbol: input.symbol,
       limit,
@@ -340,6 +629,10 @@ export async function buildEvaluationReport(
     fetchModelDecisionsForEvaluation({
       symbol: input.symbol,
       model_version,
+      limit,
+    }),
+    fetchInsightCandidateOutcomesForEvaluation({
+      symbol: input.symbol,
       limit,
     }),
   ]);
@@ -352,6 +645,7 @@ export async function buildEvaluationReport(
 
   return buildEvaluationReportPayload({
     outcomes: scopedOutcomes,
+    insightCandidateOutcomes,
     model_version,
     report_id: input.report_id,
     window_start: input.window_start,

@@ -8,7 +8,32 @@ import {
   runEvaluationSummaryGraph,
 } from "./evaluationGraph.js";
 import { EvaluationGraph } from "./evaluationGraph.types.js";
-import { MIN_LABELED_MODEL_PATH, type EvaluationReportPayload } from "../../services/evaluation.js";
+import {
+  MIN_LABELED_MODEL_PATH,
+  type EvaluationReportPayload,
+  type EvaluationReportSections,
+} from "../../services/evaluation.js";
+
+function sampleSections(): EvaluationReportSections {
+  return {
+    decision_performance: {
+      total: MIN_LABELED_MODEL_PATH,
+      by_label: { hit: 2, miss: 1 },
+      mean_relative_return_pct: 1.5,
+      mean_absolute_return_pct: 2,
+    },
+    insight_candidate_performance: {
+      total: 2,
+      by_label: { hit: 1, neutral: 1 },
+      hit_rate: 0.5,
+    },
+    top_positive_patterns: ["decision hits by symbol: TSLA(2)"],
+    top_negative_patterns: [],
+    failure_modes: [],
+    data_gaps: [],
+    evidence_refs: ["decision_outcomes: 3 labeled records", "insight_candidate_outcomes: 2 labeled records"],
+  };
+}
 
 function sampleReport(recommendation: "hold" | "needs_more_data"): EvaluationReportPayload {
   return {
@@ -47,6 +72,7 @@ function sampleReport(recommendation: "hold" | "needs_more_data"): EvaluationRep
         model_better_count: 0,
       },
     },
+    sections: sampleSections(),
     report_json: {
       summary: "Stage 1 single-arm evaluation; no auto-promotion",
       auto_promotion: false,
@@ -133,4 +159,66 @@ test("runEvaluationSummaryGraph invokes the compiled StateGraph path", async () 
   assert.equal(result.run_id, "run-eval-compiled");
   assert.equal(result.report.report_id, "eval-test-1");
   assert.ok(result.persisted_report);
+});
+
+test("EvaluationReport contains all required sections", async () => {
+  const report = sampleReport("hold");
+  const result = await new EvaluationGraph({
+    build: async () => report,
+    persist: async (payload) => ({ ...payload, created_at: "2026-06-02T12:00:00Z" }),
+  }).runSummary({ model_version: "stage1-v0", run_id: "run-sections" });
+
+  const { sections } = result.report;
+  assert.ok(sections, "report must include sections");
+  assert.ok("decision_performance" in sections);
+  assert.ok("insight_candidate_performance" in sections);
+  assert.ok("top_positive_patterns" in sections);
+  assert.ok("top_negative_patterns" in sections);
+  assert.ok("failure_modes" in sections);
+  assert.ok("data_gaps" in sections);
+  assert.ok("evidence_refs" in sections);
+
+  assert.equal(sections.decision_performance.total, MIN_LABELED_MODEL_PATH);
+  assert.equal(sections.insight_candidate_performance.total, 2);
+  assert.equal(sections.insight_candidate_performance.hit_rate, 0.5);
+  assert.ok(Array.isArray(sections.top_positive_patterns));
+  assert.ok(Array.isArray(sections.failure_modes));
+  assert.ok(Array.isArray(sections.evidence_refs));
+});
+
+test("EvaluationReport sections are bounded (no raw data, no full traces)", async () => {
+  const report = sampleReport("hold");
+  const result = await new EvaluationGraph({
+    build: async () => report,
+    persist: async (payload) => ({ ...payload, created_at: "2026-06-02T12:00:00Z" }),
+  }).runSummary({ model_version: "stage1-v0", run_id: "run-bounded" });
+
+  const { sections } = result.report;
+  assert.ok(sections.top_positive_patterns.length <= 5);
+  assert.ok(sections.top_negative_patterns.length <= 5);
+  assert.ok(sections.failure_modes.length <= 5);
+  assert.ok(sections.data_gaps.length <= 5);
+  assert.ok(sections.evidence_refs.length <= 10);
+});
+
+test("EvaluationReport never recommends promotion or RulePack mutation", async () => {
+  for (const rec of ["hold", "needs_more_data"] as const) {
+    const report = sampleReport(rec);
+    const result = await new EvaluationGraph({
+      build: async () => report,
+      persist: async (payload) => {
+        assert.equal(payload.report_json.auto_promotion, false);
+        assert.ok(
+          payload.recommendation === "hold" || payload.recommendation === "needs_more_data",
+        );
+        return { ...payload, created_at: "2026-06-02T12:00:00Z" };
+      },
+    }).runSummary({ model_version: "stage1-v0", run_id: `run-safety-${rec}` });
+
+    assert.equal(result.report.report_json.auto_promotion, false);
+    assert.ok(
+      result.report.recommendation === "hold" ||
+      result.report.recommendation === "needs_more_data",
+    );
+  }
 });

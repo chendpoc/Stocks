@@ -175,12 +175,14 @@ snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
 
 职责：
 
-- 聚合 outcome 与决策表现；
-- 构建 evaluation report；
+- 聚合 decision outcome 与 insight candidate outcome 表现；
+- 构建包含结构化 sections 的 evaluation report（decision_performance、
+  insight_candidate_performance、top_positive_patterns、top_negative_patterns、
+  failure_modes、data_gaps、evidence_refs）；
 - 基于已记录事实评估规则或模型行为；
 - **不**自动晋升模型或变更配置。
 
-该图可以推荐或报告，但**不得**静默晋升模型、改变生产行为或修改活跃 RulePack 策略。
+该图只能推荐 `hold` 或 `needs_more_data`，**不得**静默晋升模型、改变生产行为或修改活跃 RulePack 策略。
 
 ### InsightExplorationGraph
 

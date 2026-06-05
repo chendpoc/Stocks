@@ -237,6 +237,7 @@ async function handleEvalSummaryCommandAsync(
       window_end: result.report.window_end,
       recommendation: result.report.recommendation,
       metrics_json: result.report.metrics_json,
+      sections: result.report.sections,
       report_json: result.report.report_json,
       persisted_report: result.persisted_report,
     },

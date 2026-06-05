@@ -5,6 +5,7 @@ import {
   aggregateEvaluationMetrics,
   aggregatePathMetrics,
   buildEvaluationReportPayload,
+  buildEvaluationReportSections,
   computeDeltaHumanValue,
   deriveRecommendation,
   filterOutcomesForModelVersion,
@@ -12,6 +13,7 @@ import {
   MIN_LABELED_MODEL_PATH,
   type EvaluationOutcomeRow,
 } from "./evaluation.js";
+import type { InsightCandidateOutcomeRow } from "./outcomes.js";
 
 function outcome(
   overrides: Partial<EvaluationOutcomeRow> & Pick<EvaluationOutcomeRow, "outcome_id">,
@@ -147,6 +149,9 @@ test("buildEvaluationReportPayload only emits hold or needs_more_data", () => {
   assert.ok(payload.recommendation === "hold" || payload.recommendation === "needs_more_data");
   assert.equal(payload.report_json.auto_promotion, false);
   assert.equal(payload.metrics_json.model_path.labeled_count, MIN_LABELED_MODEL_PATH);
+  assert.ok(payload.sections, "payload must include sections");
+  assert.ok("decision_performance" in payload.sections);
+  assert.ok("insight_candidate_performance" in payload.sections);
 });
 
 test("filterOutcomesForModelVersion keeps only matching decision ids", () => {
@@ -173,4 +178,102 @@ test("inferEvaluationWindow uses labeled timestamps", () => {
   ]);
   assert.equal(window.window_start, "2026-06-01T10:00:00Z");
   assert.equal(window.window_end, "2026-06-03T10:00:00Z");
+});
+
+test("buildEvaluationReportSections aggregates decision and insight candidate performance", () => {
+  const decisionOutcomes: EvaluationOutcomeRow[] = [
+    outcome({ outcome_id: "d1", label: "positive", relative_return_pct: 2.0, absolute_return_pct: 3.0 }),
+    outcome({ outcome_id: "d2", label: "negative", relative_return_pct: -1.0, absolute_return_pct: -0.5 }),
+    outcome({ outcome_id: "d3", label: "target_hit", relative_return_pct: 5.0, absolute_return_pct: 6.0 }),
+  ];
+
+  const insightOutcomes: InsightCandidateOutcomeRow[] = [
+    {
+      outcome_id: "ic1", insight_id: "ins-1", symbol: "TSLA", horizon: "2m",
+      status: "labeled", normalized_label: "hit", reason_codes_json: [],
+    },
+    {
+      outcome_id: "ic2", insight_id: "ins-2", symbol: "NVDA", horizon: "5m",
+      status: "labeled", normalized_label: "miss", reason_codes_json: ["insufficient_market_bars"],
+    },
+    {
+      outcome_id: "ic3", insight_id: "ins-3", symbol: "TSLA", horizon: "2m",
+      status: "pending", normalized_label: null,
+    },
+  ];
+
+  const sections = buildEvaluationReportSections({
+    decisionOutcomes,
+    insightCandidateOutcomes: insightOutcomes,
+  });
+
+  assert.equal(sections.decision_performance.total, 3);
+  assert.equal(sections.decision_performance.by_label.hit, 2);
+  assert.equal(sections.decision_performance.by_label.miss, 1);
+  assert.equal(sections.decision_performance.mean_relative_return_pct, 2.0);
+
+  assert.equal(sections.insight_candidate_performance.total, 2);
+  assert.equal(sections.insight_candidate_performance.by_label.hit, 1);
+  assert.equal(sections.insight_candidate_performance.by_label.miss, 1);
+  assert.equal(sections.insight_candidate_performance.hit_rate, 0.5);
+
+  assert.ok(sections.top_positive_patterns.length > 0);
+  assert.ok(sections.top_negative_patterns.length > 0);
+  assert.ok(Array.isArray(sections.failure_modes));
+  assert.ok(Array.isArray(sections.data_gaps));
+  assert.ok(sections.evidence_refs.length > 0);
+
+  assert.ok(sections.top_positive_patterns.length <= 5);
+  assert.ok(sections.top_negative_patterns.length <= 5);
+  assert.ok(sections.failure_modes.length <= 5);
+  assert.ok(sections.data_gaps.length <= 5);
+
+  assert.ok(
+    sections.top_positive_patterns[0]?.includes("("),
+    "pattern should include frequency count",
+  );
+});
+
+test("buildEvaluationReportSections handles empty insight candidate outcomes gracefully", () => {
+  const decisionOutcomes: EvaluationOutcomeRow[] = [
+    outcome({ outcome_id: "d1", label: "positive", relative_return_pct: 1.0, absolute_return_pct: 2.0 }),
+  ];
+
+  const sections = buildEvaluationReportSections({
+    decisionOutcomes,
+    insightCandidateOutcomes: [],
+  });
+
+  assert.equal(sections.insight_candidate_performance.total, 0);
+  assert.deepEqual(sections.insight_candidate_performance.by_label, {});
+  assert.equal(sections.insight_candidate_performance.hit_rate, null);
+  assert.ok(
+    sections.data_gaps.some((g) => g.includes("no labeled insight candidate outcomes")),
+    "data_gaps should flag missing insight outcomes",
+  );
+  assert.ok(Array.isArray(sections.top_positive_patterns));
+  assert.ok(Array.isArray(sections.top_negative_patterns));
+  assert.ok(Array.isArray(sections.failure_modes));
+});
+
+test("buildEvaluationReportSections handles both sources empty", () => {
+  const sections = buildEvaluationReportSections({
+    decisionOutcomes: [],
+    insightCandidateOutcomes: [],
+  });
+
+  assert.equal(sections.decision_performance.total, 0);
+  assert.equal(sections.decision_performance.mean_relative_return_pct, null);
+  assert.equal(sections.insight_candidate_performance.total, 0);
+  assert.equal(sections.insight_candidate_performance.hit_rate, null);
+  assert.deepEqual(sections.top_positive_patterns, []);
+  assert.deepEqual(sections.top_negative_patterns, []);
+  assert.deepEqual(sections.failure_modes, []);
+  assert.ok(
+    sections.data_gaps.some((g) => g.includes("no labeled decision outcomes")),
+  );
+  assert.ok(
+    sections.data_gaps.some((g) => g.includes("no labeled insight candidate outcomes")),
+  );
+  assert.deepEqual(sections.evidence_refs, []);
 });

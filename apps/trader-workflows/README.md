@@ -298,13 +298,15 @@ normalize_input
 
 Responsibilities:
 
-- aggregate outcome and decision performance;
-- build evaluation reports;
+- aggregate decision outcome and insight candidate outcome performance;
+- build evaluation reports with structured sections (decision_performance,
+  insight_candidate_performance, top_positive_patterns, top_negative_patterns,
+  failure_modes, data_gaps, evidence_refs);
 - evaluate rule or model behavior from recorded facts;
 - avoid automatic model promotion or configuration mutation.
 
-The graph can recommend or report. It must not silently promote a model,
-change production behavior, or mutate active RulePack policy.
+The graph can recommend `hold` or `needs_more_data`. It must not silently
+promote a model, change production behavior, or mutate active RulePack policy.
 
 ### InsightExplorationGraph
 
