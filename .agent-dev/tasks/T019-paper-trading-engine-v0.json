@@ -1,0 +1,42 @@
+{
+  "id": "T019",
+  "spec_id": "paper-trading-engine-v0",
+  "title": "PaperTradingEngine v0",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add paper trading SQLite tables and artifact types.",
+      "status": "done",
+      "verification": { "ref": "V701", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/app/modules/paper_trading/types.py",
+        "apps/trader-agent/backend/app/modules/paper_trading/store.py"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Deterministic fill engine using MarketStateSnapshot reference price.",
+      "status": "done",
+      "depends_on": ["S1"],
+      "verification": { "ref": "V701", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/modules/paper_trading/engine.py"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Expose /api/paper-trading endpoints and replay tests.",
+      "status": "done",
+      "depends_on": ["S2"],
+      "verification": { "ref": "V701", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/api/paper_trading.py",
+        "apps/trader-agent/backend/app/main.py",
+        "apps/trader-agent/backend/tests/test_paper_trading_engine.py"
+      ]
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T019-paper-trading-engine-v0.md"
+}

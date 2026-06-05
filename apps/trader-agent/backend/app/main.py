@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.agent import knowledge_router
 from app.api.agent import router as agent_router
+from app.api.live_market_plane import router as live_market_plane_router
+from app.api.paper_trading import router as paper_trading_router
 from app.api.rule_candidates import router as rule_candidates_router
 from app.core.config import Settings
 from app.intel.api import intel_router
@@ -42,6 +44,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agent_router)
     app.include_router(knowledge_router)
     app.include_router(rule_candidates_router)
+    app.include_router(live_market_plane_router)
+    app.include_router(paper_trading_router)
     app.include_router(intel_router, prefix="/api/intel")
     init_intel_db(app.state.settings)
     return app

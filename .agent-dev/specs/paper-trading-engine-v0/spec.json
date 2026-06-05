@@ -1,0 +1,35 @@
+{
+  "id": "paper-trading-engine-v0",
+  "title": "PaperTradingEngine v0",
+  "status": "active",
+  "source_docs": [
+    "project-docs/backlog/now/paper-trading-engine-v0.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    ".agent-dev/specs/analysis-to-execution-contract-v0/spec.md",
+    ".agent-dev/specs/live-market-data-plane-v0/spec.md"
+  ],
+  "scope": {
+    "create": [
+      "apps/trader-agent/backend/app/modules/paper_trading/**",
+      "apps/trader-agent/backend/app/api/paper_trading.py",
+      "apps/trader-agent/backend/tests/test_paper_trading_engine.py"
+    ],
+    "modify": [
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-agent/backend/app/main.py"
+    ],
+    "forbidden": [
+      "apps/trader-workflows/src/**",
+      "apps/trader-cli/**",
+      "apps/trader-cockpit/**",
+      "docs/**"
+    ]
+  },
+  "verification": [
+    {
+      "id": "V701",
+      "command": "cd apps/trader-agent/backend && python -m pytest tests/test_paper_trading_engine.py -v --tb=short",
+      "blocking": true
+    }
+  ]
+}
