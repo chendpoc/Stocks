@@ -1,4 +1,4 @@
-import type { ContextSnapshotRecord } from "../services/contextSnapshots.js";
+import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
 
 export interface EvidenceRef {
   ref_type: string;

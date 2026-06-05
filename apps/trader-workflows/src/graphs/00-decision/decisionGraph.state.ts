@@ -1,11 +1,11 @@
 import { Annotation } from "@langchain/langgraph";
 
-import type { DecisionEnvelope } from "../llm/decisionEnvelope.js";
-import type { ContextSnapshotRecord } from "../services/contextSnapshots.js";
+import type { DecisionEnvelope } from "../../llm/decisionEnvelope.js";
+import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
 import type {
   PersistedModelDecision,
   ScheduledDecisionOutcome,
-} from "../services/decisions.js";
+} from "../../services/decisions.js";
 import type { EvidenceRef } from "./evidenceRefs.js";
 
 export const DecisionGraphStateAnnotation = Annotation.Root({

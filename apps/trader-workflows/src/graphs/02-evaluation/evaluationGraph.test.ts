@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { EvaluationGraph } from "./evaluationGraph.js";
-import { MIN_LABELED_MODEL_PATH, type EvaluationReportPayload } from "../services/evaluation.js";
+import {
+  buildEvaluationGraph,
+  EVALUATION_GRAPH_NODE_NAMES,
+  evaluationGraph,
+  runEvaluationSummaryGraph,
+} from "./evaluationGraph.js";
+import { EvaluationGraph } from "./evaluationGraph.types.js";
+import { MIN_LABELED_MODEL_PATH, type EvaluationReportPayload } from "../../services/evaluation.js";
 
 function sampleReport(recommendation: "hold" | "needs_more_data"): EvaluationReportPayload {
   return {
@@ -99,4 +105,32 @@ test("EvaluationGraph can skip persistence for dry runs", async () => {
 
   assert.equal(persisted, false);
   assert.equal(result.persisted_report, null);
+});
+
+test("evaluationGraph export exposes native business node names", () => {
+  const nodeNames = evaluationGraph.getGraph().nodes;
+  for (const name of EVALUATION_GRAPH_NODE_NAMES) {
+    assert.ok(nodeNames[name], `missing node ${name}`);
+  }
+});
+
+test("buildEvaluationGraph compiles without hand-written class flow", () => {
+  const compiled = buildEvaluationGraph();
+  assert.equal(typeof compiled.invoke, "function");
+  assert.ok(compiled.getGraph().nodes.normalize_input);
+});
+
+test("runEvaluationSummaryGraph invokes the compiled StateGraph path", async () => {
+  const report = sampleReport("hold");
+  const result = await runEvaluationSummaryGraph(
+    { model_version: "stage1-v0", run_id: "run-eval-compiled" },
+    {
+      build: async () => report,
+      persist: async (payload) => ({ ...payload, created_at: "2026-06-02T12:00:00Z" }),
+    },
+  );
+
+  assert.equal(result.run_id, "run-eval-compiled");
+  assert.equal(result.report.report_id, "eval-test-1");
+  assert.ok(result.persisted_report);
 });

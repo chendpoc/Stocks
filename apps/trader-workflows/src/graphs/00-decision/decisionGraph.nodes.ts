@@ -3,22 +3,22 @@ import { randomUUID } from "node:crypto";
 import {
   DecisionEnvelopeValidationError,
   validateDecisionEnvelope,
-} from "../llm/decisionEnvelope.js";
+} from "../../llm/decisionEnvelope.js";
 import {
   createWorkflowLlmProvider,
   type WorkflowLlmProvider,
-} from "../llm/provider.js";
+} from "../../llm/provider.js";
 import {
   buildAndPersistContextSnapshot,
   type ContextSnapshotRecord,
-} from "../services/contextSnapshots.js";
+} from "../../services/contextSnapshots.js";
 import {
   OUTCOME_HORIZONS,
   persistModelDecision,
   scheduleModelPathOutcomes,
   type PersistedModelDecision,
   type ScheduledDecisionOutcome,
-} from "../services/decisions.js";
+} from "../../services/decisions.js";
 import type { DecisionGraphState } from "./decisionGraph.state.js";
 import { extractEvidenceRefs } from "./evidenceRefs.js";
 

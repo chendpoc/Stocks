@@ -14,15 +14,15 @@ import {
   extractDecisionJson,
   parseDecisionEnvelope,
   validateDecisionEnvelope,
-} from "../llm/decisionEnvelope.js";
-import type { WorkflowLlmProvider } from "../llm/provider.js";
-import type { ContextSnapshotRecord } from "../services/contextSnapshots.js";
+} from "../../llm/decisionEnvelope.js";
+import type { WorkflowLlmProvider } from "../../llm/provider.js";
+import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
 import {
   computeOutcomeDueAt,
   OUTCOME_HORIZONS,
   type PersistedModelDecision,
   type ScheduledDecisionOutcome,
-} from "../services/decisions.js";
+} from "../../services/decisions.js";
 
 const SAMPLE_SNAPSHOT: ContextSnapshotRecord = {
   snapshot_id: "snap-test-1",

@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { InsightExplorationGraph } from "./insightExplorationGraph.js";
+import {
+  buildInsightExplorationGraph,
+  INSIGHT_EXPLORATION_GRAPH_NODE_NAMES,
+  insightExplorationGraph,
+  runInsightExplorationGraph,
+} from "./insightExplorationGraph.js";
+import { InsightExplorationGraph } from "./insightExplorationGraph.types.js";
 import {
   DEFAULT_INSIGHT_WEIGHT_CAP,
   INSIGHT_VERIFICATION_STATUS,
   type InsightCandidatePayload,
-} from "../services/insightCandidates.js";
-import type { WeightedContextItem } from "../services/contextSnapshots.js";
-import type { EvaluationOutcomeRow } from "../services/evaluation.js";
+} from "../../services/insightCandidates.js";
+import type { WeightedContextItem } from "../../services/contextSnapshots.js";
+import type { EvaluationOutcomeRow } from "../../services/evaluation.js";
 
 const FORBIDDEN_STAGE1_PATH_FRAGMENTS = [
   "/lessons",
@@ -218,5 +224,45 @@ test("InsightExplorationGraph can skip persistence for dry runs", async () => {
   }).explore({ symbol: "TSLA", window: "30d", persist: false });
 
   assert.equal(persisted, false);
+  assert.equal(result.persisted_candidate, null);
+});
+
+test("insightExplorationGraph export exposes native business node names", () => {
+  const nodeNames = insightExplorationGraph.getGraph().nodes;
+  for (const name of INSIGHT_EXPLORATION_GRAPH_NODE_NAMES) {
+    assert.ok(nodeNames[name], `missing node ${name}`);
+  }
+});
+
+test("buildInsightExplorationGraph compiles without hand-written class flow", () => {
+  const compiled = buildInsightExplorationGraph();
+  assert.equal(typeof compiled.invoke, "function");
+  assert.ok(compiled.getGraph().nodes.normalize_input);
+});
+
+test("runInsightExplorationGraph invokes the compiled StateGraph path", async () => {
+  const result = await runInsightExplorationGraph(
+    { symbol: "TSLA", window: "30d", run_id: "run-insight-compiled", persist: false },
+    {
+      fetchSnapshots: async () => [],
+      fetchOutcomes: async () => [],
+      llm: {
+        async generateDecisionEnvelope() {
+          throw new Error("not used");
+        },
+        async generateInsightProposal() {
+          return {
+            thesis: "compiled path",
+            evidence_refs: [],
+            weight_cap: DEFAULT_INSIGHT_WEIGHT_CAP,
+            candidate_json: { status: "candidate", auto_promotion: false },
+          };
+        },
+      },
+    },
+  );
+
+  assert.equal(result.run_id, "run-insight-compiled");
+  assert.ok(result.insight_id);
   assert.equal(result.persisted_candidate, null);
 });

@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { OutcomeGraph } from "./outcomeGraph.js";
-import { OUTCOME_HORIZONS } from "../services/decisions.js";
-import type { DecisionOutcomeRow, InsightCandidateOutcomeRow } from "../services/outcomes.js";
+import {
+  buildOutcomeGraph,
+  OUTCOME_GRAPH_NODE_NAMES,
+  outcomeGraph,
+  runDueOutcomeGraph,
+} from "./outcomeGraph.js";
+import { OutcomeGraph } from "./outcomeGraph.types.js";
+import { OUTCOME_HORIZONS } from "../../services/decisions.js";
+import type { DecisionOutcomeRow, InsightCandidateOutcomeRow } from "../../services/outcomes.js";
 
 function pendingDecisionOutcome(
   horizon: string,
@@ -201,4 +207,41 @@ test("OutcomeGraph aggregate counts reflect final status, not source label", asy
 
   assert.equal(result.failed_count, 2);
   assert.equal(result.counts_by_normalized_label.invalid, 2);
+});
+
+test("outcomeGraph export exposes native business node names", () => {
+  const nodeNames = outcomeGraph.getGraph().nodes;
+  for (const name of OUTCOME_GRAPH_NODE_NAMES) {
+    assert.ok(nodeNames[name], `missing node ${name}`);
+  }
+});
+
+test("buildOutcomeGraph compiles without hand-written class flow", () => {
+  const compiled = buildOutcomeGraph();
+  assert.equal(typeof compiled.invoke, "function");
+  assert.ok(compiled.getGraph().nodes.normalize_input);
+});
+
+test("runDueOutcomeGraph invokes the compiled StateGraph path", async () => {
+  const dueRows = OUTCOME_HORIZONS.slice(0, 2).map((horizon, index) =>
+    pendingDecisionOutcome(horizon, `compiled-${index}`),
+  );
+
+  const result = await runDueOutcomeGraph(
+    { now: "2026-06-02T12:00:00Z", run_id: "run-compiled-outcome" },
+    {
+      fetchDueDecision: async () => dueRows,
+      finalizeDecision: async ({ outcome }) => ({
+        ...outcome,
+        status: "labeled",
+        label: "positive",
+      }),
+      fetchDueInsight: async () => [],
+    },
+  );
+
+  assert.equal(result.run_id, "run-compiled-outcome");
+  assert.equal(result.processed_count, 2);
+  assert.equal(result.labeled_count, 2);
+  assert.equal(result.counts_by_source_type.decision, 2);
 });
