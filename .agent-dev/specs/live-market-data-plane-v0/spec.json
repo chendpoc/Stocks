@@ -1,0 +1,301 @@
+{
+  "id": "live-market-data-plane-v0",
+  "title": "LiveMarketDataPlane v0",
+  "status": "done",
+  "source_docs": [
+    "project-docs/backlog/now/live-market-data-plane-v0.md",
+    "project-docs/backlog/now/analysis-to-execution-contract-v0.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+    "project-docs/research-agent/target-system/trader-agent/09-risk-gated-setup-intelligence-m0-prd.md",
+    "UBIQUITOUS_LANGUAGE.md",
+    "apps/trader-workflows/README.md",
+    "apps/trader-workflows/README.zh-CN.md"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/live-market-data-plane-v0/**",
+      ".agent-dev/tasks/T015-live-market-data-plane-v0.json",
+      ".agent-dev/tasks/T015-live-market-data-plane-v0.md",
+      "project-docs/backlog/now/live-market-data-plane-v0.md"
+    ],
+    "modify": [
+      ".agent-dev/tasks/README.md",
+      "project-docs/backlog/README.md",
+      "project-docs/backlog/workflow-maturity-roadmap.md",
+      "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md",
+      "UBIQUITOUS_LANGUAGE.md"
+    ],
+    "readonly_import": [
+      ".agent-dev/specs/analysis-to-execution-contract-v0/**",
+      "apps/trader-agent/backend/app/tools/longbridge_adapter.py",
+      "apps/trader-agent/backend/app/tools/tool_registry.py",
+      "apps/trader-agent/backend/app/intel/ingestion/market_data.py",
+      "apps/trader-agent/backend/app/modules/market_snapshot.py",
+      "apps/trader-workflows/src/services/outcomes.ts",
+      "project-docs/research-agent/target-system/trader-agent/09-risk-gated-setup-intelligence-m0-prd.md"
+    ],
+    "forbidden": [
+      "apps/trader-workflows/src/**",
+      "apps/trader-agent/backend/app/**",
+      "apps/trader-agent/backend/tests/**",
+      "apps/trader-cli/**",
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "data/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D401",
+      "brief": "M2 is a contract/spec gate and must not implement provider streams or execution behavior"
+    },
+    {
+      "ref": "D402",
+      "brief": "LiveMarketDataPlane is read-only infrastructure, not an AI workflow"
+    },
+    {
+      "ref": "D403",
+      "brief": "Provider-specific facts are captured through ProviderTrace while downstream artifacts stay provider-agnostic"
+    },
+    {
+      "ref": "D404",
+      "brief": "Missing or degraded data surfaces as quality_flags and consumer_readiness instead of silent fallback"
+    },
+    {
+      "ref": "D405",
+      "brief": "TradeTick uses aggressor_hint and avoids side to prevent collision with order-side semantics"
+    },
+    {
+      "ref": "D406",
+      "brief": "Second bars are normalized artifacts, not assumed provider-native data"
+    },
+    {
+      "ref": "D407",
+      "brief": "MarketStateSnapshot is the compact handoff artifact"
+    },
+    {
+      "ref": "D408",
+      "brief": "M2 does not create OrderIntent, RiskDecision, OrderEvent, or PositionSnapshot"
+    }
+  ],
+  "contracts": {
+    "schema_version": "live_market_data_plane.v0",
+    "artifacts": [
+      "ProviderTrace",
+      "DataQualityFlag",
+      "QuoteSnapshot",
+      "OrderBookSnapshot",
+      "TradeTick",
+      "SecondBar",
+      "MinuteBar",
+      "MarketMicrostructureFeatures",
+      "MarketStateSnapshot",
+      "ReplayCursor"
+    ],
+    "common_required_fields": [
+      "schema_version",
+      "symbol",
+      "market",
+      "asof_ts",
+      "received_at",
+      "provider_trace",
+      "quality_flags"
+    ],
+    "provider_trace_required_fields": [
+      "provider_trace_id",
+      "provider",
+      "source_channel",
+      "source_endpoint",
+      "provider_symbol",
+      "normalized_symbol",
+      "market",
+      "received_at",
+      "normalization_version",
+      "entitlement_state"
+    ],
+    "data_quality_flag_required_fields": [
+      "flag_code",
+      "severity",
+      "observed_at",
+      "message",
+      "blocking_for"
+    ],
+    "quote_snapshot_required_fields": [
+      "quote_snapshot_id",
+      "bid_price",
+      "bid_size",
+      "ask_price",
+      "ask_size",
+      "quote_time"
+    ],
+    "order_book_snapshot_required_fields": [
+      "order_book_snapshot_id",
+      "book_time",
+      "depth_type",
+      "levels"
+    ],
+    "trade_tick_required_fields": [
+      "trade_tick_id",
+      "trade_time",
+      "price",
+      "size"
+    ],
+    "bar_required_fields": [
+      "bar_id",
+      "timeframe",
+      "start_ts",
+      "end_ts",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "construction",
+      "source_count"
+    ],
+    "market_microstructure_features_required_fields": [
+      "feature_snapshot_id",
+      "asof_ts",
+      "quote_snapshot_id",
+      "spread_bps",
+      "mid_price",
+      "quote_age_ms"
+    ],
+    "market_state_snapshot_required_fields": [
+      "market_state_snapshot_id",
+      "symbol",
+      "market",
+      "asof_ts",
+      "valid_until",
+      "provider_trace_refs",
+      "quality_flags",
+      "consumer_readiness"
+    ],
+    "consumer_readiness_values": [
+      "ready",
+      "warning",
+      "blocked"
+    ],
+    "consumer_readiness_consumers": [
+      "analysis_monitoring",
+      "paper_simulation",
+      "shadow_tracking"
+    ],
+    "data_quality_flag_codes": [
+      "quote_incomplete",
+      "stale_quote",
+      "provider_delayed",
+      "provider_disconnected",
+      "book_crossed",
+      "book_locked",
+      "depth_unavailable",
+      "trade_gap",
+      "bar_gap",
+      "replay_only",
+      "provider_fallback",
+      "normalization_error"
+    ],
+    "validation_failure_status": "market_data_contract_failed",
+    "forbidden_semantics": [
+      "broker account",
+      "broker order id",
+      "submit/cancel/replace instruction",
+      "order side",
+      "order type",
+      "order size",
+      "order price",
+      "position state",
+      "PnL state",
+      "live trading intent"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "A401",
+      "check": "Spec defines ProviderTrace, DataQualityFlag, QuoteSnapshot, OrderBookSnapshot, TradeTick, SecondBar, MinuteBar, MarketMicrostructureFeatures, MarketStateSnapshot, and ReplayCursor",
+      "verified_by": [
+        "V401",
+        "V402"
+      ]
+    },
+    {
+      "id": "A402",
+      "check": "LiveMarketDataPlane is read-only and outside broker, account, order, position, PnL, and execution behavior",
+      "verified_by": [
+        "V402"
+      ]
+    },
+    {
+      "id": "A403",
+      "check": "Missing or degraded data produces visible quality_flags and consumer_readiness blocking instead of silent fallback",
+      "verified_by": [
+        "V401",
+        "V402"
+      ]
+    },
+    {
+      "id": "A404",
+      "check": "MarketStateSnapshot is the compact artifact-ID handoff to analysis and future execution simulation",
+      "verified_by": [
+        "V402"
+      ]
+    },
+    {
+      "id": "A405",
+      "check": "Current code limitations are named: no typed depth/trade stream, second-bar builder, order book snapshot, or execution behavior exists yet",
+      "verified_by": [
+        "V402"
+      ]
+    },
+    {
+      "id": "A406",
+      "check": "Backlog, roadmap, workflow README, task index, and Ubiquitous Language link to the same M2 contract",
+      "verified_by": [
+        "V402",
+        "V403"
+      ]
+    }
+  ],
+  "non_goals": [
+    "provider subscription implementation",
+    "provider SDK or API client changes",
+    "database migration or market data storage implementation",
+    "stream handler",
+    "PaperTradingEngine",
+    "OrderIntent implementation",
+    "RiskDecision implementation",
+    "OrderEvent implementation",
+    "PositionSnapshot implementation",
+    "broker adapter",
+    "account, position, order, PnL, or fill storage",
+    "new LangGraph graph",
+    "CLI command",
+    "LLM prompt changes",
+    "automatic RulePack mutation",
+    "automatic model promotion",
+    "execution"
+  ],
+  "verification": [
+    {
+      "id": "V401",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/live-market-data-plane-v0/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/live-market-data-plane-v0/decision-record.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/live-market-data-plane-v0/clarification-questions.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T015-live-market-data-plane-v0.json | ConvertFrom-Json | Out-Null",
+      "expect": "T015 spec, decision, clarification, and task JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V402",
+      "command": "rg -n \"LiveMarketDataPlane|ProviderTrace|DataQualityFlag|QuoteSnapshot|OrderBookSnapshot|TradeTick|MarketStateSnapshot|market_data_contract_failed\" UBIQUITOUS_LANGUAGE.md project-docs/backlog apps/trader-workflows/README.md apps/trader-workflows/README.zh-CN.md .agent-dev/specs/live-market-data-plane-v0 .agent-dev/tasks/T015-live-market-data-plane-v0.md",
+      "expect": "M2 contract terms are discoverable from source docs, workflow docs, and task/spec artifacts",
+      "blocking": true
+    },
+    {
+      "id": "V403",
+      "command": "git diff --check -- .agent-dev/specs/live-market-data-plane-v0 .agent-dev/tasks/T015-live-market-data-plane-v0.json .agent-dev/tasks/T015-live-market-data-plane-v0.md .agent-dev/tasks/README.md project-docs/backlog apps/trader-workflows/README.md apps/trader-workflows/README.zh-CN.md UBIQUITOUS_LANGUAGE.md",
+      "expect": "No whitespace errors in T015 planning artifacts",
+      "blocking": true
+    }
+  ]
+}

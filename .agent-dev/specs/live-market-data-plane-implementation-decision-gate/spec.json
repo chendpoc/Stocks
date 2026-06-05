@@ -1,0 +1,191 @@
+{
+  "id": "live-market-data-plane-implementation-decision-gate",
+  "title": "LiveMarketDataPlane Implementation Decision Gate",
+  "status": "review",
+  "source_docs": [
+    "project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md",
+    "project-docs/backlog/now/live-market-data-plane-v0.md",
+    "project-docs/backlog/now/analysis-to-execution-contract-v0.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+    "UBIQUITOUS_LANGUAGE.md",
+    "https://open.longbridge.com/docs/quote/subscribe/overview",
+    "https://open.longbridge.com/docs/quote/push/depth",
+    "https://open.longbridge.com/docs/quote/push/trade",
+    "https://open.longbridge.com/docs/quote/objects"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/**",
+      ".agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.json",
+      ".agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.md",
+      "project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md"
+    ],
+    "modify": [
+      ".agent-dev/tasks/README.md",
+      "project-docs/backlog/README.md",
+      "project-docs/backlog/workflow-maturity-roadmap.md",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md"
+    ],
+    "readonly_import": [
+      ".agent-dev/specs/live-market-data-plane-v0/**",
+      ".agent-dev/specs/analysis-to-execution-contract-v0/**",
+      "apps/trader-agent/backend/app/tools/longbridge_adapter.py",
+      "apps/trader-agent/backend/app/tools/tool_registry.py",
+      "apps/trader-agent/backend/app/intel/db/connection.py",
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-agent/backend/app/intel/ingestion/market_data.py",
+      "apps/trader-workflows/src/services/outcomes.ts"
+    ],
+    "forbidden": [
+      "apps/trader-workflows/src/**",
+      "apps/trader-agent/backend/app/**",
+      "apps/trader-agent/backend/tests/**",
+      "apps/trader-cli/**",
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "data/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D501",
+      "brief": "Proposed provider is Longbridge OpenAPI with startup entitlement probe; pending user confirmation"
+    },
+    {
+      "ref": "D502",
+      "brief": "Proposed first scope is US equities TSLA.US, NVDA.US, AAPL.US, QQQ.US, SPY.US during regular trading hours; pending user confirmation"
+    },
+    {
+      "ref": "D503",
+      "brief": "Proposed storage is dedicated M2 tables in data/market_intel.db; pending user confirmation"
+    },
+    {
+      "ref": "D504",
+      "brief": "Proposed retention is 7 trading days for normalized quote/depth/trade facts and 30 calendar days for derived artifacts; pending user confirmation"
+    },
+    {
+      "ref": "D505",
+      "brief": "Proposed operator inspection is backend read APIs plus CLI first; pending user confirmation"
+    },
+    {
+      "ref": "D506",
+      "brief": "Proposed readiness thresholds separate tolerant analysis monitoring from stricter paper/shadow readiness; pending user confirmation"
+    },
+    {
+      "ref": "D507",
+      "brief": "Proposed fallback policy forbids silent live fallback and requires explicit degraded/replay labels; pending user confirmation"
+    },
+    {
+      "ref": "D508",
+      "brief": "M2 remains read-only and excludes PaperTradingEngine, RiskGate, orders, positions, PnL, broker/account, and live trading; pending user confirmation"
+    }
+  ],
+  "contracts": {
+    "gate_status": "pending_user_confirmation",
+    "implementation_may_start": false,
+    "blocking_decisions": [
+      "provider_and_entitlement",
+      "symbols_and_markets",
+      "storage_and_retention",
+      "operator_surface",
+      "readiness_thresholds",
+      "fallback_policy",
+      "execution_boundary"
+    ],
+    "recommended_provider": "longbridge_openapi_quote_domain",
+    "recommended_first_symbols": [
+      "TSLA.US",
+      "NVDA.US",
+      "AAPL.US",
+      "QQQ.US",
+      "SPY.US"
+    ],
+    "recommended_storage": "data/market_intel.db dedicated M2 tables",
+    "forbidden_runtime_semantics": [
+      "broker account",
+      "broker order",
+      "submit/cancel/replace",
+      "PaperTradingEngine",
+      "RiskGate",
+      "PositionSnapshot",
+      "PnL",
+      "live trading"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "A501",
+      "check": "Gate lists every M2 implementation decision that blocks coding",
+      "verified_by": [
+        "V501",
+        "V502"
+      ]
+    },
+    {
+      "id": "A502",
+      "check": "Provider capability statements cite official Longbridge quote docs and remain separated from entitlement assumptions",
+      "verified_by": [
+        "V502"
+      ]
+    },
+    {
+      "id": "A503",
+      "check": "Recommendations are marked pending user confirmation, not confirmed",
+      "verified_by": [
+        "V501",
+        "V502"
+      ]
+    },
+    {
+      "id": "A504",
+      "check": "Gate blocks provider adapters, storage migrations, streams, CLI/API work, and execution simulation until user confirmation",
+      "verified_by": [
+        "V502"
+      ]
+    },
+    {
+      "id": "A505",
+      "check": "Backlog, roadmap, task index, and workflow README point to the decision gate",
+      "verified_by": [
+        "V502",
+        "V503"
+      ]
+    }
+  ],
+  "non_goals": [
+    "provider adapter implementation",
+    "provider SDK or API client changes",
+    "database migration",
+    "stream handler",
+    "CLI command",
+    "backend API route",
+    "PaperTradingEngine",
+    "RiskGate",
+    "broker adapter",
+    "account, order, position, PnL, or fill behavior",
+    "new LangGraph workflow",
+    "automatic execution"
+  ],
+  "verification": [
+    {
+      "id": "V501",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/live-market-data-plane-implementation-decision-gate/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/live-market-data-plane-implementation-decision-gate/decision-record.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/live-market-data-plane-implementation-decision-gate/clarification-questions.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.json | ConvertFrom-Json | Out-Null",
+      "expect": "T016 spec, decision, clarification, and task JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V502",
+      "command": "rg -n \"LiveMarketDataPlane Implementation Decision Gate|implementation decision gate|D501|pending_user_confirmation|Longbridge|provider_fallback\" .agent-dev/specs/live-market-data-plane-implementation-decision-gate .agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.md project-docs/backlog apps/trader-workflows/README.md apps/trader-workflows/README.zh-CN.md",
+      "expect": "T016 decision gate terms are discoverable from source docs, workflow docs, and task/spec artifacts",
+      "blocking": true
+    },
+    {
+      "id": "V503",
+      "command": "git diff --check -- .agent-dev/specs/live-market-data-plane-implementation-decision-gate .agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.json .agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.md .agent-dev/tasks/README.md project-docs/backlog apps/trader-workflows/README.md apps/trader-workflows/README.zh-CN.md",
+      "expect": "No whitespace errors in T016 planning artifacts",
+      "blocking": true
+    }
+  ]
+}

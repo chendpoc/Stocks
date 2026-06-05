@@ -1,0 +1,54 @@
+{
+  "spec_id": "live-market-data-plane-implementation-decision-gate",
+  "generated_by": "product-requirements-discussion",
+  "questions": [
+    {
+      "id": "Q501",
+      "category": "dependency",
+      "question": "Which provider and entitlement should be used first?",
+      "status": "pending"
+    },
+    {
+      "id": "Q502",
+      "category": "scope_boundary",
+      "question": "Which first symbols and market sessions are in scope?",
+      "status": "pending"
+    },
+    {
+      "id": "Q503",
+      "category": "data_model",
+      "question": "Where should normalized facts be stored?",
+      "status": "pending"
+    },
+    {
+      "id": "Q504",
+      "category": "data_model",
+      "question": "What retention should v0 use?",
+      "status": "pending"
+    },
+    {
+      "id": "Q505",
+      "category": "user_experience",
+      "question": "Which surface inspects market state first?",
+      "status": "pending"
+    },
+    {
+      "id": "Q506",
+      "category": "risk",
+      "question": "What readiness thresholds should be used first?",
+      "status": "pending"
+    },
+    {
+      "id": "Q507",
+      "category": "dependency",
+      "question": "Is provider fallback allowed?",
+      "status": "pending"
+    },
+    {
+      "id": "Q508",
+      "category": "scope_boundary",
+      "question": "Does M2 include execution simulation?",
+      "status": "pending"
+    }
+  ]
+}

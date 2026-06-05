@@ -1,0 +1,42 @@
+{
+  "spec_id": "live-market-data-plane-v0",
+  "generated_by": "product-requirements-discussion",
+  "questions": [
+    {
+      "id": "Q401",
+      "category": "dependency",
+      "question": "Which provider and entitlement level supplies quote, depth, and trade facts?",
+      "status": "pending"
+    },
+    {
+      "id": "Q402",
+      "category": "scope_boundary",
+      "question": "Which symbols and markets are in the first M2 implementation slice?",
+      "status": "pending"
+    },
+    {
+      "id": "Q403",
+      "category": "data_model",
+      "question": "Where should normalized market facts be stored and how long should they be retained?",
+      "status": "pending"
+    },
+    {
+      "id": "Q404",
+      "category": "user_experience",
+      "question": "Which surface inspects MarketStateSnapshot first: CLI, TUI, or cockpit?",
+      "status": "pending"
+    },
+    {
+      "id": "Q405",
+      "category": "risk",
+      "question": "What staleness and gap thresholds block analysis monitoring versus paper/shadow use?",
+      "status": "pending"
+    },
+    {
+      "id": "Q406",
+      "category": "dependency",
+      "question": "Is provider fallback allowed in live monitoring, and if so which fallback sources are trusted?",
+      "status": "pending"
+    }
+  ]
+}

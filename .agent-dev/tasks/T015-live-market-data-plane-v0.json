@@ -1,0 +1,91 @@
+{
+  "id": "T015",
+  "spec_id": "live-market-data-plane-v0",
+  "title": "LiveMarketDataPlane v0",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add the M2 backlog source document and T015 task/spec artifact shell.",
+      "status": "done",
+      "verification": {
+        "ref": "V401",
+        "blocking": true
+      },
+      "files_expected": [
+        "project-docs/backlog/now/live-market-data-plane-v0.md",
+        ".agent-dev/specs/live-market-data-plane-v0/spec.md",
+        ".agent-dev/specs/live-market-data-plane-v0/spec.json",
+        ".agent-dev/tasks/T015-live-market-data-plane-v0.md",
+        ".agent-dev/tasks/T015-live-market-data-plane-v0.json"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Define ProviderTrace, DataQualityFlag, market data artifacts, replay cursor, consumer readiness, and market_data_contract_failed semantics.",
+      "status": "done",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V401",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/specs/live-market-data-plane-v0/spec.md",
+        ".agent-dev/specs/live-market-data-plane-v0/spec.json",
+        ".agent-dev/specs/live-market-data-plane-v0/decision-record.json",
+        ".agent-dev/specs/live-market-data-plane-v0/clarification-questions.md",
+        ".agent-dev/specs/live-market-data-plane-v0/clarification-questions.json"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Link the M2 contract from roadmap, backlog index, workflow READMEs, task index, and Ubiquitous Language.",
+      "status": "done",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V402",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/tasks/README.md",
+        "project-docs/backlog/README.md",
+        "project-docs/backlog/workflow-maturity-roadmap.md",
+        "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md",
+        "UBIQUITOUS_LANGUAGE.md"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Run planning verification commands and whitespace checks.",
+      "status": "done",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V403",
+        "blocking": true
+      },
+      "files_expected": []
+    },
+    {
+      "id": "S5",
+      "description": "Run plan review for T015 and resolve any findings before M2 implementation starts.",
+      "status": "done",
+      "depends_on": [
+        "S4"
+      ],
+      "verification": {
+        "ref": "V402",
+        "blocking": true
+      },
+      "files_expected": []
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T015-live-market-data-plane-v0.md"
+}

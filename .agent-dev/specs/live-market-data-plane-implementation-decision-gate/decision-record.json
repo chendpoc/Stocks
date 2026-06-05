@@ -1,0 +1,62 @@
+{
+  "spec_id": "live-market-data-plane-implementation-decision-gate",
+  "decisions": [
+    {
+      "id": "D501",
+      "date": "2026-06-06",
+      "question": "Which provider and entitlement supplies quote, depth, and trade facts?",
+      "answer": "Use Longbridge OpenAPI as the primary live provider candidate, with a startup entitlement probe.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D502",
+      "date": "2026-06-06",
+      "question": "Which symbols and markets are first?",
+      "answer": "US equities only: TSLA.US, NVDA.US, AAPL.US, QQQ.US, SPY.US, regular trading hours first.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D503",
+      "date": "2026-06-06",
+      "question": "Where should normalized market facts be stored?",
+      "answer": "Use dedicated M2 tables in data/market_intel.db; raw provider payloads are optional bounded raw refs.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D504",
+      "date": "2026-06-06",
+      "question": "What retention should v0 use?",
+      "answer": "Keep normalized quote/depth/trade facts for 7 trading days and derived bars/features/state snapshots for 30 calendar days.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D505",
+      "date": "2026-06-06",
+      "question": "Which operator surface inspects MarketStateSnapshot first?",
+      "answer": "Backend read APIs plus CLI inspection first; no cockpit or TUI implementation in M2.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D506",
+      "date": "2026-06-06",
+      "question": "What staleness and gap thresholds define readiness?",
+      "answer": "Analysis warning if quote age > 5s, analysis blocked if > 30s, paper/shadow blocked if quote age > 2s or required depth/trade is missing.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D507",
+      "date": "2026-06-06",
+      "question": "Is provider fallback allowed?",
+      "answer": "No silent live fallback; fallback is replay/degraded only, labeled, and cannot upgrade readiness.",
+      "status": "confirmed"
+    },
+    {
+      "id": "D508",
+      "date": "2026-06-06",
+      "question": "Does M2 include execution simulation?",
+      "answer": "No. M2 remains read-only and excludes PaperTradingEngine, RiskGate, orders, positions, PnL, broker/account, and live trading.",
+      "status": "confirmed"
+    }
+  ],
+  "pending_decisions": []
+}

@@ -1,0 +1,272 @@
+{
+  "id": "analysis-to-execution-contract-v0",
+  "title": "Analysis-to-Execution Contract v0",
+  "status": "done",
+  "source_docs": [
+    "project-docs/backlog/now/analysis-to-execution-contract-v0.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+    "project-docs/research-agent/target-system/trader-agent/09-risk-gated-setup-intelligence-m0-prd.md",
+    "UBIQUITOUS_LANGUAGE.md",
+    "apps/trader-workflows/README.md",
+    "apps/trader-workflows/README.zh-CN.md"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/analysis-to-execution-contract-v0/**",
+      ".agent-dev/tasks/T014-analysis-to-execution-contract-v0.json",
+      ".agent-dev/tasks/T014-analysis-to-execution-contract-v0.md",
+      "project-docs/backlog/now/analysis-to-execution-contract-v0.md"
+    ],
+    "modify": [
+      ".agent-dev/tasks/README.md",
+      "project-docs/backlog/README.md",
+      "project-docs/backlog/workflow-maturity-roadmap.md",
+      "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md",
+      "UBIQUITOUS_LANGUAGE.md"
+    ],
+    "readonly_import": [
+      ".agent-dev/specs/alpha-research-graph/**",
+      ".agent-dev/specs/workflow-feedback-loop-maturity-v1/**",
+      ".agent-dev/tasks/T010-outcome-graph-maturity-v1.*",
+      ".agent-dev/tasks/T011-evaluation-graph-maturity-v1.*",
+      ".agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.*",
+      ".agent-dev/tasks/T013-alpha-research-graph-v0.*",
+      "project-docs/research-agent/target-system/trader-agent/09-risk-gated-setup-intelligence-m0-prd.md"
+    ],
+    "forbidden": [
+      "apps/trader-workflows/src/**",
+      "apps/trader-agent/backend/app/**",
+      "apps/trader-agent/backend/tests/**",
+      "apps/trader-cli/**",
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "data/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D301",
+      "brief": "M1 is contract-only and must precede live data or paper trading implementation"
+    },
+    {
+      "ref": "D302",
+      "brief": "Analysis artifacts guide opportunity, risk, and constraints but never express broker orders"
+    },
+    {
+      "ref": "D303",
+      "brief": "ExecutionPolicy can permit future paper/shadow modes but forbids live or broker modes in v0"
+    },
+    {
+      "ref": "D304",
+      "brief": "Missing required handoff fields fail as contract_validation_failed"
+    },
+    {
+      "ref": "D305",
+      "brief": "RiskGate, not LLM output, owns future deterministic allow/reject/reduce decisions"
+    },
+    {
+      "ref": "D306",
+      "brief": "Layer handoffs use typed artifact IDs and stored facts"
+    },
+    {
+      "ref": "D307",
+      "brief": "M1 does not create a new LangGraph graph"
+    }
+  ],
+  "contracts": {
+    "schema_version": "analysis_to_execution_contract.v0",
+    "artifacts": [
+      "OpportunityMap",
+      "RiskEnvelope",
+      "ExplorationPlan",
+      "ExecutionPolicy"
+    ],
+    "opportunity_map_required_fields": [
+      "schema_version",
+      "opportunity_map_id",
+      "source_workflow",
+      "source_run_id",
+      "created_at",
+      "valid_from",
+      "expires_at",
+      "focus_regions",
+      "evidence_refs"
+    ],
+    "risk_envelope_required_fields": [
+      "schema_version",
+      "risk_envelope_id",
+      "source_run_id",
+      "created_at",
+      "valid_from",
+      "expires_at",
+      "scope",
+      "risk_limits",
+      "liquidity_constraints",
+      "event_blocks",
+      "invalidation_rules",
+      "evidence_refs"
+    ],
+    "exploration_plan_required_fields": [
+      "schema_version",
+      "exploration_plan_id",
+      "opportunity_map_id",
+      "risk_envelope_id",
+      "created_at",
+      "valid_from",
+      "expires_at",
+      "target_symbols",
+      "observation_cadence",
+      "feature_requests",
+      "trigger_conditions",
+      "stop_conditions",
+      "evidence_refs"
+    ],
+    "execution_policy_required_fields": [
+      "schema_version",
+      "execution_policy_id",
+      "opportunity_map_id",
+      "risk_envelope_id",
+      "exploration_plan_id",
+      "created_at",
+      "valid_from",
+      "expires_at",
+      "allowed_modes",
+      "preconditions",
+      "risk_gate_requirements",
+      "operator_gate",
+      "audit_requirements",
+      "forbidden_actions"
+    ],
+    "execution_policy_allowed_modes_v0": [
+      "observe_only",
+      "paper_simulation",
+      "shadow_tracking"
+    ],
+    "execution_policy_forbidden_modes_v0": [
+      "live_trading",
+      "broker_submit",
+      "broker_cancel",
+      "broker_replace"
+    ],
+    "forbidden_order_fields": [
+      "side",
+      "order_side",
+      "quantity",
+      "shares",
+      "contracts",
+      "notional",
+      "position_size",
+      "order_type",
+      "limit_price",
+      "entry_price",
+      "target_price",
+      "take_profit",
+      "stop_price",
+      "stop_loss",
+      "time_in_force",
+      "account_id",
+      "broker_order_id",
+      "live_execution",
+      "submit_order",
+      "cancel_order",
+      "replace_order"
+    ],
+    "forbidden_order_semantics": [
+      "executable side",
+      "executable size",
+      "order type",
+      "order price",
+      "time in force",
+      "broker account",
+      "broker order id",
+      "submit/cancel/replace instruction",
+      "live trading intent"
+    ],
+    "validation_failure_status": "contract_validation_failed"
+  },
+  "acceptance": [
+    {
+      "id": "A301",
+      "check": "Spec defines OpportunityMap, RiskEnvelope, ExplorationPlan, and ExecutionPolicy with required fields, forbidden fields, and validation semantics",
+      "verified_by": [
+        "V301",
+        "V302"
+      ]
+    },
+    {
+      "id": "A302",
+      "check": "Analysis artifacts cannot be interpreted as broker order commands, including semantic aliases for side, size, price, order type, broker/account, or submit/cancel/replace intent",
+      "verified_by": [
+        "V302"
+      ]
+    },
+    {
+      "id": "A303",
+      "check": "ExecutionPolicy permits only observe_only, paper_simulation, or shadow_tracking in v0",
+      "verified_by": [
+        "V301"
+      ]
+    },
+    {
+      "id": "A304",
+      "check": "Missing required handoff context fails as contract_validation_failed and does not fall through to execution",
+      "verified_by": [
+        "V301",
+        "V302"
+      ]
+    },
+    {
+      "id": "A305",
+      "check": "LiveMarketDataPlane and PaperTradingEngine are future consumers, not T014 implementation scope",
+      "verified_by": [
+        "V302"
+      ]
+    },
+    {
+      "id": "A306",
+      "check": "Backlog, roadmap, workflow README, task index, and Ubiquitous Language link to the same M1 contract",
+      "verified_by": [
+        "V302",
+        "V303"
+      ]
+    }
+  ],
+  "non_goals": [
+    "live market data provider implementation",
+    "quote/depth/trade subscription code",
+    "PaperTradingEngine",
+    "OrderIntent implementation",
+    "RiskGate implementation",
+    "broker adapter",
+    "account, position, order, or PnL storage",
+    "new LangGraph graph",
+    "CLI command",
+    "LLM prompt changes",
+    "automatic RulePack mutation",
+    "automatic model promotion",
+    "execution"
+  ],
+  "verification": [
+    {
+      "id": "V301",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/analysis-to-execution-contract-v0/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/analysis-to-execution-contract-v0/decision-record.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/analysis-to-execution-contract-v0/clarification-questions.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T014-analysis-to-execution-contract-v0.json | ConvertFrom-Json | Out-Null",
+      "expect": "T014 spec, decision, clarification, and task JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V302",
+      "command": "rg -n \"Analysis-to-Execution Contract|OpportunityMap|RiskEnvelope|ExplorationPlan|ExecutionPolicy|contract_validation_failed\" UBIQUITOUS_LANGUAGE.md project-docs/backlog apps/trader-workflows/README.md apps/trader-workflows/README.zh-CN.md .agent-dev/specs/analysis-to-execution-contract-v0 .agent-dev/tasks/T014-analysis-to-execution-contract-v0.md",
+      "expect": "M1 contract terms are discoverable from source docs, workflow docs, and task/spec artifacts",
+      "blocking": true
+    },
+    {
+      "id": "V303",
+      "command": "git diff --check -- .agent-dev/specs/analysis-to-execution-contract-v0 .agent-dev/tasks/T014-analysis-to-execution-contract-v0.json .agent-dev/tasks/T014-analysis-to-execution-contract-v0.md .agent-dev/tasks/README.md project-docs/backlog apps/trader-workflows/README.md apps/trader-workflows/README.zh-CN.md UBIQUITOUS_LANGUAGE.md",
+      "expect": "No whitespace errors in T014 planning artifacts",
+      "blocking": true
+    }
+  ]
+}

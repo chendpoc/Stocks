@@ -1,0 +1,91 @@
+{
+  "id": "T014",
+  "spec_id": "analysis-to-execution-contract-v0",
+  "title": "Analysis-to-Execution Contract v0",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add the M1 backlog source document and T014 task/spec artifact shell.",
+      "status": "done",
+      "verification": {
+        "ref": "V301",
+        "blocking": true
+      },
+      "files_expected": [
+        "project-docs/backlog/now/analysis-to-execution-contract-v0.md",
+        ".agent-dev/specs/analysis-to-execution-contract-v0/spec.md",
+        ".agent-dev/specs/analysis-to-execution-contract-v0/spec.json",
+        ".agent-dev/tasks/T014-analysis-to-execution-contract-v0.md",
+        ".agent-dev/tasks/T014-analysis-to-execution-contract-v0.json"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Define OpportunityMap, RiskEnvelope, ExplorationPlan, ExecutionPolicy, forbidden order fields, and contract_validation_failed semantics.",
+      "status": "done",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V301",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/specs/analysis-to-execution-contract-v0/spec.md",
+        ".agent-dev/specs/analysis-to-execution-contract-v0/spec.json",
+        ".agent-dev/specs/analysis-to-execution-contract-v0/decision-record.json",
+        ".agent-dev/specs/analysis-to-execution-contract-v0/clarification-questions.md",
+        ".agent-dev/specs/analysis-to-execution-contract-v0/clarification-questions.json"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Link the M1 contract from roadmap, backlog index, workflow READMEs, task index, and Ubiquitous Language.",
+      "status": "done",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V302",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/tasks/README.md",
+        "project-docs/backlog/README.md",
+        "project-docs/backlog/workflow-maturity-roadmap.md",
+        "project-docs/backlog/two-layer-market-analysis-and-execution-system.md",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md",
+        "UBIQUITOUS_LANGUAGE.md"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Run planning verification commands and whitespace checks.",
+      "status": "done",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V303",
+        "blocking": true
+      },
+      "files_expected": []
+    },
+    {
+      "id": "S5",
+      "description": "Run plan review for T014 and resolve any findings before M2 starts.",
+      "status": "done",
+      "depends_on": [
+        "S4"
+      ],
+      "verification": {
+        "ref": "V302",
+        "blocking": true
+      },
+      "files_expected": []
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T014-analysis-to-execution-contract-v0.md"
+}

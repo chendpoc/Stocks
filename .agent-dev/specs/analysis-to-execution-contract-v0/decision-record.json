@@ -1,0 +1,54 @@
+{
+  "spec_id": "analysis-to-execution-contract-v0",
+  "decisions": [
+    {
+      "id": "D301",
+      "date": "2026-06-05",
+      "question": "What is the scope of M1 Analysis-to-Execution Contract v0?",
+      "answer": "M1 is contract-only and must precede live data or paper trading implementation.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D302",
+      "date": "2026-06-05",
+      "question": "Can analysis-layer artifacts directly command orders?",
+      "answer": "No. They guide opportunity, risk, and constraints, but never express broker orders.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D303",
+      "date": "2026-06-05",
+      "question": "What execution modes can ExecutionPolicy permit in v0?",
+      "answer": "Only observe_only, paper_simulation, and shadow_tracking; live or broker modes are forbidden.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D304",
+      "date": "2026-06-05",
+      "question": "What happens when required handoff fields are missing?",
+      "answer": "The contract fails as contract_validation_failed and does not fall through to execution.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D305",
+      "date": "2026-06-05",
+      "question": "Who owns deterministic allow/reject/reduce decisions later?",
+      "answer": "A future RiskGate owns deterministic allow/reject/reduce decisions, not LLM output.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D306",
+      "date": "2026-06-05",
+      "question": "How should the two layers hand off state?",
+      "answer": "Handoffs use typed artifact IDs and stored facts, not chat context or hidden graph state.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D307",
+      "date": "2026-06-05",
+      "question": "Should M1 create a new LangGraph graph?",
+      "answer": "No. M1 is a cross-layer schema and validation contract, not workflow topology.",
+      "confirmed_by": "user"
+    }
+  ]
+}

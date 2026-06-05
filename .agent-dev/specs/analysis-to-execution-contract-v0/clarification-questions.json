@@ -1,0 +1,30 @@
+{
+  "spec_id": "analysis-to-execution-contract-v0",
+  "generated_by": "product-requirements-discussion",
+  "questions": [
+    {
+      "id": "Q301",
+      "category": "dependency",
+      "question": "Which provider and entitlement level will supply quote, depth, and trade streams for M2?",
+      "status": "pending"
+    },
+    {
+      "id": "Q302",
+      "category": "scope_boundary",
+      "question": "Which symbols and markets are included in the first paper/shadow exploration scope?",
+      "status": "pending"
+    },
+    {
+      "id": "Q303",
+      "category": "data_model",
+      "question": "Which concrete exposure, liquidity, and event-risk limits define the first RiskGate?",
+      "status": "pending"
+    },
+    {
+      "id": "Q304",
+      "category": "user_experience",
+      "question": "Which operator surface inspects MarketStateSnapshot, OrderEvent, and ExecutionFeedback first?",
+      "status": "pending"
+    }
+  ]
+}

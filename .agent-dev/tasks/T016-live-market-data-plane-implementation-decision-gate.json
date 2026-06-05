@@ -1,0 +1,90 @@
+{
+  "id": "T016",
+  "spec_id": "live-market-data-plane-implementation-decision-gate",
+  "title": "LiveMarketDataPlane Implementation Decision Gate",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add the M2 implementation decision gate source document and T016 task/spec artifact shell.",
+      "status": "done",
+      "verification": {
+        "ref": "V501",
+        "blocking": true
+      },
+      "files_expected": [
+        "project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md",
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/spec.md",
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/spec.json",
+        ".agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.md",
+        ".agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.json"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Record provider evidence, local evidence, recommended decisions, alternatives, and implementation blockers.",
+      "status": "done",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V502",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/spec.md",
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/spec.json",
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/decision-record.json",
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/clarification-questions.md",
+        ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/clarification-questions.json",
+        "project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Link the decision gate from roadmap, backlog index, workflow READMEs, and task index.",
+      "status": "done",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V502",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/tasks/README.md",
+        "project-docs/backlog/README.md",
+        "project-docs/backlog/workflow-maturity-roadmap.md",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Run planning verification commands and whitespace checks.",
+      "status": "done",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V503",
+        "blocking": true
+      },
+      "files_expected": []
+    },
+    {
+      "id": "S5",
+      "description": "User confirms or changes D501-D508 before implementation spec generation.",
+      "status": "done",
+      "depends_on": [
+        "S4"
+      ],
+      "verification": {
+        "ref": "V502",
+        "blocking": true
+      },
+      "files_expected": []
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T016-live-market-data-plane-implementation-decision-gate.md"
+}

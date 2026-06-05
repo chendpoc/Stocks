@@ -1,0 +1,61 @@
+{
+  "spec_id": "live-market-data-plane-v0",
+  "decisions": [
+    {
+      "id": "D401",
+      "date": "2026-06-05",
+      "question": "What is the scope of M2 LiveMarketDataPlane v0?",
+      "answer": "M2 is a contract/spec gate and must not implement provider streams, storage, paper trading, broker adapters, or execution behavior.",
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D402",
+      "date": "2026-06-05",
+      "question": "Is LiveMarketDataPlane an AI workflow?",
+      "answer": "No. It is read-only data infrastructure that normalizes market facts and emits typed artifacts.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D403",
+      "date": "2026-06-05",
+      "question": "Should provider-specific behavior leak into downstream contracts?",
+      "answer": "No. Provider-specific details are recorded through ProviderTrace while downstream artifacts stay provider-agnostic.",
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D404",
+      "date": "2026-06-05",
+      "question": "What happens when market data is missing, stale, delayed, or fallback-sourced?",
+      "answer": "The data plane emits DataQualityFlag values and consumer_readiness states. It must not hide required data gaps behind silent fallback.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D405",
+      "date": "2026-06-05",
+      "question": "How should trade aggressor direction be named?",
+      "answer": "Use aggressor_hint instead of side so market prints do not collide with forbidden order-side semantics.",
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D406",
+      "date": "2026-06-05",
+      "question": "Can M2 assume native provider second bars?",
+      "answer": "No. Second bars are normalized artifacts and must carry construction and ProviderTrace.",
+      "confirmed_by": "spec_gate"
+    },
+    {
+      "id": "D407",
+      "date": "2026-06-05",
+      "question": "What should AI analysis and future execution simulation consume?",
+      "answer": "They consume compact MarketStateSnapshot artifact IDs and summaries, not raw tick streams or chat context.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D408",
+      "date": "2026-06-05",
+      "question": "Does M2 create execution artifacts?",
+      "answer": "No. OrderIntent, RiskDecision, OrderEvent, and PositionSnapshot belong to M3+ execution simulation.",
+      "confirmed_by": "spec_gate"
+    }
+  ]
+}
