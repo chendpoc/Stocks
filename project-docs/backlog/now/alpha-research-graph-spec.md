@@ -1,6 +1,6 @@
 # AlphaResearchGraph Spec
 
-Status: Done (M1 spec gate; implementation via T013)
+Status: done (T013 v0)
 
 ## Requirement
 
@@ -36,8 +36,10 @@ The research-agent version is recorded separately as
 [AlphaResearchAgent v1](../later/alpha-research-agent-v1.md). Do not implement
 that Later item in T013.
 
-## Next Action
+## Completed Scope
 
-Review `.agent-dev/specs/alpha-research-graph/` and
-`.agent-dev/tasks/T013-alpha-research-graph-v0.md`, then implement T013 in the
-M1 -> M2 -> M3 order.
+Use `.agent-dev/specs/alpha-research-graph/` and
+`.agent-dev/tasks/T013-alpha-research-graph-v0.md` as the current v0 evidence.
+Do not reimplement T013 from this backlog entry.
+
+AlphaResearchAgent v1 remains a separate Later item.

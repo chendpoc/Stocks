@@ -29,35 +29,43 @@ current target-system document still records the need.
 | Roadmap | Purpose |
 |---|---|
 | [Ubiquitous language](../../UBIQUITOUS_LANGUAGE.md) | Canonical terms for workflow, graph, evidence, candidate, policy, and agent specs. |
-| [Workflow maturity roadmap](./workflow-maturity-roadmap.md) | Defines the next phase: make DecisionGraph the first mature workflow, then reuse its context, evidence, runtime, and inspection patterns for later graphs. |
+| [Workflow maturity roadmap](./workflow-maturity-roadmap.md) | Defines the two-layer milestone path from analysis workflows to execution simulation feedback. |
+| [Two-layer market analysis and execution system](./two-layer-market-analysis-and-execution-system.md) | Target architecture for AI analysis, live market facts, paper/shadow execution, and feedback learning. |
 
 ## Now
+
+`Now` includes active gates, completed evidence pointers, and valid near-term
+backlog. It is not parallel implementation permission; follow
+`Current Recommended Order` for the active route.
 
 | Requirement | Primary source |
 |---|---|
 | [DecisionGraph maturity v1](./now/decision-graph-maturity-v1.md) | workflow maturity roadmap |
-| [Workflow runtime run/checkpoint/audit alignment](./now/workflow-runtime-run-checkpoint-audit-alignment.md) | workflow orchestration roadmap |
+| [Workflow runtime run/checkpoint/audit alignment](./now/workflow-runtime-run-checkpoint-audit-alignment.md) | T017 completed runtime observability read-model slice and workflow orchestration roadmap |
 | [Alpha run artifact contract](./now/alpha-run-artifact-contract.md) | agent engineering principles proposal and workflow roadmap |
 | [Compact evidence summary builder](./now/compact-evidence-summary-builder.md) | agent engineering principles proposal and AI/RAG roadmap |
 | [Alpha candidate contract](./now/alpha-candidate-contract.md) | agent engineering principles proposal |
 | [Alpha policy check nodes](./now/alpha-policy-check-nodes.md) | agent engineering principles proposal |
 | [AlphaResearchGraph spec](./now/alpha-research-graph-spec.md) | trader-agent self-learning roadmap |
 | [Workflow feedback loop hardening](./now/workflow-feedback-loop-hardening.md) | trader-workflows runtime and graph docs |
-| [Run Monitor](./now/run-monitor.md) | workflow orchestration roadmap |
-| [Real Run Trace Viewer](./now/real-run-trace-viewer.md) | workflow orchestration roadmap |
-| [Reflection Engine](./now/reflection-engine.md) | trader-agent Agent Core development |
+| [Analysis-to-Execution Contract v0](./now/analysis-to-execution-contract-v0.md) | workflow maturity roadmap M1 |
+| [LiveMarketDataPlane v0](./now/live-market-data-plane-v0.md) | workflow maturity roadmap M2 |
+| [LiveMarketDataPlane implementation decision gate](./now/live-market-data-plane-implementation-decision-gate.md) | workflow maturity roadmap M2 implementation gate |
+| [Run Monitor](./now/run-monitor.md) | T017 completed runtime observability read-model slice and workflow orchestration roadmap |
+| [Real Run Trace Viewer](./now/real-run-trace-viewer.md) | T017 completed runtime observability read-model slice and workflow orchestration roadmap |
 
 ## Next
 
 | Requirement | Primary source |
 |---|---|
-| [MarketJudgmentGraph v0](./next/market-judgment-graph-v0.md) | trader-agent self-learning roadmap |
+| None | Current route remains T016 gate -> M2 implementation after confirmation. |
 
 ## Later
 
 | Requirement | Primary source |
 |---|---|
 | [ModelLearningGraph v0](./later/model-learning-graph-v0.md) | trader-agent self-learning roadmap |
+| [MarketJudgmentGraph v0](./later/market-judgment-graph-v0.md) | deferred standalone graph; market judgment remains inside DecisionWorkflow unless a split-boundary spec passes |
 | [AlphaResearchAgent v1](./later/alpha-research-agent-v1.md) | AlphaResearchGraph v0 follow-up |
 | [Model registry](./later/model-registry.md) | trader-agent self-learning roadmap |
 | [Workflow Draft Review](./later/workflow-draft-review.md) | workflow orchestration roadmap |
@@ -78,13 +86,14 @@ forward only when a workflow maturity slice needs the dependency.
 | [Rule Discovery / Lite Backtest Engine](./supporting/rule-discovery-lite-backtest-engine.md) | trader-agent Rule Discovery module |
 | [Candidate family integration](./supporting/candidate-family-integration.md) | trader-agent Rule Discovery module |
 | [Agent Explanation Service](./supporting/agent-explanation-service.md) | trader-agent Agent Core development |
+| [Reflection Engine](./supporting/reflection-engine.md) | backend learning capability; reflection stays inside FeedbackLearningWorkflow reports/proposals unless a split-boundary spec passes |
 
 ## Blocked By Contract
 
 | Requirement | Required contract or gate |
 |---|---|
 | [Cross-system workflow run monitor](./blocked-by-contract/workflow-run-monitor.md) | Shared Platform workflow runtime contract plus Agent Core run lifecycle. |
-| [Workflow run detail viewer](./blocked-by-contract/workflow-run-detail-viewer.md) | Workflow run schema and event stream contract. |
+| [Cross-system workflow run detail viewer](./blocked-by-contract/workflow-run-detail-viewer.md) | Cross-system run schema, backend event stream, and control boundary. |
 | [Task scheduling](./blocked-by-contract/task-scheduling.md) | Shared Platform task/runtime contract. |
 | [Approval workflows](./blocked-by-contract/approval-workflows.md) | Shared Platform approval and capability policy. |
 | [Execution surfaces](./blocked-by-contract/execution-surfaces.md) | Separate execution PRD, broker mirror, and risk-control policy. |
@@ -99,27 +108,28 @@ forward only when a workflow maturity slice needs the dependency.
 Recommended path from here:
 
 ```text
-0. Ubiquitous language
-1. Workflow maturity roadmap
-2. DecisionGraph maturity v1
-3. Workflow feedback loop hardening
-4. OutcomeGraph maturity v1
-5. EvaluationGraph maturity v1
-6. InsightExplorationGraph maturity v1
-7. Workflow runtime run/checkpoint/audit alignment
-8. Compact evidence summary builder
-9. Alpha run artifact contract
-10. Alpha candidate contract
-11. Alpha policy check nodes
-12. AlphaResearchGraph v0 spec and T013
-13. Run Monitor / Real Run Trace Viewer
-14. MarketJudgmentGraph v0 spec
-15. ModelLearningGraph v0 for opportunity_ranking_model
-16. AlphaResearchAgent v1 research harness
+M0. Analysis Core Closeout
+    - done: T010-T013 status/review/doc drift closed
+M1. Analysis-to-Execution Contract v0
+    - done: T014 contract for OpportunityMap / RiskEnvelope / ExplorationPlan / ExecutionPolicy
+M2. LiveMarketDataPlane v0
+    - done: T015 contract for read-only quote/depth/trade facts, provider trace, quality flags, replay
+    - current gate: T016 provider/entitlement/scope/storage/retention/inspection/readiness/fallback/execution boundary
+M3. PaperTradingEngine v0
+    - deterministic order events, positions, PnL, slippage, replay
+M4. Guided Paper Exploration
+    - ExecutionPolicy -> RiskGate -> PaperTradingEngine -> ExecutionFeedback
+M5. Execution Feedback Learning
+    - feed execution feedback into evaluation and insight/rule-candidate improvement
+M6. Operator Surface And Approval Gate
+    - inspection, approval, audit trail, kill switch
+M7. Shadow / Live Broker Gate
+    - broker adapter only after accepted paper/shadow evidence and approval gate
 ```
 
-Do not pull execution, workflow builder, or automatic promotion forward before
-the contract blockers are resolved.
+Do not pull `LiveMarketDataPlane` implementation, paper trading, broker
+adapters, workflow builder, or automatic promotion forward before the relevant
+contract and decision blockers are resolved.
 
 ## Maintenance Rules
 

@@ -70,7 +70,7 @@ Backend (1m bars + optional intraday_summary)
 | [Compact evidence summary builder](../now/compact-evidence-summary-builder.md) | Intraday summaries should follow the same compact + `EvidenceRef` contract. |
 | [Deterministic signal pipeline](../supporting/deterministic-signal-pipeline.md) | Preferred path for repeatable minute-level rules before LLM narration. |
 | [Rule Discovery / Lite Backtest Engine](../supporting/rule-discovery-lite-backtest-engine.md) | Validation of intraday pattern candidates. |
-| [InsightExplorationGraph spec](../now/insight-exploration-graph-spec.md) | Natural consumer for “理解分钟走势” and candidate proposals. |
+| [InsightExplorationGraph T012 evidence](../now/insight-exploration-graph-spec.md) | Later consumer for compact minute-level summaries and candidate proposals, not a new standalone spec. |
 | [AlphaResearchGraph spec](../now/alpha-research-graph-spec.md) | Later reuse of mature context + evidence patterns. |
 | [DecisionGraph maturity v1](../now/decision-graph-maturity-v1.md) | Daily-primary thesis and timeframe rules; intraday is a **follow-on**, not in v1 scope. |
 

@@ -1,11 +1,11 @@
 # InsightExplorationGraph Spec
 
-Status: Now
+Status: done (T012 maturity v1)
 
 ## Requirement
 
-Define the standalone workflow for turning measured feedback and bounded
-context into `InsightCandidate` records.
+Record the completed T012 maturity work for turning measured feedback and
+bounded context into `InsightCandidate` records.
 
 ## Source
 
@@ -13,19 +13,23 @@ context into `InsightCandidate` records.
 
 ## Entry Note
 
-This module is separate from `OutcomeGraph` and `AlphaResearchGraph`. It
-produces insight candidates only and does not own outcome labeling.
+T012 implemented this as an artifact inside `FeedbackLearningWorkflow`, not as a
+new product workflow lane. It remains separate from `OutcomeGraph` and
+`AlphaResearchGraph`: it produces insight candidates only and does not own
+outcome labeling or alpha validation.
 
 ## Boundary
 
-This is a spec-first item. Do not start implementation until the candidate
-contract, scheduling contract, and allowed evidence inputs are mapped.
+Candidate contract, scheduling contract, and allowed evidence inputs are mapped
+in `.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md` and
+`.agent-dev/specs/workflow-feedback-loop-maturity-v1/`.
 
-`InsightExplorationGraph` is a standalone module. Keep it separate from the
-`DecisionGraph`, `OutcomeGraph`, and `AlphaResearchGraph` work already in
-flight.
+Do not restart this from a new `.agent-dev/specs/insight-exploration-graph/`
+folder unless a future reviewed split-boundary spec proves T012 is no longer
+sufficient.
 
 ## Next Action
 
-Create `.agent-dev/specs/insight-exploration-graph/` with `spec.md`,
-`spec.json`, and `decision-record.json`.
+Use `.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md` and
+`.agent-dev/specs/workflow-feedback-loop-maturity-v1/` as the current evidence.
+Future work should extend the feedback-loop spec instead of reopening this item.

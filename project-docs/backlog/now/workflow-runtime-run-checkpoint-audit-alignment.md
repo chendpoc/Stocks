@@ -1,11 +1,11 @@
 # Workflow Runtime Run / Checkpoint / Audit Alignment
 
-Status: Now
+Status: done (T017 runtime read-model slice)
 
 ## Requirement
 
-Align workflow run identity, checkpoint persistence, run artifacts, and audit
-events so existing and future workflow graphs share one durable execution
+Align workflow run identity, checkpoint persistence, run artifacts, and bounded
+runtime inspection so existing workflow graphs share one durable execution
 contract.
 
 ## Source
@@ -20,11 +20,26 @@ come before building more graph surface area.
 
 ## Boundary
 
-This item is about workflow runtime semantics. It does not require completing
-Agent Core, broker execution, workflow builder, or cross-system scheduler
-contracts.
+This item is about `Stage1Runtime` semantics. It does not require completing
+Agent Core, broker execution, workflow builder, cross-system scheduler
+contracts, or backend `agent_events` integration.
 
-## Next Action
+## Completed Scope
 
-Audit `Stage1Runtime`, checkpoint store, graph result types, and CLI run
-inspection to define the smallest shared run/checkpoint/audit contract.
+T017 implemented bounded read-only runtime observability:
+
+- `runs monitor` for bounded run summaries;
+- `runs trace` for compact checkpoint summaries, output summaries, and resume
+  hints;
+- no raw checkpoint state exposure by default.
+
+Source:
+
+- `.agent-dev/specs/workflow-runtime-observability-v1/`
+- `.agent-dev/tasks/T017-workflow-runtime-observability-v1.md`
+
+## Still Deferred
+
+Scheduler, approval, retry, replay, cancellation, workflow editing, backend
+`agent_events` merge, live market data, and execution simulation remain out of
+scope.

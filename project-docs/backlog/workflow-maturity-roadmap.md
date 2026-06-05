@@ -137,16 +137,22 @@ milestone below should close a product capability boundary.
 | Milestone | Goal | Deliverable | Exit criteria |
 |---|---|---|---|
 | M0 Analysis Core Closeout | Close the current analysis-layer work before adding execution scope. | T010-T013 status alignment, review blocker closeout, workflow README/roadmap consistency. | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` is inspectable, documented, and not drifting across task/spec/README. |
-| M1 Analysis-to-Execution Contract | Define how analysis can guide execution without becoming order control. | `OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` spec with forbidden fields and validation rules. | AI outputs opportunity/risk/constraints only; no artifact can be interpreted as a broker order command. |
-| M2 LiveMarketDataPlane v0 | Establish the real-market fact inlet. | `QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, provider trace, replay/inspection contract. | Read-only quote/depth/trade data can be normalized, inspected, and replayed without involving order execution. |
+| M1 Analysis-to-Execution Contract | Define how analysis can guide execution without becoming order control. | [`OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` spec](./now/analysis-to-execution-contract-v0.md) with forbidden fields and validation rules. | AI outputs opportunity/risk/constraints only; no artifact can be interpreted as a broker order command. |
+| M2 LiveMarketDataPlane v0 | Establish the real-market fact inlet. | [`QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, provider trace, quality flags, replay/inspection contract](./now/live-market-data-plane-v0.md). | Read-only quote/depth/trade data can be normalized, inspected, and replayed without involving order execution. |
 | M3 PaperTradingEngine v0 | Build the deterministic simulated order core. | `OrderIntent`, `RiskDecision`, `OrderEvent`, `PositionSnapshot`, PnL/slippage model, replay tests. | Given market state plus policy, order state, fills, position, and PnL are reproducible. |
 | M4 Guided Paper Exploration | Let analysis focus local paper/shadow exploration. | `ExecutionPolicy -> RiskGate -> PaperTradingEngine -> ExecutionFeedback` path. | Paper/shadow exploration runs only inside approved opportunity/risk boundaries and produces execution feedback. |
 | M5 Execution Feedback Learning | Feed execution reality back into analysis. | `ExecutionFeedback` evaluation inputs, report sections, insight/rule-candidate improvement handoff. | Reports can distinguish judgment quality, rule edge, execution feasibility, slippage, and risk behavior. |
 | M6 Operator Surface And Approval Gate | Make risk boundaries operable by a human. | CLI/TUI/cockpit inspection, approval requests, kill switch, audit trail. | High-risk actions are inspectable, rejectable, and auditable before activation or execution. |
 | M7 Shadow / Live Broker Gate | Consider real broker integration only after paper evidence matures. | Broker adapter spec, minimal shadow/live pilot plan, capability policy. | No live path exists unless M1-M6 evidence is accepted and an explicit approval gate is implemented. |
 
-Current near-term priority is M0, then M1. `LiveMarketDataPlane` starts only
-after the analysis-to-execution contract is reviewed.
+Current milestone state: M0 is closed; M1/T014 and the M2/T015 contract are
+done. M2 implementation remains gated by T016.
+
+Current near-term priority is the
+[M2 implementation decision gate](./now/live-market-data-plane-implementation-decision-gate.md).
+`LiveMarketDataPlane` implementation starts only after provider, entitlement,
+scope, storage, inspection, staleness, and fallback decisions are confirmed;
+paper trading still waits for M3.
 
 ## Non-Goals
 
@@ -164,6 +170,7 @@ after the analysis-to-execution contract is reviewed.
 
 ## Next Action
 
-Finish M0 by closing the T013 `AlphaResearchGraph v0` review blockers and
-aligning the analysis-layer docs. Then create `Analysis-to-Execution Contract
-v0` as the M1 spec before implementing live market data or paper trading.
+Resolve the
+[`LiveMarketDataPlane Implementation Decision Gate`](./now/live-market-data-plane-implementation-decision-gate.md)
+before writing provider adapters, storage, stream handlers, paper trading, or
+broker-facing code.

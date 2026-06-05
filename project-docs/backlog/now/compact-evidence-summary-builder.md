@@ -29,4 +29,4 @@ AlphaResearchGraph and future explanation flows.
 ## Related
 
 - [Intraday 1m context and minute-level analysis](../later/intraday-1m-context-and-minute-analysis.md)
-  — intraday bars should use this builder pattern; not DecisionGraph-owned ingestion.
+  - intraday bars should use this builder pattern; not DecisionGraph-owned ingestion.

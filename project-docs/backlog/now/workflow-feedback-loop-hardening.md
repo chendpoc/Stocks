@@ -1,15 +1,16 @@
 # Workflow Feedback Loop Hardening
 
-Status: Done (T010–T012 closeout)
+Status: done
 
 ## Requirement
 
-Harden the loop from decision generation to outcome labeling and the alpha
-research handoff.
+Harden the loop from decision generation to outcome labeling, evaluation, and
+bounded insight exploration.
 
 ## Source
 
 - [Trader Workflows README](../../../apps/trader-workflows/README.md)
+- [Workflow maturity roadmap](../workflow-maturity-roadmap.md)
 - [Self-learning market judgment roadmap](../../research-agent/target-system/trader-agent/06-self-learning-market-judgment-model-roadmap.md)
 
 ## Entry Note
@@ -22,14 +23,13 @@ reports, and bounded insight exploration.
 
 Implemented and documented in v1:
 
-- `OutcomeGraph` — dual-source due outcome labeling (see T010)
-- `OutcomeGraph` — dual-source due outcome labeling (T010, done)
-- `EvaluationGraph` — structured evaluation report sections (T011, done)
-- `InsightExplorationGraph` — evaluation-driven candidates + outcome scheduling
-  (T012, done)
+- `OutcomeGraph`: dual-source due outcome labeling (T010, done)
+- `EvaluationGraph`: structured evaluation report sections (T011, done)
+- `InsightExplorationGraph`: evaluation-driven candidates plus outcome
+  scheduling (T012, done)
 
-`DecisionGraph` remains the upstream decision entry. `AlphaResearchGraph` is
-the next workflow slice and is still out of scope for this backlog item.
+`DecisionGraph` remains the upstream decision entry. `AlphaResearchGraph v0` is
+the downstream validation workflow and is tracked separately by T013.
 
 Reflection, when added later, can propose lessons, candidate changes, or
 follow-up research. It must not mutate active RulePack, promote models, or
@@ -38,30 +38,27 @@ rewrite historical snapshots.
 ## Evidence
 
 ```text
-.agent-dev/tasks/T010-outcome-graph-maturity-v1.md         (done)
-.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md      (done)
-.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md (done)
-.agent-dev/reviews/T010-review-presentation.md
-.agent-dev/reviews/T011-review-presentation.md
-.agent-dev/reviews/T012-review-presentation.md
+.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md      (done)
+.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.json    (done)
+.agent-dev/tasks/T010-outcome-graph-maturity-v1.md               (done)
+.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md            (done)
+.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md   (done)
 ```
 
-Workflow verification (2026-06-05): `cd apps/trader-workflows && npm test` → 101/101.
+Workflow verification (2026-06-05):
+
+```text
+cd apps/trader-workflows && npm test
+```
+
+Result: 115/115 tests passed.
 
 ## Next Action
 
-Move to alpha handoff planning:
+Use `.agent-dev/specs/workflow-feedback-loop-maturity-v1/` and
+`.agent-dev/tasks/T010-*`, `.agent-dev/tasks/T011-*`, `.agent-dev/tasks/T012-*`
+as the current feedback-loop evidence. Do not restart T010-T012 from this
+backlog entry.
 
-```text
-.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md   (done)
-project-docs/backlog/now/alpha-research-graph-spec.md
-T013 AlphaResearchGraph v0 (planned)
-```
-
-Implementation order after closeout:
-
-```text
-AlphaResearchGraph v0 spec gate
--> minimal RuleCandidate / LiteBacktestReport backend slice
--> AlphaResearchGraph v0 workflow
-```
+The active follow-up is the M2
+[`LiveMarketDataPlane Implementation Decision Gate`](./live-market-data-plane-implementation-decision-gate.md).

@@ -1,11 +1,12 @@
 # DecisionGraph Maturity v1
 
-Status: Now
+Status: done
 
 ## Progress (T090)
 
 | Slice | Status |
 |---|---|
+| S1 Context snapshot contract tests | done |
 | S2 Bounded `context_snapshot` in `runs show` | done |
 | S3 Read-only `context snapshots list/show` | done |
 | S4 Workflow docs (CLI envelope) | done |
@@ -36,8 +37,8 @@ The existing DecisionGraph topology remains valid. This slice hardens
 `build_context_snapshot`; it does not add a new graph node, storage table,
 DataReadiness system, risk policy, or AlphaResearchGraph implementation.
 
-`build_context_snapshot` should become reviewable, reproducible, and
-explainable before the project expands additional workflow graphs.
+`build_context_snapshot` is reviewable, reproducible, and explainable enough for
+the current workflow maturity phase.
 
 ## Current Graph Shape
 
@@ -53,25 +54,26 @@ normalize_input
 
 ## First Slice
 
-Use `build_context_snapshot` as the first maturity slice:
+The `build_context_snapshot` maturity slice now has:
 
-- input is clear: `symbol`, `taskType`, and `asof_ts`;
-- source mapping is clear: `market_data`, `benchmark`, `signals`, `events`,
+- clear input boundary: `symbol`, `taskType`, and `asof_ts`;
+- clear source mapping: `market_data`, `benchmark`, `signals`, `events`,
   `lessons`, `corpus`, `patterns`, and `related_hypotheses`;
-- output is clear: `weighted_context_items`, `evidence_refs`, `context_hash`,
-  and `snapshot_id`;
-- weights are explainable through relevance, freshness, source quality,
-  confidence, and composite weight fields;
-- context hash is stable for identical weighted items;
-- empty-source behavior is explicit and tested.
+- clear output: `weighted_context_items`, `evidence_refs`, `context_hash`, and
+  `snapshot_id`;
+- explainable weights through relevance, freshness, source quality, confidence,
+  and composite weight fields;
+- stable context hash for identical weighted items;
+- explicit, tested empty-source behavior;
+- evidence ref dedupe by `ref_type + ref_id`.
 
 ## Operator Surface
 
 First-slice inspection is intentionally small:
 
-- `runs show` should expose the run's context snapshot summary.
-- `context snapshots list` should list snapshot identity and counts.
-- `context snapshots show` should show source-type counts and top weighted item
+- `runs show` exposes the run's context snapshot summary.
+- `context snapshots list` lists snapshot identity and counts.
+- `context snapshots show` shows source-type counts and top weighted item
   summaries.
 
 Do not add a custom UI, new table, full raw data browser, evidence resolver, or
@@ -79,18 +81,13 @@ artifact store in this slice.
 
 ## Out of Scope (v1)
 
-- Backend **1m** fetch, intraday bar wiring into weighted context, and minute-level
-  pattern discovery. DecisionGraph may **cite** intraday summaries later; it is not
-  the owner for 1m ingestion. See
+- Backend **1m** fetch, intraday bar wiring into weighted context, and
+  minute-level pattern discovery. DecisionGraph may **cite** intraday summaries
+  later; it is not the owner for 1m ingestion. See
   [Intraday 1m context and minute-level analysis](../later/intraday-1m-context-and-minute-analysis.md).
 
 ## Next Action
 
-Operator CLI for the first slice is documented in
-[Trader Workflows README](../../../apps/trader-workflows/README.md) (`runs show`
-`context_snapshot` field; `context snapshots list/show`).
-
-Remaining maturity work (if any) stays in
-`../../../.agent-dev/specs/decision-graph-maturity-v1/spec.md` — e.g. focused
-`build_context_snapshot` contract tests and LangGraph Studio scoped to
-`decision_graph`.
+Use `.agent-dev/specs/decision-graph-maturity-v1/` and
+`.agent-dev/tasks/T090-decision-graph-maturity-v1.md` as the current
+DecisionGraph maturity evidence. Do not restart T090 from this backlog entry.
