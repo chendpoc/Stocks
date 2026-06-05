@@ -13,4 +13,5 @@ Current active task groups:
 - `T010` OutcomeGraph Maturity v1
 - `T011` EvaluationGraph Maturity v1
 - `T012` InsightExplorationGraph Maturity v1
+- `T013` AlphaResearchGraph v0
 - `T090` DecisionGraph Maturity v1

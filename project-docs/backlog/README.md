@@ -58,6 +58,7 @@ current target-system document still records the need.
 | Requirement | Primary source |
 |---|---|
 | [ModelLearningGraph v0](./later/model-learning-graph-v0.md) | trader-agent self-learning roadmap |
+| [AlphaResearchAgent v1](./later/alpha-research-agent-v1.md) | AlphaResearchGraph v0 follow-up |
 | [Model registry](./later/model-registry.md) | trader-agent self-learning roadmap |
 | [Workflow Draft Review](./later/workflow-draft-review.md) | workflow orchestration roadmap |
 | [Workflow Builder](./later/workflow-builder.md) | workflow orchestration roadmap |
@@ -110,10 +111,11 @@ Recommended path from here:
 9. Alpha run artifact contract
 10. Alpha candidate contract
 11. Alpha policy check nodes
-12. AlphaResearchGraph spec
+12. AlphaResearchGraph v0 spec and T013
 13. Run Monitor / Real Run Trace Viewer
 14. MarketJudgmentGraph v0 spec
 15. ModelLearningGraph v0 for opportunity_ranking_model
+16. AlphaResearchAgent v1 research harness
 ```
 
 Do not pull execution, workflow builder, or automatic promotion forward before

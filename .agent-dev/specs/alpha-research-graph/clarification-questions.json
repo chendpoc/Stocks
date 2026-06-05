@@ -1,0 +1,118 @@
+{
+  "spec_id": "alpha-research-graph",
+  "generated_by": "grill-me",
+  "questions": [
+    {
+      "id": "Q68",
+      "category": "scope_boundary",
+      "question": "Should T013 be pure spec gate only?",
+      "status": "answered",
+      "answer": "No. T013 covers M1, M2, and M3."
+    },
+    {
+      "id": "Q69",
+      "category": "architecture",
+      "question": "Should T013 still enforce M1 -> M2 -> M3 internally?",
+      "status": "answered",
+      "answer": "Yes."
+    },
+    {
+      "id": "Q70",
+      "category": "data_model",
+      "question": "What is the v0 input shape?",
+      "status": "answered",
+      "answer": "A standard AlphaResearchInput with required insight context fields."
+    },
+    {
+      "id": "Q71",
+      "category": "risk",
+      "question": "What happens when required input data is missing?",
+      "status": "answered",
+      "answer": "Return input_validation_failed and stop before candidate creation."
+    },
+    {
+      "id": "Q72",
+      "category": "data_model",
+      "question": "Should InsightCandidate include alpha-ready seed data?",
+      "status": "answered",
+      "answer": "Yes, candidate_json.alpha_seed.v1."
+    },
+    {
+      "id": "Q73",
+      "category": "architecture",
+      "question": "Who generates alpha_seed?",
+      "status": "answered",
+      "answer": "InsightExplorationGraph generates seed hints; AlphaResearchGraph validates and maps them."
+    },
+    {
+      "id": "Q74",
+      "category": "data_model",
+      "question": "Should alpha_seed be perfect before persistence?",
+      "status": "answered",
+      "answer": "Engineering enforces required fields with validation reports instead of complex recovery flows."
+    },
+    {
+      "id": "Q75",
+      "category": "architecture",
+      "question": "Should AlphaResearchGraph have a load/hydrate node?",
+      "status": "answered",
+      "answer": "No."
+    },
+    {
+      "id": "Q76",
+      "category": "api_contract",
+      "question": "How does workflow call Rule Discovery / Lite Backtest?",
+      "status": "answered",
+      "answer": "Through a minimal backend HTTP API wrapper."
+    },
+    {
+      "id": "Q77",
+      "category": "risk",
+      "question": "Is missing critical seed/context a normal needs_more_data branch?",
+      "status": "answered",
+      "answer": "No. It is an input validation failure."
+    },
+    {
+      "id": "Q78",
+      "category": "naming",
+      "question": "What is the validation failure status?",
+      "status": "answered",
+      "answer": "input_validation_failed"
+    },
+    {
+      "id": "Q79",
+      "category": "architecture",
+      "question": "Does v0 need deterministic normalization as a graph node?",
+      "status": "answered",
+      "answer": "No."
+    },
+    {
+      "id": "Q80",
+      "category": "architecture",
+      "question": "Does v0 need LLM wording or fallback?",
+      "status": "answered",
+      "answer": "No."
+    },
+    {
+      "id": "Q81",
+      "category": "scope_boundary",
+      "question": "Does T013 modify InsightExplorationGraph?",
+      "status": "answered",
+      "answer": "Yes, only to add minimal alpha_seed.v1 hints."
+    },
+    {
+      "id": "Q82",
+      "category": "architecture",
+      "question": "What is the final v0 node set?",
+      "status": "answered",
+      "answer": "validate_input -> create_rule_candidate -> run_lite_backtest"
+    },
+    {
+      "id": "Q83",
+      "category": "scope_boundary",
+      "question": "Where does the v1 research-agent plan live?",
+      "status": "answered",
+      "answer": "project-docs/backlog/later/alpha-research-agent-v1.md"
+    }
+  ]
+}

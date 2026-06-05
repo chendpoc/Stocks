@@ -1,0 +1,105 @@
+{
+  "id": "T013",
+  "spec_id": "alpha-research-graph",
+  "title": "AlphaResearchGraph v0",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Complete the M1 spec gate for AlphaResearchGraph v0 and keep AlphaResearchAgent v1 as a separate Later backlog item.",
+      "status": "done",
+      "depends_on": [
+        "T012"
+      ],
+      "verification": {
+        "ref": "V201",
+        "blocking": true
+      },
+      "files_expected": [
+        ".agent-dev/specs/alpha-research-graph/spec.md",
+        ".agent-dev/specs/alpha-research-graph/spec.json",
+        ".agent-dev/specs/alpha-research-graph/decision-record.json",
+        ".agent-dev/specs/alpha-research-graph/clarification-questions.md",
+        ".agent-dev/specs/alpha-research-graph/clarification-questions.json",
+        ".agent-dev/tasks/README.md",
+        "project-docs/backlog/README.md",
+        "project-docs/backlog/now/alpha-research-graph-spec.md",
+        "project-docs/backlog/later/alpha-research-agent-v1.md"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Expose the minimal backend Rule Candidate / Lite Backtest HTTP API wrapper without approval, versioning, RulePack activation, or execution scope.",
+      "status": "done",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V202",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-agent/backend/app/api/rule_candidates.py",
+        "apps/trader-agent/backend/app/main.py",
+        "apps/trader-agent/backend/app/modules/rule_discovery.py",
+        "apps/trader-agent/backend/tests/test_rule_candidate_api.py"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Add minimal candidate_json.alpha_seed.v1 hints to new InsightCandidate payloads without generating RuleCandidate in InsightExplorationGraph.",
+      "status": "done",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V203",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/insightCandidates.ts",
+        "apps/trader-workflows/src/services/insightCandidates.test.ts",
+        "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Implement AlphaResearchGraph v0 as validate_input -> create_rule_candidate -> run_lite_backtest with input_validation_failed stop behavior.",
+      "status": "done",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V203",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/services/alphaResearch.ts",
+        "apps/trader-workflows/src/services/alphaResearch.test.ts",
+        "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.ts",
+        "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.nodes.ts",
+        "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.state.ts",
+        "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.types.ts",
+        "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.test.ts"
+      ]
+    },
+    {
+      "id": "S5",
+      "description": "Export and document AlphaResearchGraph v0 without pulling in AlphaResearchAgent v1 behavior.",
+      "status": "done",
+      "depends_on": [
+        "S4"
+      ],
+      "verification": {
+        "ref": "V204",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md",
+        "apps/trader-workflows/langgraph.json"
+      ]
+    }
+  ]
+}

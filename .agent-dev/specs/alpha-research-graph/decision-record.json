@@ -1,0 +1,68 @@
+{
+  "spec_id": "alpha-research-graph",
+  "decisions": [
+    {
+      "id": "D201",
+      "date": "2026-06-05",
+      "question": "Should T013 cover only M1, or M1 through M3?",
+      "answer": "T013 covers M1, M2, and M3, but the internal sequence remains strictly gated.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D202",
+      "date": "2026-06-05",
+      "question": "Should AlphaResearchGraph v0 be a research agent?",
+      "answer": "No. v0 is a thin validation and lite-backtest orchestration graph.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D203",
+      "date": "2026-06-05",
+      "question": "Which graph nodes should AlphaResearchGraph v0 contain?",
+      "answer": "Use only validate_input, create_rule_candidate, and run_lite_backtest.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D204",
+      "date": "2026-06-05",
+      "question": "Should the graph take insight_id and hydrate context internally?",
+      "answer": "No. The graph takes a standard AlphaResearchInput that already carries the required insight context fields; insight_id is only a source reference.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D205",
+      "date": "2026-06-05",
+      "question": "What happens when critical input data is missing?",
+      "answer": "The graph emits input_validation_failed with a validation report and does not enter candidate creation or lite backtesting.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D206",
+      "date": "2026-06-05",
+      "question": "Does v0 need LLM wording, normalization, hydrate, or field backfill nodes?",
+      "answer": "No. v0 avoids these nodes because they add complexity without improving the research result.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D207",
+      "date": "2026-06-05",
+      "question": "How should workflow code call Rule Discovery / Lite Backtest?",
+      "answer": "Add a minimal HTTP API wrapper around the backend module; workflow code must not call Python modules or SQLite tables directly.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D208",
+      "date": "2026-06-05",
+      "question": "Should T013 add alpha-ready seed fields to InsightCandidate output?",
+      "answer": "Yes. Add minimal candidate_json.alpha_seed.v1 hints, while keeping RuleCandidate generation out of InsightExplorationGraph.",
+      "confirmed_by": "user"
+    },
+    {
+      "id": "D209",
+      "date": "2026-06-05",
+      "question": "Where should the research-agent version of AlphaResearchGraph live?",
+      "answer": "Record it as a separate Later backlog plan, not as the T013 v0 implementation.",
+      "confirmed_by": "user"
+    }
+  ]
+}

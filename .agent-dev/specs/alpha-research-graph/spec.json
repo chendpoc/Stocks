@@ -1,0 +1,269 @@
+{
+  "id": "alpha-research-graph",
+  "title": "AlphaResearchGraph v0",
+  "status": "done",
+  "source_docs": [
+    "project-docs/backlog/now/alpha-research-graph-spec.md",
+    "project-docs/backlog/now/alpha-candidate-contract.md",
+    "project-docs/backlog/now/alpha-run-artifact-contract.md",
+    "project-docs/backlog/now/alpha-policy-check-nodes.md",
+    "project-docs/backlog/later/alpha-research-agent-v1.md",
+    "apps/trader-workflows/README.md",
+    "apps/trader-agent/backend/app/modules/rule_discovery.py",
+    "apps/trader-workflows/src/services/candidateFamilies.ts",
+    "apps/trader-workflows/src/services/insightCandidates.ts"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/alpha-research-graph/**",
+      ".agent-dev/tasks/T013-alpha-research-graph-v0.json",
+      ".agent-dev/tasks/T013-alpha-research-graph-v0.md",
+      "project-docs/backlog/later/alpha-research-agent-v1.md",
+      "apps/trader-agent/backend/app/api/rule_candidates.py",
+      "apps/trader-agent/backend/tests/test_rule_candidate_api.py",
+      "apps/trader-workflows/src/services/alphaResearch.ts",
+      "apps/trader-workflows/src/services/alphaResearch.test.ts",
+      "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.ts",
+      "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.nodes.ts",
+      "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.state.ts",
+      "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.types.ts",
+      "apps/trader-workflows/src/graphs/04-alphaResearch/alphaResearchGraph.test.ts"
+    ],
+    "modify": [
+      ".agent-dev/tasks/README.md",
+      "project-docs/backlog/README.md",
+      "project-docs/backlog/now/alpha-research-graph-spec.md",
+      "apps/trader-agent/backend/app/main.py",
+      "apps/trader-agent/backend/app/modules/rule_discovery.py",
+      "apps/trader-workflows/src/services/insightCandidates.ts",
+      "apps/trader-workflows/src/services/insightCandidates.test.ts",
+      "apps/trader-workflows/src/index.ts",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md",
+      "apps/trader-workflows/langgraph.json"
+    ],
+    "readonly_import": [
+      "apps/trader-agent/backend/app/db/models.py",
+      "apps/trader-agent/backend/tests/test_rule_discovery_lite_backtest.py",
+      "apps/trader-agent/backend/app/intel/api/stage1.py",
+      "apps/trader-workflows/src/services/candidateFamilies.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.test.ts"
+    ],
+    "forbidden": [
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "apps/trader-cli/**",
+      "data/**",
+      "apps/trader-agent/backend/app/modules/rulepack*",
+      "apps/trader-agent/backend/app/modules/*execution*",
+      "apps/trader-agent/backend/app/modules/*broker*"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D201",
+      "brief": "T013 covers M1, M2, and M3, but the internal sequence remains strictly gated"
+    },
+    {
+      "ref": "D202",
+      "brief": "AlphaResearchGraph v0 is a thin validation/backtest orchestration graph, not a research agent"
+    },
+    {
+      "ref": "D203",
+      "brief": "The v0 graph uses only validate_input, create_rule_candidate, and run_lite_backtest nodes"
+    },
+    {
+      "ref": "D204",
+      "brief": "Graph input is a standard AlphaResearchInput that already carries the required insight context fields"
+    },
+    {
+      "ref": "D205",
+      "brief": "Missing critical input produces input_validation_failed and stops before candidate creation"
+    },
+    {
+      "ref": "D206",
+      "brief": "v0 has no LLM wording, no normalization node, no context hydrate node, and no field backfill"
+    },
+    {
+      "ref": "D207",
+      "brief": "M2 exposes a minimal HTTP API wrapper around backend Rule Discovery / Lite Backtest"
+    },
+    {
+      "ref": "D208",
+      "brief": "InsightExplorationGraph may add alpha_seed.v1 hints but still must not generate RuleCandidate"
+    },
+    {
+      "ref": "D209",
+      "brief": "AlphaResearchAgent v1 research harness is a separate Later backlog item"
+    }
+  ],
+  "contracts": {
+    "alpha_research_input": {
+      "required_fields": [
+        "insight_id",
+        "symbol",
+        "thesis",
+        "evidence_refs",
+        "alpha_seed",
+        "backtest_window_start",
+        "backtest_window_end"
+      ],
+      "alpha_seed_required_fields": [
+        "schema_version",
+        "candidate_family",
+        "mechanism",
+        "trigger_hint",
+        "entry_condition_hint",
+        "invalidation_hint",
+        "required_evidence_hint"
+      ],
+      "alpha_seed_optional_fields": [
+        "risk_notes",
+        "exit_condition_hint"
+      ],
+      "alpha_seed_schema_version": "alpha_seed.v1",
+      "candidate_family_whitelist_ref": "apps/trader-workflows/src/services/candidateFamilies.ts",
+      "data_requirements_v0": "rule_discovery.DEFAULT_DATA_REQUIREMENTS; required_evidence_hint is metadata only"
+    },
+    "run_lite_backtest_orchestration": [
+      "POST /api/rule-candidates/{candidate_id}/evidence-requirements",
+      "POST /api/rule-candidates/{candidate_id}/lite-backtest",
+      "POST /api/rule-candidates/{candidate_id}/advance",
+      "GET /api/rule-candidates/{candidate_id}/lite-backtest-report"
+    ],
+    "api_mount": {
+      "prefix": "/api/rule-candidates",
+      "router_file": "apps/trader-agent/backend/app/api/rule_candidates.py"
+    },
+    "graph_nodes": [
+      "validate_input",
+      "create_rule_candidate",
+      "run_lite_backtest"
+    ],
+    "input_validation_failed": {
+      "creates_rule_candidate": false,
+      "runs_lite_backtest": false,
+      "required_artifact": "AlphaInputValidationReport"
+    },
+    "backend_api": [
+      "POST /api/rule-candidates",
+      "GET /api/rule-candidates/{candidate_id}",
+      "POST /api/rule-candidates/{candidate_id}/evidence-requirements",
+      "POST /api/rule-candidates/{candidate_id}/lite-backtest",
+      "POST /api/rule-candidates/{candidate_id}/advance",
+      "GET /api/rule-candidates/{candidate_id}/lite-backtest-report"
+    ],
+    "allowed_terminal_review_states": [
+      "needs_more_data",
+      "rejected",
+      "pending_shadow_tracking",
+      "pending_manual_approval"
+    ],
+    "forbidden_terminal_states": [
+      "manually_approved",
+      "versioned",
+      "active"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "A201",
+      "check": "T013 spec and task artifacts exist and encode M1-M3 as strict internal gates",
+      "verified_by": [
+        "V201"
+      ]
+    },
+    {
+      "id": "A202",
+      "check": "New InsightCandidate records include candidate_json.alpha_seed (schema_version alpha_seed.v1) without generating RuleCandidate in InsightExplorationGraph",
+      "verified_by": [
+        "V203"
+      ]
+    },
+    {
+      "id": "A203",
+      "check": "Backend exposes the minimal Rule Candidate / Lite Backtest HTTP API and preserves Rule Discovery state transitions and agent_events",
+      "verified_by": [
+        "V202"
+      ]
+    },
+    {
+      "id": "A204",
+      "check": "AlphaResearchGraph v0 uses exactly validate_input, create_rule_candidate, and run_lite_backtest as graph nodes",
+      "verified_by": [
+        "V203"
+      ]
+    },
+    {
+      "id": "A205",
+      "check": "input_validation_failed stops before RuleCandidate creation and LiteBacktest execution",
+      "verified_by": [
+        "V203"
+      ]
+    },
+    {
+      "id": "A206",
+      "check": "Workflow implementation calls backend APIs only and does not import backend modules or write Rule Discovery tables directly",
+      "verified_by": [
+        "V203",
+        "V204"
+      ]
+    },
+    {
+      "id": "A207",
+      "check": "No implementation path activates RulePack, approves candidates, versions rules, promotes models, or submits execution",
+      "verified_by": [
+        "V202",
+        "V203",
+        "V204"
+      ]
+    }
+  ],
+  "non_goals": [
+    "AlphaResearchAgent v1 research harness",
+    "open-ended evidence search",
+    "context hydrate node inside AlphaResearchGraph",
+    "LLM wording or normalization node",
+    "field backfill for missing alpha_seed",
+    "direct SQLite access from apps/trader-workflows",
+    "automatic approval",
+    "active RulePack mutation",
+    "automatic model promotion",
+    "broker, paper, or simulated execution",
+    "workflow builder",
+    "custom UI"
+  ],
+  "verification": [
+    {
+      "id": "V201",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/specs/alpha-research-graph/spec.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/alpha-research-graph/decision-record.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/specs/alpha-research-graph/clarification-questions.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T013-alpha-research-graph-v0.json | ConvertFrom-Json | Out-Null",
+      "expect": "AlphaResearchGraph spec, decision, clarification, and task JSON files parse",
+      "blocking": true
+    },
+    {
+      "id": "V202",
+      "command": "cd apps/trader-agent/backend && python -m pytest tests/test_rule_discovery_lite_backtest.py tests/test_rule_candidate_api.py -v --tb=short",
+      "expect": "Backend Rule Discovery state machine and HTTP API wrapper pass",
+      "blocking": true
+    },
+    {
+      "id": "V203",
+      "command": "cd apps/trader-workflows && npx tsx --test src/services/insightCandidates.test.ts src/services/alphaResearch.test.ts src/graphs/04-alphaResearch/alphaResearchGraph.test.ts",
+      "expect": "alpha_seed.v1, alpha service client, three-node graph, validation failure, and no forbidden calls pass",
+      "blocking": true
+    },
+    {
+      "id": "V204",
+      "command": "cd apps/trader-workflows && npm test",
+      "expect": "Workflow package remains compatible after AlphaResearchGraph v0 lands",
+      "blocking": true
+    },
+    {
+      "id": "V205",
+      "command": "git diff --check -- .agent-dev/specs/alpha-research-graph .agent-dev/tasks/T013-alpha-research-graph-v0.json .agent-dev/tasks/T013-alpha-research-graph-v0.md project-docs/backlog apps/trader-workflows",
+      "expect": "No whitespace errors in planning and workflow docs",
+      "blocking": true
+    }
+  ]
+}
