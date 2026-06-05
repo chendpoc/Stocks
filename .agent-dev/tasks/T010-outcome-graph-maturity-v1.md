@@ -1,6 +1,8 @@
 # T010: OutcomeGraph Maturity v1
 
-Status: pending
+Status: done
+
+Completed: 2026-06-05
 
 Spec: `.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md`
 
@@ -9,21 +11,29 @@ Spec: `.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md`
 Make `OutcomeGraph` the typed feedback-labeling boundary for both decision
 outcomes and insight candidate outcomes.
 
-This is a development task specification. It does not implement code.
+## Outcome (as implemented)
 
-## Current Implementation
+`OutcomeGraph` now:
 
-`OutcomeGraph` currently:
+- labels due decision outcomes and insight candidate outcomes in one run;
+- uses normalized labels (`hit`/`miss`/`neutral`/`invalid`/`insufficient_data`);
+- emits counts by source type and normalized label;
+- builds compact evidence summaries (capped at 15 lines) when labeling needs
+  fresh evidence;
+- does not mutate context snapshots or own insight scheduling.
 
-- fetches due decision outcomes;
-- finalizes pending rows;
-- returns processed/labeled/skipped/failed counts;
-- does not mutate context snapshots.
+Backend adds narrow `insight_candidate_outcomes` schema and Stage1 schedule/list
+APIs consumed by `InsightExplorationGraph`.
 
-It does not yet provide a shared outcome contract for insight candidates or a
-normalized label contract for downstream evaluation.
+## Evidence
 
-## Implementation Plan
+- Commits: `aedfee41`, `d4bd3fb8`, `f658f41f`
+- Review: `.agent-dev/reviews/T010-review-presentation.md` (PASS, 0 blockers)
+- Verification (2026-06-05): `cd apps/trader-workflows && npm test` → 101/101
+- Backend verify: `npm run trader-agent:backend:verify` — environment-dependent;
+  test file `test_stage1_insight_candidate_outcomes.py` present
+
+## Implementation Plan (spec reference)
 
 ### Confirmed Decision: Q60 B
 
@@ -186,8 +196,11 @@ If output shape changes, update workflow README examples. Do not add custom UI.
 ## Allowed Files
 
 - `apps/trader-workflows/src/services/outcomes.ts`
-- `apps/trader-workflows/src/graphs/outcomeGraph.ts`
-- `apps/trader-workflows/src/graphs/outcomeGraph.test.ts`
+- `apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.ts`
+- `apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.nodes.ts`
+- `apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.state.ts`
+- `apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.types.ts`
+- `apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.test.ts`
 - `apps/trader-workflows/src/index.ts`
 - `apps/trader-workflows/README.md`
 - `apps/trader-workflows/README.zh-CN.md`
@@ -216,7 +229,7 @@ persistence contract:
 ## Verification
 
 ```text
-cd apps/trader-workflows && npm test -- src/graphs/outcomeGraph.test.ts
+cd apps/trader-workflows && npx tsx --test src/graphs/01-outcome/outcomeGraph.test.ts
 npm run trader-agent:backend:verify
 git diff --check -- apps/trader-workflows apps/trader-agent/backend .agent-dev/tasks/T010-outcome-graph-maturity-v1.json .agent-dev/tasks/T010-outcome-graph-maturity-v1.md
 ```

@@ -2,12 +2,12 @@
   "id": "T010",
   "spec_id": "workflow-feedback-loop-maturity-v1",
   "title": "OutcomeGraph Maturity v1",
-  "status": "pending",
+  "status": "done",
   "steps": [
     {
       "id": "S1",
       "description": "Add normalized outcome label and bounded outcome metric contracts for decision outcomes and insight candidate outcomes.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "verification": {
         "ref": "V201",
@@ -15,13 +15,13 @@
       },
       "files_expected": [
         "apps/trader-workflows/src/services/outcomes.ts",
-        "apps/trader-workflows/src/graphs/outcomeGraph.test.ts"
+        "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.test.ts"
       ]
     },
     {
       "id": "S2",
       "description": "Add the narrow InsightCandidateOutcome persistence contract confirmed by Q60 B, with five minimal backend APIs; the schedule endpoint is used by InsightExplorationGraph, validates 1m/2m/5m/30m/1h/2h/4h horizons, rejects low-frequency horizons, and derives due_at. The 2m fallback is selected before calling the backend.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S1"
       ],
@@ -38,7 +38,7 @@
     {
       "id": "S3",
       "description": "Update OutcomeGraph run output to include counts by source type, final status, normalized label, and bounded compact-evidence context capped at 15 lines when fresh evidence is used.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S1",
         "S2"
@@ -48,14 +48,15 @@
         "blocking": true
       },
       "files_expected": [
-        "apps/trader-workflows/src/graphs/outcomeGraph.ts",
-        "apps/trader-workflows/src/graphs/outcomeGraph.test.ts"
+        "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.ts",
+        "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.nodes.ts",
+        "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.test.ts"
       ]
     },
     {
       "id": "S4",
       "description": "Keep CLI output bounded and update workflow README if command output shape changes.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S3"
       ],

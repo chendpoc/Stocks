@@ -37,7 +37,7 @@
 
 | Milestone | 目标 | 交付物 | 退出标准 |
 |---|---|---|---|
-| M0 Feedback Loop Closeout | 收尾已实现的反馈闭环 | T011/T012 状态/docs/review 已对齐；T010 task artifact 待同步；记录后端 pytest 环境 blocker | T011/T012 task docs 与 JSON 为 `done`；workflow 测试 101/101；后端验证 blocker 明确 |
+| M0 Feedback Loop Closeout | 收尾已实现的反馈闭环 | T010–T012 状态/docs/review 已对齐；记录后端 pytest 环境 blocker | task docs 与 JSON 均为 `done`；workflow 测试 101/101；后端验证 blocker 明确 |
 | M1 AlphaResearchGraph Spec Gate | 编码前锁定 alpha workflow 契约 | `T013 AlphaResearchGraph v0` spec/task、candidate contract、run artifact contract、policy checks、验收标准 | plan review 通过；后端 gap 列清楚；RulePack 激活与自动晋升仍禁止 |
 | M2 Alpha Backend Minimal Slice | 只补 AlphaResearchGraph 必需的后端 API | 最小 `RuleCandidate`、`LiteBacktestReport`、safe review states、API/tests | 后端契约测试通过；候选可进入 `needs_more_data`、`rejected`、`pending_shadow_tracking` 或 `pending_manual_approval` |
 | M3 AlphaResearchGraph v0 | 将 insight candidate 转成已验证 alpha candidate | graph、workflow service client、CLI 输出、tests、README 更新 | `InsightCandidate -> RuleCandidate -> LiteBacktestReport -> safe state` 可端到端运行 |

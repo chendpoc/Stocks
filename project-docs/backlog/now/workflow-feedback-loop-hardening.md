@@ -1,6 +1,6 @@
 # Workflow Feedback Loop Hardening
 
-Status: Done (T011/T012 closeout)
+Status: Done (T010–T012 closeout)
 
 ## Requirement
 
@@ -23,6 +23,7 @@ reports, and bounded insight exploration.
 Implemented and documented in v1:
 
 - `OutcomeGraph` — dual-source due outcome labeling (see T010)
+- `OutcomeGraph` — dual-source due outcome labeling (T010, done)
 - `EvaluationGraph` — structured evaluation report sections (T011, done)
 - `InsightExplorationGraph` — evaluation-driven candidates + outcome scheduling
   (T012, done)
@@ -37,8 +38,10 @@ rewrite historical snapshots.
 ## Evidence
 
 ```text
+.agent-dev/tasks/T010-outcome-graph-maturity-v1.md         (done)
 .agent-dev/tasks/T011-evaluation-graph-maturity-v1.md      (done)
 .agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md (done)
+.agent-dev/reviews/T010-review-presentation.md
 .agent-dev/reviews/T011-review-presentation.md
 .agent-dev/reviews/T012-review-presentation.md
 ```

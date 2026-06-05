@@ -53,8 +53,7 @@ A workflow is mature enough for this phase when it has:
    `EvaluationGraph`, and `InsightExplorationGraph` handoff contracts. **Done**
    (spec + T011/T012 task docs closed 2026-06-05).
 6. Implement graph-specific maturity tasks in order: Outcome, Evaluation,
-   Insight. **T011/T012 done**; T010 task artifact sync remains for full M0
-   closeout.
+   Insight. **Done** (T010–T012 closed 2026-06-05).
 7. Align runtime run/checkpoint/audit semantics around mature workflow runs.
 8. Revisit `AlphaResearchGraph` only after the DecisionGraph inspection loop
    and feedback loop contracts are reusable.
