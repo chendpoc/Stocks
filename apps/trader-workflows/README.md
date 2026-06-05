@@ -24,7 +24,7 @@ Current backlog focus is workflow maturity:
 |---|---|
 | Native LangGraph graphs | All four feedback-loop graphs in `langgraph.json`: `decision_graph`, `outcome_graph`, `evaluation_graph`, `insight_exploration_graph` |
 | DecisionGraph maturity v1 | Operator inspection done: `runs show` context summary, `context snapshots list/show`, structured LLM thesis prompts |
-| Feedback loop graphs | `OutcomeGraph`, `EvaluationGraph`, `InsightExplorationGraph` implemented with tests; maturity hardening in [T010–T012](../../.agent-dev/tasks/) |
+| Feedback loop graphs | `OutcomeGraph`, `EvaluationGraph`, `InsightExplorationGraph` implemented with tests; [T010–T012](../../.agent-dev/tasks/) maturity v1 slices landed |
 | Alpha / judgment / reflection | Planned; see backlog **Now** / **Next** / **Later** |
 
 **Product north star (this package):** verifiable market reading, repeatable pattern
@@ -83,6 +83,36 @@ Blank doc cells mean the workflow has no standalone development doc yet.
 | `Memory Review / Activation` | backend dependency | [alpha research engineering principles](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md) |
 | `Audit / Rebuild Workflow` | backend dependency | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
 | `Approval / Capability Gate` | backend dependency |  |
+
+## Project Milestones And Delivery Plan
+
+The remaining workflow roadmap is dependency-ordered, not table-order driven.
+Use a **strict serial gate for M0-M3**, then allow only lightweight spec
+preparation for later milestones. Do not implement multiple planned graphs in
+parallel while shared contracts are still moving.
+
+| Milestone | Goal | Deliverable | Exit Criteria |
+|---|---|---|---|
+| M0 Feedback Loop Closeout | Finish the implemented feedback loop slice | T010-T012 status/docs alignment, known backend pytest environment blocker recorded | Task docs and JSON agree; workflow tests pass; backend verification blocker is explicit |
+| M1 AlphaResearchGraph Spec Gate | Lock the alpha workflow contract before coding | `T013 AlphaResearchGraph v0` spec/task, candidate contract, run artifact contract, policy checks, acceptance criteria | Plan review passes; backend gaps are listed; RulePack activation and auto-promotion remain forbidden |
+| M2 Alpha Backend Minimal Slice | Add only the backend APIs AlphaResearchGraph needs | Minimal `RuleCandidate`, `LiteBacktestReport`, safe review states, API/tests | Backend contract tests pass; candidates can end in `needs_more_data`, `rejected`, `pending_shadow_tracking`, or `pending_manual_approval` |
+| M3 AlphaResearchGraph v0 | Turn insight candidates into validated alpha candidates | Graph, workflow service client, CLI output, tests, README updates | `InsightCandidate -> RuleCandidate -> LiteBacktestReport -> safe state` runs end to end |
+| M4 MarketJudgmentGraph v0 | Produce operator-facing market reads | Market state, opportunity/risk summary, evidence summary, daily focus output | Does not perform alpha discovery; output is inspectable from CLI/TUI surfaces |
+| M5 ReflectionGraph v0 | Generate daily/weekly learning and rule proposal drafts | Failure modes, weekly summary, proposal draft handoff | Drafts are handed to Rule Discovery / Lite Backtest; no rule activation |
+| M6 ModelLearningGraph v0 | Run bounded challenger-model evaluation | `opportunity_ranking_model` experiment orchestration, evaluation report, promotion recommendation | No automatic promotion, no hidden model switching, every metric/checkpoint is auditable |
+
+Delivery policy:
+
+1. M0-M3 are strictly serial because they share the `InsightCandidate`,
+   `RuleCandidate`, `LiteBacktestReport`, safe state, and approval-boundary
+   contracts.
+2. After M3 is stable, later graph specs may be drafted while the current graph
+   implementation is under review, but code implementation remains gated one
+   milestone at a time.
+3. Backend work is not a separate last phase. Each workflow milestone may add
+   the smallest backend slice required by that workflow's acceptance criteria.
+4. Do not expand backend work into a generic rule, approval, or model platform
+   unless a reviewed spec explicitly changes this roadmap.
 
 ## Architecture
 
@@ -308,6 +338,14 @@ Responsibilities:
 The graph can recommend `hold` or `needs_more_data`. It must not silently
 promote a model, change production behavior, or mutate active RulePack policy.
 
+#### CLI: `eval summary`
+
+Use `npm run workflows -- eval summary --symbol TSLA.US --json`. The envelope is
+`{ ok, command, run_id, status, data }` where `data` includes bounded report
+fields plus structured `sections` (decision_performance,
+insight_candidate_performance, top_positive_patterns, top_negative_patterns,
+failure_modes, data_gaps, evidence_refs).
+
 ### InsightExplorationGraph
 
 `InsightExplorationGraph` is a **native LangGraph** workflow
@@ -321,17 +359,54 @@ normalize_input
 -> fetch_exploration_inputs
 -> run_insight_react
 -> build_insight_payload
--> persist_insight_candidate
+-> persist_insight_candidate  (persist + schedule outcome)
 -> final_output
 ```
 
 Responsibilities:
 
-- inspect context snapshots and historical outcomes;
+- inspect context snapshots and historical outcomes (evaluation-driven
+  exploration; never reads raw market/news data directly);
 - generate bounded `InsightCandidate` records;
 - attach evidence references;
+- schedule an `InsightCandidateOutcome` after each candidate is persisted
+  (`POST /insight-candidate-outcomes/schedule`), enabling downstream
+  `OutcomeGraph` to label the insight once due;
+- enforce horizon whitelist constraint (`1m`/`2m`/`5m`/`30m`/`1h`/`2h`/`4h`;
+  default `2m` when semantics are ambiguous);
 - enforce proposal weight caps and forbidden capability boundaries;
-- avoid trade execution, model training, promotion, or direct lesson mutation.
+- avoid trade execution, model training, promotion, RuleCandidate generation,
+  RulePack mutation, lesson activation, or direct lesson mutation.
+
+Stage1 API contracts (workflow client in `insightCandidates.ts` / `outcomes.ts`):
+
+- **Persist** (`POST /insight-candidates`): top-level fields match backend
+  `InsightCandidateInput` (`insight_id`, `run_id`, `symbols_json`, window bounds,
+  `thesis`, `evidence_refs_json`, `verification_status`, `weight_cap`,
+  `candidate_json`). Exploration metadata (`origin_category`, `horizon`,
+  `horizon_source`) lives inside `candidate_json`, not as extra top-level
+  columns.
+- **Schedule** (`POST /insight-candidate-outcomes/schedule`): request body is
+  `{ outcomes: [{ insight_id, symbol, horizon, evidence_refs_json,
+  reason_codes_json, outcome_json? }] }`; response is
+  `{ items: [...], count }`. Backend derives `due_at`; this graph only schedules.
+
+Partial-failure semantics: `persist_insight_candidate` always persists first,
+then schedules. If scheduling fails after a successful persist, the node throws
+`InsightSchedulingError` (`insight_id`, `horizon`, `persisted: true`,
+`schedulePayload`, `cause`). Recovery is an idempotent retry of schedule with
+the same `insight_id` + `horizon`—no silent downgrade.
+
+Optional graph input: `evaluation_report_id` loads a bounded `EvaluationReport`
+to derive `origin_category` and exploration context; fetch failure is non-fatal.
+
+#### CLI: `insights explore`
+
+Use `npm run workflows -- insights explore --symbol TSLA.US --window 30d --json`.
+The envelope is `{ ok, command, run_id, status, data }` where `data` includes
+`insight_id`, window bounds, `react_step_count`, `thesis`, `verification_status`,
+`weight_cap`, `evidence_ref_count`, `persisted_candidate`, `scheduled_outcome_id`,
+and `scheduled_outcome_horizon`.
 
 This is the implemented entry closest to alpha discovery. It produces candidate
 insights, but it does not complete the formal alpha research and lite backtest

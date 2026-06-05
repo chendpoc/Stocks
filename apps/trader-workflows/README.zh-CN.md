@@ -29,6 +29,33 @@
 | `Audit / Rebuild Workflow` | 后端依赖 | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
 | `Approval / Capability Gate` | 后端依赖 |  |
 
+## 项目里程碑与推进计划
+
+后续 roadmap 按依赖顺序推进，不按表格顺序机械实现。M0-M3 使用
+**严格串行门禁**；M3 稳定后，后续 milestone 只允许轻量 spec 预研，
+不允许多个规划中 graph 并行实现。
+
+| Milestone | 目标 | 交付物 | 退出标准 |
+|---|---|---|---|
+| M0 Feedback Loop Closeout | 收尾已实现的反馈闭环 | T010-T012 状态/docs 对齐，记录后端 pytest 环境 blocker | task docs 与 JSON 状态一致；workflow 测试通过；后端验证 blocker 明确 |
+| M1 AlphaResearchGraph Spec Gate | 编码前锁定 alpha workflow 契约 | `T013 AlphaResearchGraph v0` spec/task、candidate contract、run artifact contract、policy checks、验收标准 | plan review 通过；后端 gap 列清楚；RulePack 激活与自动晋升仍禁止 |
+| M2 Alpha Backend Minimal Slice | 只补 AlphaResearchGraph 必需的后端 API | 最小 `RuleCandidate`、`LiteBacktestReport`、safe review states、API/tests | 后端契约测试通过；候选可进入 `needs_more_data`、`rejected`、`pending_shadow_tracking` 或 `pending_manual_approval` |
+| M3 AlphaResearchGraph v0 | 将 insight candidate 转成已验证 alpha candidate | graph、workflow service client、CLI 输出、tests、README 更新 | `InsightCandidate -> RuleCandidate -> LiteBacktestReport -> safe state` 可端到端运行 |
+| M4 MarketJudgmentGraph v0 | 产出操作者市场判断 | 市场状态、机会/风险摘要、证据摘要、每日焦点输出 | 不做 alpha discovery；输出可从 CLI/TUI 检查 |
+| M5 ReflectionGraph v0 | 生成日/周学习与 rule proposal draft | failure modes、weekly summary、proposal draft handoff | draft 交给 Rule Discovery / Lite Backtest；不激活规则 |
+| M6 ModelLearningGraph v0 | 运行有边界的 challenger model evaluation | `opportunity_ranking_model` 实验编排、评估报告、晋升建议 | 不自动晋升；不隐藏切换模型；每个指标与 checkpoint 可审计 |
+
+交付策略：
+
+1. M0-M3 必须严格串行，因为它们共享 `InsightCandidate`、`RuleCandidate`、
+   `LiteBacktestReport`、safe state 和 approval boundary 契约。
+2. M3 稳定后，后续 graph 的 spec 可以在当前实现 review 期间预研，但代码实现
+   仍按 milestone 一个个过门禁。
+3. 后端工作不是最后单独做的大阶段。每个 workflow milestone 只补该 workflow
+   验收所需的最小后端 slice。
+4. 除非有已 review 的 spec 明确变更 roadmap，否则不要把后端工作扩展成泛化
+   rule、approval 或 model 平台。
+
 ## 架构
 
 ```text
@@ -184,19 +211,69 @@ snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
 
 该图只能推荐 `hold` 或 `needs_more_data`，**不得**静默晋升模型、改变生产行为或修改活跃 RulePack 策略。
 
+#### CLI：`eval summary`
+
+使用 `npm run workflows -- eval summary --symbol TSLA.US --json`。返回 envelope 为
+`{ ok, command, run_id, status, data }`，其中 `data` 包含有界 report 字段与结构化
+`sections`（decision_performance、insight_candidate_performance、
+top_positive_patterns、top_negative_patterns、failure_modes、data_gaps、
+evidence_refs）。
+
 ### InsightExplorationGraph
 
 `InsightExplorationGraph` 是 **native LangGraph** 工作流（`insight_exploration_graph`），也可通过 CLI（`insights explore --symbol … --window …`）运行。
 
-`InsightExplorationGraph` 从 snapshot、outcome 与 evidence 中探索候选 insight。
+`InsightExplorationGraph` 基于 evaluation 驱动，从 context snapshot、outcome 摘要与 evidence 中探索候选 insight。
 
 职责：
 
-- 检查 context snapshot 与历史 outcome；
+- 检查 context snapshot 与历史 outcome（评估驱动探索；**不**直接读取原始市场/新闻数据）；
 - 生成有边界的 `InsightCandidate` 记录；
 - 附加 evidence references；
+- 每个候选持久化后调度 `InsightCandidateOutcome`
+  （`POST /insight-candidate-outcomes/schedule`），使下游 `OutcomeGraph` 到期后可标注该 insight；
+- 强制执行 horizon 白名单约束（`1m`/`2m`/`5m`/`30m`/`1h`/`2h`/`4h`；语义不明确时默认 `2m`）；
 - 强制执行 proposal 权重上限与 forbidden capability 边界；
-- **不**执行交易、模型训练、晋升或直接修改 lesson。
+- **不**执行交易、模型训练、晋升、生成 `RuleCandidate`、修改 `RulePack`、激活 lesson 或直接修改 lesson。
+
+图结构：
+
+```text
+normalize_input
+-> fetch_exploration_inputs
+-> run_insight_react
+-> build_insight_payload
+-> persist_insight_candidate  （持久化 + 调度 outcome）
+-> final_output
+```
+
+Stage1 API 契约（workflow 客户端见 `insightCandidates.ts` / `outcomes.ts`）：
+
+- **持久化**（`POST /insight-candidates`）：顶层字段与后端 `InsightCandidateInput` 对齐
+  （`insight_id`、`run_id`、`symbols_json`、窗口边界、`thesis`、`evidence_refs_json`、
+  `verification_status`、`weight_cap`、`candidate_json`）。探索元数据
+  （`origin_category`、`horizon`、`horizon_source`）存放在 `candidate_json` 内，
+  **不**作为额外顶层列发送。
+- **调度**（`POST /insight-candidate-outcomes/schedule`）：请求体为
+  `{ outcomes: [{ insight_id, symbol, horizon, evidence_refs_json,
+  reason_codes_json, outcome_json? }] }`；响应为 `{ items: [...], count }`。
+  后端推导 `due_at`；本图只负责调度。
+
+部分失败语义：`persist_insight_candidate` 先持久化、再调度。若持久化成功但调度失败，
+节点抛出 `InsightSchedulingError`（含 `insight_id`、`horizon`、`persisted: true`、
+`schedulePayload`、`cause`）。恢复方式为对相同 `insight_id` + `horizon` 做幂等重试调度，
+**不**静默降级。
+
+可选图输入：`evaluation_report_id` 可加载有界 `EvaluationReport` 以推导
+`origin_category` 与探索上下文；拉取失败不阻断主路径。
+
+#### CLI：`insights explore`
+
+使用 `npm run workflows -- insights explore --symbol TSLA.US --window 30d --json`。
+返回 envelope 为 `{ ok, command, run_id, status, data }`，其中 `data` 包含
+`insight_id`、窗口边界、`react_step_count`、`thesis`、`verification_status`、
+`weight_cap`、`evidence_ref_count`、`persisted_candidate`、`scheduled_outcome_id`、
+`scheduled_outcome_horizon`。
 
 这是当前最接近 alpha 发现的已实现入口：产出候选 insight，但不完成正式的 alpha 研究与 lite backtest 链路。
 
