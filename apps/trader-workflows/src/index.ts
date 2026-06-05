@@ -8,10 +8,10 @@ import {
   Stage1Runtime,
   type Stage1RuntimeResumeHandlers,
 } from "./runtime/stage1Runtime.js";
-import { runDecisionGraph } from "./graphs/decisionGraph.js";
-import { runDueOutcomeGraph } from "./graphs/outcomeGraph.js";
-import { runEvaluationSummaryGraph } from "./graphs/evaluationGraph.js";
-import { runInsightExplorationGraph } from "./graphs/insightExplorationGraph.js";
+import { runDecisionGraph } from "./graphs/00-decision/decisionGraph.js";
+import { runDueOutcomeGraph } from "./graphs/01-outcome/outcomeGraph.js";
+import { runEvaluationSummaryGraph } from "./graphs/02-evaluation/evaluationGraph.js";
+import { runInsightExplorationGraph } from "./graphs/03-insightExploration/insightExplorationGraph.js";
 import {
   fetchContextSnapshot,
   listContextSnapshots,
@@ -218,9 +218,7 @@ async function handleEvalSummaryCommandAsync(
 
   const executed = await runtime.runGraph({
     graph_name: "EvaluationGraph",
-    node_name: "evaluation_summary",
     input: { symbol, model_version, limit },
-    execute: (input) => runEvaluationSummaryGraph(input),
   });
   const result = executed.output;
   if (!result) {
@@ -269,17 +267,7 @@ async function handleInsightsExploreCommandAsync(
 
   const executed = await runtime.runGraph({
     graph_name: "InsightExplorationGraph",
-    node_name: "insight_exploration",
     input: { symbol, window },
-    execute: (input) => {
-      const inputSymbol = typeof input.symbol === "string" ? input.symbol : symbol;
-      const inputWindow = typeof input.window === "string" ? input.window : window;
-      return runInsightExplorationGraph({
-        ...input,
-        symbol: inputSymbol,
-        window: inputWindow,
-      });
-    },
   });
   const result = executed.output;
   if (!result) {
@@ -408,9 +396,7 @@ async function handleOutcomesRunCommandAsync(
 
   const executed = await runtime.runGraph({
     graph_name: "OutcomeGraph",
-    node_name: "outcomes_due",
     input: { symbol, limit },
-    execute: (input) => runDueOutcomeGraph(input),
   });
   const result = executed.output;
   if (!result) {

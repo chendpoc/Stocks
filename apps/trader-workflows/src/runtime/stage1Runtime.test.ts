@@ -273,8 +273,8 @@ test("Stage1 runtime wraps non-native graph execution in run metadata and checkp
 
   try {
     const executed = await runtime.runGraph({
-      graph_name: "EvaluationGraph",
-      node_name: "evaluation_summary",
+      graph_name: "LegacyTestGraph",
+      node_name: "legacy_execute",
       input: { symbol: "TSLA.US" },
       execute: async (input) => ({
         run_id: input.run_id,
@@ -284,7 +284,7 @@ test("Stage1 runtime wraps non-native graph execution in run metadata and checkp
     });
 
     assert.equal(executed.run.status, "succeeded");
-    assert.equal(executed.run.graph_name, "EvaluationGraph");
+    assert.equal(executed.run.graph_name, "LegacyTestGraph");
     assert.equal(executed.output?.run_id, executed.run.run_id);
     assert.deepEqual(executed.run.output, executed.output);
 
@@ -293,10 +293,10 @@ test("Stage1 runtime wraps non-native graph execution in run metadata and checkp
     assert.ok(shown.checkpoint_ref);
     assert.ok(shown.checkpoints.some((cp) => cp.node_name === "bootstrap"));
     assert.ok(
-      shown.checkpoints.some((cp) => cp.node_name === "evaluation_summary:start"),
+      shown.checkpoints.some((cp) => cp.node_name === "legacy_execute:start"),
     );
     assert.ok(
-      shown.checkpoints.some((cp) => cp.node_name === "evaluation_summary:complete"),
+      shown.checkpoints.some((cp) => cp.node_name === "legacy_execute:complete"),
     );
     assert.ok(shown.checkpoints.some((cp) => cp.node_name === "complete"));
   } finally {
