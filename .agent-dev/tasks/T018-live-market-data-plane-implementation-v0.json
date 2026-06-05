@@ -1,0 +1,55 @@
+{
+  "id": "T018",
+  "spec_id": "live-market-data-plane-implementation-v0",
+  "title": "LiveMarketDataPlane Implementation v0",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add M2 SQLite tables and typed artifact helpers.",
+      "status": "done",
+      "verification": { "ref": "V601", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/db/schema.py",
+        "apps/trader-agent/backend/app/modules/live_market_plane/types.py",
+        "apps/trader-agent/backend/app/modules/live_market_plane/store.py"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Normalize Longbridge/fixture quote into QuoteSnapshot and build MarketStateSnapshot with consumer_readiness.",
+      "status": "done",
+      "depends_on": ["S1"],
+      "verification": { "ref": "V601", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/modules/live_market_plane/normalize.py",
+        "apps/trader-agent/backend/app/modules/live_market_plane/readiness.py",
+        "apps/trader-agent/backend/app/modules/live_market_plane/service.py"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Expose /api/market-plane read/ingest endpoints.",
+      "status": "done",
+      "depends_on": ["S2"],
+      "verification": { "ref": "V601", "blocking": true },
+      "files_expected": [
+        "apps/trader-agent/backend/app/api/live_market_plane.py",
+        "apps/trader-agent/backend/app/main.py"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Add trader-cli market-plane inspect/ingest commands.",
+      "status": "done",
+      "depends_on": ["S3"],
+      "verification": { "ref": "V601", "blocking": true },
+      "files_expected": [
+        "apps/trader-cli/src/services/liveMarketPlane.ts",
+        "apps/trader-cli/src/commands/marketPlane.ts",
+        "apps/trader-cli/src/index.ts"
+      ]
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T018-live-market-data-plane-implementation-v0.md"
+}

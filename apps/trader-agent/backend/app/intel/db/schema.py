@@ -411,6 +411,65 @@ _SCHEMA_STATEMENTS = [
       PRIMARY KEY (policy_version, source_key)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS m2_provider_traces (
+      provider_trace_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      market TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_m2_provider_traces_symbol ON m2_provider_traces(symbol, received_at)",
+    """
+    CREATE TABLE IF NOT EXISTS m2_quote_snapshots (
+      quote_snapshot_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      market TEXT NOT NULL,
+      asof_ts TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_m2_quote_snapshots_symbol ON m2_quote_snapshots(symbol, asof_ts)",
+    """
+    CREATE TABLE IF NOT EXISTS m2_market_state_snapshots (
+      market_state_snapshot_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      market TEXT NOT NULL,
+      asof_ts TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_m2_market_state_symbol ON m2_market_state_snapshots(symbol, asof_ts)",
+    """
+    CREATE TABLE IF NOT EXISTS paper_order_intents (
+      order_intent_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      market_state_snapshot_id TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS paper_order_events (
+      order_event_id TEXT PRIMARY KEY,
+      order_intent_id TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      event_ts TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_paper_order_events_intent ON paper_order_events(order_intent_id)",
+    """
+    CREATE TABLE IF NOT EXISTS paper_position_snapshots (
+      position_snapshot_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      asof_ts TEXT NOT NULL
+    )
+    """,
 ]
 
 

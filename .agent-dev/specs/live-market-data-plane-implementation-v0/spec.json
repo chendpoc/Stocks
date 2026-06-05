@@ -1,0 +1,47 @@
+{
+  "id": "live-market-data-plane-implementation-v0",
+  "title": "LiveMarketDataPlane Implementation v0",
+  "status": "active",
+  "source_docs": [
+    ".agent-dev/specs/live-market-data-plane-v0/spec.md",
+    ".agent-dev/specs/live-market-data-plane-implementation-decision-gate/decision-record.json",
+    "project-docs/backlog/now/live-market-data-plane-v0.md"
+  ],
+  "scope": {
+    "create": [
+      "apps/trader-agent/backend/app/modules/live_market_plane/**",
+      "apps/trader-agent/backend/app/api/live_market_plane.py",
+      "apps/trader-agent/backend/tests/test_live_market_plane.py",
+      "apps/trader-cli/src/services/liveMarketPlane.ts",
+      "apps/trader-cli/src/commands/marketPlane.ts"
+    ],
+    "modify": [
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-agent/backend/app/main.py",
+      "apps/trader-cli/src/index.ts"
+    ],
+    "forbidden": [
+      "apps/trader-workflows/src/**",
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "docs/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D501-D508",
+      "brief": "Inherited from T016 confirmed gate"
+    },
+    {
+      "ref": "D601",
+      "brief": "v0 ingests quote via Longbridge transport or fixture; depth/trade may be degraded stubs labeled in quality_flags"
+    }
+  ],
+  "verification": [
+    {
+      "id": "V601",
+      "command": "cd apps/trader-agent/backend && python -m pytest tests/test_live_market_plane.py -v --tb=short",
+      "blocking": true
+    }
+  ]
+}
