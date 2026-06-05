@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { pathToFileURL } from "node:url";
+
 export {
   alphaResearchGraph,
   buildAlphaResearchGraph,
@@ -26,6 +28,8 @@ import {
   STAGE1_RUN_STATUSES,
 } from "./runtime/checkpointStore.js";
 import {
+  isRunStatus,
+  STAGE1_OBSERVABILITY_LIMIT_MAX,
   Stage1Runtime,
   type Stage1RuntimeResumeHandlers,
 } from "./runtime/stage1Runtime.js";
@@ -83,6 +87,40 @@ function parseLimit(args: string[]): number {
     throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
   }
   return parsed;
+}
+
+function parseOptionalStatus(args: string[]): Stage1RunStatus | undefined {
+  const statusFlagIndex = args.indexOf("--status");
+  if (statusFlagIndex < 0) {
+    return undefined;
+  }
+  const raw = args[statusFlagIndex + 1];
+  if (!isRunStatus(raw)) {
+    throw new WorkflowCommandError(
+      "INVALID_STATUS",
+      `status must be one of: ${STAGE1_RUN_STATUSES.join(", ")}`,
+    );
+  }
+  return raw;
+}
+
+function parseOptionalGraphName(args: string[]): string | undefined {
+  const graphFlagIndex = args.indexOf("--graph-name");
+  if (graphFlagIndex < 0) {
+    return undefined;
+  }
+  const raw = args[graphFlagIndex + 1];
+  if (!raw) {
+    throw new WorkflowCommandError(
+      "GRAPH_NAME_REQUIRED",
+      "--graph-name requires a graph name",
+    );
+  }
+  return raw;
+}
+
+function parseRunObservabilityLimit(args: string[]): number {
+  return Math.min(parseLimit(args), STAGE1_OBSERVABILITY_LIMIT_MAX);
 }
 
 function toEnvelope(args: {
@@ -170,10 +208,55 @@ async function handleRunsCommandAsync(
         data: { run },
       });
     }
+    case "monitor": {
+      const limit = parseRunObservabilityLimit(args);
+      const status = parseOptionalStatus(args);
+      const graphName = parseOptionalGraphName(args);
+      const runs = runtime.listRunMonitorSummaries({
+        status,
+        graph_name: graphName,
+        limit,
+      });
+      return toEnvelope({
+        ok: true,
+        command: "runs monitor",
+        data: {
+          runs,
+          count: runs.length,
+          filters: {
+            status: status ?? null,
+            graph_name: graphName ?? null,
+            limit,
+          },
+        },
+      });
+    }
+    case "trace": {
+      const runId = args[2];
+      if (!runId) {
+        throw new WorkflowCommandError(
+          "RUN_ID_REQUIRED",
+          "runs trace requires a run_id",
+        );
+      }
+      const detail = runtime.showRunTraceDetail(runId);
+      return toEnvelope({
+        ok: true,
+        command: "runs trace",
+        run_id: detail.run.run_id,
+        status: normalizeStatus(detail.run.status),
+        data: {
+          run: detail.run,
+          checkpoints: detail.checkpoints,
+          output_summary: detail.output_summary,
+          resume_hint: detail.resume_hint,
+        },
+      });
+    }
     default:
       throw new WorkflowCommandError(
         "UNKNOWN_RUNS_COMMAND",
-        `Unknown runs command: ${sub ?? "(missing)"} (use list|show|resume)`,
+        `Unknown runs command: ${sub ?? "(missing)"} (use list|show|resume|monitor|trace)`,
       );
   }
 }
@@ -443,14 +526,14 @@ async function handleOutcomesRunCommandAsync(
   });
 }
 
-async function handleCommandAsync(
+export async function handleCommandAsync(
   runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
   if (args.length === 0) {
     throw new WorkflowCommandError(
       "COMMAND_REQUIRED",
-      "Command required (expected: runs list|show|resume | decide SYMBOL | context snapshots list|show | outcomes run --due | eval summary | insights explore)",
+      "Command required (expected: runs list|show|resume|monitor|trace | decide SYMBOL | context snapshots list|show | outcomes run --due | eval summary | insights explore)",
     );
   }
   switch (args[0]) {
@@ -527,4 +610,11 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+function isCliEntrypoint(): boolean {
+  const entrypoint = process.argv[1];
+  return Boolean(entrypoint) && import.meta.url === pathToFileURL(entrypoint).href;
+}
+
+if (isCliEntrypoint()) {
+  void main();
+}

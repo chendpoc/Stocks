@@ -44,6 +44,52 @@ export interface Stage1RuntimeRunView extends Stage1RunDetail {
   checkpoints: Stage1CheckpointRecord[];
 }
 
+export interface Stage1RunMonitorOptions {
+  status?: Stage1RunStatus;
+  graph_name?: string;
+  limit?: number;
+}
+
+export interface Stage1RunMonitorSummary {
+  run_id: string;
+  graph_name: string;
+  status: Stage1RunStatus;
+  current_node: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+  duration_ms: number;
+  checkpoint_count: number;
+  latest_checkpoint_ref: string | null;
+  has_error: boolean;
+  latest_error: string | null;
+  resumable: boolean;
+}
+
+export interface Stage1RunTraceCheckpointSummary {
+  checkpoint_id: string;
+  run_id: string;
+  seq: number;
+  node_name: string;
+  created_at: string;
+  state_summary: Record<string, unknown>;
+}
+
+export type Stage1RunOutputSummary = Record<string, unknown>;
+
+export interface Stage1RunResumeHint {
+  resumable: boolean;
+  reason: string | null;
+  command: string | null;
+}
+
+export interface Stage1RunTraceDetail {
+  run: Stage1RunMonitorSummary;
+  checkpoints: Stage1RunTraceCheckpointSummary[];
+  output_summary: Stage1RunOutputSummary;
+  resume_hint: Stage1RunResumeHint;
+}
+
 export interface Stage1RuntimeStartOptions {
   graph_name?: string;
   input?: Record<string, unknown>;
@@ -93,6 +139,8 @@ const RuntimeGraphState = Annotation.Root({
   input: Annotation<Record<string, unknown>>(),
   output: Annotation<unknown | null>(),
 });
+
+export const STAGE1_OBSERVABILITY_LIMIT_MAX = 200;
 
 function isNativeLangGraphRun(graphName: string): boolean {
   return NATIVE_LANGGRAPH_GRAPHS.has(graphName);
@@ -260,6 +308,176 @@ function normalizeRunInput(input: unknown): Record<string, unknown> {
     return input as Record<string, unknown>;
   }
   return {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeObservabilityLimit(limit: number | undefined): number {
+  if (limit === undefined) {
+    return 50;
+  }
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return 50;
+  }
+  return Math.min(Math.trunc(limit), STAGE1_OBSERVABILITY_LIMIT_MAX);
+}
+
+function timestampMs(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function computeDurationMs(run: Stage1RunSummary): number {
+  const start = timestampMs(run.started_at) ?? timestampMs(run.created_at);
+  const end =
+    timestampMs(run.finished_at) ??
+    timestampMs(run.updated_at) ??
+    timestampMs(run.created_at);
+  if (start === null || end === null || end < start) {
+    return 0;
+  }
+  return end - start;
+}
+
+function toRunMonitorSummary(
+  run: Stage1RunSummary,
+  checkpoints: Stage1CheckpointRecord[],
+): Stage1RunMonitorSummary {
+  const latestCheckpoint = checkpoints.at(-1);
+  return {
+    run_id: run.run_id,
+    graph_name: run.graph_name,
+    status: run.status,
+    current_node: run.current_node,
+    started_at: run.started_at,
+    finished_at: run.finished_at,
+    updated_at: run.updated_at,
+    duration_ms: computeDurationMs(run),
+    checkpoint_count: checkpoints.length,
+    latest_checkpoint_ref: run.checkpoint_ref ?? latestCheckpoint?.checkpoint_id ?? null,
+    has_error: Boolean(run.latest_error),
+    latest_error: run.latest_error,
+    resumable: run.status === "interrupted",
+  };
+}
+
+function toStateSummary(state: unknown): Record<string, unknown> {
+  if (state === null || state === undefined) {
+    return { type: "null", present: false };
+  }
+  if (Array.isArray(state)) {
+    return { type: "array", present: true, item_count: state.length };
+  }
+  if (!isRecord(state)) {
+    return { type: typeof state, present: true };
+  }
+  const summary: Record<string, unknown> = {
+    type: "object",
+    present: true,
+    keys: Object.keys(state).sort(),
+  };
+  for (const key of ["stage", "graph_name", "runtime", "node_name", "next_node", "error"]) {
+    if (typeof state[key] === "string") {
+      summary[key] = state[key];
+    }
+  }
+  return summary;
+}
+
+function pickRecordFields(
+  source: Record<string, unknown>,
+  fields: string[],
+): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (source[field] !== undefined) {
+      picked[field] = source[field];
+    }
+  }
+  return picked;
+}
+
+function toOutputSummary(
+  graphName: string,
+  output: unknown,
+): Stage1RunOutputSummary {
+  if (output === null || output === undefined) {
+    return { type: "unknown", present: false };
+  }
+  if (!isRecord(output)) {
+    return { type: "unknown", present: true };
+  }
+  switch (graphName) {
+    case NATIVE_DECISION_GRAPH:
+      return {
+        type: NATIVE_DECISION_GRAPH,
+        present: true,
+        ...pickRecordFields(output, [
+          "decision_id",
+          "action",
+          "snapshot_id",
+          "scheduled_outcome_count",
+          "paper_execution_submitted",
+        ]),
+      };
+    case NATIVE_OUTCOME_GRAPH:
+      return {
+        type: NATIVE_OUTCOME_GRAPH,
+        present: true,
+        ...pickRecordFields(output, [
+          "processed_count",
+          "labeled_count",
+          "skipped_count",
+          "failed_count",
+          "outcome_count",
+        ]),
+      };
+    case NATIVE_EVALUATION_GRAPH:
+      return {
+        type: NATIVE_EVALUATION_GRAPH,
+        present: true,
+        ...pickRecordFields(output, [
+          "report_id",
+          "model_version",
+          "recommendation",
+          "persisted",
+        ]),
+      };
+    case NATIVE_INSIGHT_EXPLORATION_GRAPH:
+      return {
+        type: NATIVE_INSIGHT_EXPLORATION_GRAPH,
+        present: true,
+        ...pickRecordFields(output, [
+          "insight_id",
+          "window",
+          "react_step_count",
+          "verification_status",
+          "evidence_ref_count",
+        ]),
+      };
+    default:
+      return { type: "unknown", present: true };
+  }
+}
+
+function toResumeHint(run: Stage1RunSummary): Stage1RunResumeHint {
+  if (run.status === "interrupted") {
+    return {
+      resumable: true,
+      reason: null,
+      command: `runs resume ${run.run_id}`,
+    };
+  }
+  return {
+    resumable: false,
+    reason: `Run status is ${run.status}.`,
+    command: null,
+  };
 }
 
 export class Stage1Runtime {
@@ -764,6 +982,46 @@ export class Stage1Runtime {
 
   listRuns(limit = 50): Stage1RunSummary[] {
     return this.store.listRuns(limit);
+  }
+
+  listRunMonitorSummaries(
+    options: Stage1RunMonitorOptions = {},
+  ): Stage1RunMonitorSummary[] {
+    const limit = normalizeObservabilityLimit(options.limit);
+    return this.store
+      .listRuns(limit, {
+        status: options.status,
+        graph_name: options.graph_name,
+      })
+      .map((run) => {
+        const checkpoints = isNativeLangGraphRegistryRun(run)
+          ? []
+          : this.store.listCheckpoints(run.run_id);
+        return toRunMonitorSummary(run, checkpoints);
+      });
+  }
+
+  showRunTraceDetail(runId: string): Stage1RunTraceDetail {
+    const run = this.store.getRun(runId);
+    if (!run) {
+      throw new Error(`Run not found: ${runId}`);
+    }
+    const checkpoints = isNativeLangGraphRegistryRun(run)
+      ? []
+      : this.store.listCheckpoints(runId);
+    return {
+      run: toRunMonitorSummary(run, checkpoints),
+      checkpoints: checkpoints.map((checkpoint) => ({
+        checkpoint_id: checkpoint.checkpoint_id,
+        run_id: checkpoint.run_id,
+        seq: checkpoint.seq,
+        node_name: checkpoint.node_name,
+        created_at: checkpoint.created_at,
+        state_summary: toStateSummary(checkpoint.state),
+      })),
+      output_summary: toOutputSummary(run.graph_name, run.output),
+      resume_hint: toResumeHint(run),
+    };
   }
 
   showRun(runId: string): Stage1RuntimeRunView {

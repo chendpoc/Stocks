@@ -68,8 +68,8 @@ artifact，不代表每个概念都要继续拆成独立 graph。
 | Milestone | 目标 | 交付物 | 退出标准 |
 |---|---|---|---|
 | M0 Analysis Core Closeout | 在增加 execution scope 前关闭当前分析层工作 | T010-T013 状态对齐、review blocker closeout、workflow README/roadmap 一致 | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` 可检查、文档一致、无漂移 |
-| M1 Analysis-to-Execution Contract | 定义分析层如何指导执行层，但不变成订单控制 | `OpportunityMap`、`RiskEnvelope`、`ExplorationPlan`、`ExecutionPolicy` spec | AI 只输出机会/风险/约束；任何 artifact 都不能被解释为券商订单命令 |
-| M2 LiveMarketDataPlane v0 | 建立实盘事实入口 | `QuoteSnapshot`、`OrderBookSnapshot`、`TradeTick`、`MarketStateSnapshot`、provider trace、replay/inspection contract | 只读 quote/depth/trade 可归一化、可检查、可 replay，且不涉及订单执行 |
+| M1 Analysis-to-Execution Contract | 定义分析层如何指导执行层，但不变成订单控制 | [`OpportunityMap`、`RiskEnvelope`、`ExplorationPlan`、`ExecutionPolicy` spec](../../project-docs/backlog/now/analysis-to-execution-contract-v0.md) | AI 只输出机会/风险/约束；任何 artifact 都不能被解释为券商订单命令 |
+| M2 LiveMarketDataPlane v0 | 建立实盘事实入口 | [`QuoteSnapshot`、`OrderBookSnapshot`、`TradeTick`、`MarketStateSnapshot`、provider trace、quality flags、replay/inspection contract](../../project-docs/backlog/now/live-market-data-plane-v0.md) | 只读 quote/depth/trade 可归一化、可检查、可 replay，且不涉及订单执行 |
 | M3 PaperTradingEngine v0 | 建立确定性模拟订单内核 | `OrderIntent`、`RiskDecision`、`OrderEvent`、`PositionSnapshot`、PnL/slippage model、replay tests | 给定 market state + policy，订单状态、成交、仓位与 PnL 可复现 |
 | M4 Guided Paper Exploration | 让分析层指导局部 paper/shadow exploration | `ExecutionPolicy -> RiskGate -> PaperTradingEngine -> ExecutionFeedback` 路径 | paper/shadow exploration 只在已批准的机会/风险边界内运行，并产出执行反馈 |
 | M5 Execution Feedback Learning | 将执行现实回流分析层 | `ExecutionFeedback` evaluation inputs、report sections、insight/rule-candidate improvement handoff | report 能区分判断质量、规则边际、执行可行性、滑点与风险行为 |
@@ -78,12 +78,13 @@ artifact，不代表每个概念都要继续拆成独立 graph。
 
 交付策略：
 
-1. M0 关闭当前分析层。在 T013 review blocker 和文档一致性关闭前，不启动 live data
-   或 paper trading 实现。
+1. M0 已关闭当前分析层。T010-T013 已在 task/spec/README 对齐；除非有已 review
+   的边界说明，否则不重新拆 graph。
 2. M1 是第一个新的设计切片。必须先定义 `OpportunityMap`、`RiskEnvelope`、
    `ExplorationPlan`、`ExecutionPolicy`，再进入执行模拟开发。
-3. `LiveMarketDataPlane` 必须先做到只读、可 replay、可 inspect，`PaperTradingEngine`
-   才能依赖它。
+3. `LiveMarketDataPlane` 契约已完成；实现必须先通过 M2
+   [implementation decision gate](../../project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md)，
+   `PaperTradingEngine` 才能依赖它。
 4. paper/shadow execution 必须使用确定性状态迁移；LLM 不得处在逐 tick 订单路径中。
 5. 不要把 `MarketJudgmentGraph`、`ReflectionGraph`、`ModelLearningGraph`
    拆成独立实现，除非已 review 的 spec 证明它们有独立时间节奏、风险等级、
@@ -171,7 +172,8 @@ Execution Simulation Layer          [未来 spec track]
 
 - 创建持久化 `workflow_runs`；
 - 写入工作流 checkpoint；
-- 提供 `runs list`、`runs show`、`runs resume` 原语；
+- 提供 `runs list`、`runs show`、`runs resume`、`runs monitor`、
+  `runs trace` 原语；
 - 将 LangGraph 原生 checkpoint 与本地运行时存储对接；
 - 保持图执行可观测，且不把执行逻辑推入 CLI/TUI。
 
@@ -201,6 +203,21 @@ envelope 为 `{ ok, command, run_id, status, data: { run } }`。
 ```
 
 其他 graph 仍使用各自有界的 `output` 结构。
+
+#### CLI：`runs monitor` 与 `runs trace`
+
+使用 `npm run workflows -- runs monitor [--status STATUS] [--graph-name NAME]
+[--limit N] --json` 查看有界 run-monitor 摘要（`limit` 最大 200）。`data.runs[]` 每项包含 run
+身份、状态、当前节点、时间戳、`duration_ms`、`checkpoint_count`、
+`latest_checkpoint_ref`、`has_error`、`latest_error`、`resumable`；默认不暴露
+原始 input 或 output。
+
+使用 `npm run workflows -- runs trace RUN_ID --json` 查看单次运行的紧凑执行链。
+返回 envelope 为
+`{ ok, command, run_id, status, data: { run, checkpoints, output_summary,
+resume_hint } }`。checkpoint 按 `seq` 排序，只包含紧凑 `state_summary`
+元数据，不返回原始 checkpoint state。该命令只读，不执行 retry、replay、
+cancel、approval 或 workflow edit。
 
 ### DecisionGraph
 

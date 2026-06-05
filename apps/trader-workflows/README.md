@@ -25,8 +25,9 @@ Current backlog focus is workflow maturity:
 |---|---|
 | Native LangGraph graphs | Five graphs in `langgraph.json`: `decision_graph`, `outcome_graph`, `evaluation_graph`, `insight_exploration_graph`, `alpha_research_graph` |
 | DecisionGraph maturity v1 | Operator inspection done: `runs show` context summary, `context snapshots list/show`, structured LLM thesis prompts |
+| Runtime observability v1 | T017 done: `runs monitor` and `runs trace` bounded read models |
 | Feedback loop graphs | [T010–T012](../../.agent-dev/tasks/) maturity v1 **done** (Outcome → Evaluation → Insight) |
-| AlphaResearchGraph v0 | Implemented (T013); review blockers still need closeout |
+| AlphaResearchGraph v0 | Implemented (T013 done) |
 | Roadmap target | Two-layer system: AI Analysis Layer now, Execution Simulation Layer later |
 | Analysis workflow target | `DecisionWorkflow`, `FeedbackLearningWorkflow`, `AlphaValidationWorkflow` |
 
@@ -70,6 +71,8 @@ cd apps/trader-workflows
 npm test
 npm run workflows -- decide TSLA.US --json
 npm run workflows -- runs show RUN_ID --json
+npm run workflows -- runs monitor --status interrupted --limit 20 --json
+npm run workflows -- runs trace RUN_ID --json
 npm run workflows -- context snapshots list --symbol TSLA.US --json
 npm run workflows -- outcomes run --due --limit 50 --json
 npm run workflows -- eval summary --symbol TSLA.US --json
@@ -134,8 +137,8 @@ feedback, and learning.
 | Milestone | Goal | Deliverable | Exit Criteria |
 |---|---|---|---|
 | M0 Analysis Core Closeout | Close the current analysis-layer work before adding execution scope | T010-T013 status alignment, review blocker closeout, workflow README/roadmap consistency | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` is inspectable, documented, and not drifting |
-| M1 Analysis-to-Execution Contract | Define how analysis can guide execution without becoming order control | `OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` spec | AI outputs opportunity/risk/constraints only; no artifact can be interpreted as a broker order command |
-| M2 LiveMarketDataPlane v0 | Establish the real-market fact inlet | `QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, provider trace, replay/inspection contract | Read-only quote/depth/trade data can be normalized, inspected, and replayed without order execution |
+| M1 Analysis-to-Execution Contract | Define how analysis can guide execution without becoming order control | [`OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` spec](../../project-docs/backlog/now/analysis-to-execution-contract-v0.md) | AI outputs opportunity/risk/constraints only; no artifact can be interpreted as a broker order command |
+| M2 LiveMarketDataPlane v0 | Establish the real-market fact inlet | [`QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, provider trace, quality flags, replay/inspection contract](../../project-docs/backlog/now/live-market-data-plane-v0.md) | Read-only quote/depth/trade data can be normalized, inspected, and replayed without order execution |
 | M3 PaperTradingEngine v0 | Build the deterministic simulated order core | `OrderIntent`, `RiskDecision`, `OrderEvent`, `PositionSnapshot`, PnL/slippage model, replay tests | Given market state plus policy, order state, fills, position, and PnL are reproducible |
 | M4 Guided Paper Exploration | Let analysis focus local paper/shadow exploration | `ExecutionPolicy -> RiskGate -> PaperTradingEngine -> ExecutionFeedback` path | Paper/shadow exploration runs only inside approved opportunity/risk boundaries and produces execution feedback |
 | M5 Execution Feedback Learning | Feed execution reality back into analysis | `ExecutionFeedback` evaluation inputs, report sections, insight/rule-candidate improvement handoff | Reports can distinguish judgment quality, rule edge, execution feasibility, slippage, and risk behavior |
@@ -144,13 +147,15 @@ feedback, and learning.
 
 Delivery policy:
 
-1. M0 closes the current analysis layer. Do not start live data or paper trading
-   implementation before T013 review blockers and docs are aligned.
+1. M0 is closed for the current analysis layer. T010-T013 are aligned across
+   task/spec/README; do not reopen graph splits without a reviewed boundary.
 2. M1 is the first new design slice. It must define `OpportunityMap`,
    `RiskEnvelope`, `ExplorationPlan`, and `ExecutionPolicy` before execution
    simulation work starts.
-3. `LiveMarketDataPlane` must be read-only and replayable before
-   `PaperTradingEngine` depends on it.
+3. `LiveMarketDataPlane` contract work is done, but implementation must first
+   pass the M2
+   [implementation decision gate](../../project-docs/backlog/now/live-market-data-plane-implementation-decision-gate.md)
+   before `PaperTradingEngine` depends on it.
 4. Paper/shadow execution must use deterministic state transitions; LLMs must
    not sit in the tick-by-tick order path.
 5. Do not split `MarketJudgmentGraph`, `ReflectionGraph`, or
@@ -248,7 +253,8 @@ Responsibilities:
 
 - create durable `workflow_runs`;
 - write workflow checkpoints;
-- expose `runs list`, `runs show`, and `runs resume` primitives;
+- expose `runs list`, `runs show`, `runs resume`, `runs monitor`, and
+  `runs trace` primitives;
 - connect native LangGraph checkpointing to the local runtime store;
 - keep graph execution observable without pushing execution logic into CLI/TUI.
 
@@ -279,6 +285,21 @@ For **DecisionGraph** runs, `data.run.output` is bounded and includes
 ```
 
 Other graphs keep their own bounded `output` shapes.
+
+#### CLI: `runs monitor` and `runs trace`
+
+Use `npm run workflows -- runs monitor [--status STATUS] [--graph-name NAME]
+[--limit N] --json` to list bounded run-monitor summaries (`limit` max 200). Each
+`data.runs[]` item includes run identity, status, current node, timestamps,
+`duration_ms`, `checkpoint_count`, `latest_checkpoint_ref`, `has_error`,
+`latest_error`, and `resumable`; it does not expose raw input or output.
+
+Use `npm run workflows -- runs trace RUN_ID --json` to inspect one run's
+execution chain. The envelope is
+`{ ok, command, run_id, status, data: { run, checkpoints, output_summary,
+resume_hint } }`. Checkpoints are ordered by `seq` and contain compact
+`state_summary` metadata, not raw checkpoint state. This command is read-only:
+it does not retry, replay, cancel, approve, or edit workflow execution.
 
 ### DecisionGraph
 

@@ -387,17 +387,32 @@ export class Stage1CheckpointStore {
     };
   }
 
-  listRuns(limit = 50): Stage1RunSummary[] {
+  listRuns(
+    limit = 50,
+    filters?: { status?: Stage1RunStatus; graph_name?: string },
+  ): Stage1RunSummary[] {
+    const where: string[] = [];
+    const params: Record<string, string | number> = { limit };
+    if (filters?.status) {
+      where.push("status = @status");
+      params.status = filters.status;
+    }
+    if (filters?.graph_name) {
+      where.push("graph_name = @graph_name");
+      params.graph_name = filters.graph_name;
+    }
+    const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
     const stmt = this.db.prepare(`
       SELECT
         run_id, graph_name, status, current_node, thread_id, checkpoint_ns, checkpoint_ref,
         input_json, output_json, started_at, finished_at, latest_error,
         created_at, updated_at
       FROM workflow_runs
+      ${whereSql}
       ORDER BY updated_at DESC, created_at DESC
-      LIMIT ?;
+      LIMIT @limit;
     `);
-    const rows = stmt.all(limit) as Stage1RunRow[];
+    const rows = stmt.all(params) as Stage1RunRow[];
     return rows.map(mapRunSummary);
   }
 

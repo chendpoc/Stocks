@@ -172,6 +172,102 @@ test("Stage1 runtime supports runs list/show/resume primitives", async () => {
   }
 });
 
+test("Stage1 runtime exposes bounded run monitor summaries with filters", async () => {
+  const { tempDir, dbPath } = createTempCheckpointDbPath();
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
+    langgraphCheckpointer: new MemorySaver(),
+  });
+
+  try {
+    const interrupted = runtime.startRun({
+      graph_name: "OutcomeGraph",
+      input: { symbol: "TSLA", secret: "must-not-leak" },
+      interrupt_after_bootstrap: true,
+    });
+    await runtime.runGraph({
+      graph_name: "LegacyTestGraph",
+      node_name: "legacy_execute",
+      input: { symbol: "NVDA", secret: "must-not-leak" },
+      execute: async (input) => ({
+        run_id: input.run_id,
+        symbol: input.symbol,
+        ok: true,
+      }),
+    });
+
+    const summaries = runtime.listRunMonitorSummaries({
+      status: "interrupted",
+      graph_name: "OutcomeGraph",
+      limit: 5,
+    });
+
+    assert.equal(summaries.length, 1);
+    assert.equal(summaries[0].run_id, interrupted.run_id);
+    assert.equal(summaries[0].graph_name, "OutcomeGraph");
+    assert.equal(summaries[0].status, "interrupted");
+    assert.equal(summaries[0].current_node, "bootstrap");
+    assert.equal(summaries[0].checkpoint_count, 1);
+    assert.equal(summaries[0].latest_checkpoint_ref, interrupted.checkpoint_ref);
+    assert.equal(summaries[0].has_error, false);
+    assert.equal(summaries[0].latest_error, null);
+    assert.equal(summaries[0].resumable, true);
+    assert.equal(typeof summaries[0].duration_ms, "number");
+    assert.equal("input" in summaries[0], false);
+    assert.equal("output" in summaries[0], false);
+  } finally {
+    runtime.close();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("Stage1 runtime exposes bounded run trace details without raw state", async () => {
+  const { tempDir, dbPath } = createTempCheckpointDbPath();
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
+    langgraphCheckpointer: new MemorySaver(),
+  });
+
+  try {
+    const executed = await runtime.runGraph({
+      graph_name: "LegacyTestGraph",
+      node_name: "legacy_execute",
+      input: { symbol: "TSLA", secret: "must-not-leak" },
+      execute: async (input) => ({
+        run_id: input.run_id,
+        symbol: input.symbol,
+        secret: "must-not-leak",
+        ok: true,
+      }),
+    });
+
+    const detail = runtime.showRunTraceDetail(executed.run.run_id);
+
+    assert.equal(detail.run.run_id, executed.run.run_id);
+    assert.equal(detail.run.graph_name, "LegacyTestGraph");
+    assert.equal(detail.run.status, "succeeded");
+    assert.equal(detail.checkpoints.length, 4);
+    assert.deepEqual(
+      detail.checkpoints.map((checkpoint) => checkpoint.seq),
+      [1, 2, 3, 4],
+    );
+    assert.ok(
+      detail.checkpoints.every((checkpoint) => !("state" in checkpoint)),
+    );
+    assert.equal(JSON.stringify(detail.checkpoints).includes("must-not-leak"), false);
+    assert.deepEqual(detail.output_summary, {
+      type: "unknown",
+      present: true,
+    });
+    assert.deepEqual(detail.resume_hint, {
+      resumable: false,
+      reason: "Run status is succeeded.",
+      command: null,
+    });
+  } finally {
+    runtime.close();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("native DecisionGraph run registry uses thread_id = run_id and bounded metadata", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
   const runtime = createStubDecisionGraphRuntime(dbPath);
