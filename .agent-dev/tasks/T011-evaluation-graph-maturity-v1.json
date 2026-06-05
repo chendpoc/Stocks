@@ -2,7 +2,7 @@
   "id": "T011",
   "spec_id": "workflow-feedback-loop-maturity-v1",
   "title": "EvaluationGraph Maturity v1",
-  "status": "pending",
+  "status": "done",
   "steps": [
     {
       "id": "S1",
@@ -17,7 +17,7 @@
       },
       "files_expected": [
         "apps/trader-workflows/src/services/evaluation.ts",
-        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts"
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.test.ts"
       ]
     },
     {
@@ -33,7 +33,8 @@
       },
       "files_expected": [
         "apps/trader-workflows/src/services/evaluation.ts",
-        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts"
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.nodes.ts",
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.test.ts"
       ]
     },
     {
@@ -48,8 +49,9 @@
         "blocking": true
       },
       "files_expected": [
-        "apps/trader-workflows/src/graphs/evaluationGraph.ts",
-        "apps/trader-workflows/src/graphs/evaluationGraph.test.ts"
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.ts",
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.nodes.ts",
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.test.ts"
       ]
     },
     {
