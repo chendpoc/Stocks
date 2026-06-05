@@ -62,6 +62,34 @@ def insert_provider_trace(engine: Engine, payload: dict[str, Any]) -> None:
         )
 
 
+def insert_order_book_snapshot(engine: Engine, snapshot: dict[str, Any]) -> None:
+    _insert_json(
+        engine,
+        table="m2_order_book_snapshots",
+        id_column="order_book_snapshot_id",
+        artifact_id=snapshot["order_book_snapshot_id"],
+        symbol=snapshot["symbol"],
+        market=snapshot["market"],
+        asof_ts=snapshot["asof_ts"],
+        received_at=snapshot["received_at"],
+        payload=snapshot,
+    )
+
+
+def insert_trade_tick(engine: Engine, tick: dict[str, Any]) -> None:
+    _insert_json(
+        engine,
+        table="m2_trade_ticks",
+        id_column="trade_tick_id",
+        artifact_id=tick["trade_tick_id"],
+        symbol=tick["symbol"],
+        market=tick["market"],
+        asof_ts=tick["asof_ts"],
+        received_at=tick["received_at"],
+        payload=tick,
+    )
+
+
 def insert_quote_snapshot(engine: Engine, quote: dict[str, Any]) -> None:
     _insert_json(
         engine,

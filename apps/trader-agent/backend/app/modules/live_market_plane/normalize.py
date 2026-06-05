@@ -99,3 +99,49 @@ def quote_snapshot_from_longbridge_row(
         "currency": row.get("currency") or "USD",
         "session": row.get("session") or "regular",
     }
+
+
+def order_book_snapshot_from_depth_row(
+    *,
+    symbol: str,
+    depth_row: dict[str, Any],
+    provider_trace: ProviderTrace,
+) -> dict[str, Any]:
+    normalized = normalize_symbol(symbol)
+    asof_ts = str(depth_row.get("timestamp") or _utc_now_iso())
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "order_book_snapshot_id": f"obs-{uuid.uuid4().hex[:12]}",
+        "symbol": normalized,
+        "market": _market_from_symbol(normalized),
+        "asof_ts": asof_ts,
+        "received_at": _utc_now_iso(),
+        "provider_trace": provider_trace,
+        "quality_flags": [],
+        "bids": depth_row.get("bids") or [],
+        "asks": depth_row.get("asks") or [],
+        "depth_levels": depth_row.get("depth_levels") or [],
+    }
+
+
+def trade_tick_from_row(
+    *,
+    symbol: str,
+    row: dict[str, Any],
+    provider_trace: ProviderTrace,
+) -> dict[str, Any]:
+    normalized = normalize_symbol(symbol)
+    asof_ts = str(row.get("timestamp") or _utc_now_iso())
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "trade_tick_id": f"tt-{uuid.uuid4().hex[:12]}",
+        "symbol": normalized,
+        "market": _market_from_symbol(normalized),
+        "asof_ts": asof_ts,
+        "received_at": _utc_now_iso(),
+        "provider_trace": provider_trace,
+        "quality_flags": [],
+        "price": row.get("price"),
+        "volume": row.get("volume"),
+        "aggressor_hint": row.get("aggressor_hint"),
+    }

@@ -444,6 +444,45 @@ _SCHEMA_STATEMENTS = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_m2_market_state_symbol ON m2_market_state_snapshots(symbol, asof_ts)",
     """
+    CREATE TABLE IF NOT EXISTS m2_order_book_snapshots (
+      order_book_snapshot_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      market TEXT NOT NULL,
+      asof_ts TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_m2_order_book_symbol ON m2_order_book_snapshots(symbol, asof_ts)",
+    """
+    CREATE TABLE IF NOT EXISTS m2_trade_ticks (
+      trade_tick_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      market TEXT NOT NULL,
+      asof_ts TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_m2_trade_ticks_symbol ON m2_trade_ticks(symbol, asof_ts)",
+    """
+    CREATE TABLE IF NOT EXISTS execution_policies (
+      execution_policy_id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS guided_paper_runs (
+      run_id TEXT PRIMARY KEY,
+      execution_policy_id TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_guided_paper_runs_policy ON guided_paper_runs(execution_policy_id)",
+    """
     CREATE TABLE IF NOT EXISTS paper_order_intents (
       order_intent_id TEXT PRIMARY KEY,
       symbol TEXT NOT NULL,

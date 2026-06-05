@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from app.core.dotenv import load_repo_dotenv
+
+load_repo_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
