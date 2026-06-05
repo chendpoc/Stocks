@@ -145,14 +145,11 @@ milestone below should close a product capability boundary.
 | M6 Operator Surface And Approval Gate | Make risk boundaries operable by a human. | CLI/TUI/cockpit inspection, approval requests, kill switch, audit trail. | High-risk actions are inspectable, rejectable, and auditable before activation or execution. |
 | M7 Shadow / Live Broker Gate | Consider real broker integration only after paper evidence matures. | Broker adapter spec, minimal shadow/live pilot plan, capability policy. | No live path exists unless M1-M6 evidence is accepted and an explicit approval gate is implemented. |
 
-Current milestone state: M0 is closed; M1/T014 and the M2/T015 contract are
-done. M2 implementation remains gated by T016.
-
-Current near-term priority is the
-[M2 implementation decision gate](./now/live-market-data-plane-implementation-decision-gate.md).
-`LiveMarketDataPlane` implementation starts only after provider, entitlement,
-scope, storage, inspection, staleness, and fallback decisions are confirmed;
-paper trading still waits for M3.
+Current milestone state: M0–M3 v0 slices are implemented on branch
+(`T014`–`T019`). M2 uses Longbridge/fixture quote ingest with
+`MarketStateSnapshot` + CLI/API inspection. M3 adds deterministic
+`PaperTradingEngine` with idempotent replay. M4+ (guided exploration, feedback
+learning, operator gates) remain backlog.
 
 ## Non-Goals
 

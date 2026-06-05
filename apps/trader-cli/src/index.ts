@@ -16,6 +16,7 @@ import { registerDecideCommand } from "./commands/decide";
 import { registerOutcomesCommands } from "./commands/outcomes";
 import { registerEvalCommands } from "./commands/eval";
 import { registerInsightsCommands } from "./commands/insights";
+import { marketPlane } from "./commands/marketPlane";
 import { registerRunsCommands } from "./commands/runs";
 import { scan } from "./commands/scan";
 import { server } from "./commands/server";
@@ -81,6 +82,12 @@ program
   .argument("<action>", "status | ingest")
   .description("Market data ingest / status")
   .action(data);
+program
+  .command("market-plane")
+  .argument("<action>", "symbols | state | ingest")
+  .argument("[symbol]", "Symbol for state/ingest")
+  .description("LiveMarketDataPlane v0 inspection (M2)")
+  .action(marketPlane);
 program
   .command("config")
   .argument("<action>", "show | set")

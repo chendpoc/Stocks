@@ -157,3 +157,38 @@ cd apps/trader-workflows && npx tsx --test src/services/insightCandidates.test.t
 cd apps/trader-workflows && npm test
 git diff --check -- .agent-dev/specs/alpha-research-graph .agent-dev/tasks/T013-alpha-research-graph-v0.json .agent-dev/tasks/T013-alpha-research-graph-v0.md project-docs/backlog apps/trader-workflows
 ```
+
+## Outcome
+
+**Verified complete.** Branch implementation matches spec S1–S5. All blocking
+verification commands (V201–V205) exited 0 on 2026-06-06. No code fixes were
+required during this verify-first pass.
+
+| Step | Status | Notes |
+|---|---|---|
+| S1 Spec gate | pass | Spec/task/decision JSON parse; v0 ≠ research agent |
+| S2 Backend API | pass | `rule_candidates.py` mounted at `/api/rule-candidates` |
+| S3 alpha_seed | pass | `candidate_json.alpha_seed` (`alpha_seed.v1`) in InsightCandidate |
+| S4 Graph + client | pass | 3 business nodes; validation stop; HTTP-only orchestration |
+| S5 Export | pass | `langgraph.json`, `index.ts`, README; no CLI |
+
+Acceptance A201–A207: all satisfied per verification evidence below.
+
+## Evidence
+
+| ID | Command | Exit | Result |
+|---|---|---|---|
+| V201 | `Get-Content -Raw -Encoding UTF8 .agent-dev/specs/alpha-research-graph/spec.json \| ConvertFrom-Json \| Out-Null` (+ decision-record, task JSON) | 0 | spec.json, decision-record.json, task.json parse OK |
+| V201+ | `Get-Content -Raw -Encoding UTF8 .agent-dev/specs/alpha-research-graph/clarification-questions.json \| ConvertFrom-Json \| Out-Null` | 0 | clarification-questions.json parse OK |
+| V202 | `cd apps/trader-agent/backend && python -m pytest tests/test_rule_discovery_lite_backtest.py tests/test_rule_candidate_api.py -v --tb=short` | 0 | 15 passed in 6.21s |
+| V203 | `cd apps/trader-workflows && npx tsx --test src/services/insightCandidates.test.ts src/services/alphaResearch.test.ts src/graphs/04-alphaResearch/alphaResearchGraph.test.ts` | 0 | 17 passed |
+| V204 | `cd apps/trader-workflows && npm test` | 0 | 118 passed |
+| V205 | `git diff --check -- .agent-dev/specs/alpha-research-graph .agent-dev/tasks/T013-alpha-research-graph-v0.json .agent-dev/tasks/T013-alpha-research-graph-v0.md apps/trader-agent/backend/app/api/rule_candidates.py apps/trader-agent/backend/app/modules/rule_discovery.py apps/trader-workflows/src/services/alphaResearch.ts apps/trader-workflows/src/graphs/04-alphaResearch apps/trader-workflows/langgraph.json` | 0 | no whitespace errors |
+
+**Spot-check (spec alignment, no automated command):**
+
+- Graph nodes: `validate_input` → `create_rule_candidate` → `run_lite_backtest` (+ `final_output` terminal)
+- `run_lite_backtest` orchestrates evidence-requirements → lite-backtest → advance → report
+- `apps/trader-cli/**`: no AlphaResearch references (CLI deferred per S5)
+- `langgraph.json`: `alpha_research_graph` registered
+- `src/index.ts`: exports `alphaResearchGraph`, `runAlphaResearchGraph`, types

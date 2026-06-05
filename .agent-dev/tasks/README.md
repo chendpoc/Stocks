@@ -18,4 +18,6 @@ Current active task groups:
 - `T015` LiveMarketDataPlane v0
 - `T016` LiveMarketDataPlane Implementation Decision Gate
 - `T017` Workflow Runtime Observability v1
+- `T018` LiveMarketDataPlane Implementation v0
+- `T019` PaperTradingEngine v0
 - `T090` DecisionGraph Maturity v1
