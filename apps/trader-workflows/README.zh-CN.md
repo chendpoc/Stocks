@@ -153,14 +153,15 @@ snapshot（默认 `limit` 20）。`data.snapshots[]` 每项字段：
 
 ### OutcomeGraph
 
-`OutcomeGraph` 在市场数据足够时关闭 pending outcome。
+`OutcomeGraph` 在市场数据足够时关闭 pending decision outcome 和 insight candidate outcome。
 
 职责：
 
-- 查找到期的 pending outcome；
-- 为历史决策或信号标注已实现结果；
+- 查找到期的 pending decision outcome 和 insight candidate outcome；
+- 使用归一化标签标注结果（`hit`/`miss`/`neutral`/`invalid`/`insufficient_data`）；
+- 需要新证据时，构建紧凑证据摘要（上限 15 行）；
 - 不修改 context snapshot；
-- 输出 finalized、skipped、failed 计数。
+- 输出 finalized、skipped、failed 计数，按 source type 和归一化标签分组。
 
 这是第一个反馈闭环。没有它，系统能做出决策，但无法知道决策是否有效。
 

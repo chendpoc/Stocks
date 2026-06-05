@@ -18,6 +18,45 @@ or alpha research workflow features.
 Current backlog focus is workflow maturity:
 [project-docs/backlog/workflow-maturity-roadmap.md](../../project-docs/backlog/workflow-maturity-roadmap.md).
 
+## Current Status (2026-06)
+
+| Area | State |
+|---|---|
+| Native LangGraph graphs | `DecisionGraph` registered in `langgraph.json` as `decision_graph`; other workflows run via `Stage1Runtime` service wrappers |
+| DecisionGraph maturity v1 | Operator inspection done: `runs show` context summary, `context snapshots list/show`, structured LLM thesis prompts |
+| Feedback loop graphs | `OutcomeGraph`, `EvaluationGraph`, `InsightExplorationGraph` implemented with tests; maturity hardening in [T010–T012](../../.agent-dev/tasks/) |
+| Alpha / judgment / reflection | Planned; see backlog **Now** / **Next** / **Later** |
+
+**Product north star (this package):** verifiable market reading, repeatable pattern
+discovery, and outcome-linked learning—not broker execution or automatic RulePack
+promotion. Execution and approval automation are out of scope for the current
+phase; see roadmap non-goals.
+
+## Quick Start
+
+From repo root (requires `TRADER_API_BASE`, `LLM_API_KEY`, intel backend up):
+
+```bash
+cd apps/trader-workflows
+npm test
+npm run workflows -- decide TSLA.US --json
+npm run workflows -- runs show RUN_ID --json
+npm run workflows -- context snapshots list --symbol TSLA.US --json
+npm run workflows -- outcomes run --due --limit 50 --json
+npm run workflows -- eval summary --symbol TSLA.US --json
+npm run workflows -- insights explore --symbol TSLA.US --window 30d --json
+```
+
+LangGraph Studio (DecisionGraph only):
+
+```bash
+cd apps/trader-workflows
+npm run studio
+```
+
+Studio input must be top-level JSON, for example `{ "symbol": "TSLA.US" }` (not
+wrapped in an `input` field). Loads env from repo root via `langgraph.json`.
+
 ## Workflow Catalog
 
 Blank doc cells mean the workflow has no standalone development doc yet.
@@ -25,7 +64,7 @@ Blank doc cells mean the workflow has no standalone development doc yet.
 | Workflow | Status | Doc |
 |---|---|---|
 | `Stage1Runtime` | implemented | [workflow runtime run/checkpoint/audit alignment](../../project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md) |
-| `DecisionGraph` | implemented | [DecisionGraph maturity v1](../../project-docs/backlog/now/decision-graph-maturity-v1.md) |
+| `DecisionGraph` | implemented (maturity v1 operator slice done) | [DecisionGraph maturity v1](../../project-docs/backlog/now/decision-graph-maturity-v1.md) |
 | `OutcomeGraph` | implemented | [T010: OutcomeGraph Maturity v1](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) |
 | `EvaluationGraph` | implemented | [T011: EvaluationGraph Maturity v1](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) |
 | `InsightExplorationGraph` | implemented | [T012: InsightExplorationGraph Maturity v1](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) |
@@ -101,7 +140,7 @@ For **DecisionGraph** runs, `data.run.output` is bounded and includes
   "snapshot_id": "snap-…",
   "decision_id": "dec-…",
   "action": "NO_TRADE",
-  "scheduled_outcome_count": 3,
+  "scheduled_outcome_count": 5,
   "paper_execution_submitted": false,
   "context_snapshot": {
     "snapshot_id": "snap-…",
@@ -118,18 +157,63 @@ Other graphs keep their own bounded `output` shapes.
 
 ### DecisionGraph
 
-`DecisionGraph` is the current structured decision workflow.
+`DecisionGraph` is a **native LangGraph** workflow (`decision_graph` in
+`langgraph.json`). It is the structured decision entry point for Stage1.
+
+Graph shape:
+
+```text
+normalize_input
+-> build_context_snapshot
+-> generate_decision_envelope
+-> validate_decision_envelope
+-> persist_model_decision
+-> schedule_model_path_outcomes
+-> final_output
+```
 
 Responsibilities:
 
-- build or fetch a context snapshot for a symbol or decision window;
-- call the bounded decision path;
-- validate the decision envelope;
-- persist the decision and pending outcome;
+- normalize `symbol`, `asof_ts`, and `run_id` on input;
+- build or fetch a weighted **context snapshot** (top items sent to the LLM);
+- call the bounded LLM path (`createWorkflowLlmProvider` in `src/llm/provider.ts`);
+- validate the **DecisionEnvelope** (`src/llm/decisionEnvelope.ts`);
+- persist the model decision with **`decision_id` derived from `snapshot_id`**
+  (idempotent replay for the same snapshot);
+- schedule **five** model-path outcomes (`30m`, `1h`, `EOD`, `1d`, `3d`);
 - return evidence references for downstream review and evaluation.
+
+`paper_execution_submitted` is always `false` in the current slice (no order
+submission).
 
 It is a decision workflow, not the full alpha-discovery workflow. It decides
 from available context; it does not discover, validate, and promote new factors.
+
+#### LLM prompts and thesis format
+
+Default thesis style is **structured** (fixed Chinese line labels:
+`时点` / `周期` / `事实` / `判断` / optional `风险`), aligned with snapshot
+`asof_ts` and daily-primary context rules. A legacy **one-paragraph** prompt is
+retained in code but not enabled unless
+`DECISION_THESIS_PROMPT=v0_paragraph` is set (dev/rollback only).
+
+Relevant environment variables (see repo `.env.example`):
+
+| Variable | Purpose |
+|---|---|
+| `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` | Provider (default DeepSeek-compatible chat completions) |
+| `DECISION_PROMPT_TZ` | Decision clock in prompts (default `Asia/Shanghai`, US fallback on format error) |
+| `DECISION_THESIS_PROMPT` | `v0_paragraph` to use legacy thesis guide |
+| `DECISION_LLM_THINKING` | Set `1` to enable DeepSeek V4 thinking mode (default off for JSON stability) |
+
+DeepSeek V4 responses may place JSON in `reasoning_content`; the provider reads
+`content` first, then `reasoning_content`, and retries once on empty content.
+
+#### CLI: `decide` and `context snapshots`
+
+`decide SYMBOL [--json]` — runs DecisionGraph via `Stage1Runtime`, returns
+`snapshot_id`, `decision_id`, `action`, `scheduled_outcome_count`, and
+`paper_execution_submitted`.
 
 #### CLI: `context snapshots` (read-only)
 
@@ -166,21 +250,25 @@ plus `data.top_items` (up to 5 items by `composite_weight`):
 
 ### OutcomeGraph
 
-`OutcomeGraph` closes pending outcomes once enough market data is available.
+`OutcomeGraph` runs as a **service wrapper** (`outcomes run --due`). It closes
+pending decision outcomes and insight candidate outcomes once enough market data
+is available.
 
 Responsibilities:
 
-- find due pending outcomes;
-- label realized result for prior decisions or signals;
+- find due pending decision outcomes and insight candidate outcomes;
+- label realized result with normalized labels (`hit`/`miss`/`neutral`/`invalid`/`insufficient_data`);
+- when fresh evidence is needed, build compact evidence summaries (capped at 15 lines);
 - avoid mutating context snapshots;
-- produce counts for finalized, skipped, and failed outcomes.
+- produce counts for finalized, skipped, and failed outcomes, broken down by source type and normalized label.
 
 This graph is the first feedback loop. Without it, the system can make
 decisions but cannot learn whether those decisions worked.
 
 ### EvaluationGraph
 
-`EvaluationGraph` turns outcomes into evaluation reports.
+`EvaluationGraph` runs as a **service wrapper** (`eval summary`). It turns
+outcomes into evaluation reports.
 
 Responsibilities:
 
@@ -194,8 +282,9 @@ change production behavior, or mutate active RulePack policy.
 
 ### InsightExplorationGraph
 
-`InsightExplorationGraph` explores candidate insights from snapshots, outcomes,
-and evidence.
+`InsightExplorationGraph` runs as a **service wrapper**
+(`insights explore --symbol … --window …`). It explores candidate insights from
+snapshots, outcomes, and evidence.
 
 Responsibilities:
 
@@ -439,3 +528,18 @@ bounded and typed.
   rely on chat context for continuity.
 - LLM nodes should consume compact evidence summaries and `EvidenceRef` links,
   not raw market datasets or large tool payloads.
+
+## Verification
+
+```bash
+cd apps/trader-workflows && npm test
+```
+
+Focused LLM prompt tests: `src/llm/provider.test.ts`. Backend intel APIs must
+be running for live `decide` / `context snapshots` commands against
+`TRADER_API_BASE`.
+
+## Related Backlog
+
+- [Workflow feedback loop hardening](../../project-docs/backlog/now/workflow-feedback-loop-hardening.md) — Outcome / Evaluation / Insight handoff
+- [Intraday 1m context (Later)](../../project-docs/backlog/later/intraday-1m-context-and-minute-analysis.md) — minute-level evidence; not owned by DecisionGraph ingestion
