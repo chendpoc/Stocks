@@ -50,9 +50,11 @@ A workflow is mature enough for this phase when it has:
 3. Expose context snapshot summaries in `runs show`.
 4. Add minimal `context snapshots list/show` inspection commands.
 5. Define `Workflow Feedback Loop maturity v1` around `OutcomeGraph`,
-   `EvaluationGraph`, and `InsightExplorationGraph` handoff contracts.
+   `EvaluationGraph`, and `InsightExplorationGraph` handoff contracts. **Done**
+   (spec + T011/T012 task docs closed 2026-06-05).
 6. Implement graph-specific maturity tasks in order: Outcome, Evaluation,
-   Insight.
+   Insight. **T011/T012 done**; T010 task artifact sync remains for full M0
+   closeout.
 7. Align runtime run/checkpoint/audit semantics around mature workflow runs.
 8. Revisit `AlphaResearchGraph` only after the DecisionGraph inspection loop
    and feedback loop contracts are reusable.

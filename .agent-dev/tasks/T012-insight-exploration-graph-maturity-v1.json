@@ -2,7 +2,7 @@
   "id": "T012",
   "spec_id": "workflow-feedback-loop-maturity-v1",
   "title": "InsightExplorationGraph Maturity v1",
-  "status": "in_progress",
+  "status": "done",
   "steps": [
     {
       "id": "S1",

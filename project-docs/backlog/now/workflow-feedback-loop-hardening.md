@@ -1,6 +1,6 @@
 # Workflow Feedback Loop Hardening
 
-Status: Now
+Status: Done (T011/T012 closeout)
 
 ## Requirement
 
@@ -14,34 +14,51 @@ research handoff.
 
 ## Entry Note
 
-This is the minimum path toward sustainable self-improvement. The loop must
-produce reviewable improvement candidates, not automatic policy changes.
+This pass produced reviewable improvement candidates, not automatic policy
+changes. The feedback loop now closes through typed outcomes, evaluation
+reports, and bounded insight exploration.
 
 ## Boundary
 
-This pass covers `DecisionGraph`, `OutcomeGraph`, and `AlphaResearchGraph`
-only. `EvaluationGraph` and `InsightExplorationGraph` are intentionally out of
-scope for now.
+Implemented and documented in v1:
 
-Reflection, when it is added later, can propose lessons, candidate changes, or
+- `OutcomeGraph` — dual-source due outcome labeling (see T010)
+- `EvaluationGraph` — structured evaluation report sections (T011, done)
+- `InsightExplorationGraph` — evaluation-driven candidates + outcome scheduling
+  (T012, done)
+
+`DecisionGraph` remains the upstream decision entry. `AlphaResearchGraph` is
+the next workflow slice and is still out of scope for this backlog item.
+
+Reflection, when added later, can propose lessons, candidate changes, or
 follow-up research. It must not mutate active RulePack, promote models, or
 rewrite historical snapshots.
 
-## Next Action
-
-Use the active spec and task artifacts:
+## Evidence
 
 ```text
-.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md
-.agent-dev/tasks/T010-outcome-graph-maturity-v1.md
-.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md
-.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md
+.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md      (done)
+.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md (done)
+.agent-dev/reviews/T011-review-presentation.md
+.agent-dev/reviews/T012-review-presentation.md
 ```
 
-Implementation order:
+Workflow verification (2026-06-05): `cd apps/trader-workflows && npm test` → 101/101.
+
+## Next Action
+
+Move to alpha handoff planning:
 
 ```text
-DecisionGraph maturity v1
--> OutcomeGraph maturity v1
--> AlphaResearchGraph v0 spec
+.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md   (done)
+project-docs/backlog/now/alpha-research-graph-spec.md
+T013 AlphaResearchGraph v0 (planned)
+```
+
+Implementation order after closeout:
+
+```text
+AlphaResearchGraph v0 spec gate
+-> minimal RuleCandidate / LiteBacktestReport backend slice
+-> AlphaResearchGraph v0 workflow
 ```

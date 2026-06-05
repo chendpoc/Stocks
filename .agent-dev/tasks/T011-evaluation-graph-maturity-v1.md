@@ -1,6 +1,8 @@
 # T011: EvaluationGraph Maturity v1
 
-Status: pending
+Status: done
+
+Completed: 2026-06-05
 
 Spec: `.agent-dev/specs/workflow-feedback-loop-maturity-v1/spec.md`
 
@@ -11,21 +13,32 @@ Depends on: `T010 OutcomeGraph Maturity v1`
 Make `EvaluationGraph` produce a reviewable feedback report that can feed
 reflection and mature insight exploration.
 
-This is a development task specification. It does not implement code.
+## Outcome (as implemented)
 
-## Current Implementation
+`EvaluationGraph` now:
 
-`EvaluationGraph` currently:
-
-- builds an evaluation report from decision outcomes;
+- consumes normalized `DecisionOutcomeSummary` and
+  `InsightCandidateOutcomeSummary` inputs from `T010`;
+- builds `EvaluationReport` with bounded structured `sections`
+  (`decision_performance`, `insight_candidate_performance`,
+  `top_positive_patterns`, `top_negative_patterns`, `failure_modes`,
+  `data_gaps`, `evidence_refs`);
 - persists the report unless `persist: false`;
-- keeps `auto_promotion: false`;
-- returns an envelope with report and persisted report.
+- keeps `auto_promotion: false` and does not mutate RulePack or model config;
+- returns `hold` or `needs_more_data` only;
+- exposes `sections` through `eval summary` CLI output.
 
-It does not yet evaluate insight candidate outcomes or emit structured failure
-modes, strengths, weaknesses, and data gaps.
+Sections logic stays in `apps/trader-workflows/src/services/evaluation.ts`; graph
+nodes remain thin and call the existing build path.
 
-## Implementation Plan
+## Evidence
+
+- Primary commit: `4c84eb9d`
+- Review: `.agent-dev/reviews/T011-review-presentation.md` (PASS, 0 blockers, 1
+  warning)
+- Verification (2026-06-05): `cd apps/trader-workflows && npm test` → 101/101
+
+## Implementation Plan (spec reference)
 
 ### S1: Input Contract
 
@@ -36,13 +49,9 @@ DecisionOutcomeSummary[]
 InsightCandidateOutcomeSummary[]
 ```
 
-The implementation may keep existing decision outcome aggregation as the first
-source, but the report contract must have a place for insight candidate
-performance.
-
 ### S2: Report Sections
 
-`EvaluationReport` should include:
+`EvaluationReport` includes:
 
 ```text
 decision_performance
@@ -68,24 +77,25 @@ no model config mutation
 dry-run can skip persistence
 ```
 
-Evaluation may recommend `hold` or `needs_more_data`. It must not recommend
-automatic promotion or activation.
-
 ### S4: CLI and Docs
 
-Keep the current command shape unless a bounded output field needs to be added:
+Command shape:
 
 ```text
 npm run workflows -- eval summary --json
 ```
 
-Update README examples only when output shape changes.
+CLI `data.sections` documents the bounded report sections.
 
 ## Allowed Files
 
 - `apps/trader-workflows/src/services/evaluation.ts`
-- `apps/trader-workflows/src/graphs/evaluationGraph.ts`
-- `apps/trader-workflows/src/graphs/evaluationGraph.test.ts`
+- `apps/trader-workflows/src/services/evaluation.test.ts`
+- `apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.ts`
+- `apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.nodes.ts`
+- `apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.state.ts`
+- `apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.types.ts`
+- `apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.test.ts`
 - `apps/trader-workflows/src/index.ts`
 - `apps/trader-workflows/README.md`
 - `apps/trader-workflows/README.zh-CN.md`
@@ -102,8 +112,9 @@ Update README examples only when output shape changes.
 ## Verification
 
 ```text
-cd apps/trader-workflows && npm test -- src/graphs/evaluationGraph.test.ts
+cd apps/trader-workflows && npx tsx --test src/graphs/02-evaluation/evaluationGraph.test.ts src/services/evaluation.test.ts
+cd apps/trader-workflows && npm test
 git diff --check -- apps/trader-workflows .agent-dev/tasks/T011-evaluation-graph-maturity-v1.json .agent-dev/tasks/T011-evaluation-graph-maturity-v1.md
 ```
 
-The tests must assert both report content and safety invariants.
+The tests assert both report content and safety invariants.

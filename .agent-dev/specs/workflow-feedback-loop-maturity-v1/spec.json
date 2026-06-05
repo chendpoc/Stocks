@@ -1,14 +1,14 @@
 {
   "id": "workflow-feedback-loop-maturity-v1",
   "title": "Workflow Feedback Loop Maturity v1",
-  "status": "review",
+  "status": "done",
   "source_docs": [
     "project-docs/backlog/now/workflow-feedback-loop-hardening.md",
     "project-docs/backlog/workflow-maturity-roadmap.md",
     "apps/trader-workflows/README.md",
-    "apps/trader-workflows/src/graphs/outcomeGraph.ts",
-    "apps/trader-workflows/src/graphs/evaluationGraph.ts",
-    "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
+    "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.ts",
+    "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.ts",
+    "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.ts",
     "apps/trader-workflows/src/services/outcomes.ts",
     "apps/trader-workflows/src/services/evaluation.ts",
     "apps/trader-workflows/src/services/insightCandidates.ts"
@@ -28,27 +28,33 @@
     "modify": [
       "project-docs/backlog/now/workflow-feedback-loop-hardening.md",
       "project-docs/backlog/README.md",
-      "project-docs/backlog/workflow-maturity-roadmap.md"
+      "project-docs/backlog/workflow-maturity-roadmap.md",
+      "apps/trader-workflows/src/services/outcomes.ts",
+      "apps/trader-workflows/src/services/insightCandidates.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.nodes.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.state.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.types.ts",
+      "apps/trader-workflows/src/graphs/03-insightExploration/insightExplorationGraph.test.ts",
+      "apps/trader-workflows/src/index.ts",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md"
     ],
     "readonly_import": [
-      "apps/trader-workflows/src/graphs/outcomeGraph.ts",
-      "apps/trader-workflows/src/graphs/evaluationGraph.ts",
-      "apps/trader-workflows/src/graphs/insightExplorationGraph.ts",
-      "apps/trader-workflows/src/graphs/outcomeGraph.test.ts",
-      "apps/trader-workflows/src/graphs/evaluationGraph.test.ts",
-      "apps/trader-workflows/src/graphs/insightExplorationGraph.test.ts",
-      "apps/trader-workflows/src/services/outcomes.ts",
+      "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.ts",
+      "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.ts",
+      "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.test.ts",
+      "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.test.ts",
       "apps/trader-workflows/src/services/evaluation.ts",
-      "apps/trader-workflows/src/services/insightCandidates.ts",
       "apps/trader-agent/backend/app/intel/api/stage1.py",
       "apps/trader-agent/backend/app/intel/db/schema.py"
     ],
     "forbidden": [
       "apps/trader-cockpit/**",
       "apps/trader-cli/**",
-      "apps/trader-workflows/src/graphs/decisionGraph.ts",
-      "apps/trader-workflows/src/graphs/decisionGraph.nodes.ts",
-      "apps/trader-workflows/src/graphs/decisionGraph.state.ts",
+      "apps/trader-workflows/src/graphs/00-decision/decisionGraph.ts",
+      "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts",
+      "apps/trader-workflows/src/graphs/00-decision/decisionGraph.state.ts",
       "apps/trader-workflows/src/graphs/alphaResearchGraph.ts",
       "data/**",
       "docs/**"
@@ -310,6 +316,24 @@
       "id": "V105",
       "command": "node --test test/docs-ai-context.test.mjs",
       "expect": "Private AI context routing tests still pass",
+      "blocking": true
+    },
+    {
+      "id": "V401",
+      "command": "cd apps/trader-workflows && npx tsx --test src/services/insightCandidates.test.ts src/graphs/03-insightExploration/insightExplorationGraph.test.ts",
+      "expect": "Insight exploration consumes evaluation reports, context summaries, and outcome labels while producing bounded pending InsightCandidate records",
+      "blocking": true
+    },
+    {
+      "id": "V402",
+      "command": "cd apps/trader-workflows && npx tsx --test src/services/outcomes.test.ts src/services/insightCandidates.test.ts src/graphs/03-insightExploration/insightExplorationGraph.test.ts",
+      "expect": "InsightCandidateOutcome scheduling uses the whitelisted horizon contract, backend-derived due_at, evidence refs, no auto-promotion, and forbidden API boundaries",
+      "blocking": true
+    },
+    {
+      "id": "V403",
+      "command": "cd apps/trader-workflows && npm test",
+      "expect": "Workflow package CLI/export/docs-facing behavior remains compatible after optional insights output or evaluation-report input changes",
       "blocking": true
     }
   ]

@@ -24,7 +24,7 @@ Current backlog focus is workflow maturity:
 |---|---|
 | Native LangGraph graphs | All four feedback-loop graphs in `langgraph.json`: `decision_graph`, `outcome_graph`, `evaluation_graph`, `insight_exploration_graph` |
 | DecisionGraph maturity v1 | Operator inspection done: `runs show` context summary, `context snapshots list/show`, structured LLM thesis prompts |
-| Feedback loop graphs | `OutcomeGraph`, `EvaluationGraph`, `InsightExplorationGraph` implemented with tests; [T010–T012](../../.agent-dev/tasks/) maturity v1 slices landed |
+| Feedback loop graphs | [T011](../../.agent-dev/tasks/T011-evaluation-graph-maturity-v1.md) and [T012](../../.agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.md) maturity v1 **done**; [T010](../../.agent-dev/tasks/T010-outcome-graph-maturity-v1.md) implementation landed, task doc sync pending |
 | Alpha / judgment / reflection | Planned; see backlog **Now** / **Next** / **Later** |
 
 **Product north star (this package):** verifiable market reading, repeatable pattern

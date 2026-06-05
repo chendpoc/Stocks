@@ -7,7 +7,7 @@
     {
       "id": "S1",
       "description": "Extend evaluation inputs to consume normalized decision outcome and insight candidate outcome summaries.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "T010"
       ],
@@ -23,7 +23,7 @@
     {
       "id": "S2",
       "description": "Add EvaluationReport sections for decision performance, insight candidate performance, strengths, weaknesses, failure modes, data gaps, and evidence refs.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S1"
       ],
@@ -33,6 +33,7 @@
       },
       "files_expected": [
         "apps/trader-workflows/src/services/evaluation.ts",
+        "apps/trader-workflows/src/services/evaluation.test.ts",
         "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.nodes.ts",
         "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.test.ts"
       ]
@@ -40,7 +41,7 @@
     {
       "id": "S3",
       "description": "Preserve no-promotion and dry-run behavior while returning bounded report summaries.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S2"
       ],
@@ -57,7 +58,7 @@
     {
       "id": "S4",
       "description": "Update eval CLI/docs only if the output envelope changes.",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "S3"
       ],
