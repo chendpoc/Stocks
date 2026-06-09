@@ -4,7 +4,7 @@
 > - Phase 5 `outcome-graph` → 已实现: `01-outcome/outcomeGraph.ts`
 > - Phase 6 `evaluation-graph` → 已实现: `02-evaluation/evaluationGraph.ts`
 > - Phase 3 `decision-envelope` → 已实现: `src/llm/decisionEnvelope.ts`
-> - Phase 1 中的 `decision_memories`/`outcome_memories`/`insight_candidates` → 复用已有表
+> - Phase 1 中的概念映射 → `decision_memories -> model_decisions`、`outcome_memories -> decision_outcomes + insight_candidate_outcomes`、`insight_candidates -> insight_candidates`
 
 ## 1. 文档目的
 
@@ -269,12 +269,12 @@ SessionContextPackRepository
 ## 4.7 推荐测试
 
 ```text
-tests/market_agent/test_memory_schema.py
-tests/market_agent/test_decision_memory_repository.py
-tests/market_agent/test_outcome_memory_repository.py
-tests/market_agent/test_pattern_memory_repository.py
-tests/market_agent/test_failure_memory_repository.py
-tests/market_agent/test_session_context_pack_repository.py
+apps/trader-agent/backend/tests/test_market_agent_memory_schema.py
+apps/trader-agent/backend/tests/test_market_agent_decision_repository.py
+apps/trader-agent/backend/tests/test_market_agent_outcome_repository.py
+apps/trader-agent/backend/tests/test_market_agent_pattern_memory_repository.py
+apps/trader-agent/backend/tests/test_market_agent_failure_memory_repository.py
+apps/trader-agent/backend/tests/test_market_agent_session_context_pack_repository.py
 ```
 
 ---
@@ -304,7 +304,7 @@ tests/market_agent/test_session_context_pack_repository.py
 10. DataNormalizer
 11. DataQualityGate
 12. MarketDataService
-13. market_snapshots 写入
+13. `market_bars` 写入（概念名：market_snapshots）
 ```
 
 ---
@@ -324,7 +324,7 @@ tests/market_agent/test_session_context_pack_repository.py
 2. 数据源路由
 3. 数据源 adapter
 4. 数据质量报告
-5. market_snapshots 写入
+5. 写入 `market_bars`（概念名：market_snapshots）
 6. 数据源健康检查基础能力
 ```
 
@@ -351,7 +351,7 @@ tests/market_agent/test_session_context_pack_repository.py
 3. 主数据源失败时可以 fallback。
 4. 不同数据源返回值可以标准化为 OHLCVBar。
 5. DataQualityGate 可以输出 pass / warning / failed / blocked。
-6. market_snapshots 可以写入数据库。
+6. 行情快照可以写入现有 `market_bars`。
 7. failed / blocked 数据不会被后续 setup 使用。
 8. 单元测试通过。
 ```
@@ -450,29 +450,29 @@ feature_snapshots row
 
 ---
 
-# Phase 4：DecisionEnvelope Schema & Validation
+# Phase 4：DecisionEnvelope Schema & Validation（复用 / 适配）
 
 ## 7.1 目标
 
-实现系统核心输出对象 `DecisionEnvelope` 的 schema、枚举、校验和落库映射。
+复用已实现的 `DecisionEnvelope`，补齐 Market Agent 所需的校验、字段映射和验收测试。
 
 ---
 
 ## 7.2 范围
 
-必须实现：
+必须复用或补强：
 
 ```text
-1. DecisionEnvelope model
-2. DecisionAction enum
-3. DecisionStatus enum
-4. RiskGateStatus enum
-5. Evidence schema
-6. Condition schema
-7. RiskNote schema
-8. SourceQuality schema
-9. Validation logic
-10. decision_memories mapping
+1. existing DecisionEnvelope model
+2. existing DecisionAction enum
+3. existing DecisionStatus enum
+4. RiskGateStatus compatibility mapping
+5. Evidence schema compatibility
+6. Condition schema compatibility
+7. RiskNote schema compatibility
+8. SourceQuality schema compatibility
+9. Validation logic补强
+10. `model_decisions` mapping（概念名：decision_memories）
 ```
 
 ---
@@ -488,9 +488,9 @@ feature_snapshots row
 ## 7.4 输出
 
 ```text
-DecisionEnvelope
-DecisionEnvelopeValidator
-DecisionMemory mapping
+DecisionEnvelope compatibility patch
+DecisionEnvelopeValidator coverage
+`model_decisions` mapping
 ```
 
 ---
@@ -515,7 +515,7 @@ DecisionMemory mapping
 3. 非 ignore 判断缺少 invalidation_conditions 时校验失败。
 4. confidence 超出 0-1 时校验失败。
 5. monitor_only 模式不能输出 paper_trade_candidate / live_order。
-6. DecisionEnvelope 可以映射为 decision_memories row。
+6. DecisionEnvelope 可以映射为 `model_decisions` row（概念名：decision_memories）。
 7. DecisionEnvelope 可以 JSON 序列化。
 8. 单元测试通过。
 ```
@@ -579,7 +579,7 @@ OPENING_RANGE_BREAKOUT
 ```text
 1. DecisionEnvelope
 2. setup_events
-3. decision_memories
+3. model_decisions（概念名：decision_memories）
 4. failure_memories 候选
 5. CLI / API 可调用 graph
 ```
@@ -602,7 +602,7 @@ OPENING_RANGE_BREAKOUT
 ## 8.7 验收标准
 
 ```text
-1. CLI 可以运行 trader monitor run。
+1. CLI 可以运行 npm run workflows -- market-monitor run。
 2. 可以处理 SPY / QQQ / TSLA / NVDA / AAPL。
 3. 数据质量 failed / blocked 时不进入 setup detection。
 4. 可以生成 feature snapshot。
@@ -611,24 +611,24 @@ OPENING_RANGE_BREAKOUT
 7. 可以生成 contra case。
 8. 可以执行 risk gate。
 9. 可以生成 DecisionEnvelope。
-10. 所有 DecisionEnvelope 都写入 decision_memories。
+10. 所有 DecisionEnvelope 都写入 `model_decisions`（概念名：decision_memories）。
 11. 不输出 live_order。
 12. 单元测试和集成测试通过。
 ```
 
 ---
 
-# Phase 6：OutcomeGraph MVP
+# Phase 6：OutcomeGraph MVP（复用 / 验收补强）
 
 ## 9.1 目标
 
-实现结果回标系统，对历史 `DecisionEnvelope` 进行后续行情结果标注。
+复用已实现的 OutcomeGraph，对历史 `DecisionEnvelope` 进行后续行情结果标注，并补齐 Market Agent 所需的映射和测试。
 
 ---
 
 ## 9.2 范围
 
-必须实现：
+必须复用或补强：
 
 ```text
 1. load_unlabeled_decisions
@@ -639,7 +639,7 @@ OPENING_RANGE_BREAKOUT
 6. check_invalidation_hit
 7. compute_mfe_mae
 8. assign_outcome_label
-9. persist_outcome_memory
+9. persist outcome to `decision_outcomes` / `insight_candidate_outcomes`
 ```
 
 ---
@@ -659,7 +659,7 @@ MVP 支持：
 ## 9.4 输出
 
 ```text
-outcome_memories
+`decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）
 ```
 
 ---
@@ -679,13 +679,13 @@ outcome_memories
 ## 9.6 验收标准
 
 ```text
-1. 可以读取未回标的 decision_memories。
+1. 可以读取未回标的 `model_decisions`（概念名：decision_memories）。
 2. 可以对 30m / 2h / 1d 进行 outcome window 解析。
 3. 可以拉取后续价格窗口。
 4. 可以计算 MFE / MAE / final_return。
 5. 可以判断 hit_entry / hit_invalidation。
 6. 可以生成 outcome_label。
-7. 可以写入 outcome_memories。
+7. 可以写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）。
 8. 缺数据时 outcome_label = unknown。
 9. 所有计算不依赖 LLM。
 10. 单元测试通过。
@@ -693,25 +693,26 @@ outcome_memories
 
 ---
 
-# Phase 7：EvaluationGraph MVP
+# Phase 7：EvaluationGraph MVP（复用 / 验收补强）
 
 ## 10.1 目标
 
-实现评估系统，对 outcome 结果进行聚合统计，并生成 insight_candidate。
+复用已实现的 `EvaluationGraph`，对 outcome 结果进行聚合统计，并补齐 Market Agent 所需的 repository 映射、CLI 接口和验收测试。
 
 ---
 
 ## 10.2 范围
 
-必须实现：
+必须补齐：
 
 ```text
-1. load_outcomes
-2. group_by_dimension
-3. compute_metrics
-4. detect_degradation
-5. generate_insight_candidates
-6. persist_insight_candidates
+1. existing EvaluationGraph adapter
+2. load_outcomes mapping
+3. group_by_dimension compatibility
+4. compute_metrics coverage
+5. detect_degradation coverage
+6. generate_insight_candidates mapping
+7. persist_insight_candidates mapping
 ```
 
 ---
@@ -863,7 +864,7 @@ archived
 10. render_markdown
 11. write_context_pack_file
 12. persist_session_context_pack
-13. trader memory bootstrap CLI
+13. `context bootstrap` workflow CLI
 ```
 
 ---
@@ -893,7 +894,7 @@ session_context_packs row
 ## 12.5 验收标准
 
 ```text
-1. 可以运行 trader memory bootstrap --profile default。
+1. 可以运行 npm run workflows -- context bootstrap --profile default。
 2. 可以生成 .runtime/context/context_pack.md。
 3. context_pack 包含 Trading Mandate。
 4. context_pack 包含 Watchlist。
@@ -915,6 +916,7 @@ session_context_packs row
 ## 13.1 目标
 
 实现 MVP 阶段所需 CLI 命令与 FastAPI 接口。
+其中 `insights explore` 复用已实现的 `InsightExplorationGraph`，本阶段只补命令接线、参数映射和验收测试。
 
 ---
 
@@ -923,16 +925,16 @@ session_context_packs row
 必须实现：
 
 ```text
-trader memory init
-trader memory bootstrap
-trader monitor run
-trader memory decisions
-trader memory label-outcomes
-trader memory evaluate
-trader memory generate-insights
-trader memory patterns
-trader memory promote-pattern
-trader memory failures
+npm run workflows -- memory init
+npm run workflows -- context bootstrap
+npm run workflows -- market-monitor run
+npm run workflows -- decisions list
+npm run workflows -- outcomes run --due
+npm run workflows -- eval summary
+npm run workflows -- insights explore
+npm run workflows -- pattern-memory list
+npm run workflows -- pattern-memory promote
+npm run workflows -- failure-memory list
 ```
 
 ---
@@ -966,14 +968,14 @@ POST /api/memory/patterns/promote
 ## 13.5 验收标准
 
 ```text
-1. CLI 可以初始化数据库。
-2. CLI 可以生成 context_pack.md。
-3. CLI 可以运行 MarketMonitorGraph。
-4. CLI 可以查询 DecisionMemory。
-5. CLI 可以执行 outcome labeling。
-6. CLI 可以执行 evaluation。
-7. CLI 可以生成 insight_candidate。
-8. CLI 可以在用户确认后 promote pattern。
+1. workflow CLI 可以初始化数据库。
+2. workflow CLI 可以生成 context_pack.md。
+3. workflow CLI 可以运行 Market Monitor Workflow。
+4. workflow CLI 可以查询 `model_decisions`（概念名：DecisionMemory）。
+5. workflow CLI 可以执行 outcome labeling。
+6. workflow CLI 可以执行 evaluation。
+7. workflow CLI 可以生成 insight_candidate。
+8. workflow CLI 可以在用户确认后 promote pattern。
 9. API 可以触发 monitor run。
 10. API 可以触发 context pack build。
 11. API 可以触发 outcome labeling。
@@ -996,33 +998,33 @@ POST /api/memory/patterns/promote
 ## 14.2 必须覆盖的最小闭环
 
 ```text
-trader memory init
+npm run workflows -- memory init
   ↓
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
   ↓
-trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
+npm run workflows -- market-monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
   ↓
 生成 DecisionEnvelope
   ↓
-写入 decision_memories
+写入 `model_decisions`（概念名：decision_memories）
   ↓
-trader memory label-outcomes --window 2h
+npm run workflows -- outcomes run --due --window 2h
   ↓
-写入 outcome_memories
+写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）
   ↓
-trader memory evaluate --setup VWAP_RECLAIM --window 2h
+npm run workflows -- eval summary --setup VWAP_RECLAIM --window 2h
   ↓
 生成 EvaluationResult
   ↓
-trader memory generate-insights --setup VWAP_RECLAIM --symbol TSLA
+npm run workflows -- insights explore --setup VWAP_RECLAIM --symbol TSLA
   ↓
 生成 insight_candidate
   ↓
-trader memory promote-pattern --candidate-id insight_001 --confirm
+npm run workflows -- pattern-memory promote --candidate-id insight_001 --confirm
   ↓
 写入 pattern_memories
   ↓
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
   ↓
 context_pack.md 包含 active pattern
 ```

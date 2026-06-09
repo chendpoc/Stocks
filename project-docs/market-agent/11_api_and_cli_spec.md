@@ -4,7 +4,7 @@
 > CLI 沿用 `npm run workflows -- <command>` 体系 (`apps/trader-workflows/src/index.ts`)。
 > 已有命令: `outcomes run --due`, `eval summary`, `insights explore`, `alpha-research`。
 > 新增命令在同一体系下扩展（如 `pattern-memory list`, `context bootstrap`）。
-> 不发明新的顶层 CLI 入口（如 `trader memory`）。
+> 不发明新的顶层 `trader` CLI 入口。
 
 ## 1. 文档目的
 
@@ -28,16 +28,16 @@ FastAPI 用于 Web Dashboard、外部服务和后续可视化工作台。
 
 ### 2.1 CLI 优先
 
-MVP 阶段优先保证 CLI 可运行：
+MVP 阶段优先保证现有 workflow CLI 可运行：
 
 ```text
-trader memory init
-trader memory bootstrap
-trader monitor run
-trader memory label-outcomes
-trader memory evaluate
-trader memory generate-insights
-trader memory promote-pattern
+npm run workflows -- memory init
+npm run workflows -- context bootstrap
+npm run workflows -- market-monitor run
+npm run workflows -- outcomes run --due
+npm run workflows -- eval summary
+npm run workflows -- insights explore
+npm run workflows -- pattern-memory promote
 ```
 
 原因：
@@ -107,25 +107,23 @@ CLI 默认输出简洁人类可读格式。
 ## 3. CLI 命令总览
 
 ```text
-trader memory init
-trader memory bootstrap
-trader memory context
-trader memory decisions
-trader memory outcomes
-trader memory label-outcomes
-trader memory evaluate
-trader memory insights
-trader memory generate-insights
-trader memory patterns
-trader memory promote-pattern
-trader memory degrade-pattern
-trader memory failures
+npm run workflows -- memory init
+npm run workflows -- context bootstrap
+npm run workflows -- context latest
+npm run workflows -- decisions list
+npm run workflows -- outcomes run --due
+npm run workflows -- eval summary
+npm run workflows -- insights explore
+npm run workflows -- pattern-memory list
+npm run workflows -- pattern-memory promote
+npm run workflows -- pattern-memory degrade
+npm run workflows -- failure-memory list
 
-trader monitor run
+npm run workflows -- market-monitor run
 
-trader market-data fetch
-trader market-data health
-trader market-data quality
+npm run workflows -- market-data fetch
+npm run workflows -- market-data health
+npm run workflows -- market-data quality
 ```
 
 ---
@@ -134,7 +132,7 @@ trader market-data quality
 
 ---
 
-## 4. `trader memory init`
+## 4. `npm run workflows -- memory init`
 
 ### 4.1 目的
 
@@ -145,7 +143,7 @@ trader market-data quality
 ### 4.2 命令
 
 ```bash
-trader memory init
+npm run workflows -- memory init
 ```
 
 ---
@@ -155,15 +153,20 @@ trader memory init
 执行数据库 migration，创建以下表：
 
 ```text
-market_snapshots
 feature_snapshots
 setup_events
-decision_memories
-outcome_memories
-insight_candidates
 pattern_memories
 failure_memories
 session_context_packs
+```
+
+并复用现有物理表承载概念映射：
+
+```text
+market_snapshots -> market_bars
+decision_memories -> model_decisions
+outcome_memories -> decision_outcomes + insight_candidate_outcomes
+insight_candidates -> insight_candidates
 ```
 
 ---
@@ -183,15 +186,17 @@ session_context_packs
 Memory database initialized.
 
 Tables:
-- market_snapshots
 - feature_snapshots
 - setup_events
-- decision_memories
-- outcome_memories
-- insight_candidates
 - pattern_memories
 - failure_memories
 - session_context_packs
+
+Mapped existing tables:
+- market_snapshots -> market_bars
+- decision_memories -> model_decisions
+- outcome_memories -> decision_outcomes + insight_candidate_outcomes
+- insight_candidates -> insight_candidates
 ```
 
 ---
@@ -207,7 +212,7 @@ Tables:
 
 ---
 
-## 5. `trader memory bootstrap`
+## 5. `npm run workflows -- context bootstrap`
 
 ### 5.1 目的
 
@@ -222,7 +227,7 @@ Tables:
 ### 5.2 命令
 
 ```bash
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
 ```
 
 ---
@@ -299,7 +304,7 @@ Included:
 
 ---
 
-## 6. `trader memory context`
+## 6. `npm run workflows -- context latest`
 
 ### 6.1 目的
 
@@ -310,7 +315,7 @@ Included:
 ### 6.2 命令
 
 ```bash
-trader memory context --latest
+npm run workflows -- context latest
 ```
 
 ---
@@ -338,7 +343,7 @@ Latest Context Pack:
 
 ---
 
-## 7. `trader memory decisions`
+## 7. `npm run workflows -- decisions list`
 
 ### 7.1 目的
 
@@ -349,7 +354,7 @@ Latest Context Pack:
 ### 7.2 命令
 
 ```bash
-trader memory decisions --symbol TSLA --limit 20
+npm run workflows -- decisions list --symbol TSLA --limit 20
 ```
 
 ---
@@ -381,7 +386,7 @@ Recent Decisions for TSLA:
 
 ---
 
-## 8. `trader memory outcomes`
+## 8. `npm run workflows -- outcomes list`
 
 ### 8.1 目的
 
@@ -392,7 +397,7 @@ Recent Decisions for TSLA:
 ### 8.2 命令
 
 ```bash
-trader memory outcomes --symbol TSLA --limit 20
+npm run workflows -- outcomes list --symbol TSLA --limit 20
 ```
 
 ---
@@ -425,7 +430,7 @@ Recent Outcomes for TSLA:
 
 ---
 
-## 9. `trader memory label-outcomes`
+## 9. `npm run workflows -- outcomes run --due`
 
 ### 9.1 目的
 
@@ -436,7 +441,7 @@ Recent Outcomes for TSLA:
 ### 9.2 命令
 
 ```bash
-trader memory label-outcomes --window 2h
+npm run workflows -- outcomes run --due --window 2h
 ```
 
 ---
@@ -459,12 +464,12 @@ trader memory label-outcomes --window 2h
 执行：
 
 ```text
-1. 读取未回标 decision_memories。
+1. 读取未回标 `model_decisions`（概念名：decision_memories）。
 2. 拉取后续价格窗口。
 3. 计算 MFE / MAE / final_return。
 4. 判断 hit_entry / hit_invalidation。
 5. 生成 outcome_label。
-6. 写入 outcome_memories。
+6. 写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）。
 ```
 
 ---
@@ -483,7 +488,7 @@ Unknown: 1
 
 ---
 
-## 10. `trader memory evaluate`
+## 10. `npm run workflows -- eval summary`
 
 ### 10.1 目的
 
@@ -494,7 +499,7 @@ Unknown: 1
 ### 10.2 命令
 
 ```bash
-trader memory evaluate --setup VWAP_RECLAIM --window 2h
+npm run workflows -- eval summary --setup VWAP_RECLAIM --window 2h
 ```
 
 ---
@@ -532,7 +537,7 @@ Metrics:
 
 ---
 
-## 11. `trader memory generate-insights`
+## 11. `npm run workflows -- insights explore`
 
 ### 11.1 目的
 
@@ -543,7 +548,7 @@ Metrics:
 ### 11.2 命令
 
 ```bash
-trader memory generate-insights --setup VWAP_RECLAIM --symbol TSLA
+npm run workflows -- insights explore --setup VWAP_RECLAIM --symbol TSLA
 ```
 
 ---
@@ -581,7 +586,7 @@ Status: new
 
 ---
 
-## 12. `trader memory insights`
+## 12. `npm run workflows -- insights list`
 
 ### 12.1 目的
 
@@ -592,7 +597,7 @@ Status: new
 ### 12.2 命令
 
 ```bash
-trader memory insights --status new
+npm run workflows -- insights list --status new
 ```
 
 ---
@@ -608,7 +613,7 @@ trader memory insights --status new
 
 ---
 
-## 13. `trader memory patterns`
+## 13. `npm run workflows -- pattern-memory list`
 
 ### 13.1 目的
 
@@ -619,7 +624,7 @@ trader memory insights --status new
 ### 13.2 命令
 
 ```bash
-trader memory patterns --status active
+npm run workflows -- pattern-memory list --status active
 ```
 
 ---
@@ -651,7 +656,7 @@ Active Patterns:
 
 ---
 
-## 14. `trader memory promote-pattern`
+## 14. `npm run workflows -- pattern-memory promote`
 
 ### 14.1 目的
 
@@ -662,7 +667,7 @@ Active Patterns:
 ### 14.2 命令
 
 ```bash
-trader memory promote-pattern --candidate-id insight_001
+npm run workflows -- pattern-memory promote --candidate-id insight_001
 ```
 
 ---
@@ -719,7 +724,7 @@ active
 
 ---
 
-## 15. `trader memory degrade-pattern`
+## 15. `npm run workflows -- pattern-memory degrade`
 
 ### 15.1 目的
 
@@ -730,7 +735,7 @@ active
 ### 15.2 命令
 
 ```bash
-trader memory degrade-pattern --pattern-id pat_tsla_vwap_reclaim_001 --reason "recent false_positive increased"
+npm run workflows -- pattern-memory degrade --pattern-id pat_tsla_vwap_reclaim_001 --reason "recent false_positive increased"
 ```
 
 ---
@@ -759,7 +764,7 @@ recent false_positive increased
 
 ---
 
-## 16. `trader memory failures`
+## 16. `npm run workflows -- failure-memory list`
 
 ### 16.1 目的
 
@@ -770,7 +775,7 @@ recent false_positive increased
 ### 16.2 命令
 
 ```bash
-trader memory failures --status active_warning
+npm run workflows -- failure-memory list --status active_warning
 ```
 
 ---
@@ -792,7 +797,7 @@ trader memory failures --status active_warning
 
 ---
 
-## 17. `trader monitor run`
+## 17. `npm run workflows -- market-monitor run`
 
 ### 17.1 目的
 
@@ -803,7 +808,7 @@ trader memory failures --status active_warning
 ### 17.2 命令
 
 ```bash
-trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
+npm run workflows -- market-monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
 ```
 
 ---
@@ -837,7 +842,7 @@ trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
 9. 生成 ContraCase。
 10. 执行 RiskGate。
 11. 生成 DecisionEnvelope。
-12. 写入 decision_memories。
+12. 写入 `model_decisions`（概念名：decision_memories）。
 13. 输出 alert / watch / blocked / invalidated。
 ```
 
@@ -890,7 +895,7 @@ Decisions:
 
 ---
 
-## 18. `trader market-data fetch`
+## 18. `npm run workflows -- market-data fetch`
 
 ### 18.1 目的
 
@@ -901,7 +906,7 @@ Decisions:
 ### 18.2 命令
 
 ```bash
-trader market-data fetch --symbol TSLA --timeframe 5m --mode historical
+npm run workflows -- market-data fetch --symbol TSLA --timeframe 5m --mode historical
 ```
 
 ---
@@ -936,7 +941,7 @@ Fallback Used: false
 
 ---
 
-## 19. `trader market-data health`
+## 19. `npm run workflows -- market-data health`
 
 ### 19.1 目的
 
@@ -947,7 +952,7 @@ Fallback Used: false
 ### 19.2 命令
 
 ```bash
-trader market-data health
+npm run workflows -- market-data health
 ```
 
 ---
@@ -964,7 +969,7 @@ Market Data Source Health:
 
 ---
 
-## 20. `trader market-data quality`
+## 20. `npm run workflows -- market-data quality`
 
 ### 20.1 目的
 
@@ -975,7 +980,7 @@ Market Data Source Health:
 ### 20.2 命令
 
 ```bash
-trader market-data quality --symbol TSLA --timeframe 5m
+npm run workflows -- market-data quality --symbol TSLA --timeframe 5m
 ```
 
 ---
@@ -1503,16 +1508,16 @@ test_api_build_context_pack
 必须实现：
 
 ```text
-1. trader memory init
-2. trader memory bootstrap
-3. trader monitor run
-4. trader memory decisions
-5. trader memory label-outcomes
-6. trader memory evaluate
-7. trader memory generate-insights
-8. trader memory patterns
-9. trader memory promote-pattern
-10. trader memory failures
+1. npm run workflows -- memory init
+2. npm run workflows -- context bootstrap
+3. npm run workflows -- market-monitor run
+4. npm run workflows -- decisions list
+5. npm run workflows -- outcomes run --due
+6. npm run workflows -- eval summary
+7. npm run workflows -- insights explore
+8. npm run workflows -- pattern-memory list
+9. npm run workflows -- pattern-memory promote
+10. npm run workflows -- failure-memory list
 11. POST /api/market-monitor/run
 12. POST /api/memory/context-pack/build
 13. POST /api/memory/outcomes/label

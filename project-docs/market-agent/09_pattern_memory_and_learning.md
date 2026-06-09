@@ -40,11 +40,11 @@ MarketMonitorGraph
   ↓
 DecisionEnvelope
   ↓
-decision_memories
+model_decisions（概念名：decision_memories）
   ↓
 OutcomeGraph
   ↓
-outcome_memories
+decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
   ↓
 EvaluationGraph
   ↓
@@ -872,7 +872,7 @@ class FailureMemoryRepository:
 ### 19.1 查看规律候选
 
 ```bash
-trader memory insights --status new
+npm run workflows -- insights list --status new
 ```
 
 ---
@@ -880,7 +880,7 @@ trader memory insights --status new
 ### 19.2 查看活跃规律
 
 ```bash
-trader memory patterns --status active
+npm run workflows -- pattern-memory list --status active
 ```
 
 ---
@@ -888,7 +888,7 @@ trader memory patterns --status active
 ### 19.3 查看衰退规律
 
 ```bash
-trader memory patterns --status degraded
+npm run workflows -- pattern-memory list --status degraded
 ```
 
 ---
@@ -896,7 +896,7 @@ trader memory patterns --status degraded
 ### 19.4 晋升规律
 
 ```bash
-trader memory promote-pattern --candidate-id insight_001
+npm run workflows -- pattern-memory promote --candidate-id insight_001
 ```
 
 要求：
@@ -913,7 +913,7 @@ trader memory promote-pattern --candidate-id insight_001
 ### 19.5 降级规律
 
 ```bash
-trader memory degrade-pattern --pattern-id pat_tsla_vwap_001 --reason "recent false_positive increased"
+npm run workflows -- pattern-memory degrade --pattern-id pat_tsla_vwap_001 --reason "recent false_positive increased"
 ```
 
 ---
@@ -921,7 +921,7 @@ trader memory degrade-pattern --pattern-id pat_tsla_vwap_001 --reason "recent fa
 ### 19.6 查看失败警告
 
 ```bash
-trader memory failures --status active_warning
+npm run workflows -- failure-memory list --status active_warning
 ```
 
 ---

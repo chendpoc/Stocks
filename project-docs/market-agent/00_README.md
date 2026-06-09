@@ -120,9 +120,25 @@ CLI Context Pack (.runtime/context/context_pack.md)
 
 ---
 
-## 5. MVP 范围
+## 5. 术语与实现映射
 
-### 5.1 监控标的
+本目录必须先对齐根目录 `UBIQUITOUS_LANGUAGE.md`。没有写入术语表的新词不能作为实现口径。
+
+| 文档概念 | 统一术语 / 现有实现 | 执行口径 |
+|---|---|---|
+| Market Agent graph / flow | **Workflow** 或 **Native LangGraph Graph** | 只有需要 LangGraph 拓扑、节点状态和 checkpoint 调试的流程才实现为 Native LangGraph Graph；其他流程可作为 Service Wrapper Workflow。 |
+| CLI | **CLI** | 统一通过 `npm run workflows -- <command>` 扩展，不新增 `trader` 顶层命令。 |
+| decision_memories | `model_decisions` | 文档中的概念名；物理表为 `model_decisions`，不得新建 `decision_memories` 表。 |
+| outcome_memories | `decision_outcomes` + `insight_candidate_outcomes` | 文档中的概念名；物理表复用现有双表，统一称为 **Outcome** 记录。 |
+| market_snapshots | `market_bars` | 文档中的概念名；物理表为 `market_bars`，不得新建 `market_snapshots` 表。 |
+| PatternMemory / pattern_memories | **Promotion** 后的长期规律记录 | 只有用户确认后才能进入 active；不得自动修改 RulePack。 |
+| paper_trade_candidate / live_order | **OrderIntent** / future execution scope | Market Agent MVP 不生成 live OrderIntent；monitor_only 下不得输出 paper candidate。 |
+
+---
+
+## 6. MVP 范围
+
+### 6.1 监控标的
 
 与现有 `MVP_SYMBOLS` 对齐（`apps/trader-agent/backend/app/intel/db/schema.py:10-19`）：
 
@@ -131,14 +147,14 @@ SPY, QQQ, TSLA, NVDA, AAPL   ← MVP
 COIN, BMNR, TSLL, ARKK       ← 已有，后续扩展
 ```
 
-### 5.2 时间周期
+### 6.2 时间周期
 
 ```text
 5m, 1d   ← MVP
 1m       ← insight exploration 已支持
 ```
 
-### 5.3 MVP Setup
+### 6.3 MVP Setup
 
 沿用现有 `MVP_PATTERNS`（`schema.py:21-82`）并扩展：
 
@@ -150,7 +166,7 @@ COIN, BMNR, TSLL, ARKK       ← 已有，后续扩展
 
 ---
 
-## 6. CLI 命令格式
+## 7. CLI 命令格式
 
 **沿用现有 CLI 体系**（`npm run workflows -- <command>`），不发明新的顶层命令：
 
@@ -171,7 +187,7 @@ npm run workflows -- context bootstrap --profile default
 
 ---
 
-## 7. 非目标
+## 8. 非目标
 
 1. 不做自动实盘下单。
 2. 不做全市场扫描。
@@ -187,7 +203,7 @@ npm run workflows -- context bootstrap --profile default
 
 ---
 
-## 8. 推荐开发顺序（调整后）
+## 9. 推荐开发顺序（调整后）
 
 基于现有系统已完成 M0（T010-T013），建议顺序：
 
@@ -205,7 +221,7 @@ Phase G: CLI 命令 + 验收测试
 
 ---
 
-## 9. 文档阅读顺序
+## 10. 文档阅读顺序
 
 ```text
 00_README.md              ← 你在这里
@@ -227,7 +243,7 @@ Phase G: CLI 命令 + 验收测试
 
 ---
 
-## 10. 完成定义
+## 11. 完成定义
 
 本模块完成后，系统应做到：
 

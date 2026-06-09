@@ -37,7 +37,7 @@ DecisionEnvelope
 9. 生成失效条件和下一次检查条件。
 10. 执行 RiskGate。
 11. 生成 DecisionEnvelope。
-12. 将 DecisionEnvelope 写入 decision_memories。
+12. 将 DecisionEnvelope 写入 `model_decisions`（概念名：decision_memories）。
 13. 必要时写入 setup_events / failure_memories。
 ```
 
@@ -363,7 +363,7 @@ state.session_context
 1. 记录 warning。
 2. 使用空 context。
 3. 不阻塞 monitor_only 运行。
-4. 提示后续应运行 trader memory bootstrap --profile default。
+4. 提示后续应运行 npm run workflows -- context bootstrap --profile default。
 ```
 
 不允许因为 context 缺失而自动生成交易建议。
@@ -1067,7 +1067,7 @@ live_order
 ### 22.2 写入表
 
 ```text
-decision_memories
+model_decisions（概念名：decision_memories）
 ```
 
 同时可写入：
@@ -1259,7 +1259,7 @@ def build_market_monitor_graph():
 ### 26.1 运行监控
 
 ```bash
-trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
+npm run workflows -- market-monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
 ```
 
 ---
@@ -1267,7 +1267,7 @@ trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
 ### 26.2 只监控单个标的
 
 ```bash
-trader monitor run --symbols TSLA --timeframes 5m,1d
+npm run workflows -- market-monitor run --symbols TSLA --timeframes 5m,1d
 ```
 
 ---
@@ -1275,7 +1275,7 @@ trader monitor run --symbols TSLA --timeframes 5m,1d
 ### 26.3 dry run
 
 ```bash
-trader monitor run --symbols TSLA --timeframes 5m --dry-run
+npm run workflows -- market-monitor run --symbols TSLA --timeframes 5m --dry-run
 ```
 
 ---
@@ -1283,7 +1283,7 @@ trader monitor run --symbols TSLA --timeframes 5m --dry-run
 ### 26.4 输出最近决策
 
 ```bash
-trader memory decisions --symbol TSLA --limit 20
+npm run workflows -- decisions list --symbol TSLA --limit 20
 ```
 
 ---
@@ -1361,7 +1361,7 @@ RiskGate
   ↓
 DecisionEnvelope
   ↓
-decision_memories
+model_decisions（概念名：decision_memories）
 ```
 
 ---
@@ -1436,7 +1436,7 @@ decision_memories
 Task 003 完成后必须满足：
 
 ```text
-1. CLI 可以运行 trader monitor run。
+1. CLI 可以运行 npm run workflows -- market-monitor run。
 2. 可以处理 SPY / QQQ / TSLA / NVDA / AAPL。
 3. 数据质量 failed / blocked 时不进入 setup detection。
 4. 可以生成 feature snapshot。
@@ -1445,7 +1445,7 @@ Task 003 完成后必须满足：
 7. 可以生成 contra case。
 8. 可以执行 risk gate。
 9. 可以生成 DecisionEnvelope。
-10. 所有 DecisionEnvelope 都写入 decision_memories。
+10. 所有 DecisionEnvelope 都写入 `model_decisions`（概念名：decision_memories）。
 11. 不输出 live_order。
 12. 单元测试和集成测试通过。
 ```

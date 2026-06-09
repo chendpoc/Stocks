@@ -50,7 +50,7 @@ MarketDataResponse
 5. 支持 source conflict 检测。
 6. 支持数据质量检查。
 7. 输出 DataQualityReport。
-8. 将可用行情写入 market_snapshots。
+8. 将可用行情写入 `market_bars`（概念名：market_snapshots）。
 9. 不让上层 Graph 直接依赖具体数据源。
 ```
 
@@ -144,20 +144,17 @@ DataQualityReport
 ## 5. 推荐目录结构
 
 ```text
-trader_workflow/
-  market_agent/
-    data/
-      __init__.py
-      market_data_service.py
-      source_router.py
-      adapters.py
-      longbridge_adapter.py
-      alphavantage_adapter.py
-      yfinance_adapter.py
-      normalizer.py
-      quality_gate.py
-      schemas.py
-      errors.py
+apps/trader-agent/backend/app/intel/market_data/
+  market_data_service.py
+  source_router.py
+  adapters.py
+  longbridge_adapter.py
+  alphavantage_adapter.py
+  yfinance_adapter.py
+  normalizer.py
+  quality_gate.py
+  schemas.py
+  errors.py
 ```
 
 ---
@@ -703,7 +700,7 @@ MarketDataRequest
 6. 如果通过，返回 MarketDataResponse。
 7. 如果失败且 allow_fallback = true，尝试下一数据源。
 8. 如果全部失败，返回 failed response 或抛出标准错误。
-9. 将 market_snapshots 写入数据库。
+9. 将 `market_bars` 写入（概念名：market_snapshots）数据库。
 ```
 
 ---
@@ -786,12 +783,12 @@ class MarketDataService:
 
 ## 13. 数据写入规则
 
-### 13.1 market_snapshots 写入
+### 13.1 `market_bars` 写入（概念名：market_snapshots）
 
 每次成功从数据源拿到可解析 bars，均应写入：
 
 ```text
-market_snapshots
+market_bars（概念名：market_snapshots）
 ```
 
 包括：
@@ -818,9 +815,9 @@ quality_status = blocked
 
 ---
 
-### 13.3 不写入 decision_memories
+### 13.3 不写入 `model_decisions`（概念名：decision_memories）
 
-`MarketDataService` 不负责写入 `decision_memories`。
+`MarketDataService` 不负责写入 `model_decisions`（概念名：decision_memories）。
 该动作由 `MemoryGraph` 或 `MarketMonitorGraph` 后续节点负责。
 
 ---
@@ -935,7 +932,7 @@ GET /api/market-data/health
 ### 16.1 获取单个标的行情
 
 ```bash
-trader market-data fetch --symbol TSLA --timeframe 5m --mode historical
+npm run workflows -- market-data fetch --symbol TSLA --timeframe 5m --mode historical
 ```
 
 ---
@@ -943,7 +940,7 @@ trader market-data fetch --symbol TSLA --timeframe 5m --mode historical
 ### 16.2 指定数据源
 
 ```bash
-trader market-data fetch --symbol TSLA --timeframe 1d --mode historical --source alphavantage
+npm run workflows -- market-data fetch --symbol TSLA --timeframe 1d --mode historical --source alphavantage
 ```
 
 ---
@@ -951,7 +948,7 @@ trader market-data fetch --symbol TSLA --timeframe 1d --mode historical --source
 ### 16.3 数据源健康检查
 
 ```bash
-trader market-data health
+npm run workflows -- market-data health
 ```
 
 ---
@@ -959,7 +956,7 @@ trader market-data health
 ### 16.4 检查数据质量
 
 ```bash
-trader market-data quality --symbol TSLA --timeframe 5m
+npm run workflows -- market-data quality --symbol TSLA --timeframe 5m
 ```
 
 ---
@@ -1016,7 +1013,7 @@ DataQualityGate
   ↓
 MarketDataResponse
   ↓
-market_snapshots
+market_bars（概念名：market_snapshots）
 ```
 
 ---
@@ -1046,7 +1043,7 @@ market_snapshots
 10. DataNormalizer
 11. DataQualityGate
 12. MarketDataService
-13. market_snapshots 写入
+13. `market_bars` 写入（概念名：market_snapshots）
 ```
 
 ---
@@ -1076,7 +1073,7 @@ Task 002 完成后必须满足：
 3. 主数据源失败时可以 fallback。
 4. 不同数据源返回值可以标准化为 OHLCVBar。
 5. DataQualityGate 可以输出 pass / warning / failed / blocked。
-6. market_snapshots 可以写入数据库。
+6. 行情快照可以写入现有 `market_bars`。
 7. 数据质量 failed / blocked 时，不允许进入后续 setup detection。
 8. 所有核心逻辑有单元测试。
 ```
@@ -1100,5 +1097,5 @@ Task 002 完成后必须满足：
 4. EvidenceGraphBuilder 串联
 5. RiskGate 串联
 6. DecisionEnvelope 生成
-7. decision_memories 写入
+7. model_decisions 写入（概念名：decision_memories）
 ```

@@ -9,7 +9,7 @@
 > **⚠️**: 测试目录沿用现有结构:
 > - Workflow tests: `apps/trader-workflows/src/**/*.test.ts`
 > - Backend tests: `apps/trader-agent/backend/tests/`
-> 新增表测试写到对应已有测试目录，不新建 `tests/market_agent/`。
+> 新增表测试写到对应已有测试目录，不新建独立 market-agent 测试根目录。
 
 ## 1. 文档目的
 
@@ -114,33 +114,33 @@ Context Pack
 ## 3.2 验收链路
 
 ```text
-trader memory init
+npm run workflows -- memory init
   ↓
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
   ↓
-trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
+npm run workflows -- market-monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
   ↓
 生成 DecisionEnvelope
   ↓
-写入 decision_memories
+写入 `model_decisions`（概念名：decision_memories）
   ↓
-trader memory label-outcomes --window 2h
+npm run workflows -- outcomes run --due --window 2h
   ↓
-写入 outcome_memories
+写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）
   ↓
-trader memory evaluate --setup VWAP_RECLAIM --window 2h
+npm run workflows -- eval summary --setup VWAP_RECLAIM --window 2h
   ↓
 生成 EvaluationResult
   ↓
-trader memory generate-insights --setup VWAP_RECLAIM --symbol TSLA
+npm run workflows -- insights explore --setup VWAP_RECLAIM --symbol TSLA
   ↓
 生成 insight_candidate
   ↓
-trader memory promote-pattern --candidate-id insight_001 --confirm
+npm run workflows -- pattern-memory promote --candidate-id insight_001 --confirm
   ↓
 写入 pattern_memories
   ↓
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
   ↓
 context_pack.md 包含 active pattern
 ```
@@ -222,7 +222,7 @@ test_source_router_preferred_source
 test_market_data_service_fetch_success
 test_market_data_service_fallback_on_primary_failure
 test_market_data_service_no_fallback_when_disabled
-test_market_data_service_writes_market_snapshots
+test_market_data_service_writes_market_bars
 test_market_data_response_contains_quality_report
 ```
 
@@ -249,7 +249,7 @@ test_market_data_response_contains_quality_report
 2. 返回标准 OHLCVBar。
 3. fallback 行为正确。
 4. failed / blocked 状态可被识别。
-5. market_snapshots 有写入。
+5. `market_bars` 有写入（概念名：market_snapshots）。
 ```
 
 ---
@@ -360,7 +360,7 @@ test_decision_envelope_json_serializable
 3. confidence 必须在 0.0 - 1.0。
 4. monitor_only 模式不能输出 paper_trade_candidate。
 5. MVP 阶段不能输出 live_order。
-6. DecisionEnvelope 可写入 decision_memories。
+6. DecisionEnvelope 可写入 `model_decisions`（概念名：decision_memories）。
 ```
 
 ---
@@ -416,9 +416,9 @@ test_market_monitor_does_not_output_live_order
 ## 9.4 验收标准
 
 ```text
-1. trader monitor run 可执行。
+1. `npm run workflows -- market-monitor run` 可执行。
 2. 可以生成 DecisionEnvelope。
-3. 所有 DecisionEnvelope 都写入 decision_memories。
+3. 所有 DecisionEnvelope 都写入 `model_decisions`（概念名：decision_memories）。
 4. 数据质量 failed / blocked 时不进入 setup detection。
 5. 风控 blocked 时 action = blocked。
 6. MVP 阶段不输出 live_order。
@@ -466,7 +466,7 @@ test_outcome_persist_memory
 3. 可以计算 MFE / MAE / final_return。
 4. 可以判断 hit_entry / hit_invalidation。
 5. 可以生成 outcome_label。
-6. 可以写入 outcome_memories。
+6. 可以写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）。
 7. 缺数据时 outcome_label = unknown。
 8. 所有计算不依赖 LLM。
 ```
@@ -635,7 +635,7 @@ test_context_pack_handles_empty_recent_decisions
 ## 14.3 验收标准
 
 ```text
-1. trader memory bootstrap --profile default 可执行。
+1. `npm run workflows -- context bootstrap --profile default` 可执行。
 2. .runtime/context/context_pack.md 被生成。
 3. context_pack 包含 Trading Mandate。
 4. context_pack 包含 Watchlist。
@@ -764,20 +764,20 @@ test_e2e_permanent_memory_market_agent_minimal_loop
 ```text
 1. 使用临时 SQLite 初始化数据库。
 2. 写入 mock market data。
-3. 运行 trader memory init。
-4. 运行 trader memory bootstrap。
-5. 运行 trader monitor run。
+3. 运行 `npm run workflows -- memory init`。
+4. 运行 `npm run workflows -- context bootstrap`。
+5. 运行 `npm run workflows -- market-monitor run`。
 6. 验证生成 DecisionEnvelope。
-7. 验证 decision_memories 有写入。
-8. 运行 trader memory label-outcomes --window 2h。
-9. 验证 outcome_memories 有写入。
-10. 运行 trader memory evaluate。
+7. 验证 `model_decisions` 有写入（概念名：decision_memories）。
+8. 运行 `npm run workflows -- outcomes run --due --window 2h`。
+9. 验证 `decision_outcomes` / `insight_candidate_outcomes` 有写入（概念名：outcome_memories）。
+10. 运行 `npm run workflows -- eval summary`。
 11. 验证 EvaluationResult 生成。
-12. 运行 trader memory generate-insights。
+12. 运行 `npm run workflows -- insights explore`。
 13. 验证 insight_candidate 生成。
-14. 运行 trader memory promote-pattern --confirm。
+14. 运行 `npm run workflows -- pattern-memory promote --confirm`。
 15. 验证 pattern_memories 有 active pattern。
-16. 再次运行 trader memory bootstrap。
+16. 再次运行 `npm run workflows -- context bootstrap`。
 17. 验证 context_pack.md 包含 active pattern。
 ```
 
@@ -798,23 +798,21 @@ test_e2e_permanent_memory_market_agent_minimal_loop
 ## 18. 推荐测试目录结构
 
 ```text
-tests/
-  market_agent/
-    test_memory_schema.py
-    test_market_data_service.py
-    test_data_quality_gate.py
-    test_feature_engine.py
-    test_decision_envelope.py
-    test_market_monitor_graph.py
-    test_outcome_graph.py
-    test_evaluation_graph.py
-    test_pattern_memory.py
-    test_failure_memory.py
-    test_context_pack_builder.py
-    test_cli_commands.py
-    test_api_routes.py
-    test_safety_constraints.py
-    test_e2e_permanent_memory_loop.py
+apps/trader-agent/backend/tests/
+  test_market_agent_memory_schema.py
+  test_market_agent_market_data_service.py
+  test_market_agent_data_quality_gate.py
+  test_market_agent_feature_engine.py
+  test_market_agent_pattern_memory.py
+  test_market_agent_failure_memory.py
+  test_market_agent_context_pack_builder.py
+  test_market_agent_api_routes.py
+  test_market_agent_safety_constraints.py
+
+apps/trader-workflows/src/
+  graphs/**/<market-agent-workflow>.test.ts
+  services/<market-agent-service>.test.ts
+  index.test.ts
 ```
 
 ---
@@ -822,7 +820,7 @@ tests/
 ## 19. Mock 数据目录建议
 
 ```text
-tests/
+apps/trader-agent/backend/tests/
   fixtures/
     market_agent/
       tsla_vwap_reclaim_forming.json
@@ -842,20 +840,16 @@ tests/
 
 ## 20. CI 验收命令
 
-建议提供一个统一命令：
+Backend 验收命令：
 
 ```bash
-pytest tests/market_agent/
+.venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_market_agent_*.py -v --tb=short
 ```
 
-也可拆分：
+Workflow / CLI 验收命令：
 
 ```bash
-pytest tests/market_agent/test_memory_schema.py
-pytest tests/market_agent/test_market_data_service.py
-pytest tests/market_agent/test_market_monitor_graph.py
-pytest tests/market_agent/test_outcome_graph.py
-pytest tests/market_agent/test_e2e_permanent_memory_loop.py
+cd apps/trader-workflows && npm test
 ```
 
 ---

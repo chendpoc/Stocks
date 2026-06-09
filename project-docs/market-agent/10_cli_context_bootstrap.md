@@ -36,11 +36,11 @@
 ```text
 DecisionEnvelope
   ↓
-decision_memories
+model_decisions（概念名：decision_memories）
   ↓
 OutcomeGraph
   ↓
-outcome_memories
+decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
   ↓
 EvaluationGraph
   ↓
@@ -104,7 +104,7 @@ CLI Agent
 
 ```text
 1. 把 30 年历史行情写入 context_pack。
-2. 把所有 decision_memories 全量写入 context_pack。
+2. 把所有 `model_decisions`（概念名：decision_memories）全量写入 context_pack。
 3. 把所有 archived patterns 写入 context_pack。
 4. 把原始 API 响应写入 context_pack。
 5. 把过长自然语言总结写入 context_pack。
@@ -222,7 +222,7 @@ session_context_packs
 ## 8.1 生成 Context Pack
 
 ```bash
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
 ```
 
 ---
@@ -230,7 +230,7 @@ trader memory bootstrap --profile default
 ## 8.2 指定股票池
 
 ```bash
-trader memory bootstrap --profile default --symbols TSLA,NVDA,AAPL
+npm run workflows -- context bootstrap --profile default --symbols TSLA,NVDA,AAPL
 ```
 
 ---
@@ -238,7 +238,7 @@ trader memory bootstrap --profile default --symbols TSLA,NVDA,AAPL
 ## 8.3 查看最近 Context Pack
 
 ```bash
-trader memory context --latest
+npm run workflows -- context latest
 ```
 
 ---
@@ -246,7 +246,7 @@ trader memory context --latest
 ## 8.4 输出到指定路径
 
 ```bash
-trader memory bootstrap --profile default --output .runtime/context/context_pack.md
+npm run workflows -- context bootstrap --profile default --output .runtime/context/context_pack.md
 ```
 
 ---
@@ -254,7 +254,7 @@ trader memory bootstrap --profile default --output .runtime/context/context_pack
 ## 8.5 JSON Debug 输出
 
 ```bash
-trader memory bootstrap --profile default --json
+npm run workflows -- context bootstrap --profile default --json
 ```
 
 ---
@@ -487,10 +487,8 @@ Rules:
 推荐路径：
 
 ```text
-trader_workflow/
-  market_agent/
-    memory/
-      context_pack_builder.py
+apps/trader-agent/backend/app/intel/memory/context_pack_builder.py
+apps/trader-workflows/src/commands/context*.ts
 ```
 
 ---
@@ -991,7 +989,7 @@ source_memory_ids_json
 
 ```text
 1. 检查 .runtime/context/context_pack.md 是否存在。
-2. 如果不存在，运行 trader memory bootstrap --profile default。
+2. 如果不存在，运行 npm run workflows -- context bootstrap --profile default。
 3. 读取 context_pack.md。
 4. 将 context_pack 作为本轮分析的系统上下文输入。
 ```
@@ -1015,7 +1013,7 @@ source_memory_ids_json
 ```text
 Context pack missing. Running in safe monitor_only mode.
 No paper_trade_candidate or high-priority alert will be generated.
-Please run: trader memory bootstrap --profile default
+Please run: npm run workflows -- context bootstrap --profile default
 ```
 
 ---
@@ -1134,7 +1132,7 @@ Recent Decisions 用于提醒 Agent：
 重复运行：
 
 ```bash
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
 ```
 
 必须满足：
@@ -1236,7 +1234,7 @@ session_context_packs
 10. render_markdown
 11. write_context_pack_file
 12. persist_session_context_pack
-13. trader memory bootstrap CLI
+13. `context bootstrap` workflow CLI
 ```
 
 ---
@@ -1261,7 +1259,7 @@ session_context_packs
 Task 008 完成后必须满足：
 
 ```text
-1. 可以运行 trader memory bootstrap --profile default。
+1. 可以运行 npm run workflows -- context bootstrap --profile default。
 2. 可以生成 .runtime/context/context_pack.md。
 3. context_pack 包含 Trading Mandate。
 4. context_pack 包含 Watchlist。

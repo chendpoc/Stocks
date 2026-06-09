@@ -258,27 +258,27 @@ next_check
 MVP 必须跑通以下闭环：
 
 ```text
-trader memory init
+npm run workflows -- memory init
   ↓
-trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
+npm run workflows -- market-monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
   ↓
 生成 DecisionEnvelope
   ↓
-写入 decision_memories
+写入 `model_decisions`（概念名：decision_memories）
   ↓
-trader memory label-outcomes --window 2h
+npm run workflows -- outcomes run --due --window 2h
   ↓
-写入 outcome_memories
+写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）
   ↓
-trader memory generate-insights --setup VWAP_RECLAIM --symbol TSLA
+npm run workflows -- insights explore --setup VWAP_RECLAIM --symbol TSLA
   ↓
 生成 insight_candidate
   ↓
-trader memory promote-pattern --candidate-id insight_001
+npm run workflows -- pattern-memory promote --candidate-id insight_001
   ↓
 写入 pattern_memories
   ↓
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
   ↓
 生成 .runtime/context/context_pack.md
 ```

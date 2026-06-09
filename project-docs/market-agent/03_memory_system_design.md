@@ -213,7 +213,7 @@ raw_json
 MVP：
 
 ```text
-SQLite 保存 market_snapshots
+SQLite 保存 market_bars（概念名：market_snapshots）
 ```
 
 中期：
@@ -398,7 +398,7 @@ TSLA 看涨。
 
 ### 7.4 写入规则
 
-每个 `DecisionEnvelope` 都必须写入 `decision_memories`。
+每个 `DecisionEnvelope` 都必须写入 `model_decisions`（概念名：decision_memories）。
 
 即使 action 是：
 
@@ -1033,7 +1033,7 @@ DecisionEnvelope
 输出：
 
 ```text
-decision_memories row
+`model_decisions` row（概念名：decision_memories）
 ```
 
 要求：
@@ -1057,7 +1057,7 @@ future price window
 输出：
 
 ```text
-outcome_memories row
+`decision_outcomes` / `insight_candidate_outcomes` row（概念名：outcome_memories）
 ```
 
 要求：
@@ -1141,7 +1141,7 @@ session_context_packs row
 
 ### 16.1 Decision 写入
 
-每个 `DecisionEnvelope` 都必须写入 `decision_memories`。
+每个 `DecisionEnvelope` 都必须写入 `model_decisions`（概念名：decision_memories）。
 
 禁止只写 alert。
 即使 action = blocked，也需要写入。
@@ -1205,7 +1205,7 @@ CLI 启动必须读取：
 如果文件不存在，则先运行：
 
 ```bash
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
 ```
 
 ---
@@ -1334,8 +1334,8 @@ Raw Market Data：不允许进入
 Memory System MVP 完成后必须做到：
 
 ```text
-1. DecisionEnvelope 可以写入 decision_memories。
-2. Outcome label 可以写入 outcome_memories。
+1. DecisionEnvelope 可以写入 `model_decisions`（概念名：decision_memories）。
+2. Outcome label 可以写入 `decision_outcomes` / `insight_candidate_outcomes`（概念名：outcome_memories）。
 3. Insight candidate 可以生成并保存。
 4. Pattern 可以 candidate / testing / active / degraded / invalidated / archived。
 5. FailureMemory 可以保存 active_warning。
@@ -1357,11 +1357,11 @@ Memory System MVP 完成后必须做到：
 重点完成：
 
 ```text
-1. market_snapshots
+1. market_bars（概念名：market_snapshots）
 2. feature_snapshots
 3. setup_events
-4. decision_memories
-5. outcome_memories
+4. model_decisions（概念名：decision_memories）
+5. decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
 6. insight_candidates
 7. pattern_memories
 8. failure_memories

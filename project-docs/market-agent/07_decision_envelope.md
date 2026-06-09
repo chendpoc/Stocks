@@ -76,11 +76,11 @@ MarketMonitorGraph
   ↓
 DecisionEnvelope
   ↓
-decision_memories
+model_decisions（概念名：decision_memories）
   ↓
 OutcomeGraph
   ↓
-outcome_memories
+decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
   ↓
 EvaluationGraph
   ↓
@@ -350,8 +350,8 @@ dec_20260610_tsla_001
 
 ```text
 1. 全局唯一。
-2. 可用于 decision_memories 主键。
-3. 可被 outcome_memories 外键引用。
+2. 可用于 `model_decisions` 主键（概念名：decision_memories）。
+3. 可被 `decision_outcomes` / `insight_candidate_outcomes` 外键引用（概念名：outcome_memories）。
 ```
 
 ---
@@ -920,12 +920,12 @@ MVP 阶段不实现 live trading。
 每个 `DecisionEnvelope` 必须写入：
 
 ```text
-decision_memories
+model_decisions（概念名：decision_memories）
 ```
 
 对应字段：
 
-| DecisionEnvelope 字段               | decision_memories 字段     |
+| DecisionEnvelope 字段               | model_decisions 字段        |
 | --------------------------------- | ------------------------ |
 | `id`                              | `id`                     |
 | `symbol`                          | `symbol`                 |
@@ -1022,7 +1022,7 @@ Next Check:
 Debug 输出：
 
 ```bash
-trader memory decisions --symbol TSLA --limit 1 --json
+npm run workflows -- decisions list --symbol TSLA --limit 1 --json
 ```
 
 ---
@@ -1114,7 +1114,7 @@ test_decision_envelope_monitor_only_action_limit
 7. RiskNote schema
 8. source_quality schema
 9. validation logic
-10. decision_memories mapping
+10. model_decisions mapping（概念名：decision_memories）
 ```
 
 ---
@@ -1143,7 +1143,7 @@ Task 004 完成后必须满足：
 3. 非 ignore 判断缺少 invalidation_conditions 时校验失败。
 4. confidence 超出 0-1 时校验失败。
 5. monitor_only 模式下不能输出 paper_trade_candidate / live_order。
-6. DecisionEnvelope 可以映射为 decision_memories row。
+6. DecisionEnvelope 可以映射为 `model_decisions` row（概念名：decision_memories）。
 7. DecisionEnvelope 可以被 JSON 序列化。
 8. 单元测试通过。
 ```

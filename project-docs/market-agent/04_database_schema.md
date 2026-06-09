@@ -82,8 +82,8 @@ performance_json
 每条长期规律必须尽量能追溯到：
 
 ```text
-decision_memories
-outcome_memories
+model_decisions（概念名：decision_memories）
+decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
 insight_candidates
 backtest_result_json
 failure_memories
@@ -160,22 +160,22 @@ UTC
 表之间的核心关系：
 
 ```text
-market_snapshots
+market_bars（概念名：market_snapshots）
   ↓
 feature_snapshots
   ↓
 setup_events
   ↓
-decision_memories
+model_decisions（概念名：decision_memories）
   ↓
-outcome_memories
+decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
   ↓
 insight_candidates
   ↓
 pattern_memories
 
 failure_memories 可以由任意阶段生成
-session_context_packs 从 pattern_memories / failure_memories / decision_memories 聚合生成
+session_context_packs 从 pattern_memories / failure_memories / model_decisions 聚合生成
 ```
 
 ---
@@ -198,65 +198,31 @@ session_context_packs 从 pattern_memories / failure_memories / decision_memorie
 
 ---
 
-## 4.2 SQL
+## 4.2 物理表
 
-```sql
-CREATE TABLE IF NOT EXISTS market_snapshots (
-  id TEXT PRIMARY KEY,
-  symbol TEXT NOT NULL,
-  timestamp TEXT NOT NULL,
-  source TEXT NOT NULL,
-  timeframe TEXT NOT NULL,
-  open REAL,
-  high REAL,
-  low REAL,
-  close REAL,
-  volume REAL,
-  session TEXT,
-  quality_status TEXT,
-  raw_json TEXT,
-  created_at TEXT NOT NULL
-);
-```
+`market_snapshots` 是 Market Agent 的概念名；物理表复用现有 `market_bars`。
+
+不得新增 `market_snapshots` 表。当前实现应从 `apps/trader-agent/backend/app/intel/db/schema.py` 的 `market_bars` 定义出发，只在明确任务卡要求时通过幂等 migration 扩展列。
 
 ---
 
-## 4.3 字段说明
+## 4.3 字段映射
 
-| 字段               | 说明                                   |
-| ---------------- | ------------------------------------ |
-| `id`             | 快照 ID                                |
-| `symbol`         | 标的，例如 TSLA                           |
-| `timestamp`      | bar 时间，ISO 8601                      |
-| `source`         | longbridge / alphavantage / yfinance |
-| `timeframe`      | 1m / 5m / 1d                         |
-| `open`           | 开盘价                                  |
-| `high`           | 最高价                                  |
-| `low`            | 最低价                                  |
-| `close`          | 收盘价                                  |
-| `volume`         | 成交量                                  |
-| `session`        | premarket / regular / afterhours     |
-| `quality_status` | pass / warning / failed / blocked    |
-| `raw_json`       | 原始响应或扩展字段                            |
-| `created_at`     | 写入时间                                 |
+| 概念字段 | 物理字段 / 规则 |
+|---|---|
+| `symbol` | `market_bars.symbol` |
+| `timeframe` | `market_bars.timeframe` |
+| `timestamp` | `market_bars.ts` |
+| `open/high/low/close/volume` | 复用 `market_bars` 对应 OHLCV 字段 |
+| `source` | 如当前表无该列，只能由显式 migration 任务扩展 |
+| `quality_status` | 如当前表无该列，只能由显式 migration 任务扩展 |
+| `raw_json` | 使用现有扩展字段或后续显式 migration，不得新建概念表替代 |
 
 ---
 
 ## 4.4 索引
 
-```sql
-CREATE INDEX IF NOT EXISTS idx_market_snapshots_symbol_time
-ON market_snapshots(symbol, timestamp);
-
-CREATE INDEX IF NOT EXISTS idx_market_snapshots_symbol_timeframe
-ON market_snapshots(symbol, timeframe);
-
-CREATE INDEX IF NOT EXISTS idx_market_snapshots_source
-ON market_snapshots(source);
-
-CREATE INDEX IF NOT EXISTS idx_market_snapshots_quality
-ON market_snapshots(quality_status);
-```
+复用 `market_bars` 现有索引。只有在显式新增 `source` / `quality_status` 列时，才允许为 `market_bars` 增加对应索引。
 
 ---
 
@@ -512,27 +478,11 @@ MVP 不写入每个 not_present，以免数据膨胀。
 
 ---
 
-## 7.2 SQL
+## 7.2 物理表
 
-```sql
-CREATE TABLE IF NOT EXISTS decision_memories (
-  id TEXT PRIMARY KEY,
-  symbol TEXT NOT NULL,
-  timestamp TEXT NOT NULL,
-  timeframe TEXT,
-  market_state TEXT,
-  setup_name TEXT,
-  action TEXT,
-  confidence REAL,
-  evidence_json TEXT,
-  contra_json TEXT,
-  risk_json TEXT,
-  decision_envelope_json TEXT NOT NULL,
-  setup_event_id TEXT,
-  created_at TEXT NOT NULL,
-  FOREIGN KEY(setup_event_id) REFERENCES setup_events(id)
-);
-```
+`decision_memories` 是 Market Agent 的概念名；物理表复用现有 `model_decisions`。
+
+不得新增 `decision_memories` 表。`DecisionEnvelope` 的持久化映射必须落到 `model_decisions`，需要新增字段时只能通过明确任务卡扩展现有表。
 
 ---
 
@@ -561,19 +511,7 @@ live_order
 
 ## 7.4 索引
 
-```sql
-CREATE INDEX IF NOT EXISTS idx_decision_memories_symbol_time
-ON decision_memories(symbol, timestamp);
-
-CREATE INDEX IF NOT EXISTS idx_decision_memories_setup
-ON decision_memories(setup_name);
-
-CREATE INDEX IF NOT EXISTS idx_decision_memories_action
-ON decision_memories(action);
-
-CREATE INDEX IF NOT EXISTS idx_decision_memories_setup_event
-ON decision_memories(setup_event_id);
-```
+复用 `model_decisions` 现有索引。后续如果需要 `setup_name`、`action` 或 `setup_event_id` 查询能力，必须作为 `model_decisions` 的幂等 migration，而不是新建概念表。
 
 ---
 
@@ -616,26 +554,11 @@ review 可以用于人工复盘。
 
 ---
 
-## 8.2 SQL
+## 8.2 物理表
 
-```sql
-CREATE TABLE IF NOT EXISTS outcome_memories (
-  id TEXT PRIMARY KEY,
-  decision_id TEXT NOT NULL,
-  outcome_window TEXT NOT NULL,
-  hit_entry INTEGER,
-  hit_invalidation INTEGER,
-  mfe REAL,
-  mae REAL,
-  final_return REAL,
-  time_to_mfe_seconds INTEGER,
-  time_to_invalidation_seconds INTEGER,
-  outcome_label TEXT,
-  notes TEXT,
-  created_at TEXT NOT NULL,
-  FOREIGN KEY(decision_id) REFERENCES decision_memories(id)
-);
-```
+`outcome_memories` 是 Market Agent 的概念名；物理表复用现有 `decision_outcomes` 和 `insight_candidate_outcomes`。
+
+不得新增 `outcome_memories` 表。与 `DecisionEnvelope` 相关的 **Outcome** 写入 `decision_outcomes`；与 `InsightCandidate` 相关的 **InsightCandidateOutcome** 写入 `insight_candidate_outcomes`。
 
 ---
 
@@ -666,22 +589,13 @@ unknown
 
 ## 8.5 索引
 
-```sql
-CREATE INDEX IF NOT EXISTS idx_outcome_memories_decision_id
-ON outcome_memories(decision_id);
-
-CREATE INDEX IF NOT EXISTS idx_outcome_memories_window
-ON outcome_memories(outcome_window);
-
-CREATE INDEX IF NOT EXISTS idx_outcome_memories_label
-ON outcome_memories(outcome_label);
-```
+复用 `decision_outcomes` 和 `insight_candidate_outcomes` 现有索引。新增查询维度必须作为现有物理表的幂等 migration。
 
 ---
 
 ## 8.6 写入规则
 
-OutcomeGraph 负责写入本表。
+OutcomeGraph 负责写入现有 outcome 物理表。
 
 MVP 至少支持：
 
@@ -1083,7 +997,7 @@ ON session_context_packs(profile, generated_at);
 每次运行：
 
 ```bash
-trader memory bootstrap --profile default
+npm run workflows -- context bootstrap --profile default
 ```
 
 都应该：
@@ -1308,13 +1222,13 @@ class SessionContextPackRepository:
 ### 15.2 推荐测试文件
 
 ```text
-tests/market_agent/test_memory_schema.py
-tests/market_agent/test_decision_memory_repository.py
-tests/market_agent/test_outcome_memory_repository.py
-tests/market_agent/test_insight_candidate_repository.py
-tests/market_agent/test_pattern_memory_repository.py
-tests/market_agent/test_failure_memory_repository.py
-tests/market_agent/test_session_context_pack_repository.py
+apps/trader-agent/backend/tests/test_market_agent_memory_schema.py
+apps/trader-agent/backend/tests/test_market_agent_decision_repository.py
+apps/trader-agent/backend/tests/test_market_agent_outcome_repository.py
+apps/trader-agent/backend/tests/test_market_agent_insight_candidate_repository.py
+apps/trader-agent/backend/tests/test_market_agent_pattern_memory_repository.py
+apps/trader-agent/backend/tests/test_market_agent_failure_memory_repository.py
+apps/trader-agent/backend/tests/test_market_agent_session_context_pack_repository.py
 ```
 
 ---
@@ -1332,15 +1246,20 @@ tests/market_agent/test_session_context_pack_repository.py
 必须实现：
 
 ```text
-market_snapshots
 feature_snapshots
 setup_events
-decision_memories
-outcome_memories
-insight_candidates
 pattern_memories
 failure_memories
 session_context_packs
+```
+
+并为以下概念提供 repository 映射，不新建同名物理表：
+
+```text
+market_snapshots -> market_bars
+decision_memories -> model_decisions
+outcome_memories -> decision_outcomes + insight_candidate_outcomes
+insight_candidates -> insight_candidates
 ```
 
 ---
@@ -1366,7 +1285,7 @@ Task 001 完成后必须满足：
 
 ```text
 1. migration 可运行。
-2. 新增 9 张表。
+2. 只新增 5 张表：feature_snapshots、setup_events、pattern_memories、failure_memories、session_context_packs。
 3. 所有表有必要索引。
 4. repository 支持 create / get / list / update。
 5. 单元测试通过。

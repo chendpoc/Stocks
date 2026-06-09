@@ -811,67 +811,25 @@ Required Behavior
 
 ## 20. 推荐目录结构
 
-根据当前项目实际结构微调。推荐新增：
+根据当前项目实际结构微调。不要新增独立 workflow 根目录。
+推荐落点分为 backend 与 workflow CLI 两层：
 
 ```text
-trader_workflow/
-  market_agent/
-    __init__.py
+apps/trader-agent/backend/app/intel/
+  market_data/
+  features/
+  setups/
+  graphs/
+  memory/
+  risk/
+  api/
 
-    data/
-      market_data_service.py
-      source_router.py
-      longbridge_adapter.py
-      alphavantage_adapter.py
-      yfinance_adapter.py
-      normalizer.py
-      quality_gate.py
+apps/trader-agent/backend/tests/
+  test_market_agent_*.py
 
-    features/
-      feature_engine.py
-      vwap.py
-      ema.py
-      atr.py
-      relative_strength.py
-
-    setups/
-      base.py
-      vwap_reclaim.py
-      relative_strength_pullback.py
-      opening_range_breakout.py
-
-    graphs/
-      market_monitor_graph.py
-      memory_graph.py
-      outcome_graph.py
-      evaluation_graph.py
-
-    memory/
-      repositories.py
-      schemas.py
-      decision_memory.py
-      outcome_memory.py
-      pattern_memory.py
-      failure_memory.py
-      context_pack_builder.py
-
-    risk/
-      risk_gate.py
-
-    api/
-      routes_market_monitor.py
-      routes_memory.py
-
-    cli/
-      memory_commands.py
-      monitor_commands.py
-
-    tests/
-      test_data_quality_gate.py
-      test_feature_engine.py
-      test_setup_vwap_reclaim.py
-      test_memory_graph.py
-      test_context_pack_builder.py
+apps/trader-workflows/src/
+  commands/
+  *.test.ts
 ```
 
 ---
@@ -899,17 +857,17 @@ RiskGate
   ↓
 DecisionEnvelope
   ↓
-decision_memories
+model_decisions（概念名：decision_memories）
 ```
 
 后续学习链路：
 
 ```text
-decision_memories
+model_decisions（概念名：decision_memories）
   ↓
 OutcomeGraph
   ↓
-outcome_memories
+decision_outcomes / insight_candidate_outcomes（概念名：outcome_memories）
   ↓
 EvaluationGraph
   ↓
