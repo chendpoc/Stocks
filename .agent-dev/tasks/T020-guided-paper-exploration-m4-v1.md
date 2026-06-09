@@ -29,4 +29,14 @@ python -m pytest tests/test_guided_paper_exploration.py tests/test_live_market_p
 
 ## Evidence
 
-- Pending user review / commit
+终端冒烟记录：`.agent-dev/reviews/workflow-cli-smoke-2026-06-06.md`
+
+| 区域 | 结果 |
+|------|------|
+| Workflows 核心（decide / runs / context / outcomes / eval / insights） | pass（outcomes/eval 为数据空样本） |
+| Trader CLI 包装 | pass（建议 `cd apps/trader-cli && npx tsx`） |
+| M4 policy register/get | pass |
+| M4 guided run E2E | blocked：无 M2 MarketState |
+| M2 ingest/stream | blocked：SDK + capability |
+
+Fixture：`apps/trader-agent/backend/tests/fixtures/execution-policy-demo.json`

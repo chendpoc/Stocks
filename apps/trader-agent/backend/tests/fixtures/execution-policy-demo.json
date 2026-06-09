@@ -1,0 +1,15 @@
+{
+  "schema_version": "analysis_to_execution_contract.v0",
+  "execution_policy_id": "ep-demo-001",
+  "opportunity_map_id": "om-demo-001",
+  "risk_envelope_id": "re-demo-001",
+  "exploration_plan_id": "xp-demo-001",
+  "created_at": "2026-06-06T00:00:00Z",
+  "valid_from": "2026-06-06T00:00:00Z",
+  "expires_at": "2026-12-31T23:59:59Z",
+  "allowed_modes": ["paper_simulation"],
+  "forbidden_actions": ["broker_submit", "live_trading"],
+  "symbols": ["AAPL.US"],
+  "max_quantity": 100,
+  "operator_gate": { "approval_required": false }
+}
