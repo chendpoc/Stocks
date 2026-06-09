@@ -1,0 +1,47 @@
+{
+  "spec_id": "workflow-runtime-observability-v1",
+  "decisions": [
+    {
+      "id": "D601",
+      "question": "What does T017 own?",
+      "answer": "Runtime observability over existing Stage1Runtime storage.",
+      "confirmed_by": "spec_gate",
+      "rationale": "Current runtime already owns run IDs, statuses, checkpoints, bounded outputs, and CLI inspection."
+    },
+    {
+      "id": "D602",
+      "question": "What operator surface comes first?",
+      "answer": "Read-only CLI/API-shaped envelopes.",
+      "confirmed_by": "spec_gate",
+      "rationale": "The package already exposes CLI commands and tests; custom UI would be premature."
+    },
+    {
+      "id": "D603",
+      "question": "How much run data should the operator read model expose?",
+      "answer": "Bounded summaries only, not raw state browsers.",
+      "confirmed_by": "spec_gate",
+      "rationale": "Workflow maturity requires inspectability without flooding LLM/operator context."
+    },
+    {
+      "id": "D604",
+      "question": "Does T017 merge backend agent_events?",
+      "answer": "No. Backend agent_events integration is deferred.",
+      "confirmed_by": "spec_gate",
+      "rationale": "The backend audit event system is separate and needs a later cross-system contract."
+    },
+    {
+      "id": "D605",
+      "question": "Does T017 add workflow controls?",
+      "answer": "No scheduling, approval, replay, node retry, cancellation, or workflow editing.",
+      "confirmed_by": "spec_gate",
+      "rationale": "Run Monitor and Trace Viewer are observability first."
+    },
+    {
+      "id": "D606",
+      "question": "Does T017 depend on T016?",
+      "answer": "No. T017 is independent of T016 and excludes live market data and execution simulation.",
+      "confirmed_by": "spec_gate",
+      "rationale": "M2 provider/storage/readiness decisions remain blocked by user confirmation."
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "spec_id": "workflow-runtime-observability-v1",
+  "status": "no_blocking_questions",
+  "questions": [
+    {
+      "id": "Q601",
+      "category": "integration",
+      "question": "Should workflow runtime traces merge backend agent_events?",
+      "status": "deferred",
+      "why_deferred": "Needs a cross-system audit/event contract."
+    },
+    {
+      "id": "Q602",
+      "category": "operator_surface",
+      "question": "Should Run Monitor become a cockpit/TUI surface?",
+      "status": "deferred",
+      "why_deferred": "UI surfaces should wait until the CLI/API read model stabilizes."
+    },
+    {
+      "id": "Q603",
+      "category": "workflow_control",
+      "question": "Should operators retry, cancel, or replay individual nodes?",
+      "status": "deferred",
+      "why_deferred": "These are workflow-control semantics, not observability."
+    }
+  ]
+}

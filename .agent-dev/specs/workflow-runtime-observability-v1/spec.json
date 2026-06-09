@@ -1,0 +1,191 @@
+{
+  "id": "workflow-runtime-observability-v1",
+  "title": "Workflow Runtime Observability v1",
+  "status": "done",
+  "source_docs": [
+    "project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md",
+    "project-docs/backlog/now/run-monitor.md",
+    "project-docs/backlog/now/real-run-trace-viewer.md",
+    "project-docs/backlog/workflow-maturity-roadmap.md",
+    "apps/trader-workflows/README.md"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/workflow-runtime-observability-v1/**",
+      ".agent-dev/tasks/T017-workflow-runtime-observability-v1.md",
+      ".agent-dev/tasks/T017-workflow-runtime-observability-v1.json"
+    ],
+    "modify": [
+      ".agent-dev/tasks/README.md",
+      "project-docs/backlog/now/workflow-runtime-run-checkpoint-audit-alignment.md",
+      "project-docs/backlog/now/run-monitor.md",
+      "project-docs/backlog/now/real-run-trace-viewer.md",
+      "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+      "apps/trader-workflows/src/runtime/stage1Runtime.test.ts",
+      "apps/trader-workflows/src/runtime/checkpointStore.ts",
+      "apps/trader-workflows/src/index.ts",
+      "apps/trader-workflows/src/index.test.ts",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md"
+    ],
+    "readonly_import": [
+      ".agent-dev/specs/decision-graph-maturity-v1/**",
+      ".agent-dev/tasks/T090-decision-graph-maturity-v1.*",
+      ".agent-dev/tasks/T010-outcome-graph-maturity-v1.*",
+      ".agent-dev/tasks/T011-evaluation-graph-maturity-v1.*",
+      ".agent-dev/tasks/T012-insight-exploration-graph-maturity-v1.*",
+      ".agent-dev/tasks/T013-alpha-research-graph-v0.*",
+      "project-docs/backlog/workflow-maturity-roadmap.md"
+    ],
+    "forbidden": [
+      "apps/trader-agent/backend/**",
+      "apps/trader-cli/**",
+      "apps/trader-cockpit/**",
+      "apps/research-console/**",
+      "data/**",
+      ".github/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D601",
+      "brief": "T017 is runtime observability over existing Stage1Runtime storage"
+    },
+    {
+      "ref": "D602",
+      "brief": "v1 uses read-only CLI/API-shaped envelopes first"
+    },
+    {
+      "ref": "D603",
+      "brief": "v1 read models are bounded summaries, not raw state browsers"
+    },
+    {
+      "ref": "D604",
+      "brief": "Backend agent_events integration is deferred"
+    },
+    {
+      "ref": "D605",
+      "brief": "No scheduling approval replay retry cancellation or workflow editing in this slice"
+    },
+    {
+      "ref": "D606",
+      "brief": "T017 is independent of T016 and excludes live market data and execution simulation"
+    }
+  ],
+  "contracts": {
+    "run_monitor_summary": {
+      "required_fields": [
+        "run_id",
+        "graph_name",
+        "status",
+        "current_node",
+        "started_at",
+        "finished_at",
+        "updated_at",
+        "duration_ms",
+        "checkpoint_count",
+        "latest_checkpoint_ref",
+        "has_error",
+        "latest_error",
+        "resumable"
+      ],
+      "filters": [
+        "status",
+        "graph_name",
+        "limit"
+      ],
+      "limit_policy": "positive and bounded"
+    },
+    "run_trace_detail": {
+      "required_fields": [
+        "run",
+        "checkpoints",
+        "output_summary",
+        "resume_hint"
+      ],
+      "checkpoint_policy": "ordered by seq and bounded to metadata plus compact state summaries",
+      "raw_state_default": false
+    },
+    "deferred": [
+      "backend agent_events merge",
+      "scheduler",
+      "approval workflow",
+      "workflow builder",
+      "node replay",
+      "retry",
+      "cancellation",
+      "live market data",
+      "PaperTradingEngine",
+      "RiskGate"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "A601",
+      "check": "Spec defines bounded run-monitor and run-trace read models",
+      "verified_by": [
+        "V601"
+      ]
+    },
+    {
+      "id": "A602",
+      "check": "Spec maps current Stage1Runtime and checkpoint store fields to read models",
+      "verified_by": [
+        "V602"
+      ]
+    },
+    {
+      "id": "A603",
+      "check": "Backend agent_events integration remains deferred",
+      "verified_by": [
+        "V603"
+      ]
+    },
+    {
+      "id": "A604",
+      "check": "Spec excludes T016/M2 live market data implementation",
+      "verified_by": [
+        "V603"
+      ]
+    },
+    {
+      "id": "A605",
+      "check": "Task file maps implementation steps to concrete tests",
+      "verified_by": [
+        "V604"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "id": "V601",
+      "command": "rg -n \"Run Monitor Summary|Run Trace Detail|duration_ms|checkpoint_count|resume_hint\" .agent-dev/specs/workflow-runtime-observability-v1/spec.md",
+      "expect": "Read models are explicitly documented",
+      "blocking": true
+    },
+    {
+      "id": "V602",
+      "command": "rg -n \"Stage1Runtime|workflow_runs|workflow_checkpoints|runs list|runs show\" .agent-dev/specs/workflow-runtime-observability-v1/spec.md",
+      "expect": "Current runtime storage and CLI baseline are referenced",
+      "blocking": true
+    },
+    {
+      "id": "V603",
+      "command": "rg -n \"agent_events integration is deferred|No live market data|No PaperTradingEngine|No RiskGate\" .agent-dev/specs/workflow-runtime-observability-v1/spec.md .agent-dev/tasks/T017-workflow-runtime-observability-v1.md",
+      "expect": "Deferred and forbidden scope remains explicit",
+      "blocking": true
+    },
+    {
+      "id": "V604",
+      "command": "Get-Content -Raw -Encoding UTF8 .agent-dev/tasks/T017-workflow-runtime-observability-v1.json | ConvertFrom-Json | Out-Null",
+      "expect": "T017 task JSON parses",
+      "blocking": true
+    },
+    {
+      "id": "V605",
+      "command": "node --test test/docs-ai-context.test.mjs",
+      "expect": "Private AI context routing tests still pass",
+      "blocking": true
+    }
+  ]
+}

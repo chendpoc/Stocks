@@ -1,0 +1,83 @@
+{
+  "id": "T017",
+  "spec_id": "workflow-runtime-observability-v1",
+  "title": "Workflow Runtime Observability v1",
+  "status": "done",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add run monitor summary helpers and tests for bounded workflow run list inspection.",
+      "status": "done",
+      "verification": {
+        "ref": "V701",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.test.ts"
+      ]
+    },
+    {
+      "id": "S2",
+      "description": "Add run trace detail helpers and tests with bounded checkpoint summaries and resume hints.",
+      "status": "done",
+      "depends_on": [
+        "S1"
+      ],
+      "verification": {
+        "ref": "V702",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/runtime/stage1Runtime.ts",
+        "apps/trader-workflows/src/runtime/stage1Runtime.test.ts"
+      ]
+    },
+    {
+      "id": "S3",
+      "description": "Wire read-only CLI/API-shaped envelopes for run monitor and run trace inspection.",
+      "status": "done",
+      "depends_on": [
+        "S2"
+      ],
+      "verification": {
+        "ref": "V703",
+        "blocking": true
+      },
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/src/index.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "description": "Update workflow README examples only if command output changes.",
+      "status": "done",
+      "depends_on": [
+        "S3"
+      ],
+      "verification": {
+        "ref": "V704",
+        "blocking": false
+      },
+      "files_expected": [
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md"
+      ]
+    },
+    {
+      "id": "S5",
+      "description": "Run targeted workflow tests, full workflow tests, docs tests, and whitespace checks.",
+      "status": "done",
+      "depends_on": [
+        "S4"
+      ],
+      "verification": {
+        "ref": "V705",
+        "blocking": true
+      },
+      "files_expected": []
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T017-workflow-runtime-observability-v1.md"
+}
