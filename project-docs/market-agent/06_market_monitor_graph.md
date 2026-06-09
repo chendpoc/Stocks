@@ -1,5 +1,10 @@
 # 06. Market Monitor Graph
 
+> **⚠️**: 写入目标表为 `model_decisions`（不是 `decision_memories`）。
+> `DecisionEnvelope` 已存在 (`src/llm/decisionEnvelope.ts`)。
+> 本 graph 可作为 `DecisionGraph` 的节点扩展，或独立为守护进程风格的定时 graph。
+> 不直接调用 Longbridge/Alpha Vantage/yfinance，通过 `MarketDataService` 访问。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的核心实时监控工作流：`MarketMonitorGraph`。
@@ -86,37 +91,57 @@ Notification / CLI Output
 
 ---
 
-### 4.3 总体链路
+### 4.3 总体链路（并行化后）
+
+> **ⓘ 架构决策**: 14 节点串行 → 7 个阶段并行化。单 tick (5 symbols) 延迟从 ~8s 降至 ~2s（无 LLM）或 ~6s（含 LLM）。
 
 ```text
-load_trading_mandate
-  ↓
-load_watchlist
-  ↓
-load_session_context
-  ↓
-fetch_market_data
-  ↓
-validate_data_quality
-  ↓
-compute_features
-  ↓
-classify_market_state
-  ↓
-detect_setups
-  ↓
-build_evidence_graph
-  ↓
-generate_contra_case
-  ↓
-apply_risk_gate
-  ↓
-generate_decision_envelope
-  ↓
-persist_decision_memory
-  ↓
-notify_or_silence
+┌─ bootstrap (一次性) ─────────────────────────────────────────┐
+│  load_mandate + load_watchlist + load_session_context         │
+│  → state.symbols[], state.mandate, state.activePatterns       │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │          ← LangGraph Send() fan-out
+     ┌────▼────┐        ┌────▼────┐        ┌────▼────┐
+     │ SPY     │        │ TSLA    │        │ QQQ ... │      ← 每个 symbol 独立并行
+     │         │        │         │        │         │
+     │ fetch ──┤        │ fetch ──┤        │ fetch ──┤
+     │ quality │        │ quality │        │ quality │
+     │ features│        │ features│        │ features│
+     │ state   │        │ state   │        │ state   │
+     │ setup   │        │ setup   │        │ setup   │
+     │         │        │         │        │         │
+     │ ┌───────┴──┐     │ ┌───────┴──┐     │ ┌───────┴──┐
+     │ │evidence  │     │ │evidence  │     │ │evidence  │  ← evidence ∥ contra
+     │ │  ∥      │     │ │  ∥      │     │ │  ∥      │
+     │ │contra   │     │ │contra   │     │ │contra   │
+     │ └────┬────┘     │ └────┬────┘     │ └────┬────┘
+     │      │          │      │          │      │
+     │ risk + envelope │ risk + envelope │ risk + envelope
+     └────┬─┘          └────┬─┘          └────┬─┘
+          │                 │                 │
+          └─────────────────┼─────────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │  batch_persist  │  单事务批量写入
+                   └────────┬────────┘
+                            │
+                   ┌────────▼────────┐
+                   │  notify/alert   │  按告警级别路由
+                   └─────────────────┘
 ```
+
+| 阶段 | 原串行 (5 symbols) | 并行后 | 瓶颈 |
+|---|---|---|---|
+| bootstrap | 500ms | 500ms | 一次性 |
+| fetch (I/O) | 5×800ms = 4s | 800ms | API 并发 |
+| quality+features+state+setup | 5×250ms = 1.3s | 250ms | 纯计算 |
+| evidence ∥ contra (LLM) | 5×4s = 20s | 4s | LLM 最慢 |
+| risk+envelope | 5×80ms = 400ms | 80ms | 纯计算 |
+| batch_persist | 5×100ms = 500ms | 120ms | 单事务 |
+| **合计 (无 LLM)** | **~4s** | **~2s** | |
+| **合计 (含 LLM)** | **~26s** | **~6s** | **在 30s 目标内** |
 
 ---
 

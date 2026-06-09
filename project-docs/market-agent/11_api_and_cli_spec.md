@@ -1,5 +1,11 @@
 # 11. API and CLI Spec
 
+> **⚠️**: API 沿用现有 FastAPI 路由结构 (`apps/trader-agent/backend/app/intel/api/`)。
+> CLI 沿用 `npm run workflows -- <command>` 体系 (`apps/trader-workflows/src/index.ts`)。
+> 已有命令: `outcomes run --due`, `eval summary`, `insights explore`, `alpha-research`。
+> 新增命令在同一体系下扩展（如 `pattern-memory list`, `context bootstrap`）。
+> 不发明新的顶层 CLI 入口（如 `trader memory`）。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的 FastAPI 接口与 CLI 命令规格。

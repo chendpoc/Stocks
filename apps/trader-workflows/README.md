@@ -136,7 +136,7 @@ feedback, and learning.
 
 | Milestone | Goal | Deliverable | Exit Criteria |
 |---|---|---|---|
-| M0 Analysis Core Closeout | Close the current analysis-layer work before adding execution scope | T010-T013 status alignment, review blocker closeout, workflow README/roadmap consistency | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` is inspectable, documented, and not drifting |
+| M0 Analysis Core Closeout | Close the current analysis-layer work and lay the permanent memory foundation before adding execution scope | T010-T013 status alignment, review blocker closeout, workflow README/roadmap consistency, `pattern_memories` + `failure_memories` + `session_context_packs` tables as analysis-layer permanent memory base | `DecisionWorkflow -> FeedbackLearningWorkflow -> AlphaValidationWorkflow` is inspectable, documented, and not drifting; pattern lifecycle (candidate→active→degraded→retired) and failure memory are durable |
 | M1 Analysis-to-Execution Contract | Define how analysis can guide execution without becoming order control | [`OpportunityMap`, `RiskEnvelope`, `ExplorationPlan`, `ExecutionPolicy` spec](../../project-docs/backlog/now/analysis-to-execution-contract-v0.md) | AI outputs opportunity/risk/constraints only; no artifact can be interpreted as a broker order command |
 | M2 LiveMarketDataPlane v0 | Establish the real-market fact inlet | [`QuoteSnapshot`, `OrderBookSnapshot`, `TradeTick`, `MarketStateSnapshot`, provider trace, quality flags, replay/inspection contract](../../project-docs/backlog/now/live-market-data-plane-v0.md) | Read-only quote/depth/trade data can be normalized, inspected, and replayed without order execution |
 | M3 PaperTradingEngine v0 | Build the deterministic simulated order core | `OrderIntent`, `RiskDecision`, `OrderEvent`, `PositionSnapshot`, PnL/slippage model, replay tests | Given market state plus policy, order state, fills, position, and PnL are reproducible |
@@ -147,8 +147,12 @@ feedback, and learning.
 
 Delivery policy:
 
-1. M0 is closed for the current analysis layer. T010-T013 are aligned across
-   task/spec/README; do not reopen graph splits without a reviewed boundary.
+1. M0 closes the current analysis layer with permanent memory infrastructure.
+   T010-T013 are aligned across task/spec/README; `pattern_memories`,
+   `failure_memories`, and `session_context_packs` tables provide the durable
+   memory foundation used by `FeedbackLearningWorkflow` and future
+   `SessionContextBootstrap`. Do not reopen graph splits without a reviewed
+   boundary.
 2. M1 is the first new design slice. It must define `OpportunityMap`,
    `RiskEnvelope`, `ExplorationPlan`, and `ExecutionPolicy` before execution
    simulation work starts.

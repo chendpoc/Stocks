@@ -1,5 +1,9 @@
 # 07. Decision Envelope
 
+> **⚠️**: `DecisionEnvelope` 已实现: `apps/trader-workflows/src/llm/decisionEnvelope.ts`。
+> 持久化到 `model_decisions` 表（不是 `decision_memories`）。
+> 本阶段如需扩展字段，在现有类型上追加即可，不重新定义。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的核心输出对象：`DecisionEnvelope`。

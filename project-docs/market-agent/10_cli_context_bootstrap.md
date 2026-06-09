@@ -1,5 +1,14 @@
 # 10. CLI Context Bootstrap
 
+> **⚠️ 三层上下文合并**:
+>   Layer 1 — `config/monitor-baseline.md` (静态基线，始终存在，冷启动兜底)
+>   Layer 2 — `pattern_memories WHERE status='active'` (动态有效规律)
+>   Layer 3 — `failure_memories WHERE status='active'` + 风险边界 (动态警告)
+> CLI 命令沿用现有体系 `npm run workflows -- <command>`。
+> 上下文数据来源: `pattern_memories` + `failure_memories` + `model_decisions`。
+> 输出: `.runtime/context/context_pack.md`。
+> Bootstrap 可作为 `Stage1Runtime` 的方法或独立 graph。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的 CLI 启动上下文恢复机制：`SessionContextBootstrap`。

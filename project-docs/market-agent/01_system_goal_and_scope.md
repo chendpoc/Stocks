@@ -1,5 +1,10 @@
 # 01. System Goal and Scope
 
+> **⚠️ 已有能力**: 系统目标中的 1-7 项已有部分实现（DecisionGraph, OutcomeGraph,
+> EvaluationGraph, InsightExplorationGraph）。本阶段重点是 8-12：
+> 规律记忆、失败记忆、pattern 状态机、CLI 上下文恢复。
+> 已存在的能力直接复用，不重新实现。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的系统目标、开发边界、成功标准、用户确认门禁和失败处理原则。

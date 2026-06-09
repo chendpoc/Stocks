@@ -1,5 +1,11 @@
 # 03. Memory System Design
 
+> **⚠️ 表名映射**: 本文档中的概念表名在实际系统中对应：
+> - `DecisionMemory` → `model_decisions`（已存在）
+> - `OutcomeMemory` → `decision_outcomes` + `insight_candidate_outcomes`（已存在）
+> - `PatternMemory` → `pattern_memories`（★新增）
+> - `FailureMemory` → `failure_memories`（★新增）
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的长期记忆系统。

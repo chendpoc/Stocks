@@ -1,5 +1,9 @@
 # 05. Market Data Service
 
+> **⚠️**: 行情数据存储复用现有 `market_bars` 表（`schema.py`），
+> 扩展 `source` / `quality_status` 列即可，不新建 `market_snapshots` 表。
+> 数据源 adapter 已有 Longbridge skill / yfinance / Alpha Vantage 接入。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的行情数据服务层设计。

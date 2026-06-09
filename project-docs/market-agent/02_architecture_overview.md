@@ -1,5 +1,12 @@
 # 02. Architecture Overview
 
+> **⚠️ 模块映射**: 以下模块在现有系统中已有实现：
+> - `DecisionEnvelope` → `apps/trader-workflows/src/llm/decisionEnvelope.ts`
+> - `OutcomeGraph` → `apps/trader-workflows/src/graphs/01-outcome/`
+> - `EvaluationGraph` → `apps/trader-workflows/src/graphs/02-evaluation/`
+> - `InsightExplorationGraph` → `apps/trader-workflows/src/graphs/03-insightExploration/`
+> - `MemoryGraph` → 拆分为各 graph 自行持久化 + 新表 `pattern_memories`/`failure_memories`
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的总体架构、模块边界、数据流、Graph 关系和运行链路。

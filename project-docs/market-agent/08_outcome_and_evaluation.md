@@ -1,5 +1,10 @@
 # 08. Outcome and Evaluation
 
+> **⚠️**: OutcomeGraph 和 EvaluationGraph 已实现:
+> - `OutcomeGraph` → `apps/trader-workflows/src/graphs/01-outcome/`
+> - `EvaluationGraph` → `apps/trader-workflows/src/graphs/02-evaluation/`
+> 写入表: `decision_outcomes` / `insight_candidate_outcomes` / `evaluation_reports`（不是 `outcome_memories`）。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的结果回标与评估系统：

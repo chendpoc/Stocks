@@ -1,5 +1,16 @@
 # 09. Pattern Memory and Learning
 
+> **⚠️ 事件溯源**: 状态变更通过 `pattern_status_events` 表记录完整历史
+> (pattern_id, from_status, to_status, reason, triggered_by, source_report_id)。
+> 状态变更使用乐观锁 `UPDATE WHERE status = :expectedStatus` 防止并发冲突。
+>
+> **状态机**: candidate → testing → active → degraded → invalidated → archived
+> (active 可恢复为 active after degraded; invalidated → archived 为终态)
+> Pattern 写入目标表为 ★新增 `pattern_memories`（替代静态 `patterns` 表）。
+> 状态机: candidate → active → degraded → retired。
+> InsightCandidate 生成: `InsightExplorationGraph`（已实现，`03-insightExploration/`）。
+> 评估数据来源: `EvaluationGraph`（已实现，`02-evaluation/`）。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的规律记忆与学习闭环：

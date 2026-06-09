@@ -1,5 +1,11 @@
 # 12. Development Phases
 
+> **⚠️ 2026-06 现状**: 以下 Phase 已在现有系统中完成，不应重新实现：
+> - Phase 5 `outcome-graph` → 已实现: `01-outcome/outcomeGraph.ts`
+> - Phase 6 `evaluation-graph` → 已实现: `02-evaluation/evaluationGraph.ts`
+> - Phase 3 `decision-envelope` → 已实现: `src/llm/decisionEnvelope.ts`
+> - Phase 1 中的 `decision_memories`/`outcome_memories`/`insight_candidates` → 复用已有表
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的分阶段开发计划。
@@ -94,16 +100,19 @@ paper_trading_requires_confirmation = true
 推荐每个 phase 独立提交：
 
 ```text
-phase-01-memory-schema
-phase-02-market-data-service
-phase-03-decision-envelope
-phase-04-market-monitor-graph
-phase-05-outcome-graph
-phase-06-evaluation-graph
+phase-01-memory-schema        ← 部分完成：pattern/failure/context_pack 表需新增
+phase-02-market-data-service  ← 新模块
+phase-03-decision-envelope    ✓ 已实现（复用，不重新开发）
+phase-04-market-monitor-graph ← 新 graph（或扩展 DecisionGraph 节点）
+phase-05-outcome-graph        ✓ 已实现（01-outcome/）
+phase-06-evaluation-graph     ✓ 已实现（02-evaluation/）
+phase-07-insight-exploration  ✓ 已实现（03-insightExploration/）
 phase-07-pattern-memory
 phase-08-context-bootstrap
 phase-09-api-cli
-phase-10-acceptance-tests
+phase-10-alerting-observability
+phase-11-integration-testing
+phase-12-acceptance-tests
 ```
 
 ---
@@ -111,6 +120,8 @@ phase-10-acceptance-tests
 ## 3. Phase 0：项目结构审计
 
 ## 3.1 目标
+
+> **状态**: 已完成。审计结论见 `00_README.md` §2（已有能力清单）和 `04_database_schema.md` §3（表映射）。
 
 在正式开发前，先理解当前项目结构，确认已有能力和可复用模块。
 
@@ -169,6 +180,9 @@ phase-10-acceptance-tests
 
 ## 4.1 目标
 
+> **⚠️ 调整**: `decision_memories`/`outcome_memories`/`insight_candidates`/`market_snapshots` 复用已有表。
+> 实际新增: `feature_snapshots`, `setup_events`, `pattern_memories`, `failure_memories`, `session_context_packs`（5 张）。
+
 建立永久记忆系统的数据库表、数据模型和 repository。
 
 这是整个系统的地基。
@@ -181,12 +195,8 @@ phase-10-acceptance-tests
 必须实现以下表：
 
 ```text
-market_snapshots
 feature_snapshots
 setup_events
-decision_memories
-outcome_memories
-insight_candidates
 pattern_memories
 failure_memories
 session_context_packs

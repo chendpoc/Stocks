@@ -1,5 +1,16 @@
 # 13. Acceptance Tests
 
+> **⚠️ 测试分层**:
+>   Unit — TypeScript mock, <1s 单函数验证
+>   Integration — TypeScript → fixture FastAPI → 内存 SQLite, ~5s 跨语言链路
+>   E2E — Playwright CLI 测试, 手动/CI 可选
+> 集成测试通过 `test/fixtureServer.ts` 启动 Python FastAPI 子进程。
+
+> **⚠️**: 测试目录沿用现有结构:
+> - Workflow tests: `apps/trader-workflows/src/**/*.test.ts`
+> - Backend tests: `apps/trader-agent/backend/tests/`
+> 新增表测试写到对应已有测试目录，不新建 `tests/market_agent/`。
+
 ## 1. 文档目的
 
 本文档定义 `Permanent Memory Market Agent` 的系统级验收测试。

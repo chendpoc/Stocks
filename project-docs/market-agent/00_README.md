@@ -1,173 +1,177 @@
 # Permanent Memory Market Agent
 
-## 文档入口
-
-本目录用于指导开发 Agent 构建一个具备永久记忆能力的工程化金融市场监控系统。
-
-系统目标不是做一个一次性股票分析聊天机器人，而是构建一个可以长期运行、持续记录、持续复盘、持续总结规律，并在每次 CLI 会话启动时恢复历史经验的金融研究 Agent。
+> **状态**: 设计文档。本目录定义 Market Agent 的目标架构，实施时**基于现有系统增量开发，不允许推倒重来**。
+>
+> **现有系统路径**:
+> - Workflow graphs: `apps/trader-workflows/src/graphs/`
+> - Backend API: `apps/trader-agent/backend/app/intel/api/stage1.py`
+> - Database schema: `apps/trader-agent/backend/app/intel/db/schema.py`
+> - CLI entry: `apps/trader-workflows/src/index.ts`（`npm run workflows --`）
+> - Roadmap: `project-docs/backlog/workflow-maturity-roadmap.md`
+> - 现有表: `model_decisions`, `decision_outcomes`, `insight_candidates`, `insight_candidate_outcomes`, `evaluation_reports`, `context_snapshots`, `patterns`, `market_bars`
 
 ---
 
 ## 1. 项目目标
 
-构建一个本地金融 Market Agent，使其具备以下能力：
+构建一个具备永久记忆能力的工程化金融市场研究 Agent：
 
 1. 监控固定股票池的实时行情与历史行情。
 2. 基于 Longbridge、Alpha Vantage、yfinance 等数据源获取市场数据。
 3. 对行情数据进行质量检查、特征计算、setup 识别。
-4. 生成结构化 `DecisionEnvelope`，而不是散文式交易建议。
-5. 将每一次判断、证据、反方观点、风险状态永久落库。
-6. 对每一次判断进行后续结果回标。
-7. 从历史判断与结果中总结规律候选。
-8. 将经过确认的有效规律保存为长期 `PatternMemory`。
-9. 保存失败教训与失效规律。
-10. 每次 CLI 启动时自动生成 `context_pack.md`，让 Agent 记得过去学到的规律、失败教训和风险边界。
+4. 生成结构化 `DecisionEnvelope`（**已存在**: `apps/trader-workflows/src/llm/decisionEnvelope.ts`）。
+5. 将每一次判断、证据、风险状态永久落库（→ `model_decisions`）。
+6. 对每一次判断进行后续结果回标（→ `decision_outcomes` + `insight_candidate_outcomes`，**已实现**）。
+7. 从历史判断与结果中总结规律候选（→ `InsightExplorationGraph`，**已实现**）。
+8. 将经过确认的有效规律保存为长期 `pattern_memories`（**新增**，替代静态 `patterns` 表）。
+9. 保存失败教训到 `failure_memories`（**新增**）。
+10. 每次 CLI 启动时自动加载历史规律和失败教训（→ `session_context_packs`，**新增**）。
 
 ---
 
-## 2. 当前项目基础
+## 2. 当前项目基础（已有能力）
 
-项目已具备以下基础能力：
-
-* LangGraph / workflow graph
-* SQLite
-* FastAPI
-* Memory / Data Store
-* Workflow Recording
-* Longbridge CLI
-* Alpha Vantage
-* yfinance
-* DecisionGraph
-* OutcomeGraph
-* EvaluationGraph
-* InsightExplorationGraph
-
-本模块应基于现有能力增量开发，不允许推倒重来。
+| 能力 | 位置 | 状态 |
+|---|---|---|
+| LangGraph workflow runtime | `apps/trader-workflows/src/runtime/stage1Runtime.ts` | ✅ |
+| SQLite (via SQLAlchemy) | `apps/trader-agent/backend/app/intel/db/schema.py` | ✅ |
+| FastAPI | `apps/trader-agent/backend/app/main.py` | ✅ |
+| Longbridge CLI / SDK | `longbridge` skill | ✅ |
+| Alpha Vantage | `apps/trader-agent/backend/app/intel/ingestion/` | ✅ |
+| yfinance | `scripts/research/yfinance_history_snapshot.py` | ✅ |
+| DecisionGraph | `apps/trader-workflows/src/graphs/00-decision/` | ✅ native LangGraph |
+| OutcomeGraph | `apps/trader-workflows/src/graphs/01-outcome/` | ✅ native LangGraph |
+| EvaluationGraph | `apps/trader-workflows/src/graphs/02-evaluation/` | ✅ native LangGraph |
+| InsightExplorationGraph | `apps/trader-workflows/src/graphs/03-insightExploration/` | ✅ native LangGraph |
+| AlphaResearchGraph v0 | `apps/trader-workflows/src/graphs/04-alphaResearch/` | ✅ native LangGraph |
+| DecisionEnvelope | `apps/trader-workflows/src/llm/decisionEnvelope.ts` | ✅ |
+| Rule Discovery / Lite Backtest | `apps/trader-agent/backend/app/modules/rule_discovery.py` | ✅ |
+| Workflow Recording | `Stage1Runtime` run/checkpoint/audit | ✅ |
 
 ---
 
 ## 3. 核心新增模块
 
-本阶段主要新增以下模块：
+Market Agent 在现有基础上新增以下模块（**不重复实现已有模块**）：
 
 ```text
-MarketDataService
-DataQualityGate
-FeatureEngine
-SetupDetector
-MarketMonitorGraph
-DecisionEnvelope
-MemoryGraph
-OutcomeGraph
-PatternMemory
-FailureMemory
-SessionContextBootstrap
+MarketDataService        ← 统一行情入口，包装现有 Longbridge/yfinance/Alpha Vantage
+DataQualityGate          ← 新模块：数据延迟/缺失/冲突检查
+FeatureEngine            ← 新模块：VWAP/EMA/ATR/volume_ratio 等特征计算
+SetupDetector            ← 新模块：基于 pattern 定义检测 setup 触发
+MarketMonitorGraph       ← 新守护进程风格的定时监控 graph（或作为 DecisionWorkflow 的扩展节点）
+RiskGate                 ← 新模块：风险门禁
+PatternMemory            ← 新表 pattern_memories + 状态机（替代静态 patterns 表）
+FailureMemory            ← 新表 failure_memories
+SessionContextBootstrap  ← 新模块：CLI 启动时从 pattern/failure memory 生成 context_pack
 ```
 
-模块关系：
+模块关系（**新模块用 ★ 标记，已有模块用 ✓**）：
 
 ```text
-Data Sources
-  ├─ Longbridge
-  ├─ Alpha Vantage
-  └─ yfinance
+Data Sources (Longbridge / Alpha Vantage / yfinance)
         ↓
-MarketDataService
+MarketDataService ★
         ↓
-DataQualityGate
+DataQualityGate ★
         ↓
-FeatureEngine
+FeatureEngine ★
         ↓
-MarketMonitorGraph
+SetupDetector ★
         ↓
-DecisionEnvelope
+MarketMonitorGraph ★ ← 或扩展 DecisionGraph
         ↓
-MemoryGraph
+DecisionEnvelope ✓
         ↓
-OutcomeGraph
+model_decisions ✓
         ↓
-EvaluationGraph
+OutcomeGraph ✓ → decision_outcomes / insight_candidate_outcomes ✓
         ↓
-PatternMemory / FailureMemory
+EvaluationGraph ✓ → evaluation_reports ✓
         ↓
-SessionContextBootstrap
+InsightExplorationGraph ✓ → insight_candidates ✓
         ↓
-CLI Context Pack
-```
-
----
-
-## 4. MVP 范围
-
-### 4.1 监控标的
-
-MVP 只监控以下标的：
-
-```text
-SPY
-QQQ
-TSLA
-NVDA
-AAPL
-```
-
-后续可扩展：
-
-```text
-COIN
-BMNR
-其他用户指定标的
+PatternMemory ★ / FailureMemory ★
+        ↓
+SessionContextBootstrap ★ → session_context_packs ★
+        ↓
+CLI Context Pack (.runtime/context/context_pack.md)
 ```
 
 ---
 
-### 4.2 时间周期
+## 4. 数据库表映射
 
-MVP 使用：
+**关键原则：不重复建表。已有表直接复用或扩展。**
+
+| Market Agent 概念 | 现有表 | 处理方式 |
+|---|---|---|
+| decision_memories | `model_decisions` | ✅ 复用，需要时扩展字段 |
+| outcome_memories | `decision_outcomes` + `insight_candidate_outcomes` | ✅ 复用双表 |
+| insight_candidates | `insight_candidates` | ✅ 已存在 |
+| market_snapshots | `market_bars` | ✅ 扩展加 `source`/`quality_status` 列 |
+| feature_snapshots | — | ★ 新增表 |
+| setup_events | — | ★ 新增表 |
+| pattern_memories | `patterns`（静态定义） | ★ 新增表，替代旧表 |
+| failure_memories | — | ★ 新增表 |
+| session_context_packs | — | ★ 新增表 |
+
+**实际需要新增的表：5 张**（不是 9 张）。
+
+---
+
+## 5. MVP 范围
+
+### 5.1 监控标的
+
+与现有 `MVP_SYMBOLS` 对齐（`apps/trader-agent/backend/app/intel/db/schema.py:10-19`）：
 
 ```text
-5m
-1d
+SPY, QQQ, TSLA, NVDA, AAPL   ← MVP
+COIN, BMNR, TSLL, ARKK       ← 已有，后续扩展
 ```
 
-暂不做：
+### 5.2 时间周期
 
 ```text
-1s / tick 级别数据
-高频交易
-全市场扫描
-复杂期权链分析
-自动实盘交易
+5m, 1d   ← MVP
+1m       ← insight exploration 已支持
+```
+
+### 5.3 MVP Setup
+
+沿用现有 `MVP_PATTERNS`（`schema.py:21-82`）并扩展：
+
+```text
+已有: higher_low_accumulation, volume_contraction_pullback, vwap_reclaim,
+      relative_strength_divergence, taco_pattern
+新增: OPENING_RANGE_BREAKOUT, GAP_HOLD, GAP_FADE
 ```
 
 ---
 
-### 4.3 MVP Setup
+## 6. CLI 命令格式
 
-先实现 3 个 setup：
+**沿用现有 CLI 体系**（`npm run workflows -- <command>`），不发明新的顶层命令：
 
 ```text
-VWAP_RECLAIM
-RELATIVE_STRENGTH_PULLBACK
-OPENING_RANGE_BREAKOUT
+npm run workflows -- outcomes run --due --json        ← OutcomeGraph ✓
+npm run workflows -- eval summary --symbol TSLA --json ← EvaluationGraph ✓
+npm run workflows -- insights explore --symbol TSLA --window 4h --json ← InsightExplorationGraph ✓
+npm run workflows -- alpha-research --insight-id <ID> --json ← AlphaResearchGraph ✓（如已export）
 ```
 
-后续再扩展：
+Market Agent 新增的命令应在同一体系下扩展，例如：
 
 ```text
-GAP_HOLD
-GAP_FADE
-DAILY_BREAKOUT_RETEST
-FAILED_BREAKOUT
-PANIC_RECOVERY
-EARNINGS_GAP_FOLLOW_THROUGH
+npm run workflows -- pattern-memory list --status active --json
+npm run workflows -- pattern-memory promote --insight-id <ID> --json
+npm run workflows -- context bootstrap --profile default
 ```
 
 ---
 
-## 5. 非目标
-
-本阶段明确不做：
+## 7. 非目标
 
 1. 不做自动实盘下单。
 2. 不做全市场扫描。
@@ -179,116 +183,36 @@ EARNINGS_GAP_FOLLOW_THROUGH
 8. 不让 LLM 直接决定交易动作。
 9. 不让一次成功案例升级为永久有效规律。
 10. 不允许系统自动绕过用户确认。
+11. **不重复建表**（已有 `model_decisions`/`decision_outcomes` 等直接复用）。
 
 ---
 
-## 6. 关键设计原则
+## 8. 推荐开发顺序（调整后）
 
-### 6.1 数据库负责记忆，LLM 负责解释
-
-系统不能依赖聊天历史记住市场规律。
-
-正确设计：
+基于现有系统已完成 M0（T010-T013），建议顺序：
 
 ```text
-Raw Market Data → 数据库 / Parquet / DuckDB
-Feature Data → Feature Store
-Decision Memory → SQLite
-Outcome Memory → SQLite
-Pattern Memory → SQLite
-Failure Memory → SQLite
-Session Context → context_pack.md
+Phase A: pattern_memories + failure_memories + session_context_packs 表 + repository
+Phase B: MarketDataService + DataQualityGate
+Phase C: FeatureEngine
+Phase D: SetupDetector
+Phase E: MarketMonitorGraph（或 DecisionGraph 节点扩展）
+Phase F: PatternMemory 状态机 + SessionContextBootstrap
+Phase G: CLI 命令 + 验收测试
 ```
 
-LLM 只读取这些结构化记忆，并进行解释、总结、反方验证和假设生成。
+> 详细 phase 定义见 `12_development_phases.md`。
 
 ---
 
-### 6.2 每个判断必须可回溯
-
-每个 `DecisionEnvelope` 必须能回溯到：
-
-1. 当时的行情数据
-2. 当时的数据源
-3. 数据质量状态
-4. 特征快照
-5. setup 触发条件
-6. 支持证据
-7. 反方证据
-8. 风险门禁结果
-9. 后续结果回标
-
----
-
-### 6.3 每条规律必须可证伪
-
-任何进入 `PatternMemory` 的规律都必须包含：
-
-1. 适用标的
-2. 适用周期
-3. 适用市场状态
-4. 触发条件
-5. 失效条件
-6. 样本数量
-7. 历史表现
-8. 最近表现
-9. 当前状态
-10. 版本号
-11. 最后复查时间
-
----
-
-### 6.4 失败记忆和成功规律同等重要
-
-系统必须记录：
-
-1. 失败 setup
-2. 错误解释
-3. 数据源异常
-4. 风控拦截
-5. 规律衰退
-6. 过拟合规律
-7. 宏观事件误判
-8. source conflict
-9. data quality failure
-
-失败记忆必须进入 CLI 启动上下文包。
-
----
-
-## 7. 默认安全边界
-
-MVP 默认：
+## 9. 文档阅读顺序
 
 ```text
-mode = monitor_only
-live_trading = disabled
-paper_trading = requires_user_confirmation
-```
-
-禁止行为：
-
-```text
-自动实盘下单
-自动扩大权限
-自动绕过风控
-自动删除历史规律
-自动把 candidate pattern 晋升为 active pattern
-自动保存敏感交易权限
-```
-
----
-
-## 8. 文档阅读顺序
-
-开发 Agent 应按以下顺序阅读和执行：
-
-```text
-00_README.md
+00_README.md              ← 你在这里
 01_system_goal_and_scope.md
 02_architecture_overview.md
 03_memory_system_design.md
-04_database_schema.md
+04_database_schema.md      ← 表结构（注意表映射！）
 05_market_data_service.md
 06_market_monitor_graph.md
 07_decision_envelope.md
@@ -298,115 +222,20 @@ paper_trading = requires_user_confirmation
 11_api_and_cli_spec.md
 12_development_phases.md
 13_acceptance_tests.md
+14_llm_reasoning_strategy.md ← LLM 推理策略、模型路由
 ```
 
 ---
 
-## 9. 推荐开发顺序
-
-不要先做复杂策略。
-先实现永久记忆骨架。
-
-推荐顺序：
-
-```text
-Phase 1：Memory Schema & Repository
-Phase 2：MarketDataService + DataQualityGate
-Phase 3：FeatureEngine
-Phase 4：SetupDetector
-Phase 5：MarketMonitorGraph
-Phase 6：OutcomeGraph
-Phase 7：PatternMemory
-Phase 8：SessionContextBootstrap
-```
-
----
-
-## 10. 第一张任务卡
-
-### Task 001：Memory Schema & Repository
-
-目标：
-
-```text
-实现永久记忆系统的数据库表和基础 repository。
-```
-
-范围：
-
-```text
-decision_memories
-outcome_memories
-insight_candidates
-pattern_memories
-failure_memories
-session_context_packs
-```
-
-不做：
-
-```text
-不接实时行情
-不做 setup detection
-不做 LLM 总结
-不做 live trading
-```
-
-验收标准：
-
-```text
-1. migration 可运行。
-2. 所有 memory 表可创建。
-3. 每个 repository 支持 create / get / list / update。
-4. 单元测试通过。
-5. 不破坏现有 workflow recording。
-```
-
----
-
-## 11. 最小闭环
-
-最终本阶段要跑通：
-
-```text
-trader memory init
-  ↓
-trader monitor run --symbols SPY,QQQ,TSLA,NVDA,AAPL --timeframes 5m,1d
-  ↓
-生成 DecisionEnvelope
-  ↓
-写入 decision_memories
-  ↓
-trader memory label-outcomes --window 2h
-  ↓
-写入 outcome_memories
-  ↓
-trader memory generate-insights --setup VWAP_RECLAIM --symbol TSLA
-  ↓
-生成 insight_candidate
-  ↓
-trader memory promote-pattern --candidate-id insight_001
-  ↓
-写入 pattern_memories
-  ↓
-trader memory bootstrap --profile default
-  ↓
-生成 .runtime/context/context_pack.md
-  ↓
-下一次 CLI 会话自动加载历史规律
-```
-
----
-
-## 12. 完成定义
+## 10. 完成定义
 
 本模块完成后，系统应做到：
 
-1. 每次市场监控都会生成结构化判断。
+1. 每次市场监控都会生成结构化判断（→ `model_decisions`）。
 2. 每个判断都能永久落库。
-3. 每个判断都能后续回标。
-4. 系统能基于历史结果生成规律候选。
-5. 规律可以被确认、激活、降级、失效和归档。
-6. 失败教训可以长期保存。
-7. 每次 CLI 启动时，Agent 能加载历史规律和失败教训。
+3. 每个判断都能后续回标（→ `OutcomeGraph`）。
+4. 系统能基于历史结果生成规律候选（→ `InsightExplorationGraph`）。
+5. 规律可以被确认、激活、降级、失效和归档（→ `pattern_memories` 状态机）。
+6. 失败教训可以长期保存（→ `failure_memories`）。
+7. 每次 CLI 启动时能加载历史规律和失败教训（→ `session_context_packs`）。
 8. 系统不会每次对话都从零开始。
