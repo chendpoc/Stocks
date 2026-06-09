@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "./bootstrap-env.js";
 import { pathToFileURL } from "node:url";
 
 export {
