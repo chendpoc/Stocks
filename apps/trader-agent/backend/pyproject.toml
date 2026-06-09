@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 longbridge = [
-  "longbridge>=1.0.0,<2"
+  "longbridge>=4.0.0,<5"
 ]
 dev = [
   "httpx>=0.27,<1",

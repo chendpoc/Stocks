@@ -105,6 +105,19 @@ class Settings:
                 str(item) for item in self.enabled_tool_capabilities
             )
 
+        from app.modules.live_market_plane.longbridge_config import (
+            should_auto_enable_longbridge_capability,
+        )
+        from app.tools.longbridge_adapter import LONGBRIDGE_MARKET_DATA
+
+        if (
+            should_auto_enable_longbridge_capability()
+            and LONGBRIDGE_MARKET_DATA not in enabled_tool_capabilities
+        ):
+            enabled_tool_capabilities = frozenset(
+                set(enabled_tool_capabilities) | {LONGBRIDGE_MARKET_DATA}
+            )
+
         if "enabled_model_channels" in overrides:
             enabled_model_channels = frozenset(
                 str(item) for item in overrides["enabled_model_channels"]

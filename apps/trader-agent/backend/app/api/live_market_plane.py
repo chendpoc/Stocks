@@ -42,6 +42,8 @@ def ingest_symbol(symbol: str, request: Request) -> dict[str, Any]:
         return ingest_quote_for_symbol(_settings(request), symbol)
     except MarketPlaneError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/stream/status")

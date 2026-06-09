@@ -21,6 +21,19 @@ def longbridge_credentials_configured() -> bool:
     )
 
 
+def should_auto_enable_longbridge_capability() -> bool:
+    """Enable market_data.longbridge when credentials exist (skip under pytest)."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return False
+    if os.environ.get("TRADER_DISABLE_LONGBRIDGE_AUTO_ENABLE", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return False
+    return longbridge_credentials_configured()
+
+
 def load_longbridge_config() -> Any:
     """Load Longbridge OpenAPI config from env (use paper-account Access Token for 模拟盘)."""
     if not longbridge_sdk_available():

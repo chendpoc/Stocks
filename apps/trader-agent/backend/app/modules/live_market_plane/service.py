@@ -21,8 +21,12 @@ from app.modules.live_market_plane.store import (
     insert_quote_snapshot,
     insert_trade_tick,
 )
-from app.tools.local_adapter import normalize_symbol
-from app.tools.longbridge_adapter import LongbridgeMarketDataAdapter
+from app.modules.live_market_plane.longbridge_rest_transport import (
+    build_longbridge_rest_transport,
+    longbridge_rest_transport_available,
+)
+from app.tools.local_adapter import CapabilityDisabledError, normalize_symbol
+from app.tools.longbridge_adapter import LONGBRIDGE_MARKET_DATA, LongbridgeMarketDataAdapter
 
 Transport = Callable[[str, dict[str, Any]], dict[str, Any] | list[dict[str, Any]]]
 
@@ -83,20 +87,33 @@ def ingest_quote_for_symbol(
         }
         entitlement = "realtime"
     else:
-        adapter = LongbridgeMarketDataAdapter(settings, transport=None)
+        if not longbridge_rest_transport_available():
+            if LONGBRIDGE_MARKET_DATA not in settings.enabled_tool_capabilities:
+                raise MarketPlaneError(
+                    "Longbridge market data capability is disabled; set LONGBRIDGE_* env "
+                    "or add market_data.longbridge to enabled_tool_capabilities."
+                )
+            raise MarketPlaneError(
+                "Longbridge REST transport is not available; pip install "
+                "'trader-agent-core[longbridge]' and configure LONGBRIDGE_APP_KEY, "
+                "LONGBRIDGE_APP_SECRET, LONGBRIDGE_ACCESS_TOKEN."
+            )
+        row_transport = build_longbridge_rest_transport()
+        adapter = LongbridgeMarketDataAdapter(settings, transport=row_transport)
         try:
             evidence = adapter.get_quote(normalized)
-            row = {
-                "timestamp": evidence.timestamp,
-                **evidence.payload,
-            }
-            entitlement = "realtime"
-            source_channel = "rest"
-        except Exception:
-            raise MarketPlaneError(
-                "Longbridge transport is not configured; pass transport= for tests "
-                "or enable market_data.longbridge capability."
-            ) from None
+        except CapabilityDisabledError as exc:
+            raise MarketPlaneError(str(exc)) from exc
+        except Exception as exc:
+            if type(exc).__name__ == "OpenApiException":
+                raise MarketPlaneError(f"Longbridge API error: {exc}") from exc
+            raise
+        row = {
+            "timestamp": evidence.timestamp,
+            **evidence.payload,
+        }
+        entitlement = "realtime"
+        source_channel = "rest"
 
     trace = build_provider_trace(
         symbol=normalized,
