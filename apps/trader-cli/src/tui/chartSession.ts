@@ -21,7 +21,7 @@ export type ChartSessionRestore = {
   initialMenu: MenuId;
 };
 
-export function launchTuiWithChartRestore(base: LaunchTuiOptions = {}): Instance {
+export async function launchTuiWithChartRestore(base: LaunchTuiOptions = {}): Promise<Instance> {
   const handoff = readChartHandoff();
   const options: LaunchTuiOptions = {
     ...base,
@@ -32,11 +32,9 @@ export function launchTuiWithChartRestore(base: LaunchTuiOptions = {}): Instance
       ? normalizeChartInterval(handoff.chart)
       : base.chartInterval,
   };
-  const instance = launchTui(options);
-  setInkInstance(instance);
-  return instance;
+  return launchTui(options);
 }
 
-export function relaunchTuiAfterChart(base: LaunchTuiOptions = {}): Instance {
+export async function relaunchTuiAfterChart(base: LaunchTuiOptions = {}): Promise<Instance> {
   return launchTuiWithChartRestore({ ...base, startInContent: true, initialMenu: "dashboard" });
 }

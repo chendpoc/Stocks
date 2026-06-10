@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
-import { generateText } from "ai";
 import { getModel } from "../../llm/provider.js";
 import { getAgentSystemPrompt, resolveAgentTools } from "../../llm/buildAgentTools.js";
+import { chatReAct } from "../../llm/chatReAct.js";
 import { MENU_KEYS, type MenuId } from "../menu.js";
 import { getChatSuggestions } from "../chatSuggestions.js";
 import { ActionBar, KeyHint, PickerRow } from "../components/focus.js";
 import { AsyncLoading } from "../components/AsyncLoading.js";
-import { extractWorkflowRunsFromGenerateText } from "../../llm/chatWorkflowRuns.js";
 import { WorkflowStatusPanel } from "../components/WorkflowStatusPanel.js";
 import type { ChatMessage } from "../types.js";
 import type { WorkflowRun } from "../../llm/chatWorkflowRuns.js";
@@ -90,19 +89,22 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
     try {
       const tools = await resolveAgentTools();
       const system = await getAgentSystemPrompt();
-      const result = await generateText({
+      const result = await chatReAct({
         model: getModel(),
         system,
         messages: next,
         tools,
-        maxSteps: 10,
       });
-      const assistantMsg: ChatMessage = { role: "assistant", content: result.text };
+      const assistantMsg: ChatMessage = {
+        role: "assistant",
+        content: result.terminatedBy !== "natural"
+          ? `${result.text}\n[终止: ${result.terminatedBy} · ${result.totalTokens} tok · ${result.wallClockMs}ms]`
+          : result.text,
+      };
       setMessages([...next, assistantMsg].slice(-MAX_HISTORY));
 
-      const newRuns = extractWorkflowRunsFromGenerateText(result);
-      if (newRuns.length > 0) {
-        setActiveRuns((prev) => [...prev, ...newRuns]);
+      if (result.workflowRuns.length > 0) {
+        setActiveRuns((prev) => [...prev, ...result.workflowRuns]);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

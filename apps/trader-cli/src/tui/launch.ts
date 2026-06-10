@@ -12,14 +12,17 @@ export type LaunchTuiOptions = {
   initialMenu?: MenuId;
   /** true：启动先显示全屏菜单；false：直达内容区 */
   startInMenu?: boolean;
+  /** 兼容 chart restore 路径：true 时直达内容区。优先级高于 startInMenu。 */
+  startInContent?: boolean;
   focusedSymbol?: string;
   chartInterval?: ChartIntervalId;
 };
 
-export function launchTui(options: LaunchTuiOptions = {}): Instance {
+export async function launchTui(options: LaunchTuiOptions = {}): Promise<Instance> {
   const {
     initialMenu = "dashboard",
     startInMenu = true,
+    startInContent,
     focusedSymbol = PREFERRED_SYMBOLS[0] ?? "TSLA",
     chartInterval = "30d",
   } = options;
@@ -28,12 +31,16 @@ export function launchTui(options: LaunchTuiOptions = {}): Instance {
     process.exit(1);
   }
 
+  const { getLongbridgeStartupHint } = await import("../services/longbridgeAgent.js");
+  const startupHint = await getLongbridgeStartupHint();
+
   const instance = render(
     React.createElement(App, {
       initialMenu,
-      startInContent: !startInMenu,
+      startInContent: startInContent ?? !startInMenu,
       focusedSymbol: focusedSymbol.toUpperCase(),
       chartInterval: normalizeChartInterval(chartInterval),
+      startupHint: startupHint ?? undefined,
     }),
     {
       alternateScreen: true,

@@ -258,10 +258,10 @@ export function DashboardPage({
     const res = runTraderChartProcess({ symbol: focusedSymbol, chartInterval });
     if (!res.ok) {
       console.error(res.message);
-      relaunchTuiAfterChart({ focusedSymbol, chartInterval });
+      void relaunchTuiAfterChart({ focusedSymbol, chartInterval });
       return;
     }
-    relaunchTuiAfterChart({
+    void relaunchTuiAfterChart({
       focusedSymbol: res.restored.symbol,
       chartInterval: res.restored.chartInterval,
     });

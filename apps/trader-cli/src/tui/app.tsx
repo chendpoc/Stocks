@@ -20,6 +20,8 @@ type AppProps = {
   startInContent?: boolean;
   focusedSymbol?: string;
   chartInterval?: ChartIntervalId;
+  /** 长桥 CLI 探测提示（未安装 / 未登录 / 已就绪但未启用 Agent） */
+  startupHint?: string;
 };
 
 export function App({
@@ -27,6 +29,7 @@ export function App({
   startInContent = true,
   focusedSymbol: initialSymbol = PREFERRED_SYMBOLS[0] ?? "TSLA",
   chartInterval: initialChartInterval = "30d",
+  startupHint,
 }: AppProps) {
   const { exit } = useApp();
   const { rows } = useWindowSize();
@@ -130,7 +133,11 @@ export function App({
 
   return (
     <Box flexDirection="column" height={height} width="100%">
-      <StatusBar health={health} signalCount={signalCount} backendHint={backendHint} />
+      <StatusBar
+        health={health}
+        signalCount={signalCount}
+        backendHint={[startupHint, backendHint].filter(Boolean).join(" · ") || undefined}
+      />
       {!inMenu ? <ContextHint active={active} /> : null}
       <Box flexGrow={1} minHeight={Math.max(rows - 6, 10)} width="100%">
         {inMenu ? (
