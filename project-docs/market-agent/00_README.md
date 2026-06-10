@@ -2,6 +2,8 @@
 
 > **状态**: 设计文档。本目录定义 Market Agent 的目标架构，实施时**基于现有系统增量开发，不允许推倒重来**。
 >
+> **执行口径**: `00`-`13` 号文档定义当前 Market Agent source-of-truth；`14`、`15`、`16`、`17` 号文档只作为 LLM 策略草案、外部参考、技术调研和候选增强池。任何来自 `14`/`15`/`16`/`17` 的建议，只有被 `12_development_phases.md`、`13_acceptance_tests.md` 或 `.agent-dev/tasks/T021`-`T027` 明确采纳后，才可以下发 worker 实现。
+>
 > **现有系统路径**:
 > - Workflow graphs: `apps/trader-workflows/src/graphs/`
 > - Backend API: `apps/trader-agent/backend/app/intel/api/stage1.py`
@@ -238,7 +240,10 @@ Phase G: CLI 命令 + 验收测试
 11_api_and_cli_spec.md
 12_development_phases.md
 13_acceptance_tests.md
-14_llm_reasoning_strategy.md ← LLM 推理策略、模型路由
+14_llm_reasoning_strategy.md ← LLM 推理策略草案、模型路由候选（非执行口径）
+15_ai_quant_book_reference.md ← 外部量化参考、候选增强（非执行口径）
+16_ai_agent_book_reference.md ← 外部 Agent 工程参考、候选增强（非执行口径）
+17_agent_runtime_sdk_research.md ← Agent runtime / SDK 技术调研（非执行口径）
 ```
 
 ---
