@@ -1,0 +1,32 @@
+{
+  "spec_id": "regime-detection-v0",
+  "status": "active",
+  "title": "Regime Detection — 市场状态识别 v0",
+  "summary": "基于 15_ai_quant_book_reference.md §3.1，在 Backend 中实现量化的市场状态判定（趋势/震荡/危机），注入 DecisionEnvelope 和 RiskGate。",
+  "sources": [
+    "project-docs/market-agent/15_ai_quant_book_reference.md §3.1",
+    "project-docs/market-agent/14_llm_reasoning_strategy.md §11（Regime 路由影响）",
+    "project-docs/market-agent/07_decision_envelope.md"
+  ],
+  "critical_files": [
+    "apps/trader-agent/backend/app/intel/market_agent/features.py",
+    "apps/trader-workflows/src/llm/decisionEnvelope.ts",
+    "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts"
+  ],
+  "forbidden": [
+    "apps/trader-agent/backend/app/intel/api/context.py",
+    "apps/trader-cli/**"
+  ],
+  "decisions": [
+    "Regime 判定是确定性计算（不调 LLM），基于 ADX/VIX/布林带等指标",
+    "三类市场状态: trending（趋势）、ranging（震荡）、volatile（危机/恐慌）",
+    "Regime 结果写入 DecisionEnvelope.market_regime 字段（不破坏现有 contract）",
+    "Regime 是 RiskGate 的输入信息，不替代 RiskGate 的决策门禁",
+    "先实现 Python Backend 模块，再接入 DecisionGraph 和 RiskGate"
+  ],
+  "verification": [
+    "Python: cd apps/trader-agent/backend && python -m pytest tests/ -k regime -x",
+    "DecisionEnvelope 编译: cd apps/trader-workflows && npx tsc --noEmit",
+    "RegimeResult 结构化输出验证"
+  ]
+}

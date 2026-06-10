@@ -1,0 +1,31 @@
+{
+  "spec_id": "data-quality-eval-v0",
+  "status": "active",
+  "title": "Data Quality + Triple Barrier Evaluation v0",
+  "summary": "基于 15_ai_quant_book_reference.md §3.4-3.6 + 16_ai_agent_book_reference.md §3.6，实现数据质量评分字段和 Triple Barrier 复盘标签。",
+  "sources": [
+    "project-docs/market-agent/15_ai_quant_book_reference.md §3.4 (Triple Barrier) §3.6 (数据质量)",
+    "project-docs/market-agent/16_ai_agent_book_reference.md §3.6 (评估体系分层)",
+    "project-docs/market-agent/08_outcome_and_evaluation.md"
+  ],
+  "critical_files": [
+    "apps/trader-agent/backend/app/intel/db/schema.py",
+    "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.ts",
+    "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.ts"
+  ],
+  "forbidden": [
+    "apps/trader-cli/**"
+  ],
+  "decisions": [
+    "market_bars 表新增 quality_score (0-100) + gap_count 字段",
+    "DataQualityGate 增加完整性阈值检查（<90% → degraded, <50% → critical）",
+    "decision_outcomes 表新增 barrier_result 字段（hit_profit_first | hit_stop_first | hit_time_first | none）",
+    "evaluation_reports 表新增 evidence_utility_score + contra_predictive_power 字段",
+    "Triple Barrier 是回标方法，不改变 DecisionGraph 信号生成逻辑"
+  ],
+  "verification": [
+    "Python DB migration: python -c 'from app.intel.db.schema import init_intel_db; init_intel_db(...)'",
+    "OutcomeGraph: cd apps/trader-workflows && npm test -- src/graphs/01-outcome/outcomeGraph.test.ts",
+    "EvaluationGraph: cd apps/trader-workflows && npm test -- src/graphs/02-evaluation/evaluationGraph.test.ts"
+  ]
+}

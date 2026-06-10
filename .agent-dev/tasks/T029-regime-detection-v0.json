@@ -1,0 +1,42 @@
+{
+  "task_id": "T029-regime-detection-v0",
+  "spec_id": "regime-detection-v0",
+  "status": "active",
+  "title": "Regime Detection — 市场状态识别",
+  "summary": "在 Backend 实现 quantifiable 的市场状态判定，注入 DecisionEnvelope 和 RiskGate。",
+  "slices": [
+    {
+      "id": "S1",
+      "title": "Backend — Regime Detector 能力模块",
+      "status": "active",
+      "files": [
+        "apps/trader-agent/backend/app/intel/market_agent/features.py"
+      ],
+      "exit_criteria": [
+        "RegimeResult state + confidence + indicators + transition_risk 结构化输出",
+        "趋势市: ADX > 25 + 价格在 20MA 上方 + VIX < 20",
+        "震荡市: ADX < 20 + 布林带收窄 + 价格在区间内",
+        "危机市: VIX > 30 + 广度指标恶化",
+        "Python 测试通过"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "DecisionGraph — Regime 注入 DecisionEnvelope + RiskGate",
+      "status": "pending",
+      "files": [
+        "apps/trader-workflows/src/llm/decisionEnvelope.ts",
+        "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts"
+      ],
+      "exit_criteria": [
+        "DecisionEnvelope 包含 market_regime 字段（不破坏现有 contract）",
+        "RiskGate 在 volatile/crisis 状态下自动降低 confidence_contribution 权重",
+        "TypeScript 编译通过"
+      ]
+    }
+  ],
+  "verification": [
+    "cd apps/trader-agent/backend && python -m pytest tests/ -k regime -x",
+    "cd apps/trader-workflows && npx tsc --noEmit"
+  ]
+}

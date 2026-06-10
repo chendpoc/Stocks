@@ -1,0 +1,57 @@
+{
+  "task_id": "T030-data-quality-eval-v0",
+  "spec_id": "data-quality-eval-v0",
+  "status": "active",
+  "title": "Data Quality + Triple Barrier Evaluation",
+  "summary": "数据质量评分字段 + Triple Barrier 复盘标签 + 系统质量评估指标。",
+  "slices": [
+    {
+      "id": "S1",
+      "title": "DB Schema — 数据质量 + Triple Barrier 字段",
+      "status": "active",
+      "files": [
+        "apps/trader-agent/backend/app/intel/db/schema.py"
+      ],
+      "exit_criteria": [
+        "market_bars 表新增 quality_score (0-100) INTEGER + gap_count INTEGER",
+        "decision_outcomes 表新增 barrier_result TEXT (hit_profit_first|hit_stop_first|hit_time_first|hone)",
+        "evaluation_reports 表新增 evidence_utility_score REAL + contra_predictive_power REAL",
+        "DB migration 可执行，不破坏现有数据"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Backend — DataQualityGate + Triple Barrier 标签计算",
+      "status": "pending",
+      "files": [
+        "apps/trader-agent/backend/app/intel/market_agent/data_quality.py",
+        "apps/trader-agent/backend/app/intel/market_agent/outcome.py"
+      ],
+      "exit_criteria": [
+        "DataQualityGate: 完整性 <90% → quality_degraded, <50% → quality_critical",
+        "Triple Barrier 标签: 为每个 DecisionEnvelope 定义 profit_barrier/stop_barrier/time_barrier",
+        "回标时自动计算 barrier_result",
+        "Python 测试通过"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Workflow — OutcomeGraph + EvaluationGraph 字段写入",
+      "status": "pending",
+      "files": [
+        "apps/trader-workflows/src/graphs/01-outcome/outcomeGraph.ts",
+        "apps/trader-workflows/src/graphs/02-evaluation/evaluationGraph.ts"
+      ],
+      "exit_criteria": [
+        "OutcomeGraph 回标时写入 barrier_result + contra_predictive_power",
+        "EvaluationGraph 聚合报告包含 Triple Barrier 维度统计和系统质量指标",
+        "TypeScript 测试通过"
+      ]
+    }
+  ],
+  "verification": [
+    "cd apps/trader-agent/backend && python -c 'from app.intel.db.schema import init_intel_db'",
+    "cd apps/trader-workflows && npm test -- src/graphs/01-outcome/",
+    "cd apps/trader-workflows && npm test -- src/graphs/02-evaluation/"
+  ]
+}
