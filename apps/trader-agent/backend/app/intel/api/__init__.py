@@ -16,6 +16,7 @@ from app.intel.api import (
     signals,
     stage1,
     trade_ideas,
+    workflows,
 )
 
 intel_router = APIRouter()
@@ -33,5 +34,6 @@ intel_router.include_router(corpus.router, prefix="/corpus", tags=["intel-corpus
 intel_router.include_router(report_cache.router, prefix="/report", tags=["intel-report"])
 intel_router.include_router(news.router, prefix="/news", tags=["intel-news"])
 intel_router.include_router(stage1.router, prefix="/stage1", tags=["intel-stage1"])
+intel_router.include_router(workflows.router, prefix="/workflows", tags=["intel-workflows"])
 
 __all__ = ["intel_router"]
