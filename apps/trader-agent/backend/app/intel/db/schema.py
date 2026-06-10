@@ -107,6 +107,8 @@ _SCHEMA_STATEMENTS = [
       volume REAL,
       vwap REAL,
       source TEXT,
+      quality_score INTEGER,
+      gap_count INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(symbol, timeframe, ts)
     )
@@ -403,6 +405,7 @@ _SCHEMA_STATEMENTS = [
       hit_invalidation_proxy INTEGER,
       hit_target_proxy INTEGER,
       label TEXT,
+      barrier_result TEXT,
       outcome_json TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT,
@@ -461,6 +464,8 @@ _SCHEMA_STATEMENTS = [
       metrics_json TEXT,
       recommendation TEXT NOT NULL,
       report_json TEXT NOT NULL,
+      evidence_utility_score REAL,
+      contra_predictive_power REAL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
     """,
@@ -647,16 +652,41 @@ def _migrate_lessons_columns(conn) -> None:
 _MARKET_BARS_COLUMN_MIGRATIONS = (
     ("ingested_at", "TEXT"),
     ("quality_status", "TEXT"),
+    ("quality_score", "INTEGER"),
+    ("gap_count", "INTEGER"),
 )
 
 
-def _migrate_market_bars_columns(conn) -> None:
+def _migrate_table_columns(conn, table_name: str, migrations: tuple[tuple[str, str], ...]) -> None:
     existing = {
-        row[1] for row in conn.execute(text("PRAGMA table_info(market_bars)")).fetchall()
+        row[1] for row in conn.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
     }
-    for column, ddl in _MARKET_BARS_COLUMN_MIGRATIONS:
+    for column, ddl in migrations:
         if column not in existing:
-            conn.execute(text(f"ALTER TABLE market_bars ADD COLUMN {column} {ddl}"))
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column} {ddl}"))
+
+
+def _migrate_market_bars_columns(conn) -> None:
+    _migrate_table_columns(conn, "market_bars", _MARKET_BARS_COLUMN_MIGRATIONS)
+
+
+_DECISION_OUTCOMES_COLUMN_MIGRATIONS = (
+    ("barrier_result", "TEXT"),
+)
+
+
+def _migrate_decision_outcomes_columns(conn) -> None:
+    _migrate_table_columns(conn, "decision_outcomes", _DECISION_OUTCOMES_COLUMN_MIGRATIONS)
+
+
+_EVALUATION_REPORTS_COLUMN_MIGRATIONS = (
+    ("evidence_utility_score", "REAL"),
+    ("contra_predictive_power", "REAL"),
+)
+
+
+def _migrate_evaluation_reports_columns(conn) -> None:
+    _migrate_table_columns(conn, "evaluation_reports", _EVALUATION_REPORTS_COLUMN_MIGRATIONS)
 
 
 _PATTERN_TRIGGER_SQL = {
@@ -708,6 +738,8 @@ def init_intel_db(settings: Settings | None = None, engine: Engine | None = None
             conn.execute(text(stmt))
         _migrate_lessons_columns(conn)
         _migrate_market_bars_columns(conn)
+        _migrate_decision_outcomes_columns(conn)
+        _migrate_evaluation_reports_columns(conn)
         _seed_symbols(conn)
         _seed_patterns(conn)
         _migrate_pattern_trigger_sql(conn)

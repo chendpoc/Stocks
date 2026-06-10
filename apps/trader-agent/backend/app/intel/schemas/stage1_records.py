@@ -81,6 +81,7 @@ class DecisionOutcomeOut(SqliteJsonRowModel):
     hit_invalidation_proxy: int | None = None
     hit_target_proxy: int | None = None
     label: str | None = None
+    barrier_result: str | None = None
     outcome_json: dict[str, Any] | None = None
     created_at: str | None = None
     updated_at: str | None = None
@@ -168,6 +169,8 @@ class EvaluationReportOut(SqliteJsonRowModel):
     metrics_json: dict[str, Any] | None = None
     recommendation: str
     report_json: dict[str, Any]
+    evidence_utility_score: float | None = None
+    contra_predictive_power: float | None = None
     created_at: str | None = None
 
 

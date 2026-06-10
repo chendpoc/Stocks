@@ -11,6 +11,12 @@ def _decode_db_row(row: Mapping[str, Any], json_fields: tuple[str, ...], default
 
 
 MarketDataQualityStatus = Literal["pass", "warning", "failed", "blocked"]
+DataQualityBand = Literal[
+    "quality_pass",
+    "quality_degraded",
+    "quality_critical",
+    "quality_blocked",
+]
 MarketMonitorDecisionAction = Literal["watch", "review", "ignore", "monitor"]
 MarketMonitorRiskStatus = Literal[
     "pass",
@@ -26,6 +32,10 @@ class MarketDataQuality:
     reason: str
     bar_count: int
     min_required: int
+    quality_score: int = 0
+    gap_count: int = 0
+    completeness: float = 0.0
+    quality_status: DataQualityBand = "quality_critical"
 
 
 @dataclass
@@ -37,6 +47,9 @@ class MarketDataResponse:
     quality_reason: str
     source: str
     bar_count: int
+    quality_score: int = 0
+    gap_count: int = 0
+    completeness: float = 0.0
 
 
 @dataclass

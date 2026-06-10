@@ -4,7 +4,8 @@ from typing import Any
 
 from app.core.config import Settings
 from app.intel.ingestion.market_data import get_bars_from_db, ingest_symbol
-from app.intel.market_agent.schemas import MarketDataQuality, MarketDataResponse
+from app.intel.market_agent.data_quality import DataQualityGate, evaluate_data_quality
+from app.intel.market_agent.schemas import MarketDataResponse
 
 
 def _normalize_symbol(symbol: str) -> str:
@@ -13,81 +14,6 @@ def _normalize_symbol(symbol: str) -> str:
 
 def _normalize_timeframe(timeframe: str) -> str:
     return timeframe.strip().lower()
-
-
-class DataQualityGate:
-    def __call__(
-        self,
-        bars: list[dict[str, Any]],
-        *,
-        timeframe: str,
-        min_required: int | None = None,
-    ) -> MarketDataQuality:
-        return evaluate_data_quality(bars, timeframe=timeframe, min_required=min_required)
-
-
-def evaluate_data_quality(
-    bars: list[dict[str, Any]],
-    *,
-    timeframe: str,
-    min_required: int | None = None,
-) -> MarketDataQuality:
-    normalized_tf = _normalize_timeframe(timeframe)
-    if not normalized_tf:
-        return MarketDataQuality(
-            status="blocked",
-            reason="timeframe is required",
-            bar_count=0,
-            min_required=min_required if isinstance(min_required, int) else 1,
-        )
-
-    required = min_required if isinstance(min_required, int) else max(1, _default_min_required(normalized_tf))
-    if required <= 0:
-        return MarketDataQuality(
-            status="blocked",
-            reason="min_required must be greater than 0",
-            bar_count=len(bars),
-            min_required=required,
-        )
-
-    bar_count = len(bars)
-    if bar_count >= required:
-        return MarketDataQuality(
-            status="pass",
-            reason=f"{bar_count} bars >= required {required} for {normalized_tf}",
-            bar_count=bar_count,
-            min_required=required,
-        )
-
-    if bar_count == 0:
-        return MarketDataQuality(
-            status="failed",
-            reason=f"no bars for {normalized_tf}; required {required}",
-            bar_count=0,
-            min_required=required,
-        )
-
-    return MarketDataQuality(
-        status="warning",
-        reason=f"insufficient bars for {normalized_tf}: {bar_count} < required {required}",
-        bar_count=bar_count,
-        min_required=required,
-    )
-
-
-def _default_min_required(timeframe: str) -> int:
-    defaults = {
-        "1d": 20,
-        "5m": 24,
-        "1m": 10,
-        "2m": 10,
-        "15m": 10,
-        "30m": 10,
-        "1h": 12,
-        "2h": 12,
-        "4h": 8,
-    }
-    return defaults.get(timeframe, 3)
 
 
 class MarketDataService:
@@ -141,6 +67,9 @@ class MarketDataService:
                 quality_reason=quality.reason,
                 source="db",
                 bar_count=quality.bar_count,
+                quality_score=quality.quality_score,
+                gap_count=quality.gap_count,
+                completeness=quality.completeness,
             )
 
         if timeframe_norm not in {"1d", "5m"}:
@@ -154,6 +83,9 @@ class MarketDataService:
                 ),
                 source="db",
                 bar_count=quality.bar_count,
+                quality_score=quality.quality_score,
+                gap_count=quality.gap_count,
+                completeness=quality.completeness,
             )
 
         try:
@@ -177,6 +109,9 @@ class MarketDataService:
                 quality_reason=refreshed_quality.reason,
                 source="db+live",
                 bar_count=refreshed_quality.bar_count,
+                quality_score=refreshed_quality.quality_score,
+                gap_count=refreshed_quality.gap_count,
+                completeness=refreshed_quality.completeness,
             )
         except Exception as exc:
             existing_count = len(db_bars)

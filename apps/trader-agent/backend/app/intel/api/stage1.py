@@ -138,6 +138,7 @@ class OutcomeLabelInput(BaseModel):
     hit_invalidation_proxy: bool | None = None
     hit_target_proxy: bool | None = None
     label: str | None = None
+    barrier_result: str | None = None
     outcome_json: Any = None
 
 
@@ -162,6 +163,8 @@ class EvaluationReportInput(BaseModel):
     metrics_json: Any = None
     recommendation: str
     report_json: Any
+    evidence_utility_score: float | None = None
+    contra_predictive_power: float | None = None
 
 
 class InsightCandidateOutcomeScheduleItem(BaseModel):
@@ -613,6 +616,7 @@ def label_decision_outcome(
                   hit_invalidation_proxy = :hit_invalidation_proxy,
                   hit_target_proxy = :hit_target_proxy,
                   label = :label,
+                  barrier_result = :barrier_result,
                   outcome_json = :outcome_json,
                   updated_at = :updated_at,
                   labeled_at = :labeled_at
@@ -638,6 +642,7 @@ def label_decision_outcome(
                     else None
                 ),
                 "label": payload.label,
+                "barrier_result": payload.barrier_result,
                 "outcome_json": serialize_json_field_optional(payload.outcome_json),
                 "updated_at": now,
                 "labeled_at": now,
@@ -1059,6 +1064,16 @@ def create_evaluation_report(
             _conflict_scalar(existing.get("window_start"), payload.window_start, "window_start")
             _conflict_scalar(existing.get("window_end"), payload.window_end, "window_end")
             _conflict_if_different(existing.get("metrics_json"), metrics, "metrics_json")
+            _conflict_scalar(
+                existing.get("evidence_utility_score"),
+                payload.evidence_utility_score,
+                "evidence_utility_score",
+            )
+            _conflict_scalar(
+                existing.get("contra_predictive_power"),
+                payload.contra_predictive_power,
+                "contra_predictive_power",
+            )
             return EvaluationReportOut.from_db_row(existing)
 
         conn.execute(
@@ -1066,9 +1081,11 @@ def create_evaluation_report(
                 """
                 INSERT INTO evaluation_reports
                 (report_id, model_version, window_start, window_end, metrics_json,
-                 recommendation, report_json, created_at)
+                 recommendation, report_json, evidence_utility_score,
+                 contra_predictive_power, created_at)
                 VALUES (:report_id, :model_version, :window_start, :window_end,
-                        :metrics_json, :recommendation, :report_json, :created_at)
+                        :metrics_json, :recommendation, :report_json,
+                        :evidence_utility_score, :contra_predictive_power, :created_at)
                 """
             ),
             {
@@ -1079,6 +1096,8 @@ def create_evaluation_report(
                 "metrics_json": metrics,
                 "recommendation": payload.recommendation,
                 "report_json": report,
+                "evidence_utility_score": payload.evidence_utility_score,
+                "contra_predictive_power": payload.contra_predictive_power,
                 "created_at": now,
             },
         )

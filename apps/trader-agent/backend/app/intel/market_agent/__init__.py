@@ -1,6 +1,7 @@
 from .context import SessionContextBootstrap, SessionContextPackSummary
 from .features import FeatureComputationInput, FeatureEngine
 from .market_data import DataQualityGate, MarketDataService, evaluate_data_quality
+from .outcome import BarrierResult, TripleBarrierResult, compute_triple_barrier
 from .patterns import FailureMemoryService, PatternMemoryService
 from .repositories import (
     create_failure_memory,
@@ -39,6 +40,9 @@ __all__ = [
     "evaluate_data_quality",
     "MarketDataQuality",
     "MarketDataResponse",
+    "BarrierResult",
+    "TripleBarrierResult",
+    "compute_triple_barrier",
     "FeatureEngine",
     "FeatureComputationInput",
     "SetupDetector",

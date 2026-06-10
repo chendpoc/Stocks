@@ -61,12 +61,17 @@ def test_data_quality_gate_returns_expected_statuses() -> None:
 
     warning_result = evaluate_data_quality([{}, {}], timeframe="1d", min_required=3)
     assert warning_result.status == "warning"
+    assert warning_result.quality_status == "quality_degraded"
+    assert warning_result.quality_score == 67
+    assert warning_result.gap_count == 1
 
     failed_result = evaluate_data_quality([], timeframe="1d", min_required=3)
     assert failed_result.status == "failed"
+    assert failed_result.quality_status == "quality_critical"
 
     blocked_result = evaluate_data_quality([{}], timeframe="", min_required=3)
     assert blocked_result.status == "blocked"
+    assert blocked_result.quality_status == "quality_blocked"
 
     gate = DataQualityGate()
     assert gate([{}, {}, {}, {}], timeframe="5m", min_required=3).status == "pass"
@@ -84,6 +89,8 @@ def test_market_data_service_reads_db_and_reports_pass(tmp_path: Path) -> None:
     assert response.source == "db"
     assert response.symbol == "TSLA"
     assert response.timeframe == "1d"
+    assert response.quality_score == 100
+    assert response.gap_count == 0
 
 
 def test_market_data_service_warns_when_db_insufficient_without_fallback(tmp_path: Path) -> None:
@@ -96,6 +103,8 @@ def test_market_data_service_warns_when_db_insufficient_without_fallback(tmp_pat
     assert response.quality_status == "warning"
     assert response.bar_count == 1
     assert response.source == "db"
+    assert response.quality_score == 33
+    assert response.gap_count == 2
 
 
 def test_market_data_service_uses_live_fallback_and_refreshes_bars(tmp_path: Path, monkeypatch) -> None:

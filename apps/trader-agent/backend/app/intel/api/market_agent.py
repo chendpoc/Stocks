@@ -15,6 +15,7 @@ from app.intel.ingestion.market_data import (
     get_symbol_market_status,
 )
 from app.intel.market_agent.context import SessionContextBootstrap
+from app.intel.market_agent.features import compute_regime_from_bars
 from app.intel.market_agent.market_data import (
     MarketDataService,
     evaluate_data_quality,
@@ -422,4 +423,67 @@ def market_data_quality(
         "reason": bars_payload.quality_reason,
         "bar_count": bars_payload.bar_count,
         "min_required": quality.min_required,
+    }
+
+
+@router.get("/market-agent/regime")
+def market_agent_regime(
+    request: Request,
+    benchmark: str = "SPY",
+    lookback: int = Query(default=20, ge=14, le=100),
+) -> dict[str, Any]:
+    """获取当前市场状态（trending/ranging/volatile）。
+
+    从 market_bars 读取 benchmark（默认 SPY）的日线数据，
+    计算 ADX / MA20 / 布林带宽度等指标，输出 RegimeResult。
+    Agent 通过 fetchRegime 工具调用此端点。
+    """
+    from dataclasses import asdict as _dataclass_asdict
+
+    settings = request.app.state.settings
+    engine = get_intel_engine(settings)
+    service = MarketDataService(engine, settings=settings)
+
+    bars_payload = service.get_market_data(
+        benchmark,
+        "1d",
+        limit=lookback,
+        min_required=14,
+        allow_live_fallback=False,
+    )
+
+    if bars_payload.quality_status == "blocked":
+        return {
+            "state": "ranging",
+            "confidence": 0.10,
+            "indicators": {},
+            "transition_risk": 0.80,
+            "source": bars_payload.quality_reason,
+        }
+
+    # 尝试获取 VIX 作为补充指标
+    vix_value: float | None = None
+    try:
+        vix_payload = service.get_market_data(
+            "VIX",
+            "1d",
+            limit=1,
+            min_required=1,
+            allow_live_fallback=False,
+        )
+        if vix_payload.bars:
+            vix_value = float(vix_payload.bars[-1]["close"])
+    except Exception:
+        pass
+
+    result = compute_regime_from_bars(
+        bars_payload.bars,
+        vix_value=vix_value,
+    )
+
+    return {
+        "state": result.state,
+        "confidence": result.confidence,
+        "indicators": result.indicators,
+        "transition_risk": result.transition_risk,
     }

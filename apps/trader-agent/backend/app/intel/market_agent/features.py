@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from typing import Literal
 from typing import Any, Final
 
 from app.intel.db.connection import get_intel_engine
@@ -16,6 +17,199 @@ DEFAULT_VOLUME_WINDOW: Final[int] = 20
 OPENING_RANGE_BARS: Final[int] = 3
 
 FeatureEngineOutput = dict[str, Any]
+MarketRegimeState = Literal["trending", "ranging", "volatile"]
+
+
+@dataclass(frozen=True)
+class RegimeResult:
+    state: MarketRegimeState
+    confidence: float
+    indicators: dict[str, Any]
+    transition_risk: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "state": self.state,
+            "confidence": self.confidence,
+            "indicators": self.indicators,
+            "transition_risk": self.transition_risk,
+        }
+
+
+def _clamp_probability(value: float) -> float:
+    if value < 0:
+        return 0.0
+    if value > 1:
+        return 1.0
+    return round(value, 4)
+
+
+class RegimeDetector:
+    """Deterministic market regime classifier for Market Agent."""
+
+    def detect(self, indicators: dict[str, Any]) -> RegimeResult:
+        adx = _to_float(indicators.get("adx"))
+        price = _to_float(indicators.get("price"))
+        ma20 = _to_float(indicators.get("ma20") or indicators.get("moving_average_20"))
+        vix = _to_float(indicators.get("vix"))
+        bollinger_width = _to_float(
+            indicators.get("bollinger_width") or indicators.get("bb_width")
+        )
+        range_position = _to_float(indicators.get("range_position"))
+        breadth = _to_float(
+            indicators.get("breadth")
+            or indicators.get("advance_decline_ratio")
+            or indicators.get("market_breadth")
+        )
+
+        normalized = {
+            "adx": adx,
+            "price": price,
+            "ma20": ma20,
+            "vix": vix,
+            "bollinger_width": bollinger_width,
+            "range_position": range_position,
+            "breadth": breadth,
+        }
+
+        volatile_hits = 0
+        if vix is not None and vix > 30:
+            volatile_hits += 1
+        if breadth is not None and breadth < 0.4:
+            volatile_hits += 1
+        if adx is not None and adx > 35 and price is not None and ma20 is not None and price < ma20:
+            volatile_hits += 1
+        if volatile_hits >= 2:
+            return RegimeResult(
+                state="volatile",
+                confidence=_clamp_probability(0.72 + volatile_hits * 0.08),
+                indicators=normalized,
+                transition_risk=_clamp_probability(0.8 + volatile_hits * 0.05),
+            )
+
+        trending_hits = 0
+        if adx is not None and adx > 25:
+            trending_hits += 1
+        if price is not None and ma20 is not None and price > ma20:
+            trending_hits += 1
+        if vix is not None and vix < 20:
+            trending_hits += 1
+        if trending_hits == 3:
+            return RegimeResult(
+                state="trending",
+                confidence=0.82,
+                indicators=normalized,
+                transition_risk=0.25,
+            )
+
+        ranging_hits = 0
+        if adx is not None and adx < 20:
+            ranging_hits += 1
+        if bollinger_width is not None and bollinger_width < 0.08:
+            ranging_hits += 1
+        if range_position is not None and 0.2 <= range_position <= 0.8:
+            ranging_hits += 1
+        elif price is not None and ma20 is not None and ma20 != 0 and abs(price - ma20) / ma20 < 0.03:
+            ranging_hits += 1
+        if ranging_hits >= 2:
+            return RegimeResult(
+                state="ranging",
+                confidence=_clamp_probability(0.58 + ranging_hits * 0.1),
+                indicators=normalized,
+                transition_risk=0.45,
+            )
+
+        return RegimeResult(
+            state="ranging",
+            confidence=0.45,
+            indicators=normalized,
+            transition_risk=0.6,
+        )
+
+
+def detect_market_regime(indicators: dict[str, Any]) -> RegimeResult:
+    return RegimeDetector().detect(indicators)
+
+
+def compute_regime_from_bars(
+    spy_bars: list[dict[str, Any]],
+    vix_value: float | None = None,
+    breadth_value: float | None = None,
+) -> RegimeResult:
+    """从 SPY K 线数据计算市场 Regime。
+
+    Args:
+        spy_bars: SPY 日线数据 [{open, high, low, close, volume}, ...]
+        vix_value: 外部提供的 VIX 值（如果可用）
+        breadth_value: 外部提供的市场广度值（如果可用）
+    """
+    closes = [float(b["close"]) for b in spy_bars if b.get("close")]
+    highs = [float(b["high"]) for b in spy_bars if b.get("high")]
+    lows = [float(b["low"]) for b in spy_bars if b.get("low")]
+
+    if len(closes) < 20:
+        return RegimeResult(
+            state="ranging",
+            confidence=0.30,
+            indicators={},
+            transition_risk=0.5,
+        )
+
+    latest_close = closes[-1]
+    ma20 = sum(closes[-20:]) / 20
+    adx = _compute_adx(highs, lows, closes, period=14)
+
+    import pandas as pd
+    from ta.volatility import BollingerBands
+
+    close_series = pd.Series(closes)
+    bb = BollingerBands(close=close_series, window=20, window_dev=2)
+    bb_upper = bb.bollinger_hband().iloc[-1]
+    bb_lower = bb.bollinger_lband().iloc[-1]
+    bb_mean = bb.bollinger_mavg().iloc[-1]
+    bollinger_width = (bb_upper - bb_lower) / bb_mean if bb_mean and bb_mean > 0 else 0.0
+
+    range_position = (latest_close - min(closes[-20:])) / (max(closes[-20:]) - min(closes[-20:]) + 0.01)
+    range_position = max(0.0, min(1.0, range_position))
+
+    indicators: dict[str, Any] = {
+        "adx": round(adx, 1) if adx else None,
+        "price": latest_close,
+        "ma20": round(ma20, 2),
+        "bollinger_width": round(bollinger_width, 4),
+        "range_position": round(range_position, 2),
+    }
+
+    if vix_value is not None:
+        indicators["vix"] = vix_value
+    if breadth_value is not None:
+        indicators["breadth"] = breadth_value
+
+    return RegimeDetector().detect(indicators)
+
+
+def _compute_adx(
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    period: int = 14,
+) -> float | None:
+    """Compute Average Directional Index (ADX) using ta library."""
+    if len(closes) < period + 1:
+        return None
+
+    import pandas as pd
+    from ta.trend import ADXIndicator
+
+    adx_indicator = ADXIndicator(
+        high=pd.Series(highs),
+        low=pd.Series(lows),
+        close=pd.Series(closes),
+        window=period,
+    )
+    adx_series = adx_indicator.adx()
+    last_adx = adx_series.iloc[-1]
+    return round(float(last_adx), 1) if pd.notna(last_adx) else None
 
 
 def _to_float(value: Any) -> float | None:

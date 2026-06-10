@@ -100,6 +100,11 @@ def test_stage1_tables_exist_without_checkpoint_fields(tmp_path: Path) -> None:
                 for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
             }
             assert FORBIDDEN_CHECKPOINT_COLUMNS.isdisjoint(cols)
+            if table == "decision_outcomes":
+                assert "barrier_result" in cols
+            if table == "evaluation_reports":
+                assert "evidence_utility_score" in cols
+                assert "contra_predictive_power" in cols
 
 
 def test_context_snapshot_idempotent_and_conflict(tmp_path: Path) -> None:
@@ -261,10 +266,12 @@ def test_decision_outcome_schedule_label_and_due(tmp_path: Path) -> None:
             "future_price": 105.0,
             "absolute_return_pct": 5.0,
             "label": "positive",
+            "barrier_result": "hit_profit_first",
         },
     )
     assert labeled.status_code == 200
     assert labeled.json()["status"] == "labeled"
+    assert labeled.json()["barrier_result"] == "hit_profit_first"
     assert labeled.json()["labeled_at"] is not None
 
     relabel = client.post(
@@ -330,9 +337,13 @@ def test_insight_evaluation_and_weighting_routes(tmp_path: Path) -> None:
         "metrics_json": {"accuracy": 0.55},
         "recommendation": "hold",
         "report_json": {"summary": "stable"},
+        "evidence_utility_score": 0.6,
+        "contra_predictive_power": 0.2,
     }
     report = client.post(f"{STAGE1_PREFIX}/evaluation-reports", json=report_payload)
     assert report.status_code == 200
+    assert report.json()["evidence_utility_score"] == 0.6
+    assert report.json()["contra_predictive_power"] == 0.2
 
     bad_report = client.post(
         f"{STAGE1_PREFIX}/evaluation-reports",
