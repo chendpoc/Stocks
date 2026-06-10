@@ -6,6 +6,34 @@
 
 项目级 agent 工程原则见 [08-agent-engineering-principles-proposal.md](../../project-docs/research-agent/target-system/trader-agent/08-agent-engineering-principles-proposal.md)。新增长运行 run、subagent、MCP/tool surface、skill 或 alpha research workflow 前，先按该文档检查边界。
 
+## 快速开始
+
+```bash
+cd apps/trader-workflows
+npm test
+npm run workflows -- decide TSLA.US --json
+npm run workflows -- memory init --json
+npm run workflows -- context bootstrap --symbol TSLA --json
+npm run workflows -- context latest --symbol TSLA --json
+npm run workflows -- decisions list --symbol TSLA --limit 20 --json
+npm run workflows -- outcomes list --symbol TSLA --limit 20 --json
+npm run workflows -- outcomes run --due --limit 50 --json
+npm run workflows -- eval summary --symbol TSLA.US --json
+npm run workflows -- insights explore --symbol TSLA.US --window 30d --json
+npm run workflows -- insights list --symbol TSLA --json
+npm run workflows -- pattern-memory list --symbol TSLA --json
+npm run workflows -- pattern-memory promote --pattern-memory-id pm-test --confirm --json
+npm run workflows -- pattern-memory degrade --pattern-id p-tsla --json
+npm run workflows -- failure-memory list --symbol TSLA --json
+npm run workflows -- market-monitor run --symbols TSLA --timeframes 5m --limit 3 --min-required 2 --json
+npm run workflows -- market-data fetch --symbol TSLA --timeframe 5m --limit 3 --min-required 2 --json
+npm run workflows -- market-data health --symbol TSLA --json
+npm run workflows -- market-data quality --symbol TSLA --timeframe 5m --min-required 2 --json
+npm run workflows -- runs show RUN_ID --json
+npm run workflows -- runs monitor --status interrupted --limit 20 --json
+npm run workflows -- runs trace RUN_ID --json
+```
+
 当前 backlog 主线是 workflow 成熟度：[workflow-maturity-roadmap.md](../../project-docs/backlog/workflow-maturity-roadmap.md)。
 
 ## 两层系统目标

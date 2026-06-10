@@ -23,7 +23,6 @@ export {
   type AlphaSeedV1,
 } from "./services/insightCandidates.js";
 
-import { fetchStage1 } from "./api/client.js";
 import {
   type Stage1RunStatus,
   STAGE1_RUN_STATUSES,
@@ -44,6 +43,26 @@ import {
   toContextSnapshotSummary,
   toTopWeightedItemSummaries,
 } from "./services/contextSnapshots.js";
+import {
+  initMarketAgentMemory,
+  fetchMarketData,
+  getMarketDataHealth,
+  getMarketDataQuality,
+  runMarketMonitor,
+  bootstrapContext,
+  degradePatternMemory,
+  getLatestContext,
+  listDecisionOutcomes,
+  listFailureMemories,
+  listInsightCandidates,
+  listModelDecisions,
+  listPatternMemories,
+  promotePatternMemory,
+} from "./services/marketAgent.js";
+import {
+  DEFAULT_CONTEXT_PACK_PATH,
+  writeContextPackFile,
+} from "./services/contextPackFile.js";
 
 interface WorkflowError {
   code: string;
@@ -78,24 +97,22 @@ function parseArgs(argv: string[]): { commandArgs: string[] } {
 }
 
 function parseLimit(args: string[]): number {
-  const limitFlagIndex = args.indexOf("--limit");
-  if (limitFlagIndex < 0) {
-    return 50;
-  }
-  const raw = args[limitFlagIndex + 1];
-  const parsed = Number.parseInt(raw ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
-  }
-  return parsed;
+  return parsePositiveIntegerFlag(args, "--limit", 50);
+}
+
+function isFlagValue(value: string): boolean {
+  return value.startsWith("--");
+}
+
+function toFlagErrorCode(flag: string): string {
+  return flag.replace(/^--/, "").toUpperCase().replace(/-/g, "_");
 }
 
 function parseOptionalStatus(args: string[]): Stage1RunStatus | undefined {
-  const statusFlagIndex = args.indexOf("--status");
-  if (statusFlagIndex < 0) {
+  const raw = parseOptionalFlagValue(args, "--status");
+  if (!raw) {
     return undefined;
   }
-  const raw = args[statusFlagIndex + 1];
   if (!isRunStatus(raw)) {
     throw new WorkflowCommandError(
       "INVALID_STATUS",
@@ -105,23 +122,172 @@ function parseOptionalStatus(args: string[]): Stage1RunStatus | undefined {
   return raw;
 }
 
-function parseOptionalGraphName(args: string[]): string | undefined {
-  const graphFlagIndex = args.indexOf("--graph-name");
-  if (graphFlagIndex < 0) {
+const OUTCOME_LIST_STATUSES = ["pending", "labeled", "skipped", "failed"] as const;
+type OutcomeListStatus = (typeof OUTCOME_LIST_STATUSES)[number];
+
+const DEFAULT_OUTCOMES_LIST_LIMIT = 100;
+const DEFAULT_INSIGHTS_LIST_LIMIT = 50;
+
+function parseOptionalFlagValue(args: string[], flag: string): string | undefined {
+  const flagIndex = args.indexOf(flag);
+  if (flagIndex < 0) {
     return undefined;
   }
-  const raw = args[graphFlagIndex + 1];
-  if (!raw) {
+  const raw = args[flagIndex + 1];
+  if (!raw || isFlagValue(raw)) {
     throw new WorkflowCommandError(
-      "GRAPH_NAME_REQUIRED",
-      "--graph-name requires a graph name",
+      `${toFlagErrorCode(flag)}_VALUE_REQUIRED`,
+      `${flag} requires a value`,
     );
   }
   return raw;
 }
 
+function parseRequiredFlagValue(
+  args: string[],
+  flag: string,
+  code: string,
+  message: string,
+): string {
+  const value = parseOptionalFlagValue(args, flag);
+  if (!value) {
+    throw new WorkflowCommandError(code, message);
+  }
+  return value;
+}
+
+function parseRequiredCsvFlag(args: string[], flag: string, code: string, message: string): string[] {
+  const raw = parseRequiredFlagValue(args, flag, code, message);
+  const values = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  if (values.length === 0) {
+    throw new WorkflowCommandError(code, message);
+  }
+  return values;
+}
+
+function parseOptionalBooleanFlag(args: string[], flag: string): boolean {
+  return args.includes(flag);
+}
+
+function parseOptionalOutcomeStatus(args: string[]): OutcomeListStatus | undefined {
+  const raw = parseOptionalFlagValue(args, "--status");
+  if (!raw) {
+    return undefined;
+  }
+  if (!OUTCOME_LIST_STATUSES.includes(raw as OutcomeListStatus)) {
+    throw new WorkflowCommandError(
+      "INVALID_OUTCOME_STATUS",
+      `--status must be one of: ${OUTCOME_LIST_STATUSES.join(", ")}`,
+    );
+  }
+  return raw as OutcomeListStatus;
+}
+
+function parseOptionalGraphName(args: string[]): string | undefined {
+  return parseOptionalFlagValue(args, "--graph-name");
+}
+
 function parseRunObservabilityLimit(args: string[]): number {
   return Math.min(parseLimit(args), STAGE1_OBSERVABILITY_LIMIT_MAX);
+}
+
+function parsePositiveIntegerFlag(
+  args: string[],
+  flag: string,
+  defaultValue: number,
+): number {
+  const raw = parseOptionalFlagValue(args, flag);
+  if (!raw) {
+    return defaultValue;
+  }
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new WorkflowCommandError(
+      `${toFlagErrorCode(flag)}_INVALID`,
+      `${flag} must be a positive integer`,
+    );
+  }
+  return parsed;
+}
+
+function parseOptionalIntFlag(args: string[], flag: string): number | undefined {
+  const raw = parseOptionalFlagValue(args, flag);
+  if (!raw) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new WorkflowCommandError(
+      `${toFlagErrorCode(flag)}_INVALID`,
+      `${flag} must be a positive integer`,
+    );
+  }
+  return parsed;
+}
+
+function parseSessionIdOrProfile(args: string[]): string {
+  return (
+    parseOptionalFlagValue(args, "--session-id") ??
+    parseOptionalFlagValue(args, "--profile") ??
+    "default"
+  );
+}
+
+function parseOptionalFailureType(args: string[]): string | undefined {
+  return parseOptionalFlagValue(args, "--type") ?? parseOptionalFlagValue(args, "--failure-type");
+}
+
+function parsePatternMemoryPromoteInput(args: string[]): {
+  pattern_memory_id?: string;
+  candidate_id?: string;
+} {
+  if (!args.includes("--confirm")) {
+    throw new WorkflowCommandError(
+      "CONFIRM_REQUIRED",
+      "pattern-memory promote requires --confirm",
+    );
+  }
+  const patternMemoryId = parseOptionalFlagValue(args, "--pattern-memory-id");
+  const candidateId = parseOptionalFlagValue(args, "--candidate-id");
+  if (patternMemoryId && candidateId) {
+    throw new WorkflowCommandError(
+      "PATTERN_IDENTIFIER_MUTUALLY_EXCLUSIVE",
+      "pattern-memory promote accepts either --pattern-memory-id or --candidate-id",
+    );
+  }
+  if (!patternMemoryId && !candidateId) {
+    throw new WorkflowCommandError(
+      "PATTERN_IDENTIFIER_REQUIRED",
+      "pattern-memory promote requires --pattern-memory-id or --candidate-id",
+    );
+  }
+  return { pattern_memory_id: patternMemoryId, candidate_id: candidateId };
+}
+
+function parsePatternMemoryDegradeInput(args: string[]): {
+  pattern_memory_id?: string;
+  pattern_id?: string;
+  reason?: string;
+} {
+  const patternMemoryId = parseOptionalFlagValue(args, "--pattern-memory-id");
+  const patternId = parseOptionalFlagValue(args, "--pattern-id");
+  if (patternMemoryId && patternId) {
+    throw new WorkflowCommandError(
+      "PATTERN_IDENTIFIER_MUTUALLY_EXCLUSIVE",
+      "pattern-memory degrade accepts either --pattern-memory-id or --pattern-id",
+    );
+  }
+  const reason = parseOptionalFlagValue(args, "--reason");
+  if (!patternMemoryId && !patternId) {
+    throw new WorkflowCommandError(
+      "PATTERN_IDENTIFIER_REQUIRED",
+      "pattern-memory degrade requires --pattern-memory-id or --pattern-id",
+    );
+  }
+  return { pattern_memory_id: patternMemoryId, pattern_id: patternId, reason };
 }
 
 function toEnvelope(args: {
@@ -401,84 +567,353 @@ async function handleInsightsExploreCommandAsync(
   });
 }
 
+async function handleOutcomesListCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const status = parseOptionalOutcomeStatus(args);
+  const limit = parsePositiveLimitFlag(args, DEFAULT_OUTCOMES_LIST_LIMIT);
+  const response = await listDecisionOutcomes({ symbol, status, limit });
+  return toEnvelope({
+    ok: true,
+    command: "outcomes list",
+    data: {
+      outcomes: response.items,
+      count: response.count,
+    },
+  });
+}
+
+async function handleInsightsListCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const verification_status = parseOptionalFlagValue(args, "--verification-status");
+  const limit = parsePositiveLimitFlag(args, DEFAULT_INSIGHTS_LIST_LIMIT);
+  const response = await listInsightCandidates({ symbol, verification_status, limit });
+  return toEnvelope({
+    ok: true,
+    command: "insights list",
+    data: {
+      insight_candidates: response.items,
+      count: response.count,
+    },
+  });
+}
+
+async function handleDecisionsListCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const modelVersion = parseOptionalFlagValue(args, "--model-version");
+  const limit = parsePositiveIntegerFlag(args, "--limit", 500);
+  const response = await listModelDecisions({
+    symbol,
+    model_version: modelVersion,
+    limit,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "decisions list",
+    data: {
+      model_decisions: response.items,
+      count: response.count,
+    },
+  });
+}
+
+async function handleDecisionsCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "list") {
+    return handleDecisionsListCommandAsync(_runtime, args);
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_DECISIONS_COMMAND",
+    `Unknown decisions command: ${sub ?? "(missing)"} (use list)`,
+  );
+}
+
+async function handleOutcomesCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "list") {
+    return handleOutcomesListCommandAsync(runtime, args);
+  }
+  if (sub === "run") {
+    return handleOutcomesRunCommandAsync(runtime, args);
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_OUTCOMES_COMMAND",
+    `Unknown outcomes command: ${sub ?? "(missing)"} (use list|run)`,
+  );
+}
+
+async function handleInsightsCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "explore") {
+    return handleInsightsExploreCommandAsync(runtime, args);
+  }
+  if (sub === "list") {
+    return handleInsightsListCommandAsync(runtime, args);
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_INSIGHTS_COMMAND",
+    `Unknown insights command: ${sub ?? "(missing)"} (use explore|list)`,
+  );
+}
+
+async function handleContextBootstrapAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sessionId = parseSessionIdOrProfile(args);
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const maxChars = parseOptionalIntFlag(args, "--max-chars");
+  const outputPath =
+    parseOptionalFlagValue(args, "--output") ?? DEFAULT_CONTEXT_PACK_PATH;
+
+  const response = await bootstrapContext({
+    session_id: sessionId,
+    symbol: symbol?.toUpperCase(),
+    max_chars: maxChars,
+  });
+  const writtenPath = await writeContextPackFile(
+    outputPath,
+    response.markdown ?? "",
+  );
+  return toEnvelope({
+    ok: true,
+    command: "context bootstrap",
+    data: {
+      context_pack: response,
+      path: writtenPath,
+    },
+  });
+}
+
+async function handleContextLatestAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sessionId = parseSessionIdOrProfile(args);
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const response = await getLatestContext({
+    session_id: sessionId,
+    symbol: symbol?.toUpperCase(),
+  });
+  return toEnvelope({
+    ok: true,
+    command: "context latest",
+    data: {
+      context_pack: response,
+    },
+  });
+}
+
+async function handlePatternMemoryListCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const pattern_id = parseOptionalFlagValue(args, "--pattern-id");
+  const status = parseOptionalFlagValue(args, "--status");
+  const limit = parsePositiveIntegerFlag(args, "--limit", 100);
+  const response = await listPatternMemories({
+    symbol: symbol?.toUpperCase(),
+    pattern_id,
+    status,
+    limit,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "pattern-memory list",
+    data: {
+      pattern_memories: response.items,
+      count: response.count,
+    },
+  });
+}
+
+async function handlePatternMemoryPromoteCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const input = parsePatternMemoryPromoteInput(args);
+  const response = await promotePatternMemory({
+    pattern_memory_id: input.pattern_memory_id,
+    candidate_id: input.candidate_id,
+    confirm: true,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "pattern-memory promote",
+    data: {
+      pattern_memory: response.item,
+    },
+  });
+}
+
+async function handlePatternMemoryDegradeCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const input = parsePatternMemoryDegradeInput(args);
+  const response = await degradePatternMemory(input);
+  return toEnvelope({
+    ok: true,
+    command: "pattern-memory degrade",
+    data: {
+      pattern_memory: response.item,
+    },
+  });
+}
+
+async function handlePatternMemoryCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "list") {
+    return handlePatternMemoryListCommandAsync(runtime, args);
+  }
+  if (sub === "promote") {
+    return handlePatternMemoryPromoteCommandAsync(runtime, args);
+  }
+  if (sub === "degrade") {
+    return handlePatternMemoryDegradeCommandAsync(runtime, args);
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_PATTERN_MEMORY_COMMAND",
+    `Unknown pattern-memory command: ${sub ?? "(missing)"} (use list|promote|degrade)`,
+  );
+}
+
+async function handleFailureMemoryListCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const failureType = parseOptionalFailureType(args);
+  const setup = parseOptionalFlagValue(args, "--setup");
+  const status = parseOptionalFlagValue(args, "--status");
+  const limit = parsePositiveIntegerFlag(args, "--limit", 100);
+  const response = await listFailureMemories({
+    symbol: symbol?.toUpperCase(),
+    failure_type: failureType,
+    setup,
+    status,
+    limit,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "failure-memory list",
+    data: {
+      failure_memories: response.items,
+      count: response.count,
+    },
+  });
+}
+
+async function handleFailureMemoryCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "list") {
+    return handleFailureMemoryListCommandAsync(runtime, args);
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_FAILURE_MEMORY_COMMAND",
+    `Unknown failure-memory command: ${sub ?? "(missing)"} (use list)`,
+  );
+}
+
 function parsePositiveLimitFlag(args: string[], defaultLimit: number): number {
-  const limitFlagIndex = args.indexOf("--limit");
-  if (limitFlagIndex < 0) {
-    return defaultLimit;
-  }
-  const parsed = Number.parseInt(args[limitFlagIndex + 1] ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new WorkflowCommandError("INVALID_LIMIT", "limit must be a positive integer");
-  }
-  return parsed;
+  return parsePositiveIntegerFlag(args, "--limit", defaultLimit);
 }
 
 async function handleContextCommandAsync(
   _runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
-  if (args[1] !== "snapshots") {
-    throw new WorkflowCommandError(
-      "SNAPSHOTS_SUBCOMMAND_REQUIRED",
-      "context requires snapshots subcommand (use list|show)",
-    );
+  if (args[1] === "bootstrap") {
+    return handleContextBootstrapAsync(_runtime, args);
   }
-
-  const sub = args[2];
-  switch (sub) {
-    case "list": {
-      const symbolFlagIndex = args.indexOf("--symbol");
-      const symbol = symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1] : undefined;
-      if (!symbol) {
-        throw new WorkflowCommandError(
-          "SYMBOL_REQUIRED",
-          "context snapshots list requires --symbol",
-        );
-      }
-      const limit = parsePositiveLimitFlag(args, 20);
-      const response = await listContextSnapshots({
-        symbol,
-        limit,
-      });
-      const snapshots = response.items.map((snapshot) => ({
-        snapshot_id: snapshot.snapshot_id,
-        symbol: snapshot.symbol,
-        asof_ts: snapshot.asof_ts,
-        ...toContextSnapshotSummary(snapshot),
-      }));
-      return toEnvelope({
-        ok: true,
-        command: "context snapshots list",
-        data: { snapshots, count: response.count },
-      });
-    }
-    case "show": {
-      const snapshotId = args[3];
-      if (!snapshotId) {
-        throw new WorkflowCommandError(
-          "SNAPSHOT_ID_REQUIRED",
-          "context snapshots show requires a snapshot_id",
-        );
-      }
-      const snapshot = await fetchContextSnapshot(snapshotId);
-      return toEnvelope({
-        ok: true,
-        command: "context snapshots show",
-        data: {
+  if (args[1] === "latest") {
+    return handleContextLatestAsync(_runtime, args);
+  }
+  if (args[1] === "snapshots") {
+    const sub = args[2];
+    switch (sub) {
+      case "list": {
+        const symbolFlagIndex = args.indexOf("--symbol");
+        const symbol = symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1] : undefined;
+        if (!symbol) {
+          throw new WorkflowCommandError(
+            "SYMBOL_REQUIRED",
+            "context snapshots list requires --symbol",
+          );
+        }
+        const limit = parsePositiveLimitFlag(args, 20);
+        const response = await listContextSnapshots({
+          symbol,
+          limit,
+        });
+        const snapshots = response.items.map((snapshot) => ({
           snapshot_id: snapshot.snapshot_id,
           symbol: snapshot.symbol,
           asof_ts: snapshot.asof_ts,
           ...toContextSnapshotSummary(snapshot),
-          top_items: toTopWeightedItemSummaries(snapshot.items_json),
-        },
-      });
+        }));
+        return toEnvelope({
+          ok: true,
+          command: "context snapshots list",
+          data: { snapshots, count: response.count },
+        });
+      }
+      case "show": {
+        const snapshotId = args[3];
+        if (!snapshotId) {
+          throw new WorkflowCommandError(
+            "SNAPSHOT_ID_REQUIRED",
+            "context snapshots show requires a snapshot_id",
+          );
+        }
+        const snapshot = await fetchContextSnapshot(snapshotId);
+        return toEnvelope({
+          ok: true,
+          command: "context snapshots show",
+          data: {
+            snapshot_id: snapshot.snapshot_id,
+            symbol: snapshot.symbol,
+            asof_ts: snapshot.asof_ts,
+            ...toContextSnapshotSummary(snapshot),
+            top_items: toTopWeightedItemSummaries(snapshot.items_json),
+          },
+        });
+      }
+      default:
+        throw new WorkflowCommandError(
+          "UNKNOWN_CONTEXT_COMMAND",
+          `Unknown context snapshots command: ${sub ?? "(missing)"} (use list|show)`,
+        );
     }
-    default:
-      throw new WorkflowCommandError(
-        "UNKNOWN_CONTEXT_COMMAND",
-        `Unknown context snapshots command: ${sub ?? "(missing)"} (use list|show)`,
-      );
   }
+  throw new WorkflowCommandError(
+    "UNKNOWN_CONTEXT_COMMAND",
+    "context requires snapshots|bootstrap|latest subcommand (use list|show|bootstrap|latest)",
+  );
 }
 
 async function handleOutcomesRunCommandAsync(
@@ -534,29 +969,189 @@ export async function handleCommandAsync(
   if (args.length === 0) {
     throw new WorkflowCommandError(
       "COMMAND_REQUIRED",
-      "Command required (expected: runs list|show|resume|monitor|trace | decide SYMBOL | context snapshots list|show | outcomes run --due | eval summary | insights explore)",
+      "Command required (expected: memory init | runs list|show|resume|monitor|trace | decide SYMBOL | decisions list | context snapshots list|show | context bootstrap|latest | outcomes run --due|list | eval summary | insights explore|list | pattern-memory list|promote|degrade | failure-memory list | market-monitor run | market-data fetch|health|quality)",
     );
   }
   switch (args[0]) {
+    case "memory":
+      return handleMemoryCommandAsync(runtime, args);
     case "runs":
       return handleRunsCommandAsync(runtime, args);
     case "decide":
       return handleDecideCommandAsync(runtime, args);
     case "outcomes":
-      return handleOutcomesRunCommandAsync(runtime, args);
+      return handleOutcomesCommandAsync(runtime, args);
+    case "decisions":
+      return handleDecisionsCommandAsync(runtime, args);
     case "eval":
       return handleEvalSummaryCommandAsync(runtime, args);
     case "insights":
-      return handleInsightsExploreCommandAsync(runtime, args);
+      return handleInsightsCommandAsync(runtime, args);
     case "context":
       return handleContextCommandAsync(runtime, args);
+    case "market-monitor":
+      return handleMarketMonitorRunCommandAsync(runtime, args);
+    case "market-data":
+      return handleMarketDataCommandAsync(runtime, args);
+    case "pattern-memory":
+      return handlePatternMemoryCommandAsync(runtime, args);
+    case "failure-memory":
+      return handleFailureMemoryCommandAsync(runtime, args);
     default:
       throw new WorkflowCommandError(
         "UNKNOWN_COMMAND",
-        `Unknown command: ${args[0]} (currently supported: runs, decide, context, outcomes, eval, insights)`,
+        `Unknown command: ${args[0]} (currently supported: memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data)`,
       );
   }
 }
+
+async function handleMemoryCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "init") {
+    const response = await initMarketAgentMemory();
+    return toEnvelope({
+      ok: true,
+      command: "memory init",
+      data: response,
+    });
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_MEMORY_COMMAND",
+    `Unknown memory command: ${sub ?? "(missing)"} (use init)`,
+  );
+}
+
+async function handleMarketMonitorRunCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  if (args[1] !== "run") {
+    throw new WorkflowCommandError(
+      "UNKNOWN_MARKET_MONITOR_COMMAND",
+      `Unknown market-monitor command: ${args[1] ?? "(missing)"} (use run)`,
+    );
+  }
+  const symbols = parseRequiredCsvFlag(
+    args,
+    "--symbols",
+    "SYMBOLS_REQUIRED",
+    "market-monitor run requires --symbols",
+  ).map((value) => value.toUpperCase());
+  const timeframes = parseRequiredCsvFlag(
+    args,
+    "--timeframes",
+    "TIMEFRAMES_REQUIRED",
+    "market-monitor run requires --timeframes",
+  );
+  const limit = parseOptionalIntFlag(args, "--limit");
+  const minRequired = parseOptionalIntFlag(args, "--min-required");
+  const allowLiveFallback = parseOptionalBooleanFlag(args, "--allow-live-fallback");
+
+  const response = await runMarketMonitor({
+    symbols,
+    timeframes,
+    limit,
+    min_required: minRequired,
+    allow_live_fallback: allowLiveFallback,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "market-monitor run",
+    data: response,
+  });
+}
+
+async function handleMarketDataFetchCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseRequiredFlagValue(
+    args,
+    "--symbol",
+    "SYMBOL_REQUIRED",
+    "market-data fetch requires --symbol",
+  );
+  const timeframe = parseOptionalFlagValue(args, "--timeframe") ?? "1d";
+  const limit = parseOptionalIntFlag(args, "--limit");
+  const minRequired = parseOptionalIntFlag(args, "--min-required");
+  const allowLiveFallback = parseOptionalBooleanFlag(args, "--allow-live-fallback");
+
+  const response = await fetchMarketData({
+    symbol,
+    timeframe,
+    limit,
+    min_required: minRequired,
+    allow_live_fallback: allowLiveFallback,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "market-data fetch",
+    data: response,
+  });
+}
+
+async function handleMarketDataHealthCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseOptionalFlagValue(args, "--symbol");
+  const response = await getMarketDataHealth({ symbol: symbol?.toUpperCase() });
+  return toEnvelope({
+    ok: true,
+    command: "market-data health",
+    data: response,
+  });
+}
+
+async function handleMarketDataQualityCommandAsync(
+  _runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const symbol = parseRequiredFlagValue(
+    args,
+    "--symbol",
+    "SYMBOL_REQUIRED",
+    "market-data quality requires --symbol",
+  );
+  const timeframe = parseOptionalFlagValue(args, "--timeframe") ?? "1d";
+  const limit = parseOptionalIntFlag(args, "--limit");
+  const minRequired = parseOptionalIntFlag(args, "--min-required");
+  const response = await getMarketDataQuality({
+    symbol,
+    timeframe,
+    limit,
+    min_required: minRequired,
+  });
+  return toEnvelope({
+    ok: true,
+    command: "market-data quality",
+    data: response,
+  });
+}
+
+async function handleMarketDataCommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+  if (sub === "fetch") {
+    return handleMarketDataFetchCommandAsync(runtime, args);
+  }
+  if (sub === "health") {
+    return handleMarketDataHealthCommandAsync(runtime, args);
+  }
+  if (sub === "quality") {
+    return handleMarketDataQualityCommandAsync(runtime, args);
+  }
+  throw new WorkflowCommandError(
+    "UNKNOWN_MARKET_DATA_COMMAND",
+    `Unknown market-data command: ${sub ?? "(missing)"} (use fetch|health|quality)`,
+  );
+}
+
 
 function printEnvelope(envelope: WorkflowEnvelope): void {
   console.log(JSON.stringify(envelope));

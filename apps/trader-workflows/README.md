@@ -70,13 +70,27 @@ From repo root (requires `TRADER_API_BASE`, `LLM_API_KEY`, intel backend up):
 cd apps/trader-workflows
 npm test
 npm run workflows -- decide TSLA.US --json
+npm run workflows -- memory init --json
+npm run workflows -- context bootstrap --symbol TSLA --json
+npm run workflows -- context latest --symbol TSLA --json
+npm run workflows -- decisions list --symbol TSLA --limit 20 --json
+npm run workflows -- outcomes list --symbol TSLA --limit 20 --json
+npm run workflows -- outcomes run --due --limit 50 --json
+npm run workflows -- eval summary --symbol TSLA.US --json
+npm run workflows -- insights explore --symbol TSLA.US --window 30d --json
+npm run workflows -- insights list --symbol TSLA --json
+npm run workflows -- pattern-memory list --symbol TSLA --json
+npm run workflows -- pattern-memory promote --pattern-memory-id pm-test --confirm --json
+npm run workflows -- pattern-memory degrade --pattern-id p-tsla --json
+npm run workflows -- failure-memory list --symbol TSLA --json
+npm run workflows -- market-monitor run --symbols TSLA --timeframes 5m --limit 3 --min-required 2 --json
+npm run workflows -- market-data fetch --symbol TSLA --timeframe 5m --limit 3 --min-required 2 --json
+npm run workflows -- market-data health --symbol TSLA --json
+npm run workflows -- market-data quality --symbol TSLA --timeframe 5m --min-required 2 --json
 npm run workflows -- runs show RUN_ID --json
 npm run workflows -- runs monitor --status interrupted --limit 20 --json
 npm run workflows -- runs trace RUN_ID --json
 npm run workflows -- context snapshots list --symbol TSLA.US --json
-npm run workflows -- outcomes run --due --limit 50 --json
-npm run workflows -- eval summary --symbol TSLA.US --json
-npm run workflows -- insights explore --symbol TSLA.US --window 30d --json
 ```
 
 LangGraph Studio (all five native graphs):
