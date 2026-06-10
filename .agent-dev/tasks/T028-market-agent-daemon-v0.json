@@ -1,0 +1,46 @@
+{
+  "task_id": "T028-market-agent-daemon-v0",
+  "spec_id": "market-agent-daemon-v0",
+  "status": "active",
+  "title": "Market Agent Daemon + Agent System — 实现",
+  "summary": "实现 Daemon 主循环、CLI 命令、Agent 工厂。基于已完成的 toolRegistry、chatReAct、wakeSchedule、prompts 基础设施。",
+  "slices": [
+    {
+      "id": "S1",
+      "title": "Daemon 主循环 + CLI 命令",
+      "status": "active",
+      "files": [
+        "apps/trader-cli/src/daemon/marketAgentDaemon.ts",
+        "apps/trader-cli/src/commands/daemon.ts",
+        "apps/trader-cli/src/index.ts"
+      ],
+      "exit_criteria": [
+        "Daemon 主循环可启动：定时醒来 → CoT Gate → 路由",
+        "trader daemon start/stop/status 三个 CLI 命令可用",
+        "节假日检测：getMarketDayType() === 'holiday' → 仅心跳",
+        "scheduleWakeup 动态任务可在内存中增删"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Agent 工厂 + resolveTools + Handoff 集成",
+      "status": "pending",
+      "files": [
+        "apps/trader-cli/src/daemon/agentFactory.ts",
+        "apps/trader-cli/src/llm/toolRegistry.ts"
+      ],
+      "exit_criteria": [
+        "agentFactory.spawn(agentId, inputs) 可根据 agentId 选择正确的 prompt + tools scope",
+        "resolveTools('daemon') 返回 market + sentiment + workflow（不含 longbridge）",
+        "代理注册: getAgentSystemPromptById(agentId) 返回非空，`daemon`/`pre-market`/`mid-day-deep`/`swarm-lead`/`post-market`/`macro` 六个 Agent 全部可查",
+        "Handoff 声明: 每个 Agent 的 Produces/Consumes 通过 prompts/index.ts 的 AGENT_IO 映射表注册",
+        "Agent 切换时 cold-start 上下文组装: spawn 前注入前序 Agent 的压缩结论"
+      ]
+    }
+  ],
+  "verification": [
+    "cd apps/trader-cli && npx tsc --noEmit",
+    "getAgentSystemPromptById('daemon') 返回非空",
+    "resolveTools('daemon') 不包含 longbridge 组"
+  ]
+}

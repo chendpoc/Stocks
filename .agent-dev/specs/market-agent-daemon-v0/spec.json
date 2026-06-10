@@ -1,0 +1,36 @@
+{
+  "spec_id": "market-agent-daemon-v0",
+  "status": "active",
+  "title": "Market Agent Daemon + Agent System — v0",
+  "summary": "基于 14_llm_reasoning_strategy.md §10-13 设计，实现 Daemon 主循环（定时唤醒 + CoT Gate + Agent 路由）、Daemon CLI 命令、Agent 工厂。",
+  "sources": [
+    "project-docs/market-agent/14_llm_reasoning_strategy.md",
+    "project-docs/market-agent/16_ai_agent_book_reference.md"
+  ],
+  "critical_files": [
+    "apps/trader-cli/src/daemon/marketAgentDaemon.ts",
+    "apps/trader-cli/src/daemon/wakeSchedule.ts",
+    "apps/trader-cli/src/llm/chatReAct.ts",
+    "apps/trader-cli/src/llm/prompts/index.ts",
+    "apps/trader-cli/src/llm/toolRegistry.ts",
+    "apps/trader-cli/src/commands/daemon.ts"
+  ],
+  "forbidden": [
+    "apps/trader-agent/backend/**",
+    "apps/trader-workflows/**"
+  ],
+  "decisions": [
+    "Daemon 是 TypeScript 独立进程（`trader daemon start` 拉起）",
+    "定时唤醒由 setInterval + wakeSchedule.ts 管理",
+    "Gate 调用使用 Flash 模型 + CoT prompt（prompts/daemonGate.ts）",
+    "Agent 路由由 complexity_score 决定（§11 路由矩阵）",
+    "Agent 工厂按 agentId 选择 prompt + tools scope",
+    "节假日缓存通过 url fetch 动态查询（不硬编码）",
+    "动态唤醒任务（scheduleWakeup）存内存"
+  ],
+  "verification": [
+    "TypeScript 编译: cd apps/trader-cli && npx tsc --noEmit",
+    "Daemon 启动不报错: node --require tsx/cjs apps/trader-cli/src/index.ts daemon status",
+    "Agent prompt 查找: getAgentSystemPromptById('daemon') 返回非空"
+  ]
+}
