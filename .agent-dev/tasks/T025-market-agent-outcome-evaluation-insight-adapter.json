@@ -1,0 +1,24 @@
+{
+  "id": "T025",
+  "spec_id": "market-agent-mvp-v0",
+  "title": "Market Agent Outcome Evaluation Insight Adapter",
+  "status": "complete",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add workflow CLI adapter behavior for outcomes list and insights list without rewriting graph implementations.",
+      "status": "complete",
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/src/index.test.ts",
+        "apps/trader-workflows/src/services/marketAgent.ts",
+        "apps/trader-workflows/src/services/marketAgent.test.ts"
+      ],
+      "verification": {
+        "ref": "V703",
+        "blocking": true
+      }
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T025-market-agent-outcome-evaluation-insight-adapter.md"
+}

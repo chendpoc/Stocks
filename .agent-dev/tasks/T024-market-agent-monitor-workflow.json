@@ -1,0 +1,23 @@
+{
+  "id": "T024",
+  "spec_id": "market-agent-mvp-v0",
+  "title": "Market Agent MarketMonitor Workflow",
+  "status": "complete",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add deterministic RiskGate boundary and MarketMonitor service wrapper.",
+      "status": "complete",
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/market_agent/risk.py",
+        "apps/trader-agent/backend/app/intel/market_agent/monitor.py",
+        "apps/trader-agent/backend/tests/test_market_agent_monitor.py"
+      ],
+      "verification": {
+        "ref": "V701",
+        "blocking": true
+      }
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T024-market-agent-monitor-workflow.md"
+}

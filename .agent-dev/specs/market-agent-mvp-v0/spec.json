@@ -1,0 +1,177 @@
+{
+  "id": "market-agent-mvp-v0",
+  "title": "Market Agent MVP v0",
+  "status": "in_progress",
+  "source_docs": [
+    "project-docs/market-agent/00_README.md",
+    "project-docs/market-agent/04_database_schema.md",
+    "project-docs/market-agent/11_api_and_cli_spec.md",
+    "project-docs/market-agent/12_development_phases.md",
+    "project-docs/market-agent/13_acceptance_tests.md",
+    "UBIQUITOUS_LANGUAGE.md"
+  ],
+  "scope": {
+    "create": [
+      ".agent-dev/specs/market-agent-mvp-v0/**",
+      ".agent-dev/tasks/T021-*.md",
+      ".agent-dev/tasks/T021-*.json",
+      ".agent-dev/tasks/T022-*.md",
+      ".agent-dev/tasks/T022-*.json",
+      ".agent-dev/tasks/T023-*.md",
+      ".agent-dev/tasks/T023-*.json",
+      ".agent-dev/tasks/T024-*.md",
+      ".agent-dev/tasks/T024-*.json",
+      ".agent-dev/tasks/T025-*.md",
+      ".agent-dev/tasks/T025-*.json",
+      ".agent-dev/tasks/T026-*.md",
+      ".agent-dev/tasks/T026-*.json",
+      ".agent-dev/tasks/T027-*.md",
+      ".agent-dev/tasks/T027-*.json",
+      "apps/trader-agent/backend/app/intel/market_agent/**",
+      "apps/trader-agent/backend/app/intel/api/market_agent.py",
+      "apps/trader-agent/backend/tests/test_market_agent_*.py",
+      "apps/trader-workflows/src/services/marketAgent*.ts",
+      "apps/trader-workflows/src/services/marketAgent*.test.ts"
+    ],
+    "modify": [
+      ".agent-dev/tasks/README.md",
+      "apps/trader-agent/backend/app/intel/db/schema.py",
+      "apps/trader-agent/backend/app/intel/api/__init__.py",
+      "apps/trader-workflows/src/index.ts",
+      "apps/trader-workflows/src/index.test.ts",
+      "apps/trader-workflows/README.md",
+      "apps/trader-workflows/README.zh-CN.md"
+    ],
+    "readonly_import": [
+      "project-docs/market-agent/**",
+      "UBIQUITOUS_LANGUAGE.md",
+      "apps/trader-workflows/src/llm/decisionEnvelope.ts",
+      "apps/trader-workflows/src/graphs/01-outcome/**",
+      "apps/trader-workflows/src/graphs/02-evaluation/**",
+      "apps/trader-workflows/src/graphs/03-insightExploration/**",
+      "apps/trader-agent/backend/app/intel/api/stage1.py",
+      "apps/trader-agent/backend/app/intel/ingestion/market_data.py"
+    ],
+    "forbidden": [
+      ".deepseek/**",
+      ".obsidian/**",
+      "apps/research-console/**",
+      "apps/trader-cockpit/**",
+      "apps/trader-cli/**",
+      "project-docs/archive/**",
+      "data/**",
+      ".github/**"
+    ]
+  },
+  "decisions": [
+    {
+      "ref": "D701",
+      "brief": "Add only five new physical Market Agent memory tables"
+    },
+    {
+      "ref": "D702",
+      "brief": "Reuse existing physical tables for concept mappings"
+    },
+    {
+      "ref": "D703",
+      "brief": "Use apps/trader-workflows CLI only"
+    },
+    {
+      "ref": "D704",
+      "brief": "Reuse completed DecisionEnvelope OutcomeGraph EvaluationGraph and InsightExplorationGraph"
+    },
+    {
+      "ref": "D705",
+      "brief": "No execution system behavior in Market Agent MVP"
+    },
+    {
+      "ref": "D706",
+      "brief": "Backend API stays under /api/intel"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "A701",
+      "check": "Only the five approved new physical tables are added for Market Agent memory",
+      "verified_by": [
+        "V701",
+        "V702"
+      ]
+    },
+    {
+      "id": "A702",
+      "check": "CLI commands use npm run workflows command surfaces and do not add a top-level trader CLI",
+      "verified_by": [
+        "V703",
+        "V704"
+      ]
+    },
+    {
+      "id": "A703",
+      "check": "Existing Stage 1 decision outcome evaluation and insight graphs are reused",
+      "verified_by": [
+        "V704",
+        "V705"
+      ]
+    },
+    {
+      "id": "A704",
+      "check": "Market Agent MVP has no OrderIntent broker account position PnL or live-trading behavior",
+      "verified_by": [
+        "V706"
+      ]
+    }
+  ],
+  "non_goals": [
+    "No top-level trader CLI",
+    "No market_snapshots decision_memories or outcome_memories physical tables",
+    "No live trading",
+    "No broker account position PnL or order lifecycle",
+    "No research-console or trader-cockpit changes",
+    "No apps/trader-cli changes"
+  ],
+  "verification": [
+    {
+      "id": "V701",
+      "command": ".venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_market_agent_*.py -v --tb=short",
+      "expect": "Market Agent backend tests pass",
+      "blocking": true
+    },
+    {
+      "id": "V702",
+      "command": ".venv/Scripts/python.exe -m pytest apps/trader-agent/backend/tests/test_intel_stage1_schema_api.py apps/trader-agent/backend/tests/test_intel_phase0_schema.py -v --tb=short",
+      "expect": "Existing intel schema and Stage 1 API tests still pass",
+      "blocking": true
+    },
+    {
+      "id": "V703",
+      "command": "npm --prefix apps/trader-workflows test",
+      "expect": "Workflow tests pass",
+      "blocking": true
+    },
+    {
+      "id": "V704",
+      "command": "npm --prefix apps/trader-workflows run workflows -- context bootstrap --json",
+      "expect": "Market Agent context bootstrap CLI returns a JSON envelope after T026",
+      "blocking": false
+    },
+    {
+      "id": "V705",
+      "command": "npm --prefix apps/trader-workflows run workflows -- outcomes run --due --json",
+      "expect": "Existing OutcomeGraph CLI path still works",
+      "blocking": false
+    },
+    {
+      "id": "V706",
+      "command": "rg -n \"OrderIntent|broker|position|PnL|live trading\" apps/trader-agent/backend/app/intel/market_agent apps/trader-workflows/src/services/marketAgent*.ts apps/trader-workflows/src/index.ts",
+      "expect": "No Market Agent MVP implementation introduces execution behavior except forbidden-term guard comments if any",
+      "blocking": true
+    },
+    {
+      "id": "V707",
+      "command": "git diff --check",
+      "expect": "No whitespace errors",
+      "blocking": true
+    }
+  ]
+}

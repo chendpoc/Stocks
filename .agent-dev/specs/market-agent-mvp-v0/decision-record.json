@@ -1,0 +1,35 @@
+{
+  "spec_id": "market-agent-mvp-v0",
+  "decisions": [
+    {
+      "id": "D701",
+      "question": "Which physical tables may Market Agent add?",
+      "answer": "Only feature_snapshots, setup_events, pattern_memories, failure_memories, and session_context_packs."
+    },
+    {
+      "id": "D702",
+      "question": "How should legacy concept names map to existing tables?",
+      "answer": "market_snapshots maps to market_bars, decision_memories maps to model_decisions, and outcome_memories maps to decision_outcomes plus insight_candidate_outcomes."
+    },
+    {
+      "id": "D703",
+      "question": "Where should CLI commands live?",
+      "answer": "Extend apps/trader-workflows and invoke commands through npm run workflows -- <command>; do not add a top-level trader CLI."
+    },
+    {
+      "id": "D704",
+      "question": "Should completed Stage 1 graph capabilities be rebuilt?",
+      "answer": "No. DecisionEnvelope, OutcomeGraph, EvaluationGraph, and InsightExplorationGraph are reused and adapted only where mapping or CLI coverage is missing."
+    },
+    {
+      "id": "D705",
+      "question": "Does Market Agent MVP include execution behavior?",
+      "answer": "No. It is observe and research only. It must not produce OrderIntent, broker/account behavior, positions, PnL, or live trading behavior."
+    },
+    {
+      "id": "D706",
+      "question": "Where should backend API endpoints live?",
+      "answer": "Under the existing app.intel.api router and /api/intel prefix."
+    }
+  ]
+}

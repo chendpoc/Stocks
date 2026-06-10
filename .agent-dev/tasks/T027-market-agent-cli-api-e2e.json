@@ -1,0 +1,58 @@
+{
+  "id": "T027",
+  "spec_id": "market-agent-mvp-v0",
+  "title": "Market Agent CLI API and E2E Acceptance",
+  "status": "complete",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Add backend API routes and tests under /api/intel for Market Agent behavior.",
+      "status": "complete",
+      "files_expected": [
+        "apps/trader-agent/backend/app/intel/api/market_agent.py",
+        "apps/trader-agent/backend/app/intel/api/__init__.py",
+        "apps/trader-agent/backend/tests/test_market_agent_api.py"
+      ],
+      "verification": {
+        "ref": "V701",
+        "blocking": true
+      }
+    },
+    {
+      "id": "S2",
+      "description": "Finish workflow CLI command set.",
+      "status": "complete",
+      "depends_on": [
+        "S1"
+      ],
+      "files_expected": [
+        "apps/trader-workflows/src/index.ts",
+        "apps/trader-workflows/src/index.test.ts",
+        "apps/trader-workflows/src/services/marketAgent.ts",
+        "apps/trader-workflows/src/services/marketAgent.test.ts"
+      ],
+      "verification": {
+        "ref": "V703",
+        "blocking": true
+      }
+    },
+    {
+      "id": "S3",
+      "description": "Add backend E2E acceptance, update workflow README command examples, and run final verification.",
+      "status": "complete",
+      "depends_on": [
+        "S2"
+      ],
+      "files_expected": [
+        "apps/trader-agent/backend/tests/test_market_agent_e2e.py",
+        "apps/trader-workflows/README.md",
+        "apps/trader-workflows/README.zh-CN.md"
+      ],
+      "verification": {
+        "ref": "V707",
+        "blocking": true
+      }
+    }
+  ],
+  "worker_prompt_path": ".agent-dev/tasks/T027-market-agent-cli-api-e2e.md"
+}

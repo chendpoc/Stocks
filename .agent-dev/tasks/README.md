@@ -20,4 +20,11 @@ Current active task groups:
 - `T017` Workflow Runtime Observability v1
 - `T018` LiveMarketDataPlane Implementation v0
 - `T019` PaperTradingEngine v0
+- `T021` Market Agent Memory Schema & Repository
+- `T022` Market Agent MarketDataService & DataQualityGate
+- `T023` Market Agent FeatureEngine & SetupDetector
+- `T024` Market Agent MarketMonitor Workflow
+- `T025` Market Agent Outcome/Evaluation/Insight Adapter
+- `T026` Market Agent Pattern/Failure Memory + SessionContextBootstrap
+- `T027` Market Agent CLI/API & E2E Acceptance
 - `T090` DecisionGraph Maturity v1
