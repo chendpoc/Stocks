@@ -7,11 +7,21 @@ import type {
   ScheduledDecisionOutcome,
 } from "../../services/decisions.js";
 import type { EvidenceRef } from "./evidenceRefs.js";
+import type { ContraGuardrailOutput } from "./contraResult.js";
+import type { EvidenceGuardrailOutput } from "./evidenceResult.js";
+import type {
+  GateDecision,
+  SwarmWorkerResult,
+} from "./decisionGraph.llmNodes.js";
 
 export const DecisionGraphStateAnnotation = Annotation.Root({
   run_id: Annotation<string>(),
   thread_id: Annotation<string>(),
   symbol: Annotation<string>(),
+  setup_name: Annotation<string>({
+    reducer: (_left, right) => right ?? "",
+    default: () => "",
+  }),
   taskType: Annotation<string>(),
   asof_ts: Annotation<string>(),
   model_version: Annotation<string>(),
@@ -26,6 +36,26 @@ export const DecisionGraphStateAnnotation = Annotation.Root({
   evidence_refs: Annotation<EvidenceRef[]>({
     reducer: (_left, right) => right ?? [],
     default: () => [],
+  }),
+  gate_decision: Annotation<GateDecision | null>({
+    reducer: (_left, right) => right ?? null,
+    default: () => null,
+  }),
+  evidence_result: Annotation<EvidenceGuardrailOutput | null>({
+    reducer: (_left, right) => right ?? null,
+    default: () => null,
+  }),
+  contra_result: Annotation<ContraGuardrailOutput | null>({
+    reducer: (_left, right) => right ?? null,
+    default: () => null,
+  }),
+  swarm_worker_results: Annotation<SwarmWorkerResult[]>({
+    reducer: (_left, right) => right ?? [],
+    default: () => [],
+  }),
+  confidence_contribution: Annotation<number | null>({
+    reducer: (_left, right) => right ?? null,
+    default: () => null,
   }),
   envelope: Annotation<DecisionEnvelope | null>({
     reducer: (_left, right) => right ?? null,

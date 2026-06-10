@@ -6,6 +6,7 @@ import {
   DECISION_GRAPH_NODE_NAMES,
   decisionGraph,
   deterministicDecisionId,
+  applyMarketRegimeRiskAdjustment,
   runDecisionGraph,
 } from "./decisionGraph.js";
 import { DecisionGraph } from "./decisionGraph.types.js";
@@ -140,7 +141,7 @@ test("DecisionGraph persists snapshot, decision, and pending model_path outcomes
         action: input.envelope.action.toLowerCase(),
         confidence: input.envelope.confidence,
         uncertainty: input.envelope.uncertainty ?? null,
-        decision_json: JSON.stringify(input.envelope),
+        decision_json: extractDecisionJson(input.envelope),
         status: "active",
       };
       persistedDecisions.push(record);
@@ -197,7 +198,7 @@ test("runDecisionGraph invokes the compiled StateGraph path", async () => {
         action: input.envelope.action.toLowerCase(),
         confidence: input.envelope.confidence,
         uncertainty: input.envelope.uncertainty ?? null,
-        decision_json: JSON.stringify(input.envelope),
+        decision_json: extractDecisionJson(input.envelope),
         status: "active",
       }),
       scheduleOutcomes: async (input) =>
@@ -264,4 +265,44 @@ test("extractDecisionJson marks paper actions as not submitted", () => {
   });
   const json = extractDecisionJson(envelope);
   assert.equal(json.paper_execution_submitted, false);
+});
+
+test("parseDecisionEnvelope preserves optional market_regime", () => {
+  const envelope = parseDecisionEnvelope({
+    symbol: "TSLA",
+    action: "NO_TRADE",
+    thesis: "No edge",
+    confidence: 0.6,
+    market_regime: {
+      state: "VOLATILE",
+      confidence: 82,
+      transition_risk: "high",
+      indicators: { vix: 34 },
+    },
+  });
+
+  assert.equal(envelope.market_regime?.state, "volatile");
+  assert.equal(envelope.market_regime?.confidence, 0.82);
+  assert.equal(envelope.market_regime?.transition_risk, 0.75);
+  assert.deepEqual(extractDecisionJson(envelope).market_regime, envelope.market_regime);
+});
+
+test("applyMarketRegimeRiskAdjustment lowers confidence only in volatile regimes", () => {
+  const calm = parseDecisionEnvelope({
+    symbol: "TSLA",
+    action: "NO_TRADE",
+    thesis: "No edge",
+    confidence: 0.8,
+    market_regime: { state: "trending" },
+  });
+  const volatile = parseDecisionEnvelope({
+    symbol: "TSLA",
+    action: "NO_TRADE",
+    thesis: "No edge",
+    confidence: 0.8,
+    market_regime: { state: "volatile" },
+  });
+
+  assert.equal(applyMarketRegimeRiskAdjustment(calm).confidence, 0.8);
+  assert.equal(applyMarketRegimeRiskAdjustment(volatile).confidence, 0.6);
 });

@@ -13,11 +13,20 @@ import {
 } from "../services/insightCandidates.js";
 import type { EvaluationOutcomeRow } from "../services/evaluation.js";
 
+export type DecisionLlmAnalysisSummary = {
+  evidence_text?: string;
+  contra_text?: string;
+  confidence_contribution?: number;
+  risk_flags?: string[];
+};
+
 export interface DecisionGenerationInput {
   symbol: string;
   /** ISO UTC timestamp aligned with the context snapshot `asof_ts`. */
   asof_ts: string;
   contextItems: WeightedContextItem[];
+  /** Mid-day evidence / contra chain from DecisionGraph LLM nodes (§3-4). */
+  llmAnalysis?: DecisionLlmAnalysisSummary;
 }
 
 export interface InsightProposalGenerationInput {
@@ -327,6 +336,28 @@ export function buildDecisionPrompt(
       composite_weight: item.composite_weight,
     }));
 
+  const llmAnalysis = input.llmAnalysis;
+  const analysisBlock =
+    llmAnalysis &&
+      (llmAnalysis.evidence_text ||
+        llmAnalysis.contra_text ||
+        llmAnalysis.confidence_contribution !== undefined)
+      ? [
+        "LLM evidence / contra analysis (must inform action and confidence):",
+        JSON.stringify({
+          evidence_text: llmAnalysis.evidence_text,
+          contra_text: llmAnalysis.contra_text,
+          confidence_contribution: llmAnalysis.confidence_contribution,
+          risk_flags: llmAnalysis.risk_flags ?? [],
+        }),
+        llmAnalysis.confidence_contribution !== undefined
+          ? `Cap confidence at or below confidence_contribution=${llmAnalysis.confidence_contribution}.`
+          : "",
+      ]
+        .filter((line) => line.length > 0)
+        .join("\n")
+      : "";
+
   return [
     "Return strict JSON only for a trading DecisionEnvelope.",
     `Symbol: ${input.symbol}`,
@@ -336,6 +367,7 @@ export function buildDecisionPrompt(
     "Action-specific fields:",
     DECISION_ACTION_REQUIREMENTS,
     repairHint ? `Fix prior validation error: ${repairHint}` : "",
+    analysisBlock,
     "Context items:",
     JSON.stringify(topItems),
   ]
@@ -406,11 +438,18 @@ export function createWorkflowLlmProvider(): WorkflowLlmProvider {
           buildDecisionSystemMessage(style),
         );
         try {
-          const envelope = parseDecisionEnvelope(parsed);
+          let envelope = parseDecisionEnvelope(parsed);
           if (envelope.symbol !== symbol) {
             throw new Error(
               `DecisionEnvelope symbol mismatch: expected ${symbol}, got ${envelope.symbol}`,
             );
+          }
+          const cap = input.llmAnalysis?.confidence_contribution;
+          if (cap !== undefined && cap >= 0 && cap <= 1) {
+            envelope = {
+              ...envelope,
+              confidence: Math.min(envelope.confidence, cap),
+            };
           }
           return envelope;
         } catch (error) {

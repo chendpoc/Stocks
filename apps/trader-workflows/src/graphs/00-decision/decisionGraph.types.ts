@@ -8,6 +8,7 @@ import {
   type ScheduledDecisionOutcome,
 } from "../../services/decisions.js";
 import { buildAndPersistContextSnapshot } from "../../services/contextSnapshots.js";
+import type { GateDecision, LlmNodeDeps } from "./decisionGraph.llmNodes.js";
 
 export interface DecisionGraphInput {
   symbol: string;
@@ -15,6 +16,8 @@ export interface DecisionGraphInput {
   taskType?: string;
   asof_ts?: string;
   model_version?: string;
+  setup_name?: string;
+  gate_decision?: GateDecision;
 }
 
 export interface DecisionGraphResult {
@@ -31,6 +34,7 @@ export interface DecisionGraphDeps {
   llm?: WorkflowLlmProvider;
   persistDecision?: typeof persistModelDecision;
   scheduleOutcomes?: typeof scheduleModelPathOutcomes;
+  llmNodes?: LlmNodeDeps;
 }
 
 /** @deprecated Use runDecisionGraph or the compiled decisionGraph export. */

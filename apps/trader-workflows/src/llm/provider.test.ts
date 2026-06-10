@@ -70,6 +70,24 @@ test("formatDecisionAsOfForPrompt uses Asia/Shanghai by default", () => {
   }
 });
 
+test("buildDecisionPrompt includes LLM evidence analysis when provided", () => {
+  const prompt = buildDecisionPrompt({
+    symbol: "TSLA",
+    asof_ts: "2026-06-03T17:04:48.519Z",
+    contextItems: [SAMPLE_ITEM],
+    llmAnalysis: {
+      evidence_text: "VWAP reclaim confirmed",
+      contra_text: "Volume risk remains",
+      confidence_contribution: 0.55,
+      risk_flags: ["low_volume_risk"],
+    },
+  });
+
+  assert.match(prompt, /LLM evidence \/ contra analysis/);
+  assert.match(prompt, /confidence_contribution=0.55/);
+  assert.match(prompt, /low_volume_risk/);
+});
+
 test("buildDecisionPrompt includes timeframe guide and structured thesis labels", () => {
   const prompt = buildDecisionPrompt({
     symbol: "AAPL",
