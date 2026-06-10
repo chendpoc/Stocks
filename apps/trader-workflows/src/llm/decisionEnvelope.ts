@@ -8,12 +8,21 @@ export const DECISION_ACTIONS = [
 ] as const;
 
 export type DecisionAction = (typeof DECISION_ACTIONS)[number];
+export type MarketRegimeState = "trending" | "ranging" | "volatile" | "crisis" | string;
+
+export interface MarketRegimeInfo {
+  state: MarketRegimeState;
+  confidence?: number;
+  transition_risk?: number;
+  indicators?: Record<string, unknown>;
+}
 
 export interface DecisionEnvelope {
   symbol: string;
   action: DecisionAction;
   thesis: string;
   confidence: number;
+  market_regime?: MarketRegimeInfo;
   uncertainty?: number;
   watch_condition?: string;
   trigger?: string;
@@ -173,6 +182,41 @@ function normalizeAction(value: unknown): DecisionAction | null {
   return isDecisionAction(normalized) ? normalized : null;
 }
 
+function normalizeMarketRegime(value: unknown): MarketRegimeInfo | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return { state: value.trim().toLowerCase() };
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const rawState = record.state ?? record.regime ?? record.market_state;
+  if (typeof rawState !== "string" || rawState.trim().length === 0) {
+    return undefined;
+  }
+  const confidence = normalizeProbability(record.confidence, {
+    optional: true,
+    field: "market_regime.confidence",
+  });
+  const transitionRisk = normalizeProbability(record.transition_risk, {
+    optional: true,
+    field: "market_regime.transition_risk",
+  });
+  const indicators =
+    record.indicators && typeof record.indicators === "object" && !Array.isArray(record.indicators)
+      ? (record.indicators as Record<string, unknown>)
+      : undefined;
+  return {
+    state: rawState.trim().toLowerCase(),
+    confidence,
+    transition_risk: transitionRisk,
+    indicators,
+  };
+}
+
 export function parseDecisionEnvelope(raw: unknown): DecisionEnvelope {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new DecisionEnvelopeValidationError("DecisionEnvelope must be an object");
@@ -204,6 +248,7 @@ export function parseDecisionEnvelope(raw: unknown): DecisionEnvelope {
     action,
     thesis,
     confidence,
+    market_regime: normalizeMarketRegime(record.market_regime),
     uncertainty,
     watch_condition: planFields.watch_condition,
     trigger: planFields.trigger,
@@ -255,6 +300,7 @@ export function extractDecisionJson(envelope: DecisionEnvelope): Record<string, 
     action: envelope.action,
     thesis: envelope.thesis,
     confidence: envelope.confidence,
+    market_regime: envelope.market_regime ?? null,
     uncertainty: envelope.uncertainty ?? null,
     watch_condition: envelope.watch_condition ?? null,
     trigger: envelope.trigger ?? null,

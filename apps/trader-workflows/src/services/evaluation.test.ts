@@ -4,9 +4,11 @@ import test from "node:test";
 import {
   aggregateEvaluationMetrics,
   aggregatePathMetrics,
+  aggregateTripleBarrierMetrics,
   buildEvaluationReportPayload,
   buildEvaluationReportSections,
   computeDeltaHumanValue,
+  computeSystemQualityScores,
   deriveRecommendation,
   filterOutcomesForModelVersion,
   inferEvaluationWindow,
@@ -27,6 +29,7 @@ function outcome(
     relative_return_pct: 1,
     absolute_return_pct: 2,
     label: "positive",
+    barrier_result: "hit_profit_first",
     created_at: "2026-06-01T10:00:00Z",
     labeled_at: "2026-06-02T10:00:00Z",
     ...overrides,
@@ -101,6 +104,35 @@ test("computeDeltaHumanValue aggregates paired horizon deltas", () => {
   assert.equal(delta.model_better_count, 1);
 });
 
+test("aggregateTripleBarrierMetrics counts deterministic barrier outcomes", () => {
+  const metrics = aggregateTripleBarrierMetrics([
+    outcome({ outcome_id: "b1", barrier_result: "hit_profit_first" }),
+    outcome({ outcome_id: "b2", barrier_result: "hit_stop_first" }),
+    outcome({ outcome_id: "b3", barrier_result: "hit_time_first" }),
+    outcome({ outcome_id: "b4", barrier_result: "none", status: "skipped", label: null }),
+    outcome({ outcome_id: "b5", status: "pending", label: null }),
+  ]);
+
+  assert.equal(metrics.total_count, 4);
+  assert.equal(metrics.hit_profit_first_count, 1);
+  assert.equal(metrics.hit_stop_first_count, 1);
+  assert.equal(metrics.hit_time_first_count, 1);
+  assert.equal(metrics.none_count, 1);
+  assert.equal(metrics.profit_first_rate, 0.25);
+});
+
+test("computeSystemQualityScores reports evidence and contra signal rates", () => {
+  const scores = computeSystemQualityScores([
+    outcome({ outcome_id: "q1", label: "positive", barrier_result: "hit_profit_first" }),
+    outcome({ outcome_id: "q2", label: "negative", barrier_result: "hit_stop_first" }),
+    outcome({ outcome_id: "q3", label: "neutral", barrier_result: "hit_time_first" }),
+    outcome({ outcome_id: "q4", path: "override_path", label: "positive" }),
+  ]);
+
+  assert.equal(scores.evidence_utility_score, 0.3333);
+  assert.equal(scores.contra_predictive_power, 0.3333);
+});
+
 test("deriveRecommendation returns needs_more_data when model_path sample is too small", () => {
   const metrics = aggregateEvaluationMetrics(
     Array.from({ length: MIN_LABELED_MODEL_PATH - 1 }, (_, index) =>
@@ -149,6 +181,10 @@ test("buildEvaluationReportPayload only emits hold or needs_more_data", () => {
   assert.ok(payload.recommendation === "hold" || payload.recommendation === "needs_more_data");
   assert.equal(payload.report_json.auto_promotion, false);
   assert.equal(payload.metrics_json.model_path.labeled_count, MIN_LABELED_MODEL_PATH);
+  assert.ok(payload.metrics_json.triple_barrier);
+  assert.equal(payload.metrics_json.triple_barrier.hit_profit_first_count, MIN_LABELED_MODEL_PATH);
+  assert.equal(payload.evidence_utility_score, 1);
+  assert.equal(payload.contra_predictive_power, 0);
   assert.ok(payload.sections, "payload must include sections");
   assert.ok("decision_performance" in payload.sections);
   assert.ok("insight_candidate_performance" in payload.sections);

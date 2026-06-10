@@ -350,7 +350,7 @@ test("outcomes run / eval summary / insights explore still dispatch through runG
           throw new Error(`unsupported graph ${input.graph_name}`);
       }
     },
-    close: () => {},
+    close: () => { },
   } as unknown as Stage1Runtime;
 
   const outcomesRun = await handleCommandAsync(runtime, [

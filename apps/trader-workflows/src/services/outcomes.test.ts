@@ -5,10 +5,12 @@ import { OUTCOME_HORIZONS } from "./decisions.js";
 import {
   buildOutcomeLabelPayload,
   computeOutcomeLabelMetrics,
+  computeTripleBarrierResult,
   finalizeDueOutcome,
   isSupportedOutcomeHorizon,
   resolveOutcomeBarQuery,
   resolveBenchmarkSymbol,
+  resolveTripleBarrierTimeBars,
   selectHorizonPrices,
   type DecisionOutcomeRow,
   type MarketBar,
@@ -66,7 +68,47 @@ test("computeOutcomeLabelMetrics is deterministic for same inputs", () => {
   assert.equal(first.relative_return_pct, 9);
   assert.equal(first.hit_invalidation_proxy, false);
   assert.equal(first.hit_target_proxy, false);
+  assert.equal(first.barrier_result, "none");
   assert.equal(first.label, "positive");
+});
+
+test("computeTripleBarrierResult returns first deterministic barrier hit", () => {
+  assert.equal(
+    computeTripleBarrierResult({
+      entry_price: 100,
+      profit_barrier_pct: 3,
+      stop_barrier_pct: 2,
+      bars: [
+        { ts: "2026-06-01T09:35:00Z", close: 101, high: 101.5, low: 99.5 },
+        { ts: "2026-06-01T09:40:00Z", close: 103, high: 103.5, low: 102 },
+      ],
+    }),
+    "hit_profit_first",
+  );
+
+  assert.equal(
+    computeTripleBarrierResult({
+      entry_price: 100,
+      profit_barrier_pct: 3,
+      stop_barrier_pct: 2,
+      bars: [{ ts: "2026-06-01T09:35:00Z", close: 98, high: 101, low: 97.5 }],
+    }),
+    "hit_stop_first",
+  );
+
+  assert.equal(
+    computeTripleBarrierResult({
+      entry_price: 100,
+      profit_barrier_pct: 3,
+      stop_barrier_pct: 2,
+      time_barrier_bars: 1,
+      bars: [
+        { ts: "2026-06-01T09:35:00Z", close: 100.5, high: 101, low: 99.5 },
+        { ts: "2026-06-01T09:40:00Z", close: 103, high: 103.5, low: 102 },
+      ],
+    }),
+    "hit_time_first",
+  );
 });
 
 test("computeOutcomeLabelMetrics detects invalidation and target proxies", () => {
@@ -145,6 +187,17 @@ test("resolveOutcomeBarQuery uses intraday bars for short horizons", () => {
   assert.deepEqual(resolveOutcomeBarQuery("3d"), { timeframe: "1d", limit: 10 });
 });
 
+test("resolveTripleBarrierTimeBars binds missing explicit barrier to due_at", () => {
+  assert.equal(
+    resolveTripleBarrierTimeBars({
+      horizon: "1h",
+      due_at: "2026-06-01T11:00:00Z",
+      bars: SYMBOL_BARS,
+    }),
+    2,
+  );
+});
+
 test("buildOutcomeLabelPayload returns skipped when market data is insufficient", async () => {
   const outcome: DecisionOutcomeRow = {
     outcome_id: "out-1",
@@ -169,6 +222,40 @@ test("buildOutcomeLabelPayload returns skipped when market data is insufficient"
 
   assert.equal(payload.status, "skipped");
   assert.equal(payload.label, "insufficient_data");
+  assert.equal(payload.barrier_result, "none");
+});
+
+test("buildOutcomeLabelPayload does not scan triple barrier past due_at", async () => {
+  const payload = await buildOutcomeLabelPayload({
+    outcome: {
+      outcome_id: "out-bounded",
+      decision_id: "dec-bounded",
+      symbol: "TSLA",
+      horizon: "1h",
+      path: "model_path",
+      status: "pending",
+      due_at: "2026-06-01T11:00:00Z",
+    },
+    symbolBars: [
+      { ts: "2026-06-01T09:30:00Z", close: 100, high: 100, low: 100 },
+      { ts: "2026-06-01T10:00:00Z", close: 100.5, high: 101, low: 99.8 },
+      { ts: "2026-06-01T11:00:00Z", close: 101, high: 101.5, low: 100.5 },
+      { ts: "2026-06-01T12:00:00Z", close: 104, high: 104.5, low: 103.5 },
+    ],
+    benchmarkBars: BENCHMARK_BARS,
+    fetchDecision: async () => ({
+      decision_id: "dec-bounded",
+      symbol: "TSLA",
+      action: "watch",
+      decision_json: {
+        profit_barrier_pct: 3,
+        stop_barrier_pct: 2,
+      },
+    }),
+  });
+
+  assert.equal(payload.status, "labeled");
+  assert.equal(payload.barrier_result, "hit_time_first");
 });
 
 test("buildOutcomeLabelPayload fetches bars by horizon timeframe", async () => {
@@ -196,6 +283,7 @@ test("buildOutcomeLabelPayload fetches bars by horizon timeframe", async () => {
   });
 
   assert.equal(payload.status, "labeled");
+  assert.equal(payload.barrier_result, "hit_profit_first");
   assert.deepEqual(calls, [
     { symbol: "TSLA", timeframe: "5m", limit: 36 },
     { symbol: "QQQ", timeframe: "5m", limit: 36 },
@@ -225,12 +313,14 @@ test("finalizeDueOutcome labels pending row exactly once", async () => {
       decision_json: {
         invalidation: "close below 105",
         target_plan: "scale out near 120",
+        profit_barrier_pct: 2,
       },
     }),
     label: async (outcome_id, payload) => {
       labelCalls += 1;
       assert.equal(outcome_id, "out-2");
       assert.equal(payload.status, "labeled");
+      assert.equal(payload.barrier_result, "hit_profit_first");
       assert.equal(typeof payload.absolute_return_pct, "number");
       assert.equal(typeof payload.relative_return_pct, "number");
       return {

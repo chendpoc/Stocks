@@ -9,6 +9,11 @@ export type InsightCandidateOutcomeHorizon = (typeof INSIGHT_CANDIDATE_OUTCOME_H
 
 export type OutcomeFinalStatus = "labeled" | "skipped" | "failed";
 export type OutcomeSourceType = "decision" | "insight_candidate";
+export type BarrierResult =
+  | "hit_profit_first"
+  | "hit_stop_first"
+  | "hit_time_first"
+  | "none";
 export type NormalizedOutcomeLabel =
   | "hit"
   | "miss"
@@ -26,6 +31,7 @@ export interface DecisionOutcomeRow {
   due_at?: string | null;
   scheduled_at?: string | null;
   label?: string | null;
+  barrier_result?: BarrierResult | null;
   created_at?: string;
 }
 
@@ -72,6 +78,7 @@ export interface OutcomeLabelMetrics {
   relative_return_pct: number;
   hit_invalidation_proxy: boolean;
   hit_target_proxy: boolean;
+  barrier_result: BarrierResult;
   label: string;
 }
 
@@ -223,7 +230,7 @@ function pctChange(from: number, to: number): number {
   return ((to - from) / from) * 100;
 }
 
-function parseThreshold(text: string | null | undefined, keyword: "below" | "above"): number | null {
+function parseThreshold(text: string | null | undefined, keyword: string): number | null {
   if (!text) {
     return null;
   }
@@ -235,6 +242,116 @@ function parseThreshold(text: string | null | undefined, keyword: "below" | "abo
   return match ? Number.parseFloat(match[1]) : null;
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function resolvePositivePctFromPrice(entryPrice: number, targetPrice: number | null): number | null {
+  if (entryPrice <= 0 || targetPrice === null || targetPrice <= entryPrice) {
+    return null;
+  }
+  return ((targetPrice - entryPrice) / entryPrice) * 100;
+}
+
+function resolveStopPctFromPrice(entryPrice: number, stopPrice: number | null): number | null {
+  if (entryPrice <= 0 || stopPrice === null || stopPrice >= entryPrice) {
+    return null;
+  }
+  return ((entryPrice - stopPrice) / entryPrice) * 100;
+}
+
+export function computeTripleBarrierResult(input: {
+  bars: MarketBar[];
+  entry_price: number;
+  profit_barrier_pct?: number | null;
+  stop_barrier_pct?: number | null;
+  time_barrier_bars?: number | null;
+}): BarrierResult {
+  const entry = input.entry_price;
+  const profitPct = input.profit_barrier_pct ?? 2;
+  const stopPct = input.stop_barrier_pct ?? 1.5;
+  if (entry <= 0 || profitPct <= 0 || stopPct <= 0) {
+    return "none";
+  }
+
+  const horizon = input.time_barrier_bars && input.time_barrier_bars > 0
+    ? Math.min(input.bars.length, input.time_barrier_bars)
+    : input.bars.length;
+  const path = input.bars.slice(0, horizon);
+  if (path.length === 0) {
+    return "none";
+  }
+
+  const profitPrice = entry * (1 + profitPct / 100);
+  const stopPrice = entry * (1 - stopPct / 100);
+  for (const bar of path) {
+    const high = toFiniteNumber(bar.high ?? bar.close);
+    const low = toFiniteNumber(bar.low ?? bar.close);
+    if (high === null || low === null) {
+      continue;
+    }
+    const hitProfit = high >= profitPrice;
+    const hitStop = low <= stopPrice;
+    if (hitProfit && hitStop) {
+      return "hit_stop_first";
+    }
+    if (hitProfit) {
+      return "hit_profit_first";
+    }
+    if (hitStop) {
+      return "hit_stop_first";
+    }
+  }
+  return "hit_time_first";
+}
+
+export function resolveTripleBarrierTimeBars(input: {
+  horizon: string;
+  bars: MarketBar[];
+  due_at?: string | null;
+  explicit_time_barrier_bars?: number | null;
+}): number {
+  if (
+    input.explicit_time_barrier_bars !== null &&
+    input.explicit_time_barrier_bars !== undefined &&
+    input.explicit_time_barrier_bars > 0
+  ) {
+    return Math.floor(input.explicit_time_barrier_bars);
+  }
+
+  if (input.due_at) {
+    const dueAtMs = Date.parse(input.due_at);
+    if (Number.isFinite(dueAtMs)) {
+      const dueIndex = input.bars.findIndex((bar) => Date.parse(bar.ts) >= dueAtMs);
+      if (dueIndex >= 0) {
+        return Math.max(1, dueIndex);
+      }
+    }
+  }
+
+  switch (input.horizon as OutcomeHorizon) {
+    case "30m":
+      return 1;
+    case "1h":
+      return 2;
+    case "EOD":
+      return 3;
+    case "1d":
+      return Math.min(4, Math.max(1, input.bars.length - 1));
+    case "3d":
+      return Math.max(1, input.bars.length - 1);
+    default:
+      return Math.max(1, input.bars.length - 1);
+  }
+}
+
 export function computeOutcomeLabelMetrics(input: {
   horizon: string;
   reference_price: number;
@@ -243,6 +360,7 @@ export function computeOutcomeLabelMetrics(input: {
   benchmark_future_price: number;
   invalidation?: string | null;
   target_plan?: string | null;
+  barrier_result?: BarrierResult;
   symbol: string;
 }): OutcomeLabelMetrics {
   const absolute_return_pct = pctChange(input.reference_price, input.future_price);
@@ -289,6 +407,7 @@ export function computeOutcomeLabelMetrics(input: {
     relative_return_pct,
     hit_invalidation_proxy,
     hit_target_proxy,
+    barrier_result: input.barrier_result ?? "none",
     label,
   };
 }
@@ -310,30 +429,11 @@ export function selectHorizonPrices(input: {
     return null;
   }
 
-  const dueAtMs = input.due_at ? Date.parse(input.due_at) : Number.NaN;
-  const horizonIndex = (() => {
-    if (Number.isFinite(dueAtMs)) {
-      const dueIndex = symbolBars.findIndex((bar) => Date.parse(bar.ts) >= dueAtMs);
-      if (dueIndex <= 0) {
-        return null;
-      }
-      return dueIndex;
-    }
-    switch (input.horizon as OutcomeHorizon) {
-      case "30m":
-        return Math.min(1, symbolBars.length - 1);
-      case "1h":
-        return Math.min(2, symbolBars.length - 1);
-      case "EOD":
-        return Math.min(3, symbolBars.length - 1);
-      case "1d":
-        return Math.min(4, symbolBars.length - 1);
-      case "3d":
-        return symbolBars.length - 1;
-      default:
-        return symbolBars.length - 1;
-    }
-  })();
+  const horizonIndex = resolveOutcomeHorizonIndex({
+    symbolBars,
+    due_at: input.due_at,
+    horizon: input.horizon,
+  });
   if (horizonIndex === null) {
     return null;
   }
@@ -358,6 +458,35 @@ export function selectHorizonPrices(input: {
     benchmark_reference_price: benchRef.close,
     benchmark_future_price: benchFuture.close,
   };
+}
+
+function resolveOutcomeHorizonIndex(input: {
+  symbolBars: MarketBar[];
+  due_at?: string | null;
+  horizon: string;
+}): number | null {
+  const maxIndex = input.symbolBars.length - 1;
+  const dueAtMs = input.due_at ? Date.parse(input.due_at) : Number.NaN;
+  if (Number.isFinite(dueAtMs)) {
+    const dueIndex = input.symbolBars.findIndex((bar) => Date.parse(bar.ts) >= dueAtMs);
+    if (dueIndex <= 0) {
+      return null;
+    }
+    return Math.min(dueIndex, maxIndex);
+  }
+  switch (input.horizon as OutcomeHorizon) {
+    case "30m":
+      return Math.min(1, maxIndex);
+    case "1h":
+      return Math.min(2, maxIndex);
+    case "EOD":
+      return Math.min(3, maxIndex);
+    case "1d":
+      return Math.min(4, maxIndex);
+    case "3d":
+    default:
+      return maxIndex;
+  }
 }
 
 export function resolveOutcomeBarQuery(horizon: string): {
@@ -477,6 +606,7 @@ export async function buildOutcomeLabelPayload(input: {
         relative_return_pct: 0,
         hit_invalidation_proxy: false,
         hit_target_proxy: false,
+        barrier_result: "none",
         label: "insufficient_data",
         outcome_json: {
           reason: "insufficient_market_bars",
@@ -492,6 +622,34 @@ export async function buildOutcomeLabelPayload(input: {
         typeof decisionJson.invalidation === "string" ? decisionJson.invalidation : null,
       target_plan:
         typeof decisionJson.target_plan === "string" ? decisionJson.target_plan : null,
+      barrier_result: computeTripleBarrierResult({
+        bars: symbolBars.slice(1),
+        entry_price: prices.reference_price,
+        profit_barrier_pct:
+          toFiniteNumber(decisionJson.profit_barrier_pct) ??
+          resolvePositivePctFromPrice(
+            prices.reference_price,
+            typeof decisionJson.target_plan === "string"
+              ? parseThreshold(decisionJson.target_plan, "near") ??
+                parseThreshold(decisionJson.target_plan, "above") ??
+                parseThreshold(decisionJson.target_plan, "target")
+              : null,
+          ),
+        stop_barrier_pct:
+          toFiniteNumber(decisionJson.stop_barrier_pct) ??
+          resolveStopPctFromPrice(
+            prices.reference_price,
+            typeof decisionJson.invalidation === "string"
+              ? parseThreshold(decisionJson.invalidation, "below")
+              : null,
+          ),
+        time_barrier_bars: resolveTripleBarrierTimeBars({
+          horizon: input.outcome.horizon,
+          bars: symbolBars,
+          due_at: input.outcome.due_at,
+          explicit_time_barrier_bars: toFiniteNumber(decisionJson.time_barrier_bars),
+        }),
+      }),
       ...prices,
     });
 
@@ -516,6 +674,7 @@ export async function buildOutcomeLabelPayload(input: {
       relative_return_pct: 0,
       hit_invalidation_proxy: false,
       hit_target_proxy: false,
+      barrier_result: "none",
       label: "failed",
       outcome_json: {
         reason: error instanceof Error ? error.message : "unknown_error",
@@ -541,6 +700,7 @@ export async function labelDecisionOutcome(
       relative_return_pct: payload.relative_return_pct,
       hit_invalidation_proxy: payload.hit_invalidation_proxy,
       hit_target_proxy: payload.hit_target_proxy,
+      barrier_result: payload.barrier_result,
       label: payload.label,
       outcome_json: payload.outcome_json,
     }),

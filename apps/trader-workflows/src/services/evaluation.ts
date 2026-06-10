@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { fetchStage1 } from "../api/client.js";
-import type { DecisionOutcomeRow, InsightCandidateOutcomeRow, NormalizedOutcomeLabel } from "./outcomes.js";
+import type {
+  BarrierResult,
+  DecisionOutcomeRow,
+  InsightCandidateOutcomeRow,
+  NormalizedOutcomeLabel,
+} from "./outcomes.js";
 import { normalizeDecisionLabel, normalizeInsightLabel, mapToInsightCandidateOutcomeRow } from "./outcomes.js";
 
 export type EvaluationRecommendation = "hold" | "needs_more_data";
@@ -43,10 +48,24 @@ export interface DeltaHumanValue {
   model_better_count: number;
 }
 
+export interface TripleBarrierMetrics {
+  total_count: number;
+  hit_profit_first_count: number;
+  hit_stop_first_count: number;
+  hit_time_first_count: number;
+  none_count: number;
+  profit_first_rate: number | null;
+  stop_first_rate: number | null;
+  time_first_rate: number | null;
+}
+
 export interface EvaluationMetrics {
   model_path: PathMetrics;
   override_path: PathMetrics;
   delta_human_value: DeltaHumanValue;
+  triple_barrier?: TripleBarrierMetrics;
+  evidence_utility_score?: number | null;
+  contra_predictive_power?: number | null;
 }
 
 export interface EvaluationReportRecord {
@@ -57,6 +76,8 @@ export interface EvaluationReportRecord {
   metrics_json: EvaluationMetrics;
   recommendation: EvaluationRecommendation;
   report_json: Record<string, unknown>;
+  evidence_utility_score?: number | null;
+  contra_predictive_power?: number | null;
   created_at?: string;
 }
 
@@ -116,6 +137,8 @@ export interface EvaluationReportPayload {
   recommendation: EvaluationRecommendation;
   sections: EvaluationReportSections;
   report_json: Record<string, unknown>;
+  evidence_utility_score?: number | null;
+  contra_predictive_power?: number | null;
 }
 
 function mean(values: number[]): number | null {
@@ -138,6 +161,21 @@ function parseNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function roundScore(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+function normalizeBarrierResult(value: unknown): BarrierResult {
+  switch (value) {
+    case "hit_profit_first":
+    case "hit_stop_first":
+    case "hit_time_first":
+      return value;
+    default:
+      return "none";
+  }
 }
 
 function outcomeTimestamp(row: EvaluationOutcomeRow): string | null {
@@ -218,11 +256,72 @@ export function computeDeltaHumanValue(outcomes: EvaluationOutcomeRow[]): DeltaH
   };
 }
 
+export function aggregateTripleBarrierMetrics(
+  outcomes: EvaluationOutcomeRow[],
+): TripleBarrierMetrics {
+  const finalized = outcomes.filter((row) => row.status !== "pending");
+  const counts: Record<BarrierResult, number> = {
+    hit_profit_first: 0,
+    hit_stop_first: 0,
+    hit_time_first: 0,
+    none: 0,
+  };
+  for (const row of finalized) {
+    counts[normalizeBarrierResult(row.barrier_result)] += 1;
+  }
+  const total = finalized.length;
+  return {
+    total_count: total,
+    hit_profit_first_count: counts.hit_profit_first,
+    hit_stop_first_count: counts.hit_stop_first,
+    hit_time_first_count: counts.hit_time_first,
+    none_count: counts.none,
+    profit_first_rate: total > 0 ? roundScore(counts.hit_profit_first / total) : null,
+    stop_first_rate: total > 0 ? roundScore(counts.hit_stop_first / total) : null,
+    time_first_rate: total > 0 ? roundScore(counts.hit_time_first / total) : null,
+  };
+}
+
+export function computeSystemQualityScores(outcomes: EvaluationOutcomeRow[]): {
+  evidence_utility_score: number | null;
+  contra_predictive_power: number | null;
+} {
+  const labeledModelPath = outcomes.filter(
+    (row) => row.path === "model_path" && row.status === "labeled",
+  );
+  if (labeledModelPath.length === 0) {
+    return {
+      evidence_utility_score: null,
+      contra_predictive_power: null,
+    };
+  }
+
+  const evidenceHits = labeledModelPath.filter((row) =>
+    row.label === "positive" ||
+    row.label === "target_hit" ||
+    normalizeBarrierResult(row.barrier_result) === "hit_profit_first"
+  ).length;
+  const contraHits = labeledModelPath.filter((row) =>
+    row.label === "negative" ||
+    row.label === "invalidated" ||
+    normalizeBarrierResult(row.barrier_result) === "hit_stop_first"
+  ).length;
+
+  return {
+    evidence_utility_score: roundScore(evidenceHits / labeledModelPath.length),
+    contra_predictive_power: roundScore(contraHits / labeledModelPath.length),
+  };
+}
+
 export function aggregateEvaluationMetrics(outcomes: EvaluationOutcomeRow[]): EvaluationMetrics {
+  const scores = computeSystemQualityScores(outcomes);
   return {
     model_path: aggregatePathMetrics(outcomes, "model_path"),
     override_path: aggregatePathMetrics(outcomes, "override_path"),
     delta_human_value: computeDeltaHumanValue(outcomes),
+    triple_barrier: aggregateTripleBarrierMetrics(outcomes),
+    evidence_utility_score: scores.evidence_utility_score,
+    contra_predictive_power: scores.contra_predictive_power,
   };
 }
 
@@ -510,6 +609,8 @@ export function buildEvaluationReportPayload(input: {
   window_end?: string | null;
 }): EvaluationReportPayload {
   const metrics_json = aggregateEvaluationMetrics(input.outcomes);
+  const evidence_utility_score = metrics_json.evidence_utility_score ?? null;
+  const contra_predictive_power = metrics_json.contra_predictive_power ?? null;
   const recommendation = deriveRecommendation(metrics_json);
   const inferredWindow = inferEvaluationWindow(input.outcomes);
 
@@ -526,10 +627,17 @@ export function buildEvaluationReportPayload(input: {
     metrics_json,
     recommendation,
     sections,
+    evidence_utility_score,
+    contra_predictive_power,
     report_json: {
       summary: "Stage 1 single-arm evaluation; no auto-promotion",
       outcome_count: input.outcomes.length,
       insight_candidate_outcome_count: (input.insightCandidateOutcomes ?? []).length,
+      system_quality: {
+        evidence_utility_score,
+        contra_predictive_power,
+        triple_barrier: metrics_json.triple_barrier,
+      },
       recommendation_reason:
         recommendation === "hold"
           ? "sufficient labeled model_path outcomes"
