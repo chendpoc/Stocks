@@ -8,7 +8,10 @@ import { MENU_KEYS, type MenuId } from "../menu.js";
 import { getChatSuggestions } from "../chatSuggestions.js";
 import { ActionBar, KeyHint, PickerRow } from "../components/focus.js";
 import { AsyncLoading } from "../components/AsyncLoading.js";
+import { extractWorkflowRunsFromGenerateText } from "../../llm/chatWorkflowRuns.js";
+import { WorkflowStatusPanel } from "../components/WorkflowStatusPanel.js";
 import type { ChatMessage } from "../types.js";
+import type { WorkflowRun } from "../../llm/chatWorkflowRuns.js";
 
 const MAX_HISTORY = 20;
 
@@ -23,6 +26,7 @@ type Props = {
 export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessages }: Props) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activeRuns, setActiveRuns] = useState<WorkflowRun[]>([]);
   const [pickIndex, setPickIndex] = useState(0);
   const [prevPickIndex, setPrevPickIndex] = useState<number | null>(null);
 
@@ -95,6 +99,11 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
       });
       const assistantMsg: ChatMessage = { role: "assistant", content: result.text };
       setMessages([...next, assistantMsg].slice(-MAX_HISTORY));
+
+      const newRuns = extractWorkflowRunsFromGenerateText(result);
+      if (newRuns.length > 0) {
+        setActiveRuns((prev) => [...prev, ...newRuns]);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       const errMsg: ChatMessage = { role: "assistant", content: `错误: ${msg}` };
@@ -130,6 +139,7 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
         label="Agent 思考中"
         hint="正在调用 LLM / tools，请稍候"
       />
+      <WorkflowStatusPanel runs={activeRuns} />
       {visibleSuggestions.length > 0 && !busy ? (
         <Box
           flexDirection="column"

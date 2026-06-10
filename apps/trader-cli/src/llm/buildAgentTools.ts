@@ -1,23 +1,35 @@
-import { ensureLongbridgeAgentOnStartup, isLongbridgeAgentReady } from "../services/longbridgeAgent.js";
-import { createLongbridgeTools } from "./longbridgeTools.js";
+import { bootstrapToolRegistry } from "./toolRegistry.bootstrap.js";
+import { resolveTools, createDescribeTools } from "./toolRegistry.js";
 import {
   getSystemPrompt,
   getSystemPromptWithLongbridge,
-  INTEL_TOOLS,
 } from "./tools.js";
+import { isLongbridgeAgentReady } from "../services/longbridgeAgent.js";
 
-export async function resolveAgentTools(): Promise<
-  typeof INTEL_TOOLS & Partial<ReturnType<typeof createLongbridgeTools>>
-> {
-  await ensureLongbridgeAgentOnStartup();
-  if (!(await isLongbridgeAgentReady())) {
-    return INTEL_TOOLS;
+let registryBooted = false;
+
+async function ensureRegistry(): Promise<void> {
+  if (!registryBooted) {
+    await bootstrapToolRegistry();
+    registryBooted = true;
   }
-  return { ...INTEL_TOOLS, ...createLongbridgeTools() };
 }
 
+/** 获取 Chat Agent 可用的全部工具（market + sentiment + longbridge + workflow + memory + describe） */
+export async function resolveAgentTools(): Promise<Record<string, unknown>> {
+  await ensureRegistry();
+  const hasLongbridge = await isLongbridgeAgentReady();
+
+  const tools = resolveTools("chat");
+  const describe = createDescribeTools();
+
+  // Longbridge 已在 bootstrap 中根据登录状态注册，无需重复处理
+  return { ...tools, ...describe };
+}
+
+/** 获取 Agent system prompt（根据 Longbridge 登录状态选择） */
 export async function getAgentSystemPrompt(): Promise<string> {
-  await ensureLongbridgeAgentOnStartup();
+  await ensureRegistry();
   if (await isLongbridgeAgentReady()) {
     return getSystemPromptWithLongbridge();
   }
