@@ -113,6 +113,69 @@ _SCHEMA_STATEMENTS = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_market_bars_symbol_tf_ts ON market_bars(symbol, timeframe, ts)",
     """
+    CREATE TABLE IF NOT EXISTS feature_snapshots (
+      feature_snapshot_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      timeframe TEXT,
+      asof_ts TEXT NOT NULL,
+      features_json TEXT NOT NULL,
+      tags_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_feature_snapshots_symbol ON feature_snapshots(symbol, created_at)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_feature_snapshots_symbol_tf_asof ON feature_snapshots(symbol, timeframe, asof_ts)",
+    """
+    CREATE TABLE IF NOT EXISTS setup_events (
+      setup_event_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      event_ts TEXT NOT NULL,
+      setup_json TEXT NOT NULL,
+      context_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_setup_events_symbol ON setup_events(symbol, event_ts)",
+    "CREATE INDEX IF NOT EXISTS idx_setup_events_type ON setup_events(event_type)",
+    """
+    CREATE TABLE IF NOT EXISTS pattern_memories (
+      pattern_memory_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      pattern_id TEXT NOT NULL,
+      confidence REAL,
+      memory_json TEXT NOT NULL,
+      evidence_refs_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_pattern_memories_symbol ON pattern_memories(symbol, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_pattern_memories_pattern ON pattern_memories(pattern_id)",
+    """
+    CREATE TABLE IF NOT EXISTS failure_memories (
+      failure_memory_id TEXT PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      failure_type TEXT NOT NULL,
+      failed_ts TEXT NOT NULL,
+      failure_json TEXT NOT NULL,
+      context_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_failure_memories_symbol ON failure_memories(symbol, failed_ts)",
+    "CREATE INDEX IF NOT EXISTS idx_failure_memories_type ON failure_memories(failure_type)",
+    """
+    CREATE TABLE IF NOT EXISTS session_context_packs (
+      session_context_pack_id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      symbol TEXT,
+      context_pack_json TEXT NOT NULL,
+      metadata_json TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_session_context_packs_symbol ON session_context_packs(symbol, created_at)",
+    """
     CREATE TABLE IF NOT EXISTS events (
       event_id TEXT PRIMARY KEY,
       ts TEXT NOT NULL,
@@ -581,7 +644,10 @@ def _migrate_lessons_columns(conn) -> None:
             conn.execute(text(f"ALTER TABLE lessons ADD COLUMN {column} {ddl}"))
 
 
-_MARKET_BARS_COLUMN_MIGRATIONS = (("ingested_at", "TEXT"),)
+_MARKET_BARS_COLUMN_MIGRATIONS = (
+    ("ingested_at", "TEXT"),
+    ("quality_status", "TEXT"),
+)
 
 
 def _migrate_market_bars_columns(conn) -> None:

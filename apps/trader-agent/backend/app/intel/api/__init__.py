@@ -7,6 +7,7 @@ from app.intel.api import (
     corpus,
     events,
     hypotheses,
+    market_agent,
     jobs,
     lessons,
     market,
@@ -21,6 +22,7 @@ intel_router = APIRouter()
 
 intel_router.include_router(context.router, prefix="/context", tags=["intel-context"])
 intel_router.include_router(market.router, prefix="/market", tags=["intel-market"])
+intel_router.include_router(market_agent.router, prefix="/market-agent", tags=["intel-market-agent"])
 intel_router.include_router(signals.router, prefix="/signals", tags=["intel-signals"])
 intel_router.include_router(events.router, prefix="/events", tags=["intel-events"])
 intel_router.include_router(hypotheses.router, prefix="/hypotheses", tags=["intel-hypotheses"])
