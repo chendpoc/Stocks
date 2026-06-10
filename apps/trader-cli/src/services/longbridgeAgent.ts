@@ -96,6 +96,21 @@ export async function isLongbridgeAgentReady(): Promise<boolean> {
   return probe.installed && probe.authOk;
 }
 
+/** TUI 启动：探测 CLI、必要时降级 Agent，并返回状态栏提示。 */
+export async function getLongbridgeStartupHint(): Promise<string | null> {
+  await ensureLongbridgeAgentOnStartup();
+  const warn = getLongbridgeBootstrapWarning();
+  if (warn) return warn;
+
+  if (getLongbridgeAgentSetting() === "off") {
+    const probe = await cachedProbe(false);
+    if (probe.installed && probe.authOk) {
+      return "长桥 CLI 已就绪；按 7 进入设置，将 TRADER_LONGBRIDGE_AGENT 切为 on";
+    }
+  }
+  return null;
+}
+
 /** @internal — only for tests */
 export function _resetForTest(deps?: {
   probe?: typeof probeLongbridge;

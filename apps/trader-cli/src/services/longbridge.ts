@@ -1,5 +1,8 @@
 import { execFile, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { promisify } from "node:util";
+import { getEnvValue } from "./envFile.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -47,19 +50,54 @@ export function interpretLongbridgeCheck(
   return { authOk: true, message: first.slice(0, 120) };
 }
 
+/** 已知安装位 + PATH 解析结果，去重且仅保留存在的可执行文件。 */
+export function resolveLongbridgeCliPaths(pathHits: string[] = []): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (raw: string | null | undefined) => {
+    if (!raw) return;
+    const p = raw.trim();
+    if (!p) return;
+    const key = p.toLowerCase();
+    if (seen.has(key)) return;
+    if (!existsSync(p)) return;
+    seen.add(key);
+    out.push(p);
+  };
+
+  const override = getEnvValue("TRADER_LONGBRIDGE_CLI") ?? process.env.LONGBRIDGE_CLI;
+  add(override);
+
+  if (process.platform === "win32") {
+    const local = process.env.LOCALAPPDATA;
+    if (local) {
+      add(join(local, "Programs", "longbridge", "longbridge.exe"));
+      add(join(local, "longbridge", "longbridge.exe"));
+    }
+  }
+
+  for (const hit of pathHits) add(hit);
+  return out;
+}
+
 export async function findLongbridgeCli(): Promise<string | null> {
-  const whichCmd = process.platform === "win32" ? "where" : "which";
+  const known = resolveLongbridgeCliPaths();
+  if (known.length > 0) return known[0] ?? null;
+
+  const whichCmd = process.platform === "win32" ? "where.exe" : "which";
   try {
     const { stdout } = await execFileAsync(whichCmd, ["longbridge"], {
       timeout: 8_000,
       windowsHide: true,
     });
-    const line = stdout
+    const hits = stdout
       .trim()
       .split(/\r?\n/)
       .map((s) => s.trim())
-      .find(Boolean);
-    return line ?? null;
+      .filter(Boolean);
+    const resolved = resolveLongbridgeCliPaths(hits);
+    if (resolved.length > 0) return resolved[0] ?? null;
+    return hits[0] ?? null;
   } catch {
     return null;
   }
@@ -77,7 +115,7 @@ export async function probeLongbridge(): Promise<LongbridgeProbe> {
     };
   }
   try {
-    const { stdout, stderr } = await execFileAsync("longbridge", ["check"], {
+    const { stdout, stderr } = await execFileAsync(cliPath, ["check"], {
       timeout: 20_000,
       windowsHide: true,
     });
@@ -94,16 +132,16 @@ export async function probeLongbridge(): Promise<LongbridgeProbe> {
   }
 }
 
-function spawnDetachedLongbridge(args: string[]): void {
+function spawnDetachedLongbridge(cliPath: string, args: string[]): void {
   if (process.platform === "win32") {
-    spawn("cmd.exe", ["/c", "start", "", "longbridge", ...args], {
+    spawn("cmd.exe", ["/c", "start", "", cliPath, ...args], {
       detached: true,
       stdio: "ignore",
       windowsHide: true,
     }).unref();
     return;
   }
-  spawn("longbridge", args, {
+  spawn(cliPath, args, {
     detached: true,
     stdio: "ignore",
   }).unref();
@@ -121,8 +159,13 @@ export async function launchLongbridgeExternal(
     return { ok: false, message: probe.message };
   }
 
+  const cli = probe.cliPath ?? (await findLongbridgeCli());
+  if (!cli) {
+    return { ok: false, message: probe.message };
+  }
+
   if (mode === "tui") {
-    spawnDetachedLongbridge(["tui"]);
+    spawnDetachedLongbridge(cli, ["tui"]);
     return {
       ok: true,
       message: "已在新窗口启动 longbridge tui（OAuth 会话与 CLI 共用）",
@@ -133,7 +176,7 @@ export async function launchLongbridgeExternal(
   if (!lbSym) {
     return { ok: false, message: "无效标的，无法启动 kline" };
   }
-  spawnDetachedLongbridge(["kline", lbSym, "--period", "day", "--count", "30"]);
+  spawnDetachedLongbridge(cli, ["kline", lbSym, "--period", "day", "--count", "30"]);
   return {
     ok: true,
     message: `已在新窗口启动 longbridge kline ${lbSym}`,

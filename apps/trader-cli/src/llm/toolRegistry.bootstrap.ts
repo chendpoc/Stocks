@@ -11,7 +11,7 @@
 import { registerTools } from "./toolRegistry.js";
 import { MARKET_TOOLS } from "./toolRegistry.market.js";
 import { SENTIMENT_TOOLS } from "./toolRegistry.sentiment.js";
-import { createLongbridgeDefs } from "./toolRegistry.longbridge.js";
+import { LONGBRIDGE_TOOLS } from "./toolRegistry.longbridge.js";
 import { WORKFLOW_TOOLS } from "./toolRegistry.workflow.js";
 import { MEMORY_TOOLS } from "./toolRegistry.memory.js";
 import { isLongbridgeAgentReady } from "../services/longbridgeAgent.js";
@@ -29,7 +29,7 @@ export async function bootstrapToolRegistry(): Promise<void> {
 
   // 2. Longbridge — 仅在已登录时注册
   if (await isLongbridgeAgentReady()) {
-    registerTools(createLongbridgeDefs());
+    registerTools(LONGBRIDGE_TOOLS);
   }
 
   bootstrapped = true;
