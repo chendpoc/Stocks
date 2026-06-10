@@ -1,0 +1,62 @@
+{
+  "task_id": "T031-decision-graph-llm-nodes-v0",
+  "spec_id": "decision-graph-llm-nodes-v0",
+  "status": "active",
+  "title": "DecisionGraph LLM Nodes — build_evidence + generate_contra + Swarm",
+  "summary": "实现 DecisionGraph 中的 LLM 节点：证据构建（ReAct）、反向验证（Debate+ToT）、Swarm 多标的并行分析。",
+  "slices": [
+    {
+      "id": "S1",
+      "title": "build_evidence — 单标的 ReAct 证据收集",
+      "status": "active",
+      "files": [
+        "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts",
+        "apps/trader-workflows/src/graphs/00-decision/decisionGraph.state.ts",
+        "apps/trader-workflows/src/graphs/00-decision/decisionGraph.types.ts"
+      ],
+      "exit_criteria": [
+        "build_evidence 节点调用 generateText + experimental_output 输出 EvidenceResult",
+        "Zod schema 校验: evidence_text (≤300 words) + confidence_contribution (0-1) + evidence_sources[]",
+        "ReAct 循环 max 5 steps，工具白名单 resolveTools('evidence') = market + sentiment + memory",
+        "确定性护栏（3.5 规则 A-D + H-I）在节点输出后执行",
+        "prompt 注入 §13.2 MID_DAY_DEEP_SYSTEM_PROMPT"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "generate_contra — Debate + Tree of Thoughts 反向验证",
+      "status": "pending",
+      "files": [
+        "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts"
+      ],
+      "exit_criteria": [
+        "三角色完整执行: Proposer (Flash) → Opponent ToT (Pro+thinking, beam=3, depth=2) → Judge (Pro)",
+        "输出 contra_text + risk_flags[] + quality_score + criteria_scores",
+        "确定性评分覆盖（4.5 规则 E-G）在 Judge 输出后执行",
+        "降级路径: Proposer 不可用 → 跳过；Opponent 不可用 → 无 risk_flags；全部不可用 → 不阻断流程"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Swarm — 多标的并行分析 + Lead 综合",
+      "status": "pending",
+      "files": [
+        "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts"
+      ],
+      "exit_criteria": [
+        "Daemon gate complexity >= 0.3 → 触发 Swarm 模式",
+        "每个 Worker 通过 Promise.all 并行调用 chatReAct()（独立上下文窗口）",
+        "Worker 数量 = gate.symbols.length，每个注入对应 symbol 的 MID_DAY_DEEP_SYSTEM_PROMPT",
+        "Lead 收集所有 Worker 的 text 输出后调 generate_contra 综合",
+        "Swarm Lead prompt 注入 §13.3 SWARM_LEAD_SYSTEM_PROMPT",
+        "单个标的（complexity < 0.3）不走 Swarm，直接用 build_evidence + generate_contra"
+      ]
+    }
+  ],
+  "verification": [
+    "cd apps/trader-workflows && npx tsc --noEmit",
+    "cd apps/trader-workflows && npm test -- src/graphs/00-decision/decisionGraph.test.ts",
+    "EvidenceResult Zod 验证: evidence_text.length > 0 && confidence >= 0 && confidence <= 1",
+    "Swarm: mock 3 标的 → 3 个 Worker 并行执行时间 < 单个 Worker 的 1.5x"
+  ]
+}

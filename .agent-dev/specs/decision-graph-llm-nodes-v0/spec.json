@@ -1,0 +1,36 @@
+{
+  "spec_id": "decision-graph-llm-nodes-v0",
+  "status": "active",
+  "title": "DecisionGraph LLM Nodes — build_evidence + generate_contra + Swarm Workers v0",
+  "summary": "基于 14_llm_reasoning_strategy.md §3-4 + §12，实现 DecisionGraph 中的证据构建、反向验证和 Swarm 多标的并行分析节点。",
+  "sources": [
+    "project-docs/market-agent/14_llm_reasoning_strategy.md §3 (Evidence Builder)",
+    "project-docs/market-agent/14_llm_reasoning_strategy.md §4 (Contra Generator)",
+    "project-docs/market-agent/14_llm_reasoning_strategy.md §12 (Swarm 编排)",
+    "project-docs/market-agent/14_llm_reasoning_strategy.md §13.2-13.3 (Mid-Day Deep + Swarm Lead prompts)"
+  ],
+  "critical_files": [
+    "apps/trader-workflows/src/graphs/00-decision/decisionGraph.nodes.ts",
+    "apps/trader-workflows/src/graphs/00-decision/decisionGraph.state.ts",
+    "apps/trader-workflows/src/graphs/00-decision/decisionGraph.types.ts",
+    "apps/trader-cli/src/llm/chatReAct.ts"
+  ],
+  "forbidden": [
+    "apps/trader-agent/backend/**",
+    "apps/trader-cli/src/tui/**"
+  ],
+  "decisions": [
+    "build_evidence 使用 Vercel AI SDK generateText + experimental_output（§3.3a）进行结构化 JSON 输出",
+    "generate_contra 使用 Debate 三角色架构（Proposer → Opponent ToT → Judge）",
+    "Swarm Workers 复用 chatReAct.ts 的 chatReAct() 函数，每个 Worker 独立上下文",
+    "Swarm Lead 收集 Worker 结果后调 generate_contra 做综合反向验证",
+    "确定性护栏（§3.5 + §4.5）在 Graph 节点内执行，不依赖外部服务",
+    "所有 LLM 调用严格使用 resolveTools(scope) 而非全量工具"
+  ],
+  "verification": [
+    "cd apps/trader-workflows && npx tsc --noEmit",
+    "cd apps/trader-workflows && npm test -- src/graphs/00-decision/",
+    "build_evidence 输出符合 EvidenceResult schema（Zod 验证通过）",
+    "complexity < 0.3 → 单 Worker ReAct，complexity >= 0.3 → Swarm 多 Worker 并行"
+  ]
+}
