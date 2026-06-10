@@ -8,7 +8,7 @@
   "scripts": {
     "workflows": "tsx src/index.ts",
     "test": "tsx --test",
-    "studio": "langgraphjs dev"
+    "studio": "langgraphjs dev --port 8123"
   },
   "dependencies": {
     "@langchain/core": "^1.1.48",

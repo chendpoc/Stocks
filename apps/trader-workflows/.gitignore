@@ -1,3 +1,6 @@
 
 # LangGraph API
 .langgraph_api
+
+# Local workflow runtime artifacts (memory DB, context packs)
+.runtime/
