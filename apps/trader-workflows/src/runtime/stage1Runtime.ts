@@ -169,6 +169,63 @@ function isNativeLangGraphRegistryRun(run: {
   return isNativeLangGraphRun(run.graph_name) && Boolean(run.thread_id);
 }
 
+function parseGateDecisionInput(
+  value: unknown,
+): { complexity_score: number; symbols: string[]; setups?: Record<string, string> } | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const complexity_score =
+    typeof record.complexity_score === "number" ? record.complexity_score : undefined;
+  const symbols = Array.isArray(record.symbols)
+    ? record.symbols.filter((s): s is string => typeof s === "string")
+    : undefined;
+  if (complexity_score === undefined || !symbols) {
+    return undefined;
+  }
+  const setups =
+    record.setups && typeof record.setups === "object" && !Array.isArray(record.setups)
+      ? Object.fromEntries(
+        Object.entries(record.setups as Record<string, unknown>).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+      )
+      : undefined;
+  return {
+    complexity_score,
+    symbols: symbols.map((s) => s.toUpperCase()),
+    ...(Object.keys(setups ?? {}).length > 0 ? { setups } : {}),
+  };
+}
+
+function buildDecisionGraphInvokeState(
+  runId: string,
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  const symbol = typeof input.symbol === "string" ? input.symbol.toUpperCase() : "";
+  const gate_decision =
+    parseGateDecisionInput(input.gate_decision) ??
+    (symbol
+      ? {
+        complexity_score: 0.1,
+        symbols: [symbol],
+      }
+      : undefined);
+
+  return {
+    run_id: runId,
+    thread_id: runId,
+    symbol,
+    setup_name: typeof input.setup_name === "string" ? input.setup_name : "",
+    gate_decision,
+    taskType: typeof input.taskType === "string" ? input.taskType : undefined,
+    asof_ts: typeof input.asof_ts === "string" ? input.asof_ts : undefined,
+    model_version:
+      typeof input.model_version === "string" ? input.model_version : undefined,
+  };
+}
+
 function toBoundedDecisionInput(input: Record<string, unknown>): Record<string, unknown> {
   const bounded: Record<string, unknown> = {};
   if (typeof input.symbol === "string") {
@@ -182,6 +239,13 @@ function toBoundedDecisionInput(input: Record<string, unknown>): Record<string, 
   }
   if (typeof input.taskType === "string") {
     bounded.taskType = input.taskType;
+  }
+  if (typeof input.setup_name === "string") {
+    bounded.setup_name = input.setup_name;
+  }
+  const gate = parseGateDecisionInput(input.gate_decision);
+  if (gate) {
+    bounded.gate_decision = gate;
   }
   return bounded;
 }
@@ -703,15 +767,7 @@ export class Stage1Runtime {
         checkpointer: this.langgraphCheckpointer,
       });
       const finalState = await graph.invoke(
-        {
-          run_id: runId,
-          thread_id: runId,
-          symbol: typeof input.symbol === "string" ? input.symbol : "",
-          taskType: typeof input.taskType === "string" ? input.taskType : undefined,
-          asof_ts: typeof input.asof_ts === "string" ? input.asof_ts : undefined,
-          model_version:
-            typeof input.model_version === "string" ? input.model_version : undefined,
-        },
+        buildDecisionGraphInvokeState(runId, input),
         {
           configurable: { thread_id: runId },
         },
@@ -1142,20 +1198,9 @@ export class Stage1Runtime {
         ? await graph.invoke(null, {
           configurable: { thread_id: threadId },
         })
-        : await graph.invoke(
-          {
-            run_id: runId,
-            thread_id: threadId,
-            symbol: typeof input.symbol === "string" ? input.symbol : "",
-            taskType: typeof input.taskType === "string" ? input.taskType : undefined,
-            asof_ts: typeof input.asof_ts === "string" ? input.asof_ts : undefined,
-            model_version:
-              typeof input.model_version === "string" ? input.model_version : undefined,
-          },
-          {
-            configurable: { thread_id: threadId },
-          },
-        );
+        : await graph.invoke(buildDecisionGraphInvokeState(runId, input), {
+          configurable: { thread_id: threadId },
+        });
       const output = stateToDecisionGraphResult(finalState);
       const checkpointRef = await readLatestLanggraphCheckpointRef(
         this.langgraphCheckpointer,

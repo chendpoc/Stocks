@@ -317,6 +317,38 @@ test("native DecisionGraph run registry uses thread_id = run_id and bounded meta
   }
 });
 
+test("native DecisionGraph persists gate_decision in bounded run input", async () => {
+  const { tempDir, dbPath } = createTempCheckpointDbPath();
+  const runtime = createStubDecisionGraphRuntime(dbPath);
+
+  try {
+    const executed = await runtime.runGraph({
+      graph_name: "DecisionGraph",
+      input: {
+        symbol: "TSLA",
+        setup_name: "VWAP_Reclaim",
+        gate_decision: {
+          complexity_score: 0.2,
+          symbols: ["TSLA", "NVDA"],
+        },
+      },
+    });
+
+    const shown = runtime.showRun(executed.run.run_id);
+    assert.deepEqual(shown.input, {
+      symbol: "TSLA",
+      setup_name: "VWAP_Reclaim",
+      gate_decision: {
+        complexity_score: 0.2,
+        symbols: ["TSLA", "NVDA"],
+      },
+    });
+  } finally {
+    runtime.close();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("native DecisionGraph interruption can resume through LangGraph checkpoint path", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
   const runtime = createStubDecisionGraphRuntime(dbPath);

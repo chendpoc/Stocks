@@ -440,9 +440,38 @@ async function handleDecideCommandAsync(
     );
   }
 
+  const input: Record<string, unknown> = { symbol: symbol.toUpperCase() };
+
+  const setupFlagIndex = args.indexOf("--setup");
+  if (setupFlagIndex >= 0) {
+    const setupName = args[setupFlagIndex + 1];
+    if (setupName) {
+      input.setup_name = setupName;
+    }
+  }
+
+  const gateFlagIndex = args.indexOf("--gate-json");
+  if (gateFlagIndex >= 0) {
+    const gateRaw = args[gateFlagIndex + 1];
+    if (!gateRaw) {
+      throw new WorkflowCommandError(
+        "GATE_JSON_REQUIRED",
+        "decide --gate-json requires a JSON payload",
+      );
+    }
+    try {
+      input.gate_decision = JSON.parse(gateRaw) as Record<string, unknown>;
+    } catch {
+      throw new WorkflowCommandError(
+        "GATE_JSON_INVALID",
+        "decide --gate-json must be valid JSON",
+      );
+    }
+  }
+
   const executed = await runtime.runGraph({
     graph_name: "DecisionGraph",
-    input: { symbol },
+    input,
   });
   const result = executed.output;
   if (!result) {
