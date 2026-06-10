@@ -7,9 +7,9 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../../api/client.js";
-import { ingestSymbol } from "../../services/market.js";
-import { PREFERRED_SYMBOLS_LABEL } from "../../symbols.js";
+import { fetchIntel } from "../api/client.js";
+import { ingestSymbol } from "../services/market.js";
+import { PREFERRED_SYMBOLS_LABEL } from "../symbols.js";
 import type { ToolDef } from "./toolRegistry.js";
 
 export const MARKET_TOOLS: ToolDef[] = [
@@ -119,6 +119,19 @@ export const MARKET_TOOLS: ToolDef[] = [
           method: "POST",
           body: JSON.stringify(params),
         }),
+    }),
+  },
+
+  {
+    name: "fetchRegime",
+    group: "market",
+    summary: "获取当前市场状态（trending/ranging/volatile）— Gate 决策和 Agent 路由的基础。",
+    implementation: tool({
+      description:
+        "获取当前全市场 Regime 判定。返回: 状态(trending|ranging|volatile)、置信度、关键指标(ADX/VIX/Bollinger)、转换风险。" +
+        "Gate 决策必须基于 Regime——不同市场状态下应路由到不同 Agent。",
+      parameters: z.object({}),
+      execute: async () => fetchIntel("/market-agent/regime"),
     }),
   },
 

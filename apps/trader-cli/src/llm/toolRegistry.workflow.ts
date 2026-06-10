@@ -11,7 +11,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../../api/client.js";
+import { fetchIntel } from "../api/client.js";
 import type { ToolDef } from "./toolRegistry.js";
 
 export const WORKFLOW_TOOLS: ToolDef[] = [

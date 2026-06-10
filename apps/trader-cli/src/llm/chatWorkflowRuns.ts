@@ -1,10 +1,26 @@
-import type { GenerateTextResult } from "ai";
-
 export type WorkflowRun = {
   runId: string;
   workflowId: string;
   label: string;
   startedAt: number;
+};
+
+type ToolCallLike = {
+  toolCallId: string;
+  args?: unknown;
+};
+
+type ToolResultLike = {
+  toolCallId: string;
+  toolName?: string;
+  result?: unknown;
+};
+
+type GenerateTextLike = {
+  steps?: Array<{
+    toolCalls?: ToolCallLike[];
+    toolResults?: ToolResultLike[];
+  }>;
 };
 
 function readRunId(value: unknown): string | undefined {
@@ -27,7 +43,7 @@ function labelFromInputs(inputs: unknown): string {
 
 /** Extract runWorkflow tool results from a multi-step generateText response. */
 export function extractWorkflowRunsFromGenerateText(
-  result: GenerateTextResult<Record<string, never>, never>,
+  result: GenerateTextLike,
 ): WorkflowRun[] {
   const runs: WorkflowRun[] = [];
   const startedAt = Date.now();

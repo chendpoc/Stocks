@@ -20,6 +20,7 @@ import { registerGuidedPaperCommands } from "./commands/guidedPaper";
 import { marketPlane } from "./commands/marketPlane";
 import { registerRunsCommands } from "./commands/runs";
 import { scan } from "./commands/scan";
+import { daemonCommand } from "./commands/daemon";
 import { server } from "./commands/server";
 import { signals } from "./commands/signals";
 
@@ -32,7 +33,7 @@ program
   .description("Ink TUI main panel")
   .action(async () => {
     const { launchTui } = await import("./tui/launch.js");
-    launchTui();
+    await launchTui();
   });
 
 program.command("scan").description("Run signal scan").action(scan);
@@ -78,6 +79,11 @@ program
   .argument("<action>", "start | stop | status")
   .description("Manage trader-agent backend lifecycle")
   .action(server);
+program
+  .command("daemon")
+  .argument("<action>", "start | stop | status")
+  .description("Manage Market Agent Daemon lifecycle")
+  .action(daemonCommand);
 program
   .command("data")
   .argument("<action>", "status | ingest")

@@ -11,7 +11,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../../api/client.js";
+import { fetchIntel } from "../api/client.js";
 import type { ToolDef } from "./toolRegistry.js";
 
 export const SENTIMENT_TOOLS: ToolDef[] = [
@@ -88,6 +88,53 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
         fetchIntel("/tools/recent-events", {
           method: "POST",
           body: JSON.stringify({ symbol, windowMinutes }),
+        }),
+    }),
+  },
+
+  {
+    name: "extractNewsSignal",
+    group: "sentiment",
+    summary: "从财经新闻文本中结构化提取交易相关信号（事件类型/情感/关键点）。",
+    implementation: tool({
+      description:
+        "从新闻文本中提取交易相关的结构化信号。输入一段财经新闻（英文或中文），" +
+        "返回: 事件类型（earnings/product/macro/analyst）、细粒度情感（revenue:0.8, china_iphone:-0.7）、" +
+        "交易信号（bullish/bearish/mixed/neutral）、置信度。" +
+        "用于: webSearch 返回的新闻在引用前先提取信号——判断这条新闻对交易的实质影响。",
+      parameters: z.object({
+        text: z.string().describe("新闻文本（中文或英文）"),
+        symbol: z.string().optional().describe("关联标的代码，帮助识别公司引用"),
+      }),
+      execute: async ({ text, symbol }) =>
+        fetchIntel("/tools/extract-news-signal", {
+          method: "POST",
+          body: JSON.stringify({ text, symbol }),
+        }),
+    }),
+  },
+
+  {
+    name: "analyzeSentiment",
+    group: "sentiment",
+    summary: "社交媒体散户情绪分析（X/Twitter/StockTwits/Reddit）— 极端情绪时参考价值最高。",
+    implementation: tool({
+      description:
+        "搜索社交媒体上散户对某标的最新讨论，返回情绪信号和讨论量趋势。" +
+        "散户情绪在极端一致时最有参考价值（一边倒看涨 → 警惕过热；一边倒看跌 → 关注反转）。" +
+        "结果包含: 最近讨论摘要、24h 讨论量变化、平台分布。" +
+        "你需要自行判断情绪方向——工具只提供原始数据和基础统计，不替你下结论。",
+      parameters: z.object({
+        symbol: z.string().describe("标的代码，如 TSLA"),
+        platforms: z
+          .array(z.enum(["x", "stocktwits", "reddit"]))
+          .default(["x"])
+          .describe("社交平台列表。默认 ['x']，可选追加 stocktwits 和 reddit。"),
+      }),
+      execute: async ({ symbol, platforms }) =>
+        fetchIntel("/tools/analyze-sentiment", {
+          method: "POST",
+          body: JSON.stringify({ symbol, platforms }),
         }),
     }),
   },

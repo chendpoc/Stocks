@@ -22,7 +22,7 @@ export type ToolGroup =
   | "workflow"
   | "memory";
 
-export type ToolScope = "chat" | "decisionGraph" | "evidence";
+export type ToolScope = "chat" | "decisionGraph" | "evidence" | "daemon";
 
 export interface ToolDef {
   /** 全局唯一标识，如 "fetchMarketBars" */
@@ -40,6 +40,7 @@ const SCOPE_GROUPS: Record<ToolScope, ToolGroup[]> = {
   chat: ["market", "sentiment", "longbridge", "workflow", "memory"],
   decisionGraph: ["market", "sentiment", "memory"],
   evidence: ["market", "sentiment", "memory"],
+  daemon: ["market", "sentiment", "workflow"],
 };
 
 // ─── 注册表 ─────────────────────────────────────────────────

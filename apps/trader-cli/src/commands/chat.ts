@@ -1,29 +1,32 @@
 import * as readline from "node:readline";
-import { generateText } from "ai";
 import { fetchIntel } from "../api/client";
 import { getModel } from "../llm/provider";
 import { getAgentSystemPrompt, resolveAgentTools } from "../llm/buildAgentTools.js";
+import { chatReAct } from "../llm/chatReAct.js";
 import { lessons } from "./lessons";
 
 export async function chatEval(prompt: string) {
   const tools = await resolveAgentTools();
   const system = await getAgentSystemPrompt();
-  const result = await generateText({
+  const result = await chatReAct({
     model: getModel(),
     system,
-    prompt,
     tools,
-    maxSteps: 10,
+    messages: [{ role: "user", content: prompt }],
+    onStep: (trace) => {
+      const act = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
+      console.log(`[Step ${trace.step}] ${trace.thought.slice(0, 100)}${act}`);
+    },
   });
-  for (const step of result.toolCalls ?? []) {
-    console.log(`[工具] ${step.toolName}`);
-  }
   console.log(`\n${result.text}`);
+  if (result.terminatedBy !== "natural") {
+    console.log(`[终止: ${result.terminatedBy}]`);
+  }
 }
 
 export async function chatTui() {
   const { launchTui } = await import("../tui/launch.js");
-  launchTui({ initialMenu: "chat", startInMenu: false });
+  await launchTui({ initialMenu: "chat", startInMenu: false });
 }
 
 export async function chatReadline() {
@@ -50,19 +53,30 @@ export async function chatReadline() {
 
     const tools = await resolveAgentTools();
     const system = await getAgentSystemPrompt();
-    const result = await generateText({
+    const result = await chatReAct({
       model: getModel(),
       system,
-      messages: history.slice(-20),
       tools,
-      maxSteps: 10,
+      messages: history.slice(-20),
+      onStep: (trace) => {
+        const act = trace.actions.length > 0
+          ? `\n  Action → ${trace.actions.join(", ")}`
+          : "";
+        const obs = trace.observations
+          ? `\n  Obs ← ${trace.observations.slice(0, 100)}`
+          : "";
+        console.log(
+          `[Step ${trace.step}] Thought: ${trace.thought.slice(0, 100)}…${act}${obs}` +
+          ` (${trace.tokensUsed} tok, ${trace.elapsedMs}ms)`,
+        );
+      },
     });
 
-    for (const step of result.toolCalls ?? []) {
-      console.log(`[工具] ${step.toolName}`);
+    console.log(`\n${result.text}`);
+    if (result.terminatedBy !== "natural") {
+      console.log(`[终止: ${result.terminatedBy} · ${result.totalTokens} tok · ${result.wallClockMs}ms]`);
     }
 
-    console.log(`\n${result.text}`);
     history.push({ role: "assistant", content: result.text });
   }
 
@@ -95,12 +109,15 @@ async function handleSlashCommand(input: string) {
     const symbol = input.split(" ")[1];
     const tools = await resolveAgentTools();
     const system = await getAgentSystemPrompt();
-    const result = await generateText({
+    const result = await chatReAct({
       model: getModel(),
       system,
-      prompt: `分析 ${symbol}，先调 buildContext 再给出结论。`,
       tools,
-      maxSteps: 10,
+      messages: [{ role: "user", content: `分析 ${symbol}，先调 buildContext 再给出结论。` }],
+      onStep: (trace) => {
+        const act = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
+        console.log(`[Step ${trace.step}] ${trace.thought.slice(0, 100)}${act}`);
+      },
     });
     console.log(`\n${result.text}`);
     return;

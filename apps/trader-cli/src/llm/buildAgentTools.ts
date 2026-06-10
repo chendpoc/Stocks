@@ -1,3 +1,4 @@
+import type { CoreTool } from "ai";
 import { bootstrapToolRegistry } from "./toolRegistry.bootstrap.js";
 import { resolveTools, createDescribeTools } from "./toolRegistry.js";
 import {
@@ -16,7 +17,7 @@ async function ensureRegistry(): Promise<void> {
 }
 
 /** 获取 Chat Agent 可用的全部工具（market + sentiment + longbridge + workflow + memory + describe） */
-export async function resolveAgentTools(): Promise<Record<string, unknown>> {
+export async function resolveAgentTools(): Promise<Record<string, CoreTool>> {
   await ensureRegistry();
   const hasLongbridge = await isLongbridgeAgentReady();
 
