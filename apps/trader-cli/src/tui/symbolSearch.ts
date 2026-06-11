@@ -13,7 +13,7 @@ export function filterSymbolChoices(query: string): string[] {
   const q = query.trim().toUpperCase();
   if (!q) return [...PREFERRED_SYMBOLS];
 
-  const fromMvp = PREFERRED_SYMBOLS.filter((s) => s.startsWith(q));
+  const fromMvp: string[] = PREFERRED_SYMBOLS.filter((s) => s.startsWith(q));
   const seen = new Set(fromMvp);
   const out: string[] = [];
 

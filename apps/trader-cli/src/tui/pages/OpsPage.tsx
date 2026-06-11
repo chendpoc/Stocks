@@ -24,8 +24,9 @@ export function OpsPage({ isActive = true }: Props) {
         setServerLine(`offline · ${s.error ?? s.status ?? "?"}`);
       }
       const m = await getMarketStatus();
-      const withBars = m.symbols.filter((x) => x.latest_bar_ts).length;
-      setMarketLine(`${withBars}/${m.symbols.length} 标的已有日线`);
+      const symbols = m.symbols ?? [];
+      const withBars = symbols.filter((x) => x.latest_bar_ts).length;
+      setMarketLine(`${withBars}/${symbols.length} 标的已有日线`);
     } catch (e: unknown) {
       setMarketLine(e instanceof Error ? e.message : String(e));
     } finally {

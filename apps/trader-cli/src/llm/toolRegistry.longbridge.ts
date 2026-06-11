@@ -9,7 +9,7 @@
  * 设计依据: 14_llm_reasoning_strategy.md §3.2 行情组
  */
 
-import { tool } from "ai";
+import { tool, type CoreTool } from "ai";
 import { z } from "zod";
 import { toLongbridgeSymbol } from "../services/longbridge.js";
 import {
@@ -25,7 +25,7 @@ function symTool(
   command: string,
   extra?: z.ZodRawShape,
   buildExtra?: (p: Record<string, unknown>) => string[],
-): ReturnType<typeof tool> {
+): CoreTool {
   const shape = { symbol: sym, ...extra };
   return tool({
     description,
@@ -36,7 +36,7 @@ function symTool(
       if (buildExtra) args.push(...buildExtra(p));
       return runLongbridgeJson(command, args);
     },
-  });
+  }) as CoreTool;
 }
 
 export const LONGBRIDGE_TOOLS: ToolDef[] = [
