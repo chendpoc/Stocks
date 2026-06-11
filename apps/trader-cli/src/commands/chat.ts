@@ -5,6 +5,13 @@ import { getAgentSystemPrompt, resolveAgentTools } from "../llm/buildAgentTools.
 import { chatReAct } from "../llm/chatReAct.js";
 import { lessons } from "./lessons";
 
+function printWorkflowRuns(runs: { runId: string; workflowId: string; label: string }[]) {
+  if (runs.length === 0) return;
+  for (const run of runs) {
+    console.log(`[Workflow] ${run.workflowId} 已触发 — runId: ${run.runId}${run.label ? ` (${run.label})` : ""}`);
+  }
+}
+
 export async function chatEval(prompt: string) {
   const tools = await resolveAgentTools();
   const system = await getAgentSystemPrompt();
@@ -19,6 +26,7 @@ export async function chatEval(prompt: string) {
     },
   });
   console.log(`\n${result.text}`);
+  printWorkflowRuns(result.workflowRuns);
   if (result.terminatedBy !== "natural") {
     console.log(`[终止: ${result.terminatedBy}]`);
   }
@@ -73,6 +81,7 @@ export async function chatReadline() {
     });
 
     console.log(`\n${result.text}`);
+    printWorkflowRuns(result.workflowRuns);
     if (result.terminatedBy !== "natural") {
       console.log(`[终止: ${result.terminatedBy} · ${result.totalTokens} tok · ${result.wallClockMs}ms]`);
     }
@@ -120,6 +129,7 @@ async function handleSlashCommand(input: string) {
       },
     });
     console.log(`\n${result.text}`);
+    printWorkflowRuns(result.workflowRuns);
     return;
   }
   if (input === "/lessons") {

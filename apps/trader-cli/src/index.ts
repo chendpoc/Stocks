@@ -16,6 +16,7 @@ import { registerDecideCommand } from "./commands/decide";
 import { registerOutcomesCommands } from "./commands/outcomes";
 import { registerEvalCommands } from "./commands/eval";
 import { registerInsightsCommands } from "./commands/insights";
+import { workflowCommand } from "./commands/workflow";
 import { registerGuidedPaperCommands } from "./commands/guidedPaper";
 import { marketPlane } from "./commands/marketPlane";
 import { registerRunsCommands } from "./commands/runs";
@@ -105,6 +106,16 @@ program
 
 registerRunsCommands(program);
 registerDecideCommand(program);
+program
+  .command("workflow")
+  .argument("<action>", "list | run <id> | status <runId>")
+  .argument("[arg1]", "workflowId / runId")
+  .allowUnknownOption()
+  .description("直接管理 Workflow（list/run/status）")
+  .action((action: string, arg1?: string, opts?: Record<string, unknown>) => {
+    const rest = (opts as { args?: string[] })?.args ?? process.argv.slice(process.argv.indexOf("workflow") + 3);
+    return workflowCommand(action, arg1, ...rest);
+  });
 registerOutcomesCommands(program);
 registerEvalCommands(program);
 registerInsightsCommands(program);
