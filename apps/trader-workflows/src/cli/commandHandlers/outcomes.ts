@@ -47,15 +47,8 @@ export async function handleOutcomesRunCommandAsync(
     );
   }
 
-  const symbolFlagIndex = args.indexOf(CLI_FLAG_SYMBOL);
-  const limitFlagIndex = args.indexOf(CLI_FLAG_LIMIT);
-  const symbol =
-    symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1]?.toUpperCase() : undefined;
-  const limit =
-    limitFlagIndex >= 0 ? Number.parseInt(args[limitFlagIndex + 1] ?? "", 10) : 100;
-  if (!Number.isFinite(limit) || limit <= 0) {
-    throw new WorkflowCommandError(ERROR_CODE_INVALID_LIMIT, "limit must be a positive integer");
-  }
+  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL)?.toUpperCase() ?? undefined;
+  const limit = parsePositiveLimitFlag(args, 100);
 
   const executed = await runOutcomeGraphViaRuntime(runtime, { symbol, limit });
   const result = executed.output;

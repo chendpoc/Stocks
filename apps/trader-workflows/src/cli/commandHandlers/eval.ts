@@ -1,7 +1,7 @@
 import { runEvaluationGraphViaRuntime } from "../../api/graphRunner.js";
+import { parseOptionalFlagValue, parsePositiveIntegerFlag } from "../argParser.js";
 import { CLI_FLAG_LIMIT, CLI_FLAG_MODEL_VERSION, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import {
-  ERROR_CODE_INVALID_LIMIT,
   ERROR_CODE_RUN_INTERRUPTED,
   ERROR_CODE_SUMMARY_SUBCOMMAND_REQUIRED,
 } from "../../constants/errorCodes.js";
@@ -21,18 +21,9 @@ export async function handleEvalSummaryCommandAsync(
     );
   }
 
-  const symbolFlagIndex = args.indexOf(CLI_FLAG_SYMBOL);
-  const modelVersionFlagIndex = args.indexOf(CLI_FLAG_MODEL_VERSION);
-  const limitFlagIndex = args.indexOf(CLI_FLAG_LIMIT);
-  const symbol =
-    symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1]?.toUpperCase() : undefined;
-  const model_version =
-    modelVersionFlagIndex >= 0 ? args[modelVersionFlagIndex + 1] : "stage1-v0";
-  const limit =
-    limitFlagIndex >= 0 ? Number.parseInt(args[limitFlagIndex + 1] ?? "", 10) : 500;
-  if (!Number.isFinite(limit) || limit <= 0) {
-    throw new WorkflowCommandError(ERROR_CODE_INVALID_LIMIT, "limit must be a positive integer");
-  }
+  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL)?.toUpperCase() ?? undefined;
+  const model_version = parseOptionalFlagValue(args, CLI_FLAG_MODEL_VERSION) ?? "stage1-v0";
+  const limit = parsePositiveIntegerFlag(args, CLI_FLAG_LIMIT, 500);
 
   const executed = await runEvaluationGraphViaRuntime(runtime, {
     symbol,
