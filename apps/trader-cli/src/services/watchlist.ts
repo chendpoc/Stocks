@@ -67,6 +67,28 @@ function parseQuoteResult(raw: unknown): WatchlistQuote | null {
   };
 }
 
+function normalizeSymbolKey(symbol: string): string {
+  return symbol.trim().toUpperCase();
+}
+
+/** Match API symbol (e.g. AAPL) to requested Longbridge symbol (e.g. AAPL.US). */
+function symbolsMatch(requested: string, responseSymbol: string): boolean {
+  const req = normalizeSymbolKey(requested);
+  const res = normalizeSymbolKey(responseSymbol);
+  if (req === res) return true;
+  return req.split(".")[0] === res.split(".")[0];
+}
+
+/** Resolve map key for a quote response against requested batch symbols. */
+export function matchWatchlistQuoteKey(
+  batch: string[],
+  responseSymbol: string,
+  batchIndex?: number,
+): string {
+  const matched = batch.find((sym) => symbolsMatch(sym, responseSymbol));
+  return matched ?? batch[batchIndex ?? -1] ?? responseSymbol;
+}
+
 function formatVolume(v: number): string {
   if (!v || v <= 0) return "--";
   if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
@@ -129,11 +151,13 @@ export async function loadQuotes(
       console.error(`loadQuotes batch ${i} failed:`, result.message);
       continue;
     }
-    // quote 可能返回单对象或数组
+    // quote 可能返回单对象或数组；Map key 统一用请求的 lbSymbol，避免 API 省略后缀导致查不到
     const items: unknown[] = Array.isArray(result.data) ? result.data : [result.data];
-    for (const item of items) {
-      const q = parseQuoteResult(item);
-      if (q) map.set(q.symbol, q);
+    for (let j = 0; j < items.length; j++) {
+      const q = parseQuoteResult(items[j]);
+      if (!q) continue;
+      const requested = matchWatchlistQuoteKey(batch, q.symbol, j);
+      map.set(requested, { ...q, symbol: requested });
     }
   }
   return map;
