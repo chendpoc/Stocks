@@ -4,7 +4,7 @@ import type {
   AlphaInputValidationReport,
   AlphaResearchInput,
   LiteBacktestReportResponse,
-} from "../../services/alphaResearch.js";
+} from "../../types/alpha.js";
 
 export const AlphaResearchGraphStateAnnotation = Annotation.Root({
   run_id: Annotation<string>(),

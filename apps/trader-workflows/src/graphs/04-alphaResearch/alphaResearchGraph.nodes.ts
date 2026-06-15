@@ -6,9 +6,8 @@ import {
   buildRuleCandidateRequest,
   createAlphaResearchClient,
   validateAlphaResearchInput,
-  type AlphaResearchClient,
-  type AlphaResearchInput,
 } from "../../services/alphaResearch.js";
+import type { AlphaResearchClient, AlphaResearchInput } from "../../types/alpha.js";
 import type { AlphaResearchGraphState } from "./alphaResearchGraph.state.js";
 import type { AlphaResearchGraphResult } from "./alphaResearchGraph.types.js";
 

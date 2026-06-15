@@ -1,16 +1,15 @@
 import { Annotation } from "@langchain/langgraph";
 
-import type { WeightedContextItem } from "../../services/contextSnapshots.js";
-import type { EvaluationOutcomeRow, EvaluationReportPayload } from "../../services/evaluation.js";
+import type { ContextSnapshotRecord, WeightedContextItem } from "../../types/context.js";
+import type { EvaluationOutcomeRow, EvaluationReportPayload } from "../../types/evaluation.js";
 import type {
   InsightCandidateRecord,
   InsightCandidatePayload,
   InsightReActStepRecord,
   InsightProposal,
   ParsedExplorationWindow,
-} from "../../services/insightCandidates.js";
-import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
-import type { InsightCandidateOutcomeRow } from "../../services/outcomes.js";
+} from "../../types/insight.js";
+import type { InsightCandidateOutcomeRow } from "../../types/outcomes.js";
 
 export const InsightExplorationGraphStateAnnotation = Annotation.Root({
   run_id: Annotation<string>(),

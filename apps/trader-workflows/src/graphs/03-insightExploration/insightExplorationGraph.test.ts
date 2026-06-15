@@ -18,19 +18,19 @@ import {
   deriveOriginCategory,
   parseExplorationWindow,
   resolveInsightHorizon,
-  type InsightCandidatePayload,
 } from "../../services/insightCandidates.js";
-import {
-  INSIGHT_CANDIDATE_OUTCOME_HORIZONS,
-  type InsightCandidateOutcomeRow,
-  type ScheduleInsightCandidateOutcomePayload,
-} from "../../services/outcomes.js";
-import type { WeightedContextItem } from "../../services/contextSnapshots.js";
+import type { InsightCandidatePayload } from "../../types/insight.js";
+import { INSIGHT_CANDIDATE_OUTCOME_HORIZONS } from "../../services/outcomes.js";
+import type {
+  InsightCandidateOutcomeRow,
+  ScheduleInsightCandidateOutcomePayload,
+} from "../../types/outcomes.js";
+import type { WeightedContextItem } from "../../types/context.js";
 import type {
   EvaluationOutcomeRow,
   EvaluationReportPayload,
   EvaluationReportSections,
-} from "../../services/evaluation.js";
+} from "../../types/evaluation.js";
 
 const FORBIDDEN_STAGE1_PATH_FRAGMENTS = [
   "/lessons",

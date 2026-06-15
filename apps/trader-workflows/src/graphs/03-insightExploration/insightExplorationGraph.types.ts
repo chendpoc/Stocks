@@ -9,15 +9,15 @@ import {
   fetchLatestEvaluationReportForInsight,
   fetchOutcomesForInsight,
   runControlledInsightReAct,
-  type InsightCandidateRecord,
-  type InsightReActStepRecord,
-  type InsightProposal,
-  type ParsedExplorationWindow,
 } from "../../services/insightCandidates.js";
-import {
-  scheduleInsightCandidateOutcome,
-  type InsightCandidateOutcomeRow,
-} from "../../services/outcomes.js";
+import type {
+  InsightCandidateRecord,
+  InsightReActStepRecord,
+  InsightProposal,
+  ParsedExplorationWindow,
+} from "../../types/insight.js";
+import { scheduleInsightCandidateOutcome } from "../../services/outcomes.js";
+import type { InsightCandidateOutcomeRow } from "../../types/outcomes.js";
 
 export const INSIGHT_REACT_MAX_STEPS = 5;
 

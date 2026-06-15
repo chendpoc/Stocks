@@ -1,11 +1,11 @@
 import { Annotation } from "@langchain/langgraph";
 
 import type { DecisionEnvelope } from "../../llm/decisionEnvelope.js";
-import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
+import type { ContextSnapshotRecord } from "../../types/context.js";
 import type {
   PersistedModelDecision,
   ScheduledDecisionOutcome,
-} from "../../services/decisions.js";
+} from "../../types/decisions.js";
 import type { EvidenceRef } from "./evidenceRefs.js";
 import type { ContraGuardrailOutput } from "./contraResult.js";
 import type { EvidenceGuardrailOutput } from "./evidenceResult.js";

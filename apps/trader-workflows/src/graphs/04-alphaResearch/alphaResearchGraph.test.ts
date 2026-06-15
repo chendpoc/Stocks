@@ -4,11 +4,13 @@ import test from "node:test";
 import {
   ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
   createAlphaResearchClient,
-  type AlphaResearchClient,
-  type LiteBacktestReportResponse,
-  type LiteBacktestResponse,
-  type RuleCandidateCreateResponse,
 } from "../../services/alphaResearch.js";
+import type {
+  AlphaResearchClient,
+  LiteBacktestReportResponse,
+  LiteBacktestResponse,
+  RuleCandidateCreateResponse,
+} from "../../types/alpha.js";
 import { buildAlphaSeedV1 } from "../../services/insightCandidates.js";
 import {
   ALPHA_RESEARCH_GRAPH_NODE_NAMES,
