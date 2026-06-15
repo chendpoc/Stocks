@@ -1,5 +1,5 @@
-import { listInsightCandidates } from "../../services/marketAgent.js";
-import { runInsightExplorationGraphViaRuntime } from "../../api/graphRunner.js";
+import { listInsightCandidates } from "../../data/marketAgent.js";
+import { runInsightExplorationGraphViaRuntime } from "../../orchestration/graphRunner.js";
 import { CLI_FLAG_SYMBOL, CLI_FLAG_VERIFICATION_STATUS, CLI_FLAG_WINDOW } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_EXPLORE_SUBCOMMAND_REQUIRED,

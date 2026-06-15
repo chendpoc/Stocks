@@ -1,5 +1,5 @@
-import { listDecisionOutcomes } from "../../services/marketAgent.js";
-import { runOutcomeGraphViaRuntime } from "../../api/graphRunner.js";
+import { listDecisionOutcomes } from "../../data/marketAgent.js";
+import { runOutcomeGraphViaRuntime } from "../../orchestration/graphRunner.js";
 import { CLI_FLAG_DUE, CLI_FLAG_LIMIT, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_DUE_FLAG_REQUIRED,

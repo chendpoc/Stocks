@@ -1,4 +1,4 @@
-import { runDecisionGraphViaRuntime } from "../../api/graphRunner.js";
+import { runDecisionGraphViaRuntime } from "../../orchestration/graphRunner.js";
 import { CLI_FLAG_GATE_JSON, CLI_FLAG_SETUP } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_GATE_JSON_INVALID,
