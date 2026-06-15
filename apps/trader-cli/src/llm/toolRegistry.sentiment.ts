@@ -6,12 +6,12 @@
  *
  * 实现说明:
  * - webSearch / searchCnFinance 目前为预置接口，需对接实际搜索 API
- * - fetchUrl 使用 fetchIntel() 通过 Backend 做 HTTP 代理（避免前端跨域 + IP 限制）
+ * - fetchUrl 使用 safeFetchIntel() 通过 Backend 做 HTTP 代理（避免前端跨域 + IP 限制）
  */
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../api/client.js";
+import { safeFetchIntel } from "../api/client.js";
 import type { ToolDef } from "./toolRegistry.js";
 
 export const SENTIMENT_TOOLS: ToolDef[] = [
@@ -27,7 +27,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
         maxResults: z.number().default(5).describe("最大结果数（1-5）"),
       }),
       execute: async ({ query, maxResults }) =>
-        fetchIntel("/tools/web-search", {
+        safeFetchIntel("/tools/web-search", {
           method: "POST",
           body: JSON.stringify({ query, maxResults }),
         }),
@@ -49,7 +49,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
           .describe("数据源，auto 自动选择"),
       }),
       execute: async ({ symbol, source }) =>
-        fetchIntel("/tools/search-cn-finance", {
+        safeFetchIntel("/tools/search-cn-finance", {
           method: "POST",
           body: JSON.stringify({ symbol, source }),
         }),
@@ -67,7 +67,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
         url: z.string().describe("要访问的完整 URL"),
       }),
       execute: async ({ url }) =>
-        fetchIntel("/tools/fetch-url", {
+        safeFetchIntel("/tools/fetch-url", {
           method: "POST",
           body: JSON.stringify({ url }),
         }),
@@ -85,7 +85,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
         windowMinutes: z.number().default(30),
       }),
       execute: async ({ symbol, windowMinutes }) =>
-        fetchIntel("/tools/recent-events", {
+        safeFetchIntel("/tools/recent-events", {
           method: "POST",
           body: JSON.stringify({ symbol, windowMinutes }),
         }),
@@ -107,7 +107,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
         symbol: z.string().optional().describe("关联标的代码，帮助识别公司引用"),
       }),
       execute: async ({ text, symbol }) =>
-        fetchIntel("/tools/extract-news-signal", {
+        safeFetchIntel("/tools/extract-news-signal", {
           method: "POST",
           body: JSON.stringify({ text, symbol }),
         }),
@@ -132,7 +132,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
           .describe("社交平台列表。默认 ['x']，可选追加 stocktwits 和 reddit。"),
       }),
       execute: async ({ symbol, platforms }) =>
-        fetchIntel("/tools/analyze-sentiment", {
+        safeFetchIntel("/tools/analyze-sentiment", {
           method: "POST",
           body: JSON.stringify({ symbol, platforms }),
         }),

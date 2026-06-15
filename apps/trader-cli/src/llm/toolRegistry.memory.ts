@@ -7,7 +7,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../api/client.js";
+import { safeFetchIntel } from "../api/client.js";
 import { auditHypothesis } from "./auditor.js";
 import type { ToolDef } from "./toolRegistry.js";
 
@@ -26,7 +26,7 @@ export const MEMORY_TOOLS: ToolDef[] = [
       execute: async ({ query, symbol, limit }) => {
         const params = new URLSearchParams({ query, limit: String(limit) });
         if (symbol) params.set("symbol", symbol);
-        return fetchIntel(`/corpus/search?${params.toString()}`);
+        return safeFetchIntel(`/corpus/search?${params.toString()}`);
       },
     }),
   },
@@ -42,7 +42,7 @@ export const MEMORY_TOOLS: ToolDef[] = [
         limit: z.number().default(3),
       }),
       execute: async ({ symbol, limit }) =>
-        fetchIntel(`/hypotheses?symbol=${encodeURIComponent(symbol)}&limit=${limit}`),
+        safeFetchIntel(`/hypotheses?symbol=${encodeURIComponent(symbol)}&limit=${limit}`),
     }),
   },
 
@@ -59,7 +59,7 @@ export const MEMORY_TOOLS: ToolDef[] = [
       execute: async ({ symbol, limit }) => {
         const params = new URLSearchParams({ limit: String(limit) });
         if (symbol) params.set("symbol", symbol);
-        return fetchIntel(`/lessons?${params.toString()}`);
+        return safeFetchIntel(`/lessons?${params.toString()}`);
       },
     }),
   },
@@ -132,7 +132,7 @@ export const MEMORY_TOOLS: ToolDef[] = [
         if (issues.blockers.length > 0) {
           return { error: "audit_blocked", blockers: issues.blockers };
         }
-        return fetchIntel("/hypotheses", {
+        return safeFetchIntel("/hypotheses", {
           method: "POST",
           body: JSON.stringify({
             signal_id: signalId,
@@ -163,7 +163,7 @@ export const MEMORY_TOOLS: ToolDef[] = [
           pattern_id: setupName,
           limit: String(limit),
         });
-        return fetchIntel(`/market-agent/pattern-memory?${params.toString()}`);
+        return safeFetchIntel(`/market-agent/pattern-memory?${params.toString()}`);
       },
     }),
   },

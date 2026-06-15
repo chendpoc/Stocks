@@ -11,7 +11,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../api/client.js";
+import { safeFetchIntel } from "../api/client.js";
 import type { ToolDef } from "./toolRegistry.js";
 
 export const WORKFLOW_TOOLS: ToolDef[] = [
@@ -24,7 +24,7 @@ export const WORKFLOW_TOOLS: ToolDef[] = [
         "列出系统中所有可用的 workflow（decision/outcome/evaluation/insightExploration/alphaResearch）。" +
         "每个 workflow 返回: id、描述、输入要求、产出内容、预计耗时。首次对话或不确定有哪些 workflow 时调用。",
       parameters: z.object({}),
-      execute: async () => fetchIntel("/workflows"),
+      execute: async () => safeFetchIntel("/workflows"),
     }),
   },
 
@@ -54,7 +54,7 @@ export const WORKFLOW_TOOLS: ToolDef[] = [
           ),
       }),
       execute: async ({ workflowId, inputs }) =>
-        fetchIntel(`/workflows/${workflowId}`, {
+        safeFetchIntel(`/workflows/${workflowId}`, {
           method: "POST",
           body: JSON.stringify(inputs),
         }),
@@ -74,7 +74,7 @@ export const WORKFLOW_TOOLS: ToolDef[] = [
         runId: z.string().describe("runId，来自 runWorkflow 返回值"),
       }),
       execute: async ({ runId }) =>
-        fetchIntel(`/workflows/runs/${encodeURIComponent(runId)}`),
+        safeFetchIntel(`/workflows/runs/${encodeURIComponent(runId)}`),
     }),
   },
 ];

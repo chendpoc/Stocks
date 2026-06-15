@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../api/client";
+import { safeFetchIntel } from "../api/client";
 import { ingestSymbol } from "../services/market";
 import { PREFERRED_SYMBOLS_LABEL } from "../symbols";
 import { auditHypothesis } from "./auditor";
@@ -57,7 +57,7 @@ export const INTEL_TOOLS = {
   ingestMarketData: tool({
     description: `批量拉取预设关注列表（${PREFERRED_SYMBOLS_LABEL}）行情（日线+5m）。其他代码请用 ingestSymbolBars`,
     parameters: z.object({}),
-    execute: async () => fetchIntel("/market/ingest", { method: "POST" }),
+    execute: async () => safeFetchIntel("/market/ingest", { method: "POST" }),
   }),
 
   ingestSymbolBars: tool({
@@ -81,7 +81,7 @@ export const INTEL_TOOLS = {
       limit: z.number().default(20),
     }),
     execute: async ({ symbol, timeframe, limit }) =>
-      fetchIntel(
+      safeFetchIntel(
         `/market/bars?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`,
       ),
   }),
@@ -98,14 +98,14 @@ export const INTEL_TOOLS = {
       if (symbol) params.set("symbol", symbol);
       if (status) params.set("status", status);
       params.set("limit", String(limit));
-      return fetchIntel(`/signals?${params.toString()}`);
+      return safeFetchIntel(`/signals?${params.toString()}`);
     },
   }),
 
   scanSignals: tool({
     description: `对预设关注列表（${PREFERRED_SYMBOLS_LABEL}）批量特征扫描；不限制你只能分析这些代码`,
     parameters: z.object({}),
-    execute: async () => fetchIntel("/signals/scan", { method: "POST" }),
+    execute: async () => safeFetchIntel("/signals/scan", { method: "POST" }),
   }),
 
   buildContext: tool({
@@ -127,7 +127,7 @@ export const INTEL_TOOLS = {
       signalId: z.string().optional().describe("关联的信号 ID"),
     }),
     execute: async (params) =>
-      fetchIntel("/context/build", {
+      safeFetchIntel("/context/build", {
         method: "POST",
         body: JSON.stringify(params),
       }),
@@ -143,7 +143,7 @@ export const INTEL_TOOLS = {
     execute: async ({ query, symbol, limit }) => {
       const params = new URLSearchParams({ query, limit: String(limit) });
       if (symbol) params.set("symbol", symbol);
-      return fetchIntel(`/corpus/search?${params.toString()}`);
+      return safeFetchIntel(`/corpus/search?${params.toString()}`);
     },
   }),
 
@@ -157,7 +157,7 @@ export const INTEL_TOOLS = {
     execute: async ({ symbol, days, limit }) => {
       const params = new URLSearchParams({ days: String(days), limit: String(limit) });
       if (symbol) params.set("symbol", symbol);
-      return fetchIntel(`/events?${params.toString()}`);
+      return safeFetchIntel(`/events?${params.toString()}`);
     },
   }),
 
@@ -168,7 +168,7 @@ export const INTEL_TOOLS = {
       limit: z.number().default(3),
     }),
     execute: async ({ symbol, limit }) =>
-      fetchIntel(`/hypotheses?symbol=${encodeURIComponent(symbol)}&limit=${limit}`),
+      safeFetchIntel(`/hypotheses?symbol=${encodeURIComponent(symbol)}&limit=${limit}`),
   }),
 
   getLessons: tool({
@@ -180,7 +180,7 @@ export const INTEL_TOOLS = {
     execute: async ({ symbol, limit }) => {
       const params = new URLSearchParams({ limit: String(limit) });
       if (symbol) params.set("symbol", symbol);
-      return fetchIntel(`/lessons?${params.toString()}`);
+      return safeFetchIntel(`/lessons?${params.toString()}`);
     },
   }),
 
@@ -241,7 +241,7 @@ export const INTEL_TOOLS = {
       if (issues.blockers.length > 0) {
         return { error: "audit_blocked", blockers: issues.blockers };
       }
-      return fetchIntel("/hypotheses", {
+      return safeFetchIntel("/hypotheses", {
         method: "POST",
         body: JSON.stringify({
           signal_id: signalId,
