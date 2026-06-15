@@ -1,18 +1,28 @@
 import {
+  CLI_FLAG_ALLOW_LIVE_FALLBACK,
   CLI_FLAG_FAILURE_TYPE,
   CLI_FLAG_GRAPH_NAME,
   CLI_FLAG_LIMIT,
+  CLI_FLAG_MIN_REQUIRED,
   CLI_FLAG_MODEL_VERSION,
+  CLI_FLAG_PATTERN_ID,
   CLI_FLAG_SETUP,
   CLI_FLAG_STATUS,
   CLI_FLAG_SYMBOL,
+  CLI_FLAG_TIMEFRAME,
   CLI_FLAG_TYPE,
+  CLI_FLAG_VERIFICATION_STATUS,
 } from "../constants/cliFlags.js";
 import {
   ERROR_CODE_RUN_ID_REQUIRED,
+  ERROR_CODE_SYMBOL_REQUIRED,
   ERROR_CODE_UNKNOWN_DECISIONS_COMMAND,
   ERROR_CODE_UNKNOWN_FAILURE_MEMORY_COMMAND,
+  ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,
+  ERROR_CODE_UNKNOWN_MARKET_DATA_COMMAND,
   ERROR_CODE_UNKNOWN_MEMORY_COMMAND,
+  ERROR_CODE_UNKNOWN_OUTCOMES_COMMAND,
+  ERROR_CODE_UNKNOWN_PATTERN_MEMORY_COMMAND,
   ERROR_CODE_UNKNOWN_RUNS_COMMAND,
 } from "../constants/errorCodes.js";
 import type { WorkflowEnvelope } from "../types/cli.js";
@@ -25,9 +35,29 @@ import {
   handleFailureMemoryListCommandAsync,
 } from "./commandHandlers/failureMemory.js";
 import {
+  handleInsightsListCommandAsync,
+  InsightsListOpts,
+} from "./commandHandlers/insights.js";
+import {
+  handleMarketDataFetchCommandAsync,
+  handleMarketDataHealthCommandAsync,
+  handleMarketDataQualityCommandAsync,
+  MarketDataHealthOpts,
+  parseMarketDataFetchOpts,
+  parseMarketDataQualityOpts,
+} from "./commandHandlers/marketData.js";
+import {
   handleMemoryInitCommandAsync,
   MemoryInitOpts,
 } from "./commandHandlers/memory.js";
+import {
+  handleOutcomesListCommandAsync,
+  parseOutcomesListOpts,
+} from "./commandHandlers/outcomes.js";
+import {
+  handlePatternMemoryListCommandAsync,
+  PatternMemoryListOpts,
+} from "./commandHandlers/patternMemory.js";
 import {
   handleRunsListCommandAsync,
   handleRunsMonitorCommandAsync,
@@ -67,6 +97,144 @@ function optionalFailureType(args: string[]): string | undefined {
   return (
     flagValue(args, CLI_FLAG_TYPE, "TYPE_VALUE_REQUIRED") ??
     flagValue(args, CLI_FLAG_FAILURE_TYPE, "FAILURE_TYPE_VALUE_REQUIRED")
+  );
+}
+
+const S3_MARKET_DATA_SUBCOMMANDS = new Set(["fetch", "health", "quality"]);
+const S3_PARTIAL_COMMANDS: Record<string, Set<string>> = {
+  outcomes: new Set(["list"]),
+  insights: new Set(["list"]),
+  "pattern-memory": new Set(["list"]),
+};
+
+export function isS3MigratedCommand(args: string[]): boolean {
+  const top = args[0];
+  const sub = args[1];
+  if (top === "market-data" && sub && S3_MARKET_DATA_SUBCOMMANDS.has(sub)) {
+    return true;
+  }
+  const subs = S3_PARTIAL_COMMANDS[top];
+  return subs?.has(sub ?? "") ?? false;
+}
+
+export async function dispatchS3CommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const top = args[0];
+  const sub = args[1];
+
+  if (top === "outcomes") {
+    if (sub === "list") {
+      return handleOutcomesListCommandAsync(
+        runtime,
+        parseOutcomesListOpts({
+          symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          status: flagValue(args, CLI_FLAG_STATUS, "STATUS_VALUE_REQUIRED"),
+          limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_OUTCOMES_COMMAND,
+      `Unknown outcomes command: ${sub ?? "(missing)"} (use list|run)`,
+    );
+  }
+
+  if (top === "insights") {
+    if (sub === "list") {
+      return handleInsightsListCommandAsync(
+        runtime,
+        parseOpts(InsightsListOpts, {
+          symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          verificationStatus: flagValue(
+            args,
+            CLI_FLAG_VERIFICATION_STATUS,
+            "VERIFICATION_STATUS_VALUE_REQUIRED",
+          ),
+          limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,
+      `Unknown insights command: ${sub ?? "(missing)"} (use explore|list)`,
+    );
+  }
+
+  if (top === "pattern-memory") {
+    if (sub === "list") {
+      return handlePatternMemoryListCommandAsync(
+        runtime,
+        parseOpts(PatternMemoryListOpts, {
+          symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          patternId: flagValue(args, CLI_FLAG_PATTERN_ID, "PATTERN_ID_VALUE_REQUIRED"),
+          status: flagValue(args, CLI_FLAG_STATUS, "STATUS_VALUE_REQUIRED"),
+          limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_PATTERN_MEMORY_COMMAND,
+      `Unknown pattern-memory command: ${sub ?? "(missing)"} (use list|promote|degrade)`,
+    );
+  }
+
+  if (top === "market-data") {
+    switch (sub) {
+      case "fetch": {
+        if (!args.includes(CLI_FLAG_SYMBOL)) {
+          throw new WorkflowCommandError(
+            ERROR_CODE_SYMBOL_REQUIRED,
+            "market-data fetch requires --symbol",
+          );
+        }
+        return handleMarketDataFetchCommandAsync(
+          runtime,
+          parseMarketDataFetchOpts({
+            symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+            timeframe: flagValue(args, CLI_FLAG_TIMEFRAME, "TIMEFRAME_VALUE_REQUIRED"),
+            limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+            minRequired: flagValue(args, CLI_FLAG_MIN_REQUIRED, "MIN_REQUIRED_VALUE_REQUIRED"),
+            allowLiveFallback: args.includes(CLI_FLAG_ALLOW_LIVE_FALLBACK),
+          }),
+        );
+      }
+      case "health":
+        return handleMarketDataHealthCommandAsync(
+          runtime,
+          parseOpts(MarketDataHealthOpts, {
+            symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          }),
+        );
+      case "quality": {
+        if (!args.includes(CLI_FLAG_SYMBOL)) {
+          throw new WorkflowCommandError(
+            ERROR_CODE_SYMBOL_REQUIRED,
+            "market-data quality requires --symbol",
+          );
+        }
+        return handleMarketDataQualityCommandAsync(
+          runtime,
+          parseMarketDataQualityOpts({
+            symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+            timeframe: flagValue(args, CLI_FLAG_TIMEFRAME, "TIMEFRAME_VALUE_REQUIRED"),
+            limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+            minRequired: flagValue(args, CLI_FLAG_MIN_REQUIRED, "MIN_REQUIRED_VALUE_REQUIRED"),
+          }),
+        );
+      }
+      default:
+        throw new WorkflowCommandError(
+          ERROR_CODE_UNKNOWN_MARKET_DATA_COMMAND,
+          `Unknown market-data command: ${sub ?? "(missing)"} (use fetch|health|quality)`,
+        );
+    }
+  }
+
+  throw new WorkflowCommandError(
+    "INTERNAL_ERROR",
+    `dispatchS3CommandAsync called for non-S3 command: ${top} ${sub ?? ""}`,
   );
 }
 

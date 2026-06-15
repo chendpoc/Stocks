@@ -1,5 +1,5 @@
 /**
- * S2: commander 子命令树 + zod typed opts（S2 命令已接入 action）
+ * S2/S3: commander 子命令树 + zod typed opts（S2/S3 命令已接入 action）
  *
  * 生产路径仍经 router.handleCommandAsync；S6 切换 index main → parseAsync。
  */
@@ -22,9 +22,29 @@ import {
   handleFailureMemoryListCommandAsync,
 } from "./commandHandlers/failureMemory.js";
 import {
+  handleInsightsListCommandAsync,
+  InsightsListOpts,
+} from "./commandHandlers/insights.js";
+import {
+  handleMarketDataFetchCommandAsync,
+  handleMarketDataHealthCommandAsync,
+  handleMarketDataQualityCommandAsync,
+  MarketDataHealthOpts,
+  parseMarketDataFetchOpts,
+  parseMarketDataQualityOpts,
+} from "./commandHandlers/marketData.js";
+import {
   handleMemoryInitCommandAsync,
   MemoryInitOpts,
 } from "./commandHandlers/memory.js";
+import {
+  handleOutcomesListCommandAsync,
+  parseOutcomesListOpts,
+} from "./commandHandlers/outcomes.js";
+import {
+  handlePatternMemoryListCommandAsync,
+  PatternMemoryListOpts,
+} from "./commandHandlers/patternMemory.js";
 import {
   handleRunsListCommandAsync,
   handleRunsMonitorCommandAsync,
@@ -71,7 +91,8 @@ export function stripJsonFlag(args: string[]): string[] {
 
 /**
  * 构建完整的 commander 程序树。
- * S2: runs / decisions / memory / failure-memory actions 已接入 zod + handler。
+ * S2/S3: runs / decisions / memory / failure-memory / outcomes list / insights list /
+ * market-data * / pattern-memory list actions 已接入 zod + handler。
  */
 export function buildProgram(runtime: Stage1Runtime): Command {
   const program = new Command()
@@ -169,10 +190,15 @@ export function buildProgram(runtime: Stage1Runtime): Command {
 
   // ── outcomes ──
   const outcomes = program.command("outcomes").description("Decision outcomes");
-  outcomes.command("list").description("List outcomes")
+  outcomes
+    .command("list")
+    .description("List outcomes")
     .option("--symbol <symbol>", "Filter by symbol")
     .option("--status <status>", "Status filter")
-    .option("--limit <n>", "Max results", "100");
+    .option("--limit <n>", "Max results", "100")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleOutcomesListCommandAsync(runtime, parseOutcomesListOpts(rawOpts)),
+    );
   outcomes.command("run").description("Run due outcomes")
     .requiredOption("--due", "Process due outcomes")
     .option("--symbol <symbol>", "Filter by symbol");
@@ -189,18 +215,28 @@ export function buildProgram(runtime: Stage1Runtime): Command {
   insights.command("explore").description("Run insight exploration")
     .requiredOption("--symbol <symbol>", "Stock symbol")
     .requiredOption("--window <window>", "Exploration window");
-  insights.command("list").description("List insight candidates")
+  insights
+    .command("list")
+    .description("List insight candidates")
     .option("--symbol <symbol>", "Filter by symbol")
     .option("--verification-status <status>", "Verification status")
-    .option("--limit <n>", "Max results", "50");
+    .option("--limit <n>", "Max results", "50")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleInsightsListCommandAsync(runtime, parseOpts(InsightsListOpts, rawOpts)),
+    );
 
   // ── pattern-memory ──
   const pm = program.command("pattern-memory").description("Pattern memory");
-  pm.command("list").description("List pattern memories")
+  pm
+    .command("list")
+    .description("List pattern memories")
     .option("--symbol <symbol>", "Filter by symbol")
     .option("--pattern-id <id>", "Filter by pattern ID")
     .option("--status <status>", "Filter by status")
-    .option("--limit <n>", "Max results");
+    .option("--limit <n>", "Max results")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handlePatternMemoryListCommandAsync(runtime, parseOpts(PatternMemoryListOpts, rawOpts)),
+    );
   pm.command("promote").description("Promote pattern to candidate")
     .requiredOption("--confirm", "Confirmation flag")
     .option("--pattern-memory-id <id>", "Pattern memory ID")
@@ -243,19 +279,34 @@ export function buildProgram(runtime: Stage1Runtime): Command {
 
   // ── market-data ──
   const md = program.command("market-data").description("Market data");
-  md.command("fetch").description("Fetch market data")
+  md
+    .command("fetch")
+    .description("Fetch market data")
     .requiredOption("--symbol <symbol>", "Stock symbol")
     .option("--timeframe <timeframe>", "Data timeframe", "1d")
     .option("--limit <n>", "Max results")
     .option("--min-required <n>", "Minimum required")
-    .option("--allow-live-fallback", "Allow live fallback");
-  md.command("health").description("Check data health")
-    .option("--symbol <symbol>", "Stock symbol");
-  md.command("quality").description("Check data quality")
+    .option("--allow-live-fallback", "Allow live fallback")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleMarketDataFetchCommandAsync(runtime, parseMarketDataFetchOpts(rawOpts)),
+    );
+  md
+    .command("health")
+    .description("Check data health")
+    .option("--symbol <symbol>", "Stock symbol")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleMarketDataHealthCommandAsync(runtime, parseOpts(MarketDataHealthOpts, rawOpts)),
+    );
+  md
+    .command("quality")
+    .description("Check data quality")
     .requiredOption("--symbol <symbol>", "Stock symbol")
     .option("--timeframe <timeframe>", "Data timeframe", "1d")
     .option("--limit <n>", "Max results")
-    .option("--min-required <n>", "Minimum required");
+    .option("--min-required <n>", "Minimum required")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleMarketDataQualityCommandAsync(runtime, parseMarketDataQualityOpts(rawOpts)),
+    );
 
   program.exitOverride((err) => {
     if (err instanceof CommanderError) {

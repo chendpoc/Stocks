@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { listInsightCandidates } from "../../data/marketAgent.js";
 import { runInsightExplorationGraphViaRuntime } from "../../orchestration/graphRunner.js";
 import { CLI_FLAG_SYMBOL, CLI_FLAG_VERIFICATION_STATUS, CLI_FLAG_WINDOW } from "../../constants/cliFlags.js";
@@ -11,12 +13,14 @@ import {
 import { GRAPH_NAME_INSIGHT_EXPLORATION } from "../../constants/graphNames.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
-import {
-  DEFAULT_INSIGHTS_LIST_LIMIT,
-  parseOptionalFlagValue,
-  parsePositiveLimitFlag,
-} from "../flagParsing.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
+
+export const InsightsListOpts = z.object({
+  symbol: z.string().optional(),
+  verificationStatus: z.string().optional(),
+  limit: z.coerce.number().int().positive().default(50),
+});
+export type InsightsListOpts = z.infer<typeof InsightsListOpts>;
 
 export async function handleInsightsExploreCommandAsync(
   runtime: Stage1Runtime,
@@ -72,12 +76,13 @@ export async function handleInsightsExploreCommandAsync(
 
 export async function handleInsightsListCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  opts: InsightsListOpts,
 ): Promise<WorkflowEnvelope> {
-  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL);
-  const verification_status = parseOptionalFlagValue(args, CLI_FLAG_VERIFICATION_STATUS);
-  const limit = parsePositiveLimitFlag(args, DEFAULT_INSIGHTS_LIST_LIMIT);
-  const response = await listInsightCandidates({ symbol, verification_status, limit });
+  const response = await listInsightCandidates({
+    symbol: opts.symbol,
+    verification_status: opts.verificationStatus,
+    limit: opts.limit,
+  });
   return toEnvelope({
     ok: true,
     command: "insights list",
@@ -95,9 +100,6 @@ export async function handleInsightsCommandAsync(
   const sub = args[1];
   if (sub === "explore") {
     return handleInsightsExploreCommandAsync(runtime, args);
-  }
-  if (sub === "list") {
-    return handleInsightsListCommandAsync(runtime, args);
   }
   throw new WorkflowCommandError(
     ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,

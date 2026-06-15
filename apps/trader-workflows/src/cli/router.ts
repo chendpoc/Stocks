@@ -8,12 +8,16 @@ import { handleContextCommandAsync } from "./commandHandlers/context.js";
 import { handleDecideCommandAsync } from "./commandHandlers/decide.js";
 import { handleEvalSummaryCommandAsync } from "./commandHandlers/eval.js";
 import { handleInsightsCommandAsync } from "./commandHandlers/insights.js";
-import { handleMarketDataCommandAsync } from "./commandHandlers/marketData.js";
 import { handleMarketMonitorRunCommandAsync } from "./commandHandlers/marketMonitor.js";
 import { handleOutcomesCommandAsync } from "./commandHandlers/outcomes.js";
 import { handlePatternMemoryCommandAsync } from "./commandHandlers/patternMemory.js";
 import { WorkflowCommandError } from "./helpers.js";
-import { dispatchS2CommandAsync, isS2MigratedTopLevelCommand } from "./legacyArgs.js";
+import {
+  dispatchS2CommandAsync,
+  dispatchS3CommandAsync,
+  isS2MigratedTopLevelCommand,
+  isS3MigratedCommand,
+} from "./legacyArgs.js";
 import {
   isCommanderUnknownCommandError,
   stripJsonFlag,
@@ -28,7 +32,7 @@ export type HandlerFn = (
 const SUPPORTED_COMMANDS =
   "memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data";
 
-/** S3+ commands still on legacy string[] handlers. */
+/** S4+ commands still on legacy string[] handlers. */
 const LEGACY_COMMAND_HANDLERS: Record<string, HandlerFn> = {
   decide: handleDecideCommandAsync,
   outcomes: handleOutcomesCommandAsync,
@@ -36,7 +40,6 @@ const LEGACY_COMMAND_HANDLERS: Record<string, HandlerFn> = {
   insights: handleInsightsCommandAsync,
   context: handleContextCommandAsync,
   "market-monitor": handleMarketMonitorRunCommandAsync,
-  "market-data": handleMarketDataCommandAsync,
   "pattern-memory": handlePatternMemoryCommandAsync,
 };
 
@@ -68,6 +71,10 @@ export async function handleCommandAsync(
   const top = commandArgs[0];
   if (isS2MigratedTopLevelCommand(top)) {
     return dispatchS2CommandAsync(runtime, commandArgs);
+  }
+
+  if (isS3MigratedCommand(commandArgs)) {
+    return dispatchS3CommandAsync(runtime, commandArgs);
   }
 
   const handler = LEGACY_COMMAND_HANDLERS[top];

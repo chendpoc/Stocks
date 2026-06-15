@@ -1,50 +1,93 @@
+import { z } from "zod";
+
 import {
   fetchMarketData,
   getMarketDataHealth,
   getMarketDataQuality,
 } from "../../data/marketAgent.js";
 import {
-  CLI_FLAG_ALLOW_LIVE_FALLBACK,
-  CLI_FLAG_LIMIT,
-  CLI_FLAG_MIN_REQUIRED,
-  CLI_FLAG_SYMBOL,
-  CLI_FLAG_TIMEFRAME,
-} from "../../constants/cliFlags.js";
-import {
   ERROR_CODE_SYMBOL_REQUIRED,
   ERROR_CODE_UNKNOWN_MARKET_DATA_COMMAND,
 } from "../../constants/errorCodes.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
-import {
-  parseOptionalBooleanFlag,
-  parseOptionalFlagValue,
-  parseOptionalIntFlag,
-  parseRequiredFlagValue,
-} from "../flagParsing.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
+import { parseOpts } from "../parseOpts.js";
+
+const optionalPositiveInt = z.preprocess(
+  (value) => (value === undefined || value === "" ? undefined : value),
+  z.coerce.number().int().positive().optional(),
+);
+
+export const MarketDataFetchOpts = z.object({
+  symbol: z.string().min(1, ERROR_CODE_SYMBOL_REQUIRED),
+  timeframe: z.string().default("1d"),
+  limit: optionalPositiveInt,
+  minRequired: optionalPositiveInt,
+  allowLiveFallback: z.boolean().optional().default(false),
+});
+export type MarketDataFetchOpts = z.infer<typeof MarketDataFetchOpts>;
+
+export const MarketDataHealthOpts = z.object({
+  symbol: z.string().optional(),
+});
+export type MarketDataHealthOpts = z.infer<typeof MarketDataHealthOpts>;
+
+export const MarketDataQualityOpts = z.object({
+  symbol: z.string().min(1, ERROR_CODE_SYMBOL_REQUIRED),
+  timeframe: z.string().default("1d"),
+  limit: optionalPositiveInt,
+  minRequired: optionalPositiveInt,
+});
+export type MarketDataQualityOpts = z.infer<typeof MarketDataQualityOpts>;
+
+function parseSymbolRequiredOpts<T extends { symbol: string }>(
+  schema: z.ZodType<T>,
+  raw: unknown,
+  message: string,
+): T {
+  try {
+    return parseOpts(schema, raw);
+  } catch (error) {
+    if (error instanceof WorkflowCommandError) {
+      if (
+        error.code === "SYMBOL_INVALID" ||
+        error.message.includes("symbol") ||
+        error.code === ERROR_CODE_SYMBOL_REQUIRED
+      ) {
+        throw new WorkflowCommandError(ERROR_CODE_SYMBOL_REQUIRED, message);
+      }
+    }
+    throw error;
+  }
+}
+
+export function parseMarketDataFetchOpts(raw: unknown): MarketDataFetchOpts {
+  return parseSymbolRequiredOpts(
+    MarketDataFetchOpts,
+    raw,
+    "market-data fetch requires --symbol",
+  );
+}
+
+export function parseMarketDataQualityOpts(raw: unknown): MarketDataQualityOpts {
+  return parseSymbolRequiredOpts(
+    MarketDataQualityOpts,
+    raw,
+    "market-data quality requires --symbol",
+  );
+}
 
 export async function handleMarketDataFetchCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  opts: MarketDataFetchOpts,
 ): Promise<WorkflowEnvelope> {
-  const symbol = parseRequiredFlagValue(
-    args,
-    CLI_FLAG_SYMBOL,
-    ERROR_CODE_SYMBOL_REQUIRED,
-    "market-data fetch requires --symbol",
-  );
-  const timeframe = parseOptionalFlagValue(args, CLI_FLAG_TIMEFRAME) ?? "1d";
-  const limit = parseOptionalIntFlag(args, CLI_FLAG_LIMIT);
-  const minRequired = parseOptionalIntFlag(args, CLI_FLAG_MIN_REQUIRED);
-  const allowLiveFallback = parseOptionalBooleanFlag(args, CLI_FLAG_ALLOW_LIVE_FALLBACK);
-
   const response = await fetchMarketData({
-    symbol,
-    timeframe,
-    limit,
-    min_required: minRequired,
-    allow_live_fallback: allowLiveFallback,
+    symbol: opts.symbol,
+    timeframe: opts.timeframe,
+    limit: opts.limit,
+    min_required: opts.minRequired,
+    allow_live_fallback: opts.allowLiveFallback,
   });
   return toEnvelope({
     ok: true,
@@ -55,10 +98,9 @@ export async function handleMarketDataFetchCommandAsync(
 
 export async function handleMarketDataHealthCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  opts: MarketDataHealthOpts,
 ): Promise<WorkflowEnvelope> {
-  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL);
-  const response = await getMarketDataHealth({ symbol: symbol?.toUpperCase() });
+  const response = await getMarketDataHealth({ symbol: opts.symbol?.toUpperCase() });
   return toEnvelope({
     ok: true,
     command: "market-data health",
@@ -68,22 +110,13 @@ export async function handleMarketDataHealthCommandAsync(
 
 export async function handleMarketDataQualityCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  opts: MarketDataQualityOpts,
 ): Promise<WorkflowEnvelope> {
-  const symbol = parseRequiredFlagValue(
-    args,
-    CLI_FLAG_SYMBOL,
-    ERROR_CODE_SYMBOL_REQUIRED,
-    "market-data quality requires --symbol",
-  );
-  const timeframe = parseOptionalFlagValue(args, CLI_FLAG_TIMEFRAME) ?? "1d";
-  const limit = parseOptionalIntFlag(args, CLI_FLAG_LIMIT);
-  const minRequired = parseOptionalIntFlag(args, CLI_FLAG_MIN_REQUIRED);
   const response = await getMarketDataQuality({
-    symbol,
-    timeframe,
-    limit,
-    min_required: minRequired,
+    symbol: opts.symbol,
+    timeframe: opts.timeframe,
+    limit: opts.limit,
+    min_required: opts.minRequired,
   });
   return toEnvelope({
     ok: true,
@@ -93,19 +126,10 @@ export async function handleMarketDataQualityCommandAsync(
 }
 
 export async function handleMarketDataCommandAsync(
-  runtime: Stage1Runtime,
+  _runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
   const sub = args[1];
-  if (sub === "fetch") {
-    return handleMarketDataFetchCommandAsync(runtime, args);
-  }
-  if (sub === "health") {
-    return handleMarketDataHealthCommandAsync(runtime, args);
-  }
-  if (sub === "quality") {
-    return handleMarketDataQualityCommandAsync(runtime, args);
-  }
   throw new WorkflowCommandError(
     ERROR_CODE_UNKNOWN_MARKET_DATA_COMMAND,
     `Unknown market-data command: ${sub ?? "(missing)"} (use fetch|health|quality)`,
