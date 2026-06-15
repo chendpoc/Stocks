@@ -495,8 +495,7 @@ export async function validateTopLevelCommand(args: string[]): Promise<void> {
 
   const top = commandArgs[0];
   if (!TOP_LEVEL_COMMANDS.has(top)) {
-    const err = new CommanderError("commander.unknownCommand", top);
-    throw err;
+    throw new CommanderError(1, "commander.unknownCommand", `Unknown command: ${top}`);
   }
 }
 

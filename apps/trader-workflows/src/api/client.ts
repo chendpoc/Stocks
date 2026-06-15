@@ -6,6 +6,7 @@
 
 import ky, { HTTPError } from "ky";
 import { config } from "../runtime/config.js";
+import { logger } from "../runtime/logger.js";
 
 /* ───────── Intel API ───────── */
 
@@ -16,13 +17,20 @@ const intelApi = ky.create({
   timeout: 30_000,
   retry: { limit: 2, methods: ["get"] },
   hooks: {
+    beforeRetry: [
+      ({ request, retryCount, error }) => {
+        logger.warn(
+          { url: request.url, retryCount, err: error.message },
+          "HTTP request retry",
+        );
+      },
+    ],
     beforeError: [
       (error) => {
-        const { response } = error;
-        if (response?.body) {
-          error.message = `Intel API ${response.status}: ${response.statusText}`;
+        if (error instanceof HTTPError && error.response?.body) {
+          error.message = `Intel API ${error.response.status}: ${error.response.statusText}`;
         }
-        return error;
+        return error as unknown as Error;
       },
     ],
   },

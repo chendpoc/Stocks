@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, type ZodTypeAny } from "zod";
 
 import {
   bootstrapContext,
@@ -62,11 +62,11 @@ export const ContextSnapshotsShowOpts = z.object({
 });
 export type ContextSnapshotsShowOpts = z.infer<typeof ContextSnapshotsShowOpts>;
 
-function parseSymbolRequiredOpts<T extends { symbol: string }>(
-  schema: z.ZodType<T>,
+function parseSymbolRequiredOpts<Schema extends ZodTypeAny>(
+  schema: Schema,
   raw: unknown,
   message: string,
-): T {
+): z.infer<Schema> {
   try {
     return parseOpts(schema, raw);
   } catch (error) {
@@ -163,10 +163,9 @@ export async function handleContextSnapshotsListCommandAsync(
     limit: opts.limit,
   });
   const snapshots = response.items.map((snapshot) => ({
-    snapshot_id: snapshot.snapshot_id,
+    ...toContextSnapshotSummary(snapshot),
     symbol: snapshot.symbol,
     asof_ts: snapshot.asof_ts,
-    ...toContextSnapshotSummary(snapshot),
   }));
   return toEnvelope({
     ok: true,
@@ -184,10 +183,9 @@ export async function handleContextSnapshotsShowCommandAsync(
     ok: true,
     command: "context snapshots show",
     data: {
-      snapshot_id: snapshot.snapshot_id,
+      ...toContextSnapshotSummary(snapshot),
       symbol: snapshot.symbol,
       asof_ts: snapshot.asof_ts,
-      ...toContextSnapshotSummary(snapshot),
       top_items: toTopWeightedItemSummaries(snapshot.items_json),
     },
   });

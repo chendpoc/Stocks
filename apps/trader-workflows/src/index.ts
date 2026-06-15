@@ -27,12 +27,14 @@ export { handleCommandAsync } from "./cli/router.js";
 
 import { buildProgram, stripJsonFlag, validateTopLevelCommand } from "./cli/program.js";
 import { printEnvelope, toErrorEnvelope } from "./cli/helpers.js";
+import { logger } from "./cli/logger.js";
 import { Stage1Runtime } from "./runtime/stage1Runtime.js";
 
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
   const commandArgs = stripJsonFlag(rawArgs);
   const commandLabel = commandArgs.length > 0 ? commandArgs.join(" ") : "(none)";
+  logger.debug({ command: commandLabel }, "cli.command");
   const runtime = new Stage1Runtime();
   try {
     await validateTopLevelCommand(rawArgs);

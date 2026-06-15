@@ -36,7 +36,8 @@ export function toEnvelope(args: {
   command: string;
   run_id?: string | null;
   status?: Stage1RunStatus | null;
-  data?: Record<string, unknown> | null;
+  /** Any JSON-serializable payload; normalized to envelope `data` at the CLI boundary. */
+  data?: unknown;
   error?: WorkflowError | null;
 }): WorkflowEnvelope {
   return {
@@ -44,9 +45,16 @@ export function toEnvelope(args: {
     command: args.command,
     run_id: args.run_id ?? null,
     status: args.status ?? null,
-    data: args.data ?? null,
+    data: normalizeEnvelopeData(args.data),
     error: args.error ?? null,
   };
+}
+
+function normalizeEnvelopeData(value: unknown): Record<string, unknown> | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return value as Record<string, unknown>;
 }
 
 export function normalizeStatus(status: unknown): Stage1RunStatus {
@@ -57,7 +65,10 @@ export function normalizeStatus(status: unknown): Stage1RunStatus {
 }
 
 export const WORKFLOW_RESUME_HANDLERS: Stage1RuntimeResumeHandlers = {
-  [GRAPH_NAME_DECISION]: (input) => runDecisionGraph(input),
+  [GRAPH_NAME_DECISION]: (input) => {
+    const symbol = typeof input.symbol === "string" ? input.symbol : "";
+    return runDecisionGraph({ ...input, symbol, run_id: input.run_id });
+  },
   [GRAPH_NAME_OUTCOME]: (input) => runDueOutcomeGraph(input),
   [GRAPH_NAME_EVALUATION]: (input) => runEvaluationSummaryGraph(input),
   [GRAPH_NAME_INSIGHT_EXPLORATION]: (input) => {

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, type ZodTypeAny } from "zod";
 
 import {
   fetchMarketData,
@@ -41,11 +41,11 @@ export const MarketDataQualityOpts = z.object({
 });
 export type MarketDataQualityOpts = z.infer<typeof MarketDataQualityOpts>;
 
-function parseSymbolRequiredOpts<T extends { symbol: string }>(
-  schema: z.ZodType<T>,
+function parseSymbolRequiredOpts<Schema extends ZodTypeAny>(
+  schema: Schema,
   raw: unknown,
   message: string,
-): T {
+): z.infer<Schema> {
   try {
     return parseOpts(schema, raw);
   } catch (error) {

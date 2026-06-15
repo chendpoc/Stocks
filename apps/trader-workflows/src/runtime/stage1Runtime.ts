@@ -34,6 +34,7 @@ import {
   type Stage1RunStatus,
   type Stage1RunSummary,
 } from "./checkpointStore.js";
+import { logger } from "./logger.js";
 import {
   createLanggraphCheckpointer,
   readLatestLanggraphCheckpointRef,
@@ -624,6 +625,7 @@ export class Stage1Runtime {
   async runGraph<TInput extends Record<string, unknown>, TOutput>(
     options: Stage1RuntimeGraphOptions<TInput, TOutput>,
   ): Promise<Stage1RuntimeGraphResult<TOutput>> {
+    logger.debug({ graph_name: options.graph_name }, "stage1Runtime.runGraph");
     if (isNativeDecisionGraphRun(options.graph_name)) {
       return this.runNativeDecisionGraph(
         options.input ?? ({} as TInput),
@@ -1107,6 +1109,7 @@ export class Stage1Runtime {
       );
     }
 
+    logger.info({ run_id: runId, graph_name: run.graph_name }, "stage1Runtime.resumeRun");
     if (isNativeLangGraphRegistryRun(run)) {
       if (isNativeDecisionGraphRun(run.graph_name)) {
         return this.resumeNativeDecisionGraph(runId, run);

@@ -1,9 +1,10 @@
-import type { ZodType } from "zod";
-import { ZodError } from "zod";
+import type { ZodTypeAny } from "zod";
+import { z, ZodError } from "zod";
 
 import { WorkflowCommandError } from "./helpers.js";
 
-export function parseOpts<T>(schema: ZodType<T>, raw: unknown): T {
+/** Parse commander raw opts; return schema *output* type (after coerce/default/preprocess). */
+export function parseOpts<T extends ZodTypeAny>(schema: T, raw: unknown): z.infer<T> {
   const result = schema.safeParse(raw);
   if (result.success) {
     return result.data;

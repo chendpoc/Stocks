@@ -29,15 +29,20 @@ src/
     outcomeMappers.ts
   orchestration/
     graphRunner.ts    # Stage1Runtime graph dispatch helpers
+  runtime/
+    config.ts         # dotenv + env-var
+    logger.ts         # pino (shared diagnostic logger; cli/logger re-exports)
+    stage1Runtime.ts  # Run registry, native LangGraph dispatch, resume
+    checkpointStore.ts
   cli/
     program.ts        # Full commander subcommand tree + zod actions → printEnvelope
-    validators.ts       # Cross-field CLI validation (pattern-memory promote/degrade ids)
-    legacyArgs.ts       # argv → typed opts dispatch for handleCommandAsync compat
-    router.ts           # handleCommandAsync → legacyArgs dispatch
-    parseOpts.ts        # zod safeParse → WorkflowCommandError
-    helpers.ts          # WorkflowEnvelope helpers and resume map
-    logger.ts           # pino logger (scaffold)
-    commandHandlers/    # One handler module per CLI command family
+    validators.ts     # Cross-field CLI validation (pattern-memory promote/degrade ids)
+    legacyArgs.ts     # argv → typed opts dispatch for handleCommandAsync compat
+    router.ts         # handleCommandAsync → legacyArgs dispatch
+    parseOpts.ts      # zod safeParse → WorkflowCommandError
+    helpers.ts        # printEnvelope (stdout JSON) + resume handler map
+    logger.ts         # re-export runtime/logger
+    commandHandlers/  # One handler module per CLI command family
   services/           # Pure domain logic (no HTTP)
     alphaResearch.ts
     contextSnapshots.ts   # barrel → context/
@@ -51,8 +56,9 @@ src/
     insight/          # candidates (pure), seeds, types
   graphs/             # LangGraph workflow definitions
   llm/                # Workflow LLM provider and decision envelope
-  runtime/            # Stage1Runtime, checkpoint store, config.ts
 ```
+
+**Logging convention**: `printEnvelope` → stdout (JSON protocol). `logger` (pino) → stderr for diagnostics (`stage1Runtime`, `graphRunner`, HTTP retry, CLI entry).
 
 ### Dependency rules
 
