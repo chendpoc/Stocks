@@ -121,10 +121,10 @@ export async function fetchIntelContextBuild(
 ): Promise<IntelContextBuildResponse> {
   return fetchIntel<IntelContextBuildResponse>("/context/build", {
     method: "POST",
-    body: JSON.stringify({
+    json: {
       symbols: [symbol.toUpperCase()],
       taskType,
-    }),
+    },
   });
 }
 
@@ -134,7 +134,7 @@ export async function persistContextSnapshot(
   try {
     return await fetchStage1<ContextSnapshotRecord>("/context-snapshots", {
       method: "POST",
-      body: JSON.stringify(payload),
+      json: payload,
     });
   } catch (error) {
     if (error instanceof Stage1ApiError && error.status === 409) {

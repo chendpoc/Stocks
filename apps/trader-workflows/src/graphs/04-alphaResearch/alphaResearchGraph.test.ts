@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { captureFetchCall } from "../../test/fetchTestUtils.js";
 import {
   ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
   createAlphaResearchClient,
@@ -160,11 +161,13 @@ test("runAlphaResearchGraph orchestrates evidence, backtest, advance, and report
 
 test("alpha research graph does not call forbidden intel hydrate or rulepack endpoints", async () => {
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
+    const call = await captureFetchCall(input, init ?? {});
+    const url = call.url;
+    const method = call.method;
     assert.equal(url.includes("/api/intel"), false);
     assert.equal(url.includes("rulepack"), false);
     assert.equal(url.includes("execution"), false);
-    if (url.endsWith("/api/rule-candidates") && init?.method === "POST") {
+    if (url.endsWith("/api/rule-candidates") && method === "POST") {
       return new Response(JSON.stringify({ candidate_id: "rc-1", status: "draft" }), {
         status: 200,
       });

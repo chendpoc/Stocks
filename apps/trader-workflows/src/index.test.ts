@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 
+import { captureFetchCall, resolveFetchUrl } from "./test/fetchTestUtils.js";
 import { handleCommandAsync } from "./index.js";
 import { Stage1CheckpointStore } from "./runtime/checkpointStore.js";
 import { Stage1Runtime } from "./runtime/stage1Runtime.js";
@@ -46,8 +47,9 @@ test("context snapshots list/show commands return bounded read-only envelopes", 
   const calls: Array<{ url: string; method: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    const url = String(input);
-    calls.push({ url, method: options.method ?? "GET" });
+    const call = await captureFetchCall(input, options);
+    calls.push({ url: call.url, method: call.method });
+    const url = call.url;
     if (url.endsWith("/stage1/context-snapshots?symbol=TSLA&limit=2")) {
       return {
         ok: true,
@@ -185,7 +187,7 @@ test("outcomes list and insights list expose read-only envelopes", async () => {
   const insightCalls: string[] = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    const url = String(input);
+    const url = resolveFetchUrl(input);
     if (url.startsWith("http://127.0.0.1:8000/api/intel/stage1/decision-outcomes")) {
       outcomeCalls.push(url);
       return {
@@ -392,9 +394,9 @@ test("context bootstrap/latest/pattern-memory/failure-memory commands return exp
   const calls: Array<{ url: string; method: string; body?: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    const url = String(input);
-    const method = options.method ?? "GET";
-    calls.push({ url, method, body: options.body ? `${options.body}` : undefined });
+    const call = await captureFetchCall(input, options);
+    calls.push(call);
+    const { url, method } = call;
 
     if (url === "http://127.0.0.1:8000/api/intel/market-agent/context/bootstrap") {
       if (method === "POST") {
@@ -567,7 +569,7 @@ test("pattern-memory promote requires confirm before network I/O", async () => {
   const calls: string[] = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push(String(input));
+    calls.push(resolveFetchUrl(input));
     return {
       ok: false,
       status: 500,
@@ -600,7 +602,7 @@ test("pattern-memory promote/degrade rejects mutually exclusive identifiers pre-
   const calls: string[] = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push(String(input));
+    calls.push(resolveFetchUrl(input));
     return {
       ok: false,
       status: 500,
@@ -653,7 +655,7 @@ test("market-monitor/data commands fail pre-network when required args missing",
   const calls: string[] = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push(String(input));
+    calls.push(resolveFetchUrl(input));
     return {
       ok: false,
       status: 500,
@@ -754,9 +756,9 @@ test("market-agent memory/decisions/monitor/data commands return expected envelo
   const calls: Array<{ url: string; method: string; body?: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    const url = String(input);
-    const method = options.method ?? "GET";
-    calls.push({ url, method, body: options.body ? `${options.body}` : undefined });
+    const call = await captureFetchCall(input, options);
+    calls.push(call);
+    const { url, method } = call;
 
     if (
       url === "http://127.0.0.1:8000/api/intel/market-agent/memory/init" &&

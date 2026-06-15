@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { captureFetchCall, resolveFetchUrl } from "../test/fetchTestUtils.js";
 import {
   listDecisionOutcomes,
   listInsightCandidates,
@@ -45,7 +46,7 @@ test("listDecisionOutcomes builds expected Stage1 request", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push(String(input));
+    calls.push(resolveFetchUrl(input));
     return {
       ok: true,
       status: 200,
@@ -82,11 +83,7 @@ test("bootstrapContext posts expected market-agent payload", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    calls.push({
-      url: String(input),
-      method: options.method ?? "GET",
-      body: options.body ? `${options.body}` : undefined,
-    });
+    calls.push(await captureFetchCall(input, options));
     return {
       ok: true,
       status: 200,
@@ -126,11 +123,7 @@ test("initMarketAgentMemory posts expected market-agent payload", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    calls.push({
-      url: String(input),
-      method: options.method ?? "GET",
-      body: options.body ? `${options.body}` : undefined,
-    });
+    calls.push(await captureFetchCall(input, options));
     return {
       ok: true,
       status: 200,
@@ -168,7 +161,7 @@ test("listModelDecisions maps stage1 model-decisions query contract", async () =
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push(String(input));
+    calls.push(resolveFetchUrl(input));
     return {
       ok: true,
       status: 200,
@@ -201,11 +194,7 @@ test("runMarketMonitor posts expected market-agent payload", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    calls.push({
-      url: String(input),
-      method: options.method ?? "GET",
-      body: options.body ? `${options.body}` : undefined,
-    });
+    calls.push(await captureFetchCall(input, options));
     return {
       ok: true,
       status: 200,
@@ -250,10 +239,7 @@ test("fetchMarketData maps GET query contract and defaults timeframe", async () 
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push({
-      url: String(input),
-      method: "GET",
-    });
+    calls.push(await captureFetchCall(input));
     return {
       ok: true,
       status: 200,
@@ -287,10 +273,7 @@ test("getMarketDataHealth maps optional symbol query contract", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push({
-      url: String(input),
-      method: "GET",
-    });
+    calls.push(await captureFetchCall(input));
     return {
       ok: true,
       status: 200,
@@ -329,10 +312,7 @@ test("getMarketDataQuality maps quality GET contract", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push({
-      url: String(input),
-      method: "GET",
-    });
+    calls.push(await captureFetchCall(input));
     return {
       ok: true,
       status: 200,
@@ -368,10 +348,7 @@ test("getLatestContext builds expected market-agent request", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push({
-      url: String(input),
-      method: "GET",
-    });
+    calls.push(await captureFetchCall(input));
     return {
       ok: true,
       status: 200,
@@ -411,10 +388,7 @@ test("listPatternMemories builds expected request", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push({
-      url: String(input),
-      method: "GET",
-    });
+    calls.push(await captureFetchCall(input));
     return {
       ok: true,
       status: 200,
@@ -454,11 +428,7 @@ test("promotePatternMemory posts expected market-agent payload", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    calls.push({
-      url: String(input),
-      method: options.method ?? "GET",
-      body: options.body ? `${options.body}` : undefined,
-    });
+    calls.push(await captureFetchCall(input, options));
     return {
       ok: true,
       status: 200,
@@ -500,11 +470,7 @@ test("degradePatternMemory posts expected market-agent payload", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    calls.push({
-      url: String(input),
-      method: options.method ?? "GET",
-      body: options.body ? `${options.body}` : undefined,
-    });
+    calls.push(await captureFetchCall(input, options));
     return {
       ok: true,
       status: 200,
@@ -547,10 +513,7 @@ test("listFailureMemories builds expected request with --failure-type", async ()
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push({
-      url: String(input),
-      method: "GET",
-    });
+    calls.push(await captureFetchCall(input));
     return {
       ok: true,
       status: 200,
@@ -600,7 +563,7 @@ test("listInsightCandidates builds expected Stage1 request", async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    calls.push(String(input));
+    calls.push(resolveFetchUrl(input));
     return {
       ok: true,
       status: 200,

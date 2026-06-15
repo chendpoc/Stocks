@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { captureFetchCall } from "../../test/fetchTestUtils.js";
 import {
   buildInsightExplorationGraph,
   INSIGHT_EXPLORATION_GRAPH_NODE_NAMES,
@@ -152,9 +153,10 @@ test("InsightExplorationGraph does not call forbidden lesson/trade/train/promote
   const fetchCalls: string[] = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, init) => {
-    const url = String(input);
-    fetchCalls.push(`${init?.method ?? "GET"} ${url}`);
-    if (url.includes("/stage1/insight-candidates") && init?.method === "POST") {
+    const call = await captureFetchCall(input, init ?? {});
+    fetchCalls.push(`${call.method} ${call.url}`);
+    const url = call.url;
+    if (url.includes("/stage1/insight-candidates") && call.method === "POST") {
       return new Response(
         JSON.stringify({
           insight_id: "ins-mock",
@@ -167,7 +169,7 @@ test("InsightExplorationGraph does not call forbidden lesson/trade/train/promote
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
-    if (url.includes("/stage1/insight-candidate-outcomes/schedule") && init?.method === "POST") {
+    if (url.includes("/stage1/insight-candidate-outcomes/schedule") && call.method === "POST") {
       return new Response(
         JSON.stringify({
           items: [{
@@ -747,9 +749,10 @@ test("S4: InsightExplorationGraph never reads raw market/news data directly", as
   ];
 
   globalThis.fetch = (async (input, init) => {
-    const url = String(input);
-    fetchCalls.push(`${init?.method ?? "GET"} ${url}`);
-    if (url.includes("/stage1/insight-candidates") && init?.method === "POST") {
+    const call = await captureFetchCall(input, init ?? {});
+    fetchCalls.push(`${call.method} ${call.url}`);
+    const url = call.url;
+    if (url.includes("/stage1/insight-candidates") && call.method === "POST") {
       return new Response(
         JSON.stringify({
           insight_id: "ins-raw-check",
@@ -762,7 +765,7 @@ test("S4: InsightExplorationGraph never reads raw market/news data directly", as
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
-    if (url.includes("/stage1/insight-candidate-outcomes/schedule") && init?.method === "POST") {
+    if (url.includes("/stage1/insight-candidate-outcomes/schedule") && call.method === "POST") {
       return new Response(
         JSON.stringify({
           items: [{

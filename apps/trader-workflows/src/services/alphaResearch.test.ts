@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { captureFetchCall } from "../test/fetchTestUtils.js";
 import {
   ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
   buildRuleCandidateRequest,
@@ -54,9 +55,11 @@ test("buildRuleCandidateRequest maps alpha_seed fields without data_requirements
 test("alpha research client calls only rule-candidates endpoints", async () => {
   const calls: string[] = [];
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    calls.push(`${init?.method ?? "GET"} ${url}`);
-    if (url.endsWith("/api/rule-candidates") && init?.method === "POST") {
+    const call = await captureFetchCall(input, init ?? {});
+    calls.push(`${call.method} ${call.url}`);
+    const url = call.url;
+    const method = call.method;
+    if (url.endsWith("/api/rule-candidates") && method === "POST") {
       return new Response(JSON.stringify({ candidate_id: "rc-1", status: "draft" }), {
         status: 200,
       });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { captureFetchCall } from "../test/fetchTestUtils.js";
 import { Stage1ApiError } from "../api/client.js";
 import {
   applyRerankAdjustments,
@@ -257,7 +258,9 @@ test("persistContextSnapshot surfaces backend 409 conflicts", async () => {
     ({
       ok: false,
       status: 409,
+      statusText: "Conflict",
       text: async () => "immutable context_hash conflict for existing record",
+      headers: new Headers(),
     }) as Response) as typeof fetch;
 
   try {
@@ -297,8 +300,9 @@ test("context snapshot read APIs use bounded read-only Stage1 paths", async () =
   const calls: Array<{ url: string; method: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input, options = {}) => {
-    const url = String(input);
-    calls.push({ url, method: options.method ?? "GET" });
+    const call = await captureFetchCall(input, options);
+    calls.push({ url: call.url, method: call.method });
+    const url = call.url;
     if (url.endsWith("/stage1/context-snapshots?symbol=TSLA&limit=2")) {
       return {
         ok: true,

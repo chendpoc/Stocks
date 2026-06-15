@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { resolveFetchUrl } from "../../test/fetchTestUtils.js";
 import {
   buildOutcomeGraph,
   OUTCOME_GRAPH_NODE_NAMES,
@@ -72,7 +73,7 @@ test("OutcomeGraph does not mutate context snapshots", async () => {
   let contextSnapshotWrites = 0;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
-    const url = String(input);
+    const url = resolveFetchUrl(input);
     if (url.includes("/stage1/context-snapshots")) {
       contextSnapshotWrites += 1;
     }
