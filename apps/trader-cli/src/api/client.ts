@@ -19,9 +19,9 @@ export async function fetchHealth(): Promise<{
 export async function safeFetchIntel(
   path: string,
   options: RequestInit = {},
-): Promise<unknown> {
+): Promise<{ ok: false; code: string; message: string }> {
   try {
-    return fetchIntel(path, options);
+    return await fetchIntel(path, options);
   } catch (e: unknown) {
     return {
       ok: false,
