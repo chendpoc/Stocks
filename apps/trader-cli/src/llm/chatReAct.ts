@@ -165,6 +165,14 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
         const stepTokens = (usage?.totalTokens ?? 0) - totalTokens;
         totalTokens = usage?.totalTokens ?? totalTokens;
 
+        // 缓存命中率埋点（运行时字段，不在 SDK 类型定义中）
+        const usageExt = usage as Record<string, number> | undefined;
+        const cacheHit = usageExt?.promptCacheHitTokens ?? 0;
+        const cacheMiss = usageExt?.promptCacheMissTokens ?? 0;
+        if (cacheHit + cacheMiss > 0) {
+          console.log(`[cache] hit:${cacheHit}/${cacheHit + cacheMiss} (${(cacheHit / (cacheHit + cacheMiss) * 100).toFixed(1)}%)`);
+        }
+
         const actions = summarizeActions(toolCalls ?? []);
         const observations = summarizeObservations(toolResults ?? []);
 

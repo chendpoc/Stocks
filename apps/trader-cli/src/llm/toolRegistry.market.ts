@@ -7,7 +7,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { fetchIntel } from "../api/client.js";
+import { safeFetchIntel } from "../api/client.js";
 import { ingestSymbol } from "../services/market.js";
 import { PREFERRED_SYMBOLS_LABEL } from "../symbols.js";
 import type { ToolDef } from "./toolRegistry.js";
@@ -20,7 +20,7 @@ export const MARKET_TOOLS: ToolDef[] = [
     implementation: tool({
       description: `批量拉取预设关注列表（${PREFERRED_SYMBOLS_LABEL}）行情（日线+5m）。其他代码请用 ingestSymbolBars`,
       parameters: z.object({}),
-      execute: async () => fetchIntel("/market/ingest", { method: "POST" }),
+      execute: async () => safeFetchIntel("/market/ingest", { method: "POST" }),
     }),
   },
 
@@ -52,7 +52,7 @@ export const MARKET_TOOLS: ToolDef[] = [
         limit: z.number().default(20),
       }),
       execute: async ({ symbol, timeframe, limit }) =>
-        fetchIntel(
+        safeFetchIntel(
           `/market/bars?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`,
         ),
     }),
@@ -76,7 +76,7 @@ export const MARKET_TOOLS: ToolDef[] = [
         if (symbol) params.set("symbol", symbol);
         if (status) params.set("status", status);
         params.set("limit", String(limit));
-        return fetchIntel(`/signals?${params.toString()}`);
+        return safeFetchIntel(`/signals?${params.toString()}`);
       },
     }),
   },
@@ -88,7 +88,7 @@ export const MARKET_TOOLS: ToolDef[] = [
     implementation: tool({
       description: `对预设关注列表（${PREFERRED_SYMBOLS_LABEL}）批量特征扫描；不限制你只能分析这些代码`,
       parameters: z.object({}),
-      execute: async () => fetchIntel("/signals/scan", { method: "POST" }),
+      execute: async () => safeFetchIntel("/signals/scan", { method: "POST" }),
     }),
   },
 
@@ -115,7 +115,7 @@ export const MARKET_TOOLS: ToolDef[] = [
         signalId: z.string().optional().describe("关联的信号 ID"),
       }),
       execute: async (params) =>
-        fetchIntel("/context/build", {
+        safeFetchIntel("/context/build", {
           method: "POST",
           body: JSON.stringify(params),
         }),
@@ -131,7 +131,7 @@ export const MARKET_TOOLS: ToolDef[] = [
         "获取当前全市场 Regime 判定。返回: 状态(trending|ranging|volatile)、置信度、关键指标(ADX/VIX/Bollinger)、转换风险。" +
         "Gate 决策必须基于 Regime——不同市场状态下应路由到不同 Agent。",
       parameters: z.object({}),
-      execute: async () => fetchIntel("/market-agent/regime"),
+      execute: async () => safeFetchIntel("/market-agent/regime"),
     }),
   },
 
@@ -152,7 +152,7 @@ export const MARKET_TOOLS: ToolDef[] = [
           limit: String(limit),
         });
         if (symbol) params.set("symbol", symbol);
-        return fetchIntel(`/events?${params.toString()}`);
+        return safeFetchIntel(`/events?${params.toString()}`);
       },
     }),
   },

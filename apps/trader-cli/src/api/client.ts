@@ -15,6 +15,22 @@ export async function fetchHealth(): Promise<{
   return response.json();
 }
 
+/** 包装 fetchIntel 调用，统一捕获异常为 { ok:false, code, message } 格式 */
+export async function safeFetchIntel(
+  path: string,
+  options: RequestInit = {},
+): Promise<unknown> {
+  try {
+    return fetchIntel(path, options);
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      code: "INTEL_ERROR",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export async function fetchIntel(
   path: string,
   options: RequestInit = {},
