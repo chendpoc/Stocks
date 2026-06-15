@@ -152,5 +152,16 @@
     "created_at": "2026-06-14T00:00:00",
     "content_type": "每日总结",
     "word_count": 772
+  },
+  {
+    "id": "dce797eec252",
+    "title": "2026-06-15 13:37:12 CST 总结 - 每日定时总结（过去24小时）",
+    "content": "2026-06-15 13:37:12 CST 总结 - 每日定时总结（过去24小时）\n\n美西时间：2026-06-14 22:37:12 PST\n\n美东时间：2026-06-15 01:37:12 EST\n\n模型：deepseek-v4-flash\n\n三句话总结\n今天群聊里没有赵哥（管理员）发言，大家主要聊的是入金券商（如第一证券、Wise）和汇丰银行系统故障（登录不了）的事。\n市场上，夜盘一些个股和ETF涨得挺猛，比如CONL、量子ETF等，但大家也在讨论被动减仓和FOMC（美联储议息会议）等事件。\n没有管理员给出的操作框架，普通用户各说各的，有的在等回踩加仓，有的已经跑了，整体比较散乱。\n\n核心结论\n当日无管理员发言，群聊以技术性讨论（券商入金、Wise使用）和个别标的上涨为主。\n普通用户mrzhoulucky（非管理员）分享了BOT回测系统，但未涉及核心交易框架。\n夜盘部分杠杆ETF（CONL、NVDL）和量子ETF涨幅较大，但流动性差、价差大，参考意义有限。\n汇丰银行系统全局故障，影响部分用户操作。\n\n市场状态判断\n当日群聊缺乏专业市场分析，无明确资金环境判断。\n\n核心理论\n未发现管理员发言，无核心理论。\n\n交易框架拆解\n观察信号：关注汇丰系统恢复时间、伊朗协议后续对油价和能源股的影响、FOMC会议结果。；观察被动减仓窗口是否引发回调（部分用户已减仓或等回踩）。\n失效条件：夜盘流动性差，买卖价差大，参考价值有限。；汇丰银行系统故障可能影响入金操作。\n\nxiaozhaolucky\n深度解读\n未发现管理员发言\n\n管理员重点标的\n管理员未明确提到重点标的。\n\n其他用户\n用户观点提炼\nmrzhoulucky（非管理员）多次发言，分享账户收益截图（接近前高）、回测系统（赵哥规律复现）及持仓（FN、LITX、COHX、RDW、ARM、ABCL等），称主要收益来自股票和ETF，曾因重仓期权腰斩。\nwangxing持有NVDL、TSLL、CONL、IREN，打算拿至9月，不惧回调。\n部分用户（如mursame、lateonrush77）讨论汇丰蓝狮子支付宝充值优惠（满300减50/60）。\njugeg提出疑问：被动减第一个交易日，夜盘涨开盘跌？未获回应。\nheimao平了期货仓位等回踩。\n\n普通用户提到的标的\nCONL（CONL）: 夜盘上涨，用户mrzhoulucky周五5.01买入后已走；wangxing等翻倍\nNVDL（NVDL）: wangxing持有，计划拿至9月\nTSLL（TSLL）: wangxing持有\nIREN（IREN）: 夜盘大涨，用户讨论\nFN（FN）: mrzhoulucky主要收益来源之一\nLITX（LITX）: mrzhoulucky周五买入后已走\nCOHX（COHX）: mrzhoulucky周五买入后已走\nRDW（RDW）: mrzhoulucky主要收益来源之一\nARM（ARM）: mrzhoulucky主要收益来源之一\nABCL（ABCL）: mrzhoulucky主要收益来源之一\nAXTI（AXTI）: 用户说“吃成巨人观”，夜盘大涨\nCONL（CONL）: mrzhoulucky周五5.01买入后已走；wangxing等翻倍；shawshieki120648刚回本\nIREN（IREN）: wangxing持有\nFN（FN）: mrzhoulucky主要收益来源\nRDW（RDW）: mrzhoulucky主要收益来源\nARM（ARM）: mrzhoulucky主要收益来源\nABCL（ABCL）: mrzhoulucky主要收益来源\nAXTI（AXTI）: 用户jackeysang说大涨\nBTC（比特币）: 用户提到66000美元\nSOXS（SOXS）: 用户询问价格\n\n市场主线\n夜盘部分科技和杠杆ETF异动（CONL、量子ETF等），但流动性差，买卖价差大。\n市场关注伊朗协议（特朗普宣布海峡开放）、日本加息预期、FOMC会议。\n用户讨论被动减仓节奏（6月15日可能是第一天），但无统一观点。\n\n期权与交易策略\n暂无明确记录。\n\n事件与关键日期\n伊朗协议达成（特朗普宣布）\nFOMC会议临近\n日本加息预期\n\n风险与观察点\n夜盘流动性差，买卖价差大，参考价值有限。\n汇丰银行系统故障可能影响入金操作。\n部分用户已减仓，被动减仓窗口可能导致短期回调。\nmrzhoulucky曾因重仓期权导致账户腰斩，警示杠杆风险。",
+    "file_path": "docs/summaries/2026-06/2026-06-15-每日总结.md",
+    "url": "/summaries/2026-06/2026-06-15-每日总结",
+    "is_built_page": true,
+    "created_at": "2026-06-15T00:00:00",
+    "content_type": "每日总结",
+    "word_count": 1851
   }
 ]
