@@ -3,7 +3,7 @@ import { CLI_FLAG_LIMIT, CLI_FLAG_MODEL_VERSION, CLI_FLAG_SYMBOL } from "../../c
 import { ERROR_CODE_UNKNOWN_DECISIONS_COMMAND } from "../../constants/errorCodes.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
-import { parseOptionalFlagValue, parsePositiveIntegerFlag } from "../argParser.js";
+import { parseOptionalFlagValue, parsePositiveIntegerFlag } from "../flagParsing.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
 
 export async function handleDecisionsListCommandAsync(

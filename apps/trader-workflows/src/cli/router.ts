@@ -17,11 +17,19 @@ import { handleOutcomesCommandAsync } from "./commandHandlers/outcomes.js";
 import { handlePatternMemoryCommandAsync } from "./commandHandlers/patternMemory.js";
 import { handleRunsCommandAsync } from "./commandHandlers/runs.js";
 import { WorkflowCommandError } from "./helpers.js";
+import {
+  isCommanderUnknownCommandError,
+  stripJsonFlag,
+  validateTopLevelCommand,
+} from "./program.js";
 
 export type HandlerFn = (
   runtime: Stage1Runtime,
   args: string[],
 ) => Promise<WorkflowEnvelope>;
+
+const SUPPORTED_COMMANDS =
+  "memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data";
 
 const COMMAND_HANDLERS: Record<string, HandlerFn> = {
   memory: handleMemoryCommandAsync,
@@ -42,18 +50,34 @@ export async function handleCommandAsync(
   runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
-  if (args.length === 0) {
+  const commandArgs = stripJsonFlag(args);
+
+  if (commandArgs.length === 0) {
     throw new WorkflowCommandError(
       ERROR_CODE_COMMAND_REQUIRED,
       "Command required (expected: memory init | runs list|show|resume|monitor|trace | decide SYMBOL | decisions list | context snapshots list|show | context bootstrap|latest | outcomes run --due|list | eval summary | insights explore|list | pattern-memory list|promote|degrade | failure-memory list | market-monitor run | market-data fetch|health|quality)",
     );
   }
-  const handler = COMMAND_HANDLERS[args[0]];
+
+  try {
+    await validateTopLevelCommand(args);
+  } catch (error) {
+    if (isCommanderUnknownCommandError(error)) {
+      throw new WorkflowCommandError(
+        ERROR_CODE_UNKNOWN_COMMAND,
+        `Unknown command: ${commandArgs[0]} (currently supported: ${SUPPORTED_COMMANDS})`,
+      );
+    }
+    throw error;
+  }
+
+  const handler = COMMAND_HANDLERS[commandArgs[0]];
   if (!handler) {
     throw new WorkflowCommandError(
       ERROR_CODE_UNKNOWN_COMMAND,
-      `Unknown command: ${args[0]} (currently supported: memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data)`,
+      `Unknown command: ${commandArgs[0]} (currently supported: ${SUPPORTED_COMMANDS})`,
     );
   }
-  return handler(runtime, args);
+
+  return handler(runtime, commandArgs);
 }

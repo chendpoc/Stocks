@@ -16,7 +16,6 @@ import {
   CLI_FLAG_SESSION_ID,
   CLI_FLAG_STATUS,
   CLI_FLAG_TYPE,
-  CLI_FLAG_JSON,
 } from "../constants/cliFlags.js";
 import {
   ERROR_CODE_CONFIRM_REQUIRED,
@@ -30,11 +29,6 @@ import { WorkflowCommandError } from "./helpers.js";
 
 export const DEFAULT_OUTCOMES_LIST_LIMIT = 100;
 export const DEFAULT_INSIGHTS_LIST_LIMIT = 50;
-
-export function parseArgs(argv: string[]): { commandArgs: string[] } {
-  const commandArgs = argv.filter((item) => item !== CLI_FLAG_JSON);
-  return { commandArgs };
-}
 
 export function parseLimit(args: string[]): number {
   return parsePositiveIntegerFlag(args, CLI_FLAG_LIMIT, 50);

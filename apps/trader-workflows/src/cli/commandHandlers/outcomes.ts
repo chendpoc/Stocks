@@ -15,7 +15,7 @@ import {
   parseOptionalFlagValue,
   parseOptionalOutcomeStatus,
   parsePositiveLimitFlag,
-} from "../argParser.js";
+} from "../flagParsing.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
 
 export async function handleOutcomesListCommandAsync(

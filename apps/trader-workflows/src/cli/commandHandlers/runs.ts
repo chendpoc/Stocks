@@ -9,7 +9,7 @@ import {
   parseOptionalGraphName,
   parseOptionalStatus,
   parseRunObservabilityLimit,
-} from "../argParser.js";
+} from "../flagParsing.js";
 import { normalizeStatus, toEnvelope, WORKFLOW_RESUME_HANDLERS, WorkflowCommandError } from "../helpers.js";
 
 export async function handleRunsCommandAsync(

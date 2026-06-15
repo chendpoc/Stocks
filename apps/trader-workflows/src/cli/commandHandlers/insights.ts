@@ -15,7 +15,7 @@ import {
   DEFAULT_INSIGHTS_LIST_LIMIT,
   parseOptionalFlagValue,
   parsePositiveLimitFlag,
-} from "../argParser.js";
+} from "../flagParsing.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
 
 export async function handleInsightsExploreCommandAsync(

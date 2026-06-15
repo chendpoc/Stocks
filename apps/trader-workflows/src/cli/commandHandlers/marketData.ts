@@ -21,7 +21,7 @@ import {
   parseOptionalFlagValue,
   parseOptionalIntFlag,
   parseRequiredFlagValue,
-} from "../argParser.js";
+} from "../flagParsing.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
 
 export async function handleMarketDataFetchCommandAsync(

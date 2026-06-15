@@ -25,18 +25,18 @@ export {
 
 export { handleCommandAsync } from "./cli/router.js";
 
-import { parseArgs } from "./cli/argParser.js";
 import { handleCommandAsync } from "./cli/router.js";
+import { stripJsonFlag } from "./cli/program.js";
 import { printEnvelope, toErrorEnvelope } from "./cli/helpers.js";
 import { Stage1Runtime } from "./runtime/stage1Runtime.js";
 
 async function main(): Promise<void> {
-  const parsed = parseArgs(process.argv.slice(2));
-  const commandLabel =
-    parsed.commandArgs.length > 0 ? parsed.commandArgs.join(" ") : "(none)";
+  const rawArgs = process.argv.slice(2);
+  const commandArgs = stripJsonFlag(rawArgs);
+  const commandLabel = commandArgs.length > 0 ? commandArgs.join(" ") : "(none)";
   const runtime = new Stage1Runtime();
   try {
-    const envelope = await handleCommandAsync(runtime, parsed.commandArgs);
+    const envelope = await handleCommandAsync(runtime, rawArgs);
     printEnvelope(envelope);
   } catch (error) {
     printEnvelope(toErrorEnvelope(commandLabel, error));

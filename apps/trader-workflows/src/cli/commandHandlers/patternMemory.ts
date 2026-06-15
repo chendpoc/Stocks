@@ -17,7 +17,7 @@ import {
   parsePatternMemoryDegradeInput,
   parsePatternMemoryPromoteInput,
   parsePositiveIntegerFlag,
-} from "../argParser.js";
+} from "../flagParsing.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
 
 export async function handlePatternMemoryListCommandAsync(

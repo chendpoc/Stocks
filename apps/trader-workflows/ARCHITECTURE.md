@@ -20,7 +20,8 @@ src/
     graphRunner.ts    # Stage1Runtime graph dispatch helpers
     commands/         # Thin re-exports over services (decisions, marketAgent)
   cli/
-    argParser.ts      # Flag and positional arg parsing
+    program.ts        # Commander top-level command registry
+    flagParsing.ts    # Handler-level flag validation helpers
     router.ts         # Command dispatch to handlers
     helpers.ts        # WorkflowEnvelope helpers and resume map
     commandHandlers/  # One handler module per CLI command family
@@ -107,7 +108,7 @@ runtime run. `decide`, `outcomes run --due`, `eval summary`, and
 
 | Entrypoint | Current responsibility |
 |---|---|
-| `src/index.ts` | Public exports, CLI entrypoint (`parseArgs` → `handleCommandAsync`), runtime lifecycle |
+| `src/index.ts` | Public exports, CLI entrypoint (`handleCommandAsync`), runtime lifecycle |
 | `src/cli/router.ts` | Command routing to `commandHandlers/*` |
 | `src/cli/helpers.ts` | Workflow envelope formatting and resume handler map |
 | `src/runtime/stage1Runtime.ts` | Run lifecycle, checkpoint writes, native graph invocation, service-wrapper invocation, resume |

@@ -1,5 +1,5 @@
 import { runEvaluationGraphViaRuntime } from "../../orchestration/graphRunner.js";
-import { parseOptionalFlagValue, parsePositiveIntegerFlag } from "../argParser.js";
+import { parseOptionalFlagValue, parsePositiveIntegerFlag } from "../flagParsing.js";
 import { CLI_FLAG_LIMIT, CLI_FLAG_MODEL_VERSION, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_RUN_INTERRUPTED,

@@ -25,7 +25,7 @@ import {
   parseOptionalIntFlag,
   parsePositiveLimitFlag,
   parseSessionIdOrProfile,
-} from "../argParser.js";
+} from "../flagParsing.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
 
 export async function handleContextBootstrapAsync(
