@@ -20,6 +20,21 @@ import { WorkflowCommandError } from "./helpers.js";
 const SUPPORTED_COMMANDS =
   "memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data";
 
+const TOP_LEVEL_COMMANDS = new Set([
+  "memory",
+  "runs",
+  "decide",
+  "decisions",
+  "context",
+  "outcomes",
+  "eval",
+  "insights",
+  "pattern-memory",
+  "failure-memory",
+  "market-monitor",
+  "market-data",
+]);
+
 /* ───────── 工具 ───────── */
 
 /** 从 args 中移除 --json flag（避免干扰 handler 内 flag 解析） */
@@ -199,19 +214,24 @@ export function buildProgram(): Command {
 /* ───────── 公共 API ───────── */
 
 /**
- * 用 commander 校验顶层命令名（S1 混合模式）。
- * 被 router.ts 的 handleCommandAsync 调用。
+ * S1 hybrid: validate only the top-level verb so legacy handlers still own
+ * subcommand/flag validation (required --confirm, --due, etc.).
+ * Full commander parse happens in S6 when actions wire handlers.
  */
 export async function validateTopLevelCommand(args: string[]): Promise<void> {
-  if (args.length === 0 || args.every((a) => a.startsWith("-"))) {
+  const commandArgs = stripJsonFlag(args);
+  if (commandArgs.length === 0 || commandArgs.every((a) => a.startsWith("-"))) {
     throw new WorkflowCommandError(
       ERROR_CODE_COMMAND_REQUIRED,
       `Command required. Supported: ${SUPPORTED_COMMANDS}`,
     );
   }
 
-  const program = buildProgram();
-  await program.parseAsync(args, { from: "user" });
+  const top = commandArgs[0];
+  if (!TOP_LEVEL_COMMANDS.has(top)) {
+    const err = new CommanderError("commander.unknownCommand", top);
+    throw err;
+  }
 }
 
 /**

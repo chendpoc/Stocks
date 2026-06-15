@@ -1,0 +1,45 @@
+{
+  "spec_id": "commander-full-tree-v1",
+  "status": "active",
+  "title": "T035 Commander full subcommand tree with zod opts",
+  "summary": "Complete T033 Phase G: migrate all CLI handlers to (runtime, typedOpts) with zod schemas, wire commander actions in program.ts, delete flagParsing.ts. S1 skeleton done at 6d9d28c2.",
+  "sources": [
+    "project-docs/refactor/T035-commander-full-tree-draft.md"
+  ],
+  "scope": [
+    "apps/trader-workflows/src/cli/**",
+    "apps/trader-workflows/src/index.ts",
+    "apps/trader-workflows/src/index.test.ts",
+    "apps/trader-workflows/ARCHITECTURE.md"
+  ],
+  "forbidden": [
+    "apps/trader-agent/**",
+    "apps/trader-cli/**",
+    "api/**",
+    "data/**",
+    "services/**",
+    "graphs/**"
+  ],
+  "decisions": [
+    "Q1: Per command change action + handler zod opts + router dispatch (no signature-only migrations)",
+    "Q2: Tests call handler(runtime, typedOpts) directly; handleCommandAsync remains compat wrapper",
+    "Q3: runs resume stays in S2 with other runs subcommands",
+    "Q4: zod schema co-located with handler or program action registration",
+    "Q5: printEnvelope stays console.log; pino logger out of scope",
+    "No argvCompat.ts: production uses program.parseAsync when fully wired",
+    "S1 validateTopLevelCommand: top-level verb only until actions wired (preserve legacy handler validation)"
+  ],
+  "slices": [
+    { "id": "T035-S1", "status": "done", "commit": "6d9d28c2" },
+    { "id": "T035-S1.1", "status": "pending", "title": "Relax top-level validation; restore test baseline" },
+    { "id": "T035-S2", "status": "pending", "title": "runs, decisions, memory, failure-memory" },
+    { "id": "T035-S3", "status": "pending", "title": "outcomes list, insights list, market-data, pattern-memory list" },
+    { "id": "T035-S4", "status": "pending", "title": "context subtree" },
+    { "id": "T035-S5", "status": "pending", "title": "graph-exec commands" },
+    { "id": "T035-S6", "status": "pending", "title": "pattern-memory mutate, delete flagParsing, ARCHITECTURE.md, index main→parseAsync" }
+  ],
+  "verification": [
+    "cd apps/trader-workflows && npm test",
+    "cd apps/trader-workflows && npm run check:circular"
+  ]
+}

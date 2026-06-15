@@ -1,53 +1,70 @@
 {
   "id": "T035",
-  "title": "Commander full subcommand tree migration",
-  "status": "proposed",
+  "title": "Commander full subcommand tree migration (zod + actions)",
+  "status": "in_progress",
   "draft_doc": "project-docs/refactor/T035-commander-full-tree-draft.md",
+  "spec": ".agent-dev/specs/commander-full-tree-v1/spec.json",
   "parent": "T033",
   "scope": "apps/trader-workflows/src/cli/",
   "slices": [
     {
       "id": "T035-S1",
-      "title": "argvCompat + program skeleton + router wiring",
-      "risk": "low"
+      "title": "Full commander tree skeleton + help",
+      "status": "done",
+      "commit": "6d9d28c2"
+    },
+    {
+      "id": "T035-S1.1",
+      "title": "Top-level-only validateTopLevelCommand (fix S1 test regression)",
+      "status": "pending",
+      "risk": "low",
+      "files": ["cli/program.ts"]
     },
     {
       "id": "T035-S2",
-      "title": "runs, decisions, memory, failure-memory → opts handlers",
-      "risk": "low"
+      "title": "runs, decisions, memory, failure-memory → zod opts + actions",
+      "status": "pending",
+      "risk": "low",
+      "handlers": ["runs", "decisions", "memory", "failureMemory"],
+      "per_command": ["program.ts action+zod", "handler typed opts", "router commander dispatch for migrated cmds"]
     },
     {
       "id": "T035-S3",
-      "title": "outcomes list, insights list, market-data, pattern-memory list",
+      "title": "Data-query: outcomes list, insights list, market-data *, pattern-memory list",
+      "status": "pending",
       "risk": "low"
     },
     {
       "id": "T035-S4",
-      "title": "context bootstrap/latest/snapshots tree",
+      "title": "context bootstrap/latest/snapshots",
+      "status": "pending",
       "risk": "medium"
     },
     {
       "id": "T035-S5",
-      "title": "decide, outcomes run, eval summary, insights explore, market-monitor run",
+      "title": "Graph-exec: decide, outcomes run, eval summary, insights explore, market-monitor run",
+      "status": "pending",
       "risk": "medium"
     },
     {
       "id": "T035-S6",
-      "title": "pattern-memory promote/degrade, delete flagParsing, ARCHITECTURE.md",
+      "title": "pattern-memory promote/degrade, validators.ts, delete flagParsing, index→parseAsync, ARCHITECTURE.md",
+      "status": "pending",
       "risk": "medium"
     }
   ],
   "acceptance": [
-    "flagParsing.ts deleted",
-    "handleCommandAsync(runtime, string[]) preserved for tests and trader-cli",
-    "npm test 172 pass",
+    "All handlers (runtime, typedOpts) — no args string[] in handler bodies",
+    "flagParsing.ts deleted; validators.ts for complex rules only",
+    "handleCommandAsync(runtime, string[]) exported for trader-cli spawn",
+    "npm test baseline: no regression vs post-S1.1",
     "npm run check:circular no cycles",
     "ARCHITECTURE.md CLI section updated"
   ],
   "out_of_scope": [
     "WorkflowEnvelope shape change",
     "printEnvelope → pino",
-    "trader-cli commander merge",
-    "api/data/services layer changes"
+    "trader-cli source changes",
+    "api/data/services layer"
   ]
 }

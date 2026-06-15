@@ -50,25 +50,32 @@ commander 配置了 `allowUnknownOption(true)` + `allowExcessArguments(true)`，
 
 ```text
 cli/
-  program.ts          # buildProgram(runtime) — 完整 commander 树
-  argvCompat.ts         # string[] ↔ commander parse 适配（测试 / trader-cli）
-  validators.ts         # pattern-memory 互斥 id 等复杂校验
-  router.ts             # parse → dispatch → 变薄
-  flagParsing.ts        # 删除（或仅剩 validators 迁入后删除）
-  commandHandlers/      # 各 handler 收 typed opts
-  helpers.ts            # printEnvelope（stdout 协议，保留 console.log）
-  logger.ts             # pino（诊断日志，与 envelope 分离）
+  program.ts          # buildProgram(runtime) — 完整 commander 树 + action 注册
+  validators.ts       # 复杂校验（pattern-memory 互斥 id、session-id/profile 二选一等）
+  router.ts           # handleCommandAsync 兼容包装（生产 → commander，测试 → handler 直接）
+  flagParsing.ts      # S2-S5 逐步删除（逻辑迁入 action 内简单 parser + validators.ts）
+  commandHandlers/    # 各 handler 收 typed opts
+  helpers.ts          # printEnvelope（stdout JSON 协议，保留 console.log）
+  logger.ts           # pino（诊断日志，与 envelope 分离）
 ```
+
+> 删除了 `argvCompat.ts`：生产路径直接用 `program.parseAsync()`，测试路径直接调用 handler typed 签名。`handleCommandAsync` 保留为程序化 API 兼容包装。
 
 ### 2.3 依赖关系（迁移后）
 
 ```text
-index.ts
-  → router.handleCommandAsync(runtime, argv)
-      → argvCompat.toCommanderArgv(argv)   # 可选，兼容 string[]
-      → program.parseAsync(...)
-      → handler(runtime, opts)
-      → printEnvelope(envelope)              # stdout JSON
+生产路径 (index.ts main):
+  process.argv → program.parseAsync()
+    → action → simpleParser(rawOpts) → handler(runtime, typedOpts)
+    → printEnvelope(envelope)              # stdout JSON
+
+测试路径 (index.test.ts):
+  handler(runtime, typedOpts)              # 直接调用，拿返回值断言
+
+程序化 API (handleCommandAsync):
+  handleCommandAsync(runtime, string[])
+    → 已迁移命令: commander parse → handler
+    → 未迁移命令: 旧 string[] handler
 ```
 
 ---
@@ -147,12 +154,13 @@ export async function handleOutcomesListCommandAsync(
   ...
 }
 
-// After
-export type OutcomesListOpts = {
-  symbol?: string;
-  status?: OutcomeListStatus;
-  limit: number;
-};
+// After — zod schema 一次定义类型 + 校验（Q4 决策）
+export const OutcomesListOpts = z.object({
+  symbol: z.string().optional(),
+  status: z.enum(["pending", "active", "completed", "failed"]).optional(),
+  limit: z.coerce.number().int().positive().default(100),
+});
+export type OutcomesListOpts = z.infer<typeof OutcomesListOpts>;
 
 export async function handleOutcomesListCommandAsync(
   _runtime: Stage1Runtime,
@@ -167,26 +175,33 @@ export async function handleOutcomesListCommandAsync(
 }
 ```
 
-### 4.2 program.ts 注册
+### 4.2 program.ts 注册（S2+ 模式，同步改 handler + action + router）
 
 ```typescript
-const outcomesCmd = program.command("outcomes").description("Decision outcomes");
+import { z } from "zod";
 
+// 一次定义：类型 + 校验 + 默认值
+const OutcomesListOpts = z.object({
+  symbol: z.string().optional(),
+  status: z.enum(["pending", "active", "completed", "failed"]).optional(),
+  limit: z.coerce.number().int().positive().default(100),
+});
+
+// action 中：zod parse → typed opts → handler → printEnvelope
 outcomesCmd
   .command("list")
   .description("List decision outcomes")
   .option("--symbol <symbol>")
   .option("--status <status>")
-  .option("--limit <n>", "positive integer", String(DEFAULT_OUTCOMES_LIST_LIMIT))
-  .action(async (opts) => {
-    const envelope = await handleOutcomesListCommandAsync(runtime, {
-      symbol: opts.symbol,
-      status: parseOutcomeStatus(opts.status),
-      limit: parsePositiveInt(opts.limit, DEFAULT_OUTCOMES_LIST_LIMIT),
-    });
+  .option("--limit <n>", "limit", String(DEFAULT_OUTCOMES_LIST_LIMIT))
+  .action(async (rawOpts) => {
+    const opts = OutcomesListOpts.parse(rawOpts);  // 一次校验 + 类型推导
+    const envelope = await handleOutcomesListCommandAsync(runtime, opts);
     printEnvelope(envelope);
   });
 ```
+
+> **设计原则（Q4 决策）**：用 zod schema 一次定义类型 + 校验 + 默认值。项目已有 zod 依赖，且 trader-cli 已使用 zod 校验。commander 只做参数存在性校验，值校验由 zod 完成。
 
 ### 4.3 错误映射
 
@@ -201,18 +216,37 @@ program.exitOverride((err) => {
 
 保持 JSON envelope 的 `error.code` / `error.message` 与现实现一致。
 
-### 4.4 兼容层（index.test.ts / trader-cli）
+### 4.4 兼容层与测试策略（Q2 决策：模式 1 — 直接测 handler）
+
+**生产路径**：`index.ts` main → `program.parseAsync()` → action → handler → `printEnvelope`
+
+**测试路径**：直接调用 handler typed 签名，**不经过 commander**：
 
 ```typescript
+// index.test.ts — 直接测 handler，拿返回值断言
+const envelope = await handleOutcomesListCommandAsync(runtime, {
+  symbol: "TSLA",
+  status: undefined,
+  limit: 100,
+});
+assert.equal(envelope.ok, true);
+```
+
+**程序化 API**：`handleCommandAsync(runtime, string[])` 保留为兼容包装：
+
+```typescript
+// router.ts
 export async function handleCommandAsync(
   runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
-  return runProgramAsync(runtime, args, { json: args.includes("--json") });
+  // 已迁移命令 → commander parse → handler
+  // 未迁移命令 → 旧 COMMAND_HANDLERS dispatch
+  return dispatchViaCommanderOrLegacy(runtime, args);
 }
 ```
 
-`trader-cli` 继续 `spawn(["outcomes", "list", "--symbol", "TSLA", "--json"])`，无需改动。
+**trader-cli** 继续 `spawn(...)`，无改动。
 
 ### 4.5 validators.ts（commander 难以表达的规则）
 
@@ -231,18 +265,24 @@ export async function handleCommandAsync(
 | Slice | 范围 | 风险 | 状态 | 主要改动文件 |
 |-------|------|------|------|-------------|
 | **T035-S1** | 基础设施 | 低 | ✅ Done (`6d9d28c2`) | `program.ts`（完整树骨架）；行为不变 |
-| **T035-S2** | 只读简单命令 | 低 | ⬜ | `runs`, `decisions`, `memory`, `failure-memory` handlers |
+| **T035-S2** | 只读简单命令 | 低 | ⬜ | `runs`*, `decisions`, `memory`, `failure-memory`（每命令改 3 处：action + handler + router） |
 | **T035-S3** | 数据查询类 | 低 | ⬜ | `outcomes list`, `insights list`, `market-data *`, `pattern-memory list` |
 | **T035-S4** | context 子树 | 中 | ⬜ | `bootstrap`, `latest`, `snapshots list/show` |
 | **T035-S5** | 图执行类 | 中 | ⬜ | `decide`, `outcomes run`, `eval summary`, `insights explore`, `market-monitor run` |
 | **T035-S6** | 变异 + 清理 | 中 | ⬜ | `pattern-memory promote/degrade`；删 `flagParsing.ts`；更新 `ARCHITECTURE.md` |
 
+> \* `runs` 含 `resume`（图执行），Q3 决定全部留在 S2。
+>
+> **每命令改动清单（Q1 决策）**：① commander action 注册 handler 调用 + zod schema（`program.ts`）、② handler 签名改为 `(runtime, typedOpts)`、③ 从 router `COMMAND_HANDLERS` 中删除该项。每个 slice 必须是完整链路（action → handler → printEnvelope），不可只改签名。
+
 ### 5.1 建议 commit 信息
 
 ```text
-refactor(trader-workflows): add commander argv compat layer (T035 S1)
-refactor(trader-workflows): migrate runs/decisions/memory handlers to commander opts (T035 S2)
-...
+refactor(trader-workflows): build full commander subcommand tree (T035 S1)  ← 6d9d28c2
+refactor(trader-workflows): migrate runs/decisions/memory/failure-memory to zod+commander (T035 S2)
+refactor(trader-workflows): migrate data-query commands to zod+commander (T035 S3)
+refactor(trader-workflows): migrate context subtree to zod+commander (T035 S4)
+refactor(trader-workflows): migrate graph-exec commands to zod+commander (T035 S5)
 refactor(trader-workflows): remove flagParsing after full commander tree (T035 S6)
 ```
 
@@ -250,13 +290,16 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 
 ## 6. 测试策略
 
-1. **回归**：每 slice 后 `npm test`（172）+ `npm run check:circular`
-2. **契约**：`index.test.ts` 中所有 `handleCommandAsync(runtime, [...])` 用例必须继续通过
-3. **新增** `cli/program.test.ts`（S1 或 S6）：
+1. **回归**：每 slice 后 `npm test`（baseline 测试数无回归）+ `npm run check:circular`
+2. **模式 1 — 直接测 handler**（Q2 决策）：测试直接调用 `handler(runtime, typedOpts)`，**不经过 commander**。handler 返回 `WorkflowEnvelope`，测试直接做断言。
+3. **兼容**：`index.test.ts` 中 `handleCommandAsync` 用例迁移为直接测 handler 后删除旧用例
+4. **新增** `cli/program.test.ts`（S1 或 S6）：
    - 未知顶层命令 → `ERROR_CODE_UNKNOWN_COMMAND`
    - 未知 flag → 映射为既有 error code
    - `--help` 不抛异常
-4. **可选**：envelope 字段 snapshot，防 handler 返回值漂移
+5. **可选**：envelope 字段 snapshot，防 handler 返回值漂移
+
+> ⚠️ 文档中 "172 tests" 为近似值。实际有 32 个预存 TypeScript 编译错误，baseline 通过的测试数为 ~140/172。每 slice 以该 baseline 为准，不增加错误。
 
 ---
 
@@ -264,7 +307,7 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 
 | 阶段 | 行为 |
 |------|------|
-| T035 全程 | `trader-cli` 仍 spawn argv 数组，workflows 内 `argvCompat` 适配 |
+| T035 全程 | `trader-cli` 仍 spawn argv 数组；workflows 内 handler 直接收 typed opts |
 | 后续（可选） | 共享 commander 定义；或从 `program.ts` 生成 help 文档 |
 
 ---
@@ -272,9 +315,10 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 ## 8. 明确不做（scope 边界）
 
 - 不修改 `WorkflowEnvelope` 结构
-- 不把 `printEnvelope` 换成 pino（stdout = 机器协议）
+- 不把 `printEnvelope` 换成 pino（stdout JSON 协议；pino 仅用于诊断日志，Q5 决策）
 - 不在本任务内合并 `trader-cli` 与 `trader-workflows` 的 commander 源码
 - 不重做 T033 已完成的 api/data/services 分层
+- 不修改 handler 的业务逻辑（只改签名和参数来源）
 
 ---
 
@@ -309,6 +353,8 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 
 - [ ] `cli/flagParsing.ts` 已删除（逻辑迁入 `program.ts` + `validators.ts`）— S6
 - [x] 全部子命令与 flag 在 `program.ts` 注册，`--help` 可用 — S1 done
-- [ ] `handleCommandAsync(runtime, string[])` 仍 exported，测试与 trader-cli 兼容 — 验证中
-- [ ] `npm test` 172/172；`npm run check:circular` 无环
+- [ ] 所有 12 个 handler 签名改为 `(runtime, typedOpts)`，`args[1]` switch 已移除 — S2-S5
+- [ ] 每个命令链路完整：action → zod schema → handler → printEnvelope — S2-S5
+- [ ] `handleCommandAsync(runtime, string[])` 仍 exported，测试与 trader-cli 兼容
+- [ ] `npm test` baseline 测试数无回归；`npm run check:circular` 无环
 - [ ] `ARCHITECTURE.md` CLI 节与实现一致 — S6
