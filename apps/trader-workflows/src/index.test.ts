@@ -10,8 +10,8 @@ import { Stage1Runtime } from "./runtime/stage1Runtime.js";
 import {
   buildContextSnapshotPayload,
   weightedItemsFromIntelBuild,
-  type IntelContextBuildResponse,
 } from "./services/contextSnapshots.js";
+import type { IntelContextBuildResponse } from "./types/context.js";
 
 const SAMPLE_BUILD: IntelContextBuildResponse = {
   signals: [

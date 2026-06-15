@@ -1,14 +1,14 @@
 {
   "task_id": "T032-workflow-module-refactoring-v0",
   "spec_id": "workflow-module-refactoring-v0",
-  "status": "active",
+  "status": "completed",
   "title": "Workflow Module Refactoring — T032",
   "summary": "Layered refactor of trader-workflows: constants, types, api, cli, service directory splits.",
   "slices": [
     {
       "id": "P0",
       "title": "Foundation — constants and centralized types",
-      "status": "active",
+      "status": "completed",
       "substeps": ["W1 constants", "W2 marketAgent types", "W3 outcomes/evaluation/context types", "W4 insight/alpha/decisions/cli types + barrel"],
       "may_edit": [
         "apps/trader-workflows/src/constants/**",
@@ -32,7 +32,7 @@
     {
       "id": "P1",
       "title": "API layer — queryBuilder, graphRunner, commands",
-      "status": "pending",
+      "status": "completed",
       "substeps": ["W5 queryBuilder + marketAgent", "W6 graphRunner + api/commands"],
       "may_edit": [
         "apps/trader-workflows/src/api/**",
@@ -48,7 +48,7 @@
     {
       "id": "P2",
       "title": "CLI decouple — argParser, handlers, router",
-      "status": "pending",
+      "status": "completed",
       "substeps": ["W7a argParser", "W7b handlers x2", "W7c router + slim index"],
       "may_edit": [
         "apps/trader-workflows/src/cli/**",
@@ -63,7 +63,7 @@
     {
       "id": "P3",
       "title": "Service split — outcomes, evaluation, context, insight directories",
-      "status": "pending",
+      "status": "completed",
       "substeps": ["W8 outcomes + evaluation", "W9 context + insight"],
       "may_edit": [
         "apps/trader-workflows/src/services/outcomes/**",
@@ -83,7 +83,7 @@
     {
       "id": "P4",
       "title": "Contract convergence — import type, ApiResponse, madge, docs",
-      "status": "pending",
+      "status": "completed",
       "substeps": ["W10 import type + ApiResponse", "W11 madge + ARCHITECTURE.md"],
       "may_edit": [
         "apps/trader-workflows/src/**",

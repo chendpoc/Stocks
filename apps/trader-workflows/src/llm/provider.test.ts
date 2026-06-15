@@ -10,7 +10,7 @@ import {
   extractChatCompletionMessageText,
   formatDecisionAsOfForPrompt,
 } from "./provider.js";
-import type { WeightedContextItem } from "../services/contextSnapshots.js";
+import type { WeightedContextItem } from "../types/context.js";
 
 const SAMPLE_ITEM: WeightedContextItem = {
   item_id: "market_bar:AAPL:daily:latest",

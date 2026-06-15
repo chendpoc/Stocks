@@ -1,6 +1,6 @@
 {
   "spec_id": "workflow-module-refactoring-v0",
-  "status": "active",
+  "status": "completed",
   "title": "Workflow Module Refactoring — layered constants/types/api/cli/services",
   "summary": "Reorganize apps/trader-workflows into constants, types, api, cli, and split services per workflow-module-refactoring-plan.md. Zero external behavior change.",
   "sources": [

@@ -1,5 +1,25 @@
 const BASE = process.env.TRADER_API_BASE ?? "http://127.0.0.1:8000/api/intel";
 
+/** Parsed JSON body returned by the Intel API on HTTP 2xx. */
+export type ApiSuccessResponse<T> = T;
+
+/**
+ * Common FastAPI-style error fields in non-2xx response bodies.
+ * `fetchIntel` and `fetchStage1` throw instead of returning this shape.
+ */
+export interface ApiErrorBody {
+  detail?: string | Array<{ loc?: unknown[]; msg?: string; type?: string }>;
+  message?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Contract for Intel / Stage1 HTTP JSON payloads.
+ * On success, callers receive the parsed body as `T`.
+ * On failure, `fetchIntel` throws `Error` and `fetchStage1` throws {@link Stage1ApiError}.
+ */
+export type ApiResponse<T> = ApiSuccessResponse<T>;
+
 export class Stage1ApiError extends Error {
   readonly status: number;
 

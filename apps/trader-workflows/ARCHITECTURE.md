@@ -6,6 +6,45 @@ This document describes the current implementation in `apps/trader-workflows`.
 It is not a roadmap and does not describe planned workflows unless they already
 affect an implemented boundary.
 
+## Package Layout
+
+After the T032 module refactor, `src/` is organized in layers:
+
+```text
+src/
+  constants/          # cliFlags, graphNames, errorCodes, apiPaths (no logic)
+  types/              # Pure TypeScript contracts (context, outcomes, evaluation, …)
+  api/
+    client.ts         # fetchIntel, fetchStage1, ApiResponse<T>
+    queryBuilder.ts   # URL query construction
+    graphRunner.ts    # Stage1Runtime graph dispatch helpers
+    commands/         # Thin re-exports over services (decisions, marketAgent)
+  cli/
+    argParser.ts      # Flag and positional arg parsing
+    router.ts         # Command dispatch to handlers
+    helpers.ts        # WorkflowEnvelope helpers and resume map
+    commandHandlers/  # One handler module per CLI command family
+  services/
+    marketAgent.ts    # Market-agent Intel API orchestration
+    decisions.ts      # Model decision persistence and outcome scheduling
+    alphaResearch.ts  # Alpha research input validation and client
+    contextSnapshots.ts   # barrel → context/
+    outcomes.ts             # barrel → outcomes/
+    evaluation.ts           # barrel → evaluation/
+    insightCandidates.ts    # barrel → insight/
+    context/          # snapshots, weighting, types
+    outcomes/         # persistence, scheduling, labeling, types
+    evaluation/       # metrics, report, types
+    insight/          # candidates, seeds, types
+  graphs/             # LangGraph workflow definitions (unchanged boundary)
+  llm/                # Workflow LLM provider and decision envelope
+  runtime/            # Stage1Runtime, checkpoint store, LangGraph checkpointer
+```
+
+Import convention: CLI and `api/` modules import **types** from `types/` and
+**runtime behavior** from `services/`. Service subdirectories retain barrel
+re-exports at the original `services/*.ts` paths for backward compatibility.
+
 ## Package Role
 
 `apps/trader-workflows` is the workflow runtime package for the trader-agent
@@ -68,11 +107,13 @@ runtime run. `decide`, `outcomes run --due`, `eval summary`, and
 
 | Entrypoint | Current responsibility |
 |---|---|
-| `src/index.ts` | CLI parser, command routing, JSON envelope formatting, runtime lifecycle |
+| `src/index.ts` | Public exports, CLI entrypoint (`parseArgs` → `handleCommandAsync`), runtime lifecycle |
+| `src/cli/router.ts` | Command routing to `commandHandlers/*` |
+| `src/cli/helpers.ts` | Workflow envelope formatting and resume handler map |
 | `src/runtime/stage1Runtime.ts` | Run lifecycle, checkpoint writes, native graph invocation, service-wrapper invocation, resume |
 | `src/runtime/checkpointStore.ts` | SQLite run registry and wrapper checkpoint storage |
 | `src/runtime/langgraphCheckpointer.ts` | LangGraph SQLite checkpoint saver for native graph checkpoints |
-| `src/api/client.ts` | Backend HTTP client for Intel and Stage 1 endpoints |
+| `src/api/client.ts` | Backend HTTP client (`fetchIntel`, `fetchStage1`, `ApiResponse<T>`) |
 | `langgraph.json` | LangGraph Studio registration for all four native graphs |
 
 ## Runtime Persistence
@@ -214,14 +255,16 @@ RulePack policy, train models, or submit trades.
 
 ## Services Layer
 
-| Service file | Responsibility |
+| Service | Responsibility |
 |---|---|
-| `services/contextSnapshots.ts` | Build, hash, summarize, persist, fetch, and list context snapshots |
+| `services/contextSnapshots.ts` (+ `context/`) | Build, hash, summarize, persist, fetch, and list context snapshots |
 | `services/decisions.ts` | Persist model decisions and schedule model/override-path outcomes |
-| `services/outcomes.ts` | Fetch due outcomes, fetch market bars, compute labels, finalize outcomes |
-| `services/evaluation.ts` | Aggregate outcome metrics and build/persist evaluation reports |
-| `services/insightCandidates.ts` | Build and persist insight candidates; implement bounded exploration helpers |
+| `services/outcomes.ts` (+ `outcomes/`) | Fetch due outcomes, fetch market bars, compute labels, finalize outcomes |
+| `services/evaluation.ts` (+ `evaluation/`) | Aggregate outcome metrics and build/persist evaluation reports |
+| `services/insightCandidates.ts` (+ `insight/`) | Build and persist insight candidates; bounded exploration helpers |
 | `services/candidateFamilies.ts` | Static candidate-family definitions and validation |
+| `services/marketAgent.ts` | Market-agent memory, monitor, and data Intel API calls |
+| `services/alphaResearch.ts` | Alpha research input validation and rule-candidate client |
 
 The services are thin orchestration helpers over the backend API and local
 workflow logic. Backend domain storage remains in `apps/trader-agent/backend`.
@@ -243,10 +286,14 @@ http://127.0.0.1:8000/api/intel
 `fetchIntel()` calls paths under the Intel API base. `fetchStage1()` appends
 `/stage1` and throws `Stage1ApiError` when the backend response is not OK.
 
+`ApiResponse<T>` documents the success JSON shape (`T` on HTTP 2xx). Failures
+throw rather than returning an error envelope; `ApiErrorBody` documents common
+FastAPI error fields for reference.
+
 ## Resume Model
 
 `runs resume RUN_ID` reads `workflow_runs.graph_name` and dispatches to the
-registered handler map in `src/index.ts`:
+registered handler map in `src/cli/helpers.ts`:
 
 - `DecisionGraph`
 - `OutcomeGraph`
@@ -274,6 +321,7 @@ Run from the package directory:
 
 ```bash
 npm test
+npm run check:circular
 ```
 
 For live CLI commands, the backend must be running and `TRADER_API_BASE` must

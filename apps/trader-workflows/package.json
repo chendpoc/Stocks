@@ -8,6 +8,7 @@
   "scripts": {
     "workflows": "tsx src/index.ts",
     "test": "tsx --test",
+    "check:circular": "madge --circular --extensions ts --exclude graphs src/",
     "studio": "langgraphjs dev --port 8123"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "@langchain/langgraph-cli": "^0.0.69",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
+    "madge": "^8.0.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }

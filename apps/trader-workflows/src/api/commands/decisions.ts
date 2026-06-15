@@ -9,4 +9,4 @@ export type {
   ListModelDecisionsInput,
   ListModelDecisionsResponse,
   ModelDecisionRecord,
-} from "../../services/marketAgent.js";
+} from "../../types/marketAgent.js";

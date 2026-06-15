@@ -3,7 +3,7 @@ import type {
   AlphaResearchClient,
   AlphaResearchInput,
   LiteBacktestReportResponse,
-} from "../../services/alphaResearch.js";
+} from "../../types/alpha.js";
 
 export interface AlphaResearchGraphInput extends Partial<AlphaResearchInput> {
   run_id?: string;

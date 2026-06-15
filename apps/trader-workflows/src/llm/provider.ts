@@ -3,15 +3,14 @@ import {
   DecisionEnvelopeValidationError,
   parseDecisionEnvelope,
 } from "./decisionEnvelope.js";
-import type { WeightedContextItem } from "../services/contextSnapshots.js";
+import type { WeightedContextItem } from "../types/context.js";
+import type { EvaluationOutcomeRow } from "../types/evaluation.js";
+import type { InsightProposal, InsightReActStepRecord } from "../types/insight.js";
 import {
   DEFAULT_INSIGHT_WEIGHT_CAP,
   enforceInsightProposal,
   evidenceRefsFromContextItems,
-  type InsightProposal,
-  type InsightReActStepRecord,
 } from "../services/insightCandidates.js";
-import type { EvaluationOutcomeRow } from "../services/evaluation.js";
 
 export type DecisionLlmAnalysisSummary = {
   evidence_text?: string;

@@ -1,12 +1,11 @@
 import type { DecisionEnvelope } from "../../llm/decisionEnvelope.js";
 import type { WorkflowLlmProvider } from "../../llm/provider.js";
-import type { ContextSnapshotRecord } from "../../services/contextSnapshots.js";
 import {
   persistModelDecision,
   scheduleModelPathOutcomes,
-  type PersistedModelDecision,
-  type ScheduledDecisionOutcome,
 } from "../../services/decisions.js";
+import type { ContextSnapshotRecord } from "../../types/context.js";
+import type { PersistedModelDecision, ScheduledDecisionOutcome } from "../../types/decisions.js";
 import { buildAndPersistContextSnapshot } from "../../services/contextSnapshots.js";
 import type { GateDecision, LlmNodeDeps } from "./decisionGraph.llmNodes.js";
 
