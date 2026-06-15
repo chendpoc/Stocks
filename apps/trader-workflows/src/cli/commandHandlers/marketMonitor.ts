@@ -1,4 +1,4 @@
-import { runMarketMonitor } from "../../api/commands/marketAgent.js";
+import { runMarketMonitor } from "../../services/marketAgent.js";
 import {
   CLI_FLAG_ALLOW_LIVE_FALLBACK,
   CLI_FLAG_LIMIT,

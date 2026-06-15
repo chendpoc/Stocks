@@ -1,4 +1,4 @@
-import { listInsightCandidates } from "../../api/commands/marketAgent.js";
+import { listInsightCandidates } from "../../services/marketAgent.js";
 import { runInsightExplorationGraphViaRuntime } from "../../api/graphRunner.js";
 import { CLI_FLAG_SYMBOL, CLI_FLAG_VERIFICATION_STATUS, CLI_FLAG_WINDOW } from "../../constants/cliFlags.js";
 import {

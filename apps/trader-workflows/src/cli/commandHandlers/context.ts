@@ -1,7 +1,7 @@
 import {
   bootstrapContext,
   getLatestContext,
-} from "../../api/commands/marketAgent.js";
+} from "../../services/marketAgent.js";
 import {
   fetchContextSnapshot,
   listContextSnapshots,

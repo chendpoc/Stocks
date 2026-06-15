@@ -1,4 +1,4 @@
-import { listFailureMemories } from "../../api/commands/marketAgent.js";
+import { listFailureMemories } from "../../services/marketAgent.js";
 import {
   CLI_FLAG_LIMIT,
   CLI_FLAG_SETUP,

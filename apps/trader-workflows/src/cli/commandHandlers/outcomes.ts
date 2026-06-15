@@ -1,4 +1,4 @@
-import { listDecisionOutcomes } from "../../api/commands/decisions.js";
+import { listDecisionOutcomes } from "../../services/marketAgent.js";
 import { runOutcomeGraphViaRuntime } from "../../api/graphRunner.js";
 import { CLI_FLAG_DUE, CLI_FLAG_LIMIT, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import {

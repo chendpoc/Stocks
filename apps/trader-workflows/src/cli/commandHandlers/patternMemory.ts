@@ -2,7 +2,7 @@ import {
   degradePatternMemory,
   listPatternMemories,
   promotePatternMemory,
-} from "../../api/commands/marketAgent.js";
+} from "../../services/marketAgent.js";
 import {
   CLI_FLAG_LIMIT,
   CLI_FLAG_PATTERN_ID,

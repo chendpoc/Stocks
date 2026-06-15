@@ -1,4 +1,4 @@
-import { listModelDecisions } from "../../api/commands/decisions.js";
+import { listModelDecisions } from "../../services/marketAgent.js";
 import { CLI_FLAG_LIMIT, CLI_FLAG_MODEL_VERSION, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import { ERROR_CODE_UNKNOWN_DECISIONS_COMMAND } from "../../constants/errorCodes.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
