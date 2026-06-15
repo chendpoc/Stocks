@@ -1,23 +1,26 @@
 # T035: Commander 完整子命令树迁移草案
 
-> Date: 2026-06-16 | Status: proposed  
-> Parent: T033 Phase G（混合模式 — commander 仅校验顶层命令）  
+> Date: 2026-06-16 | Status: **done** (T035-S1–S6, `d694fedc`)  
+> Parent: T033 Phase G — 已由本任务完整替代混合模式  
 > Scope: `apps/trader-workflows/src/cli/`
 
 ---
 
 ## 1. 背景与动机
 
-### 1.1 当前状态（T033 Phase G 混合模式）
+### 1.1 最终状态（T035 完成后）
 
 | 组件 | 职责 |
 |------|------|
-| `cli/program.ts` | commander 注册 12 个顶层命令；`validateTopLevelCommand()`；剥离 `--json` |
-| `cli/router.ts` | `COMMAND_HANDLERS` 手动 dispatch；`handleCommandAsync(runtime, args[])` |
-| `cli/flagParsing.ts` | 子命令 flag 手工解析（`indexOf`、`parseOptionalFlagValue` 等） |
-| `commandHandlers/*` | `args[1]` / `switch` 子命令路由；从 `flagParsing` 取 flag |
+| `cli/program.ts` | 完整 commander 子命令树；全部 action → `runEnvelopeAction` → `printEnvelope` |
+| `cli/router.ts` | `handleCommandAsync` → `legacyArgs` S2–S6 dispatch（trader-cli spawn 兼容） |
+| `cli/legacyArgs.ts` | `string[]` argv → zod typed opts → handler |
+| `cli/validators.ts` | pattern-memory promote/degrade 互斥 id、`--confirm` 等跨字段规则 |
+| `cli/parseOpts.ts` | zod safeParse → `WorkflowCommandError`（返回 `z.infer` output 类型） |
+| `commandHandlers/*` | `(runtime, typedOpts)` — 无 `args[]` 解析 |
+| `index.ts` main | `validateTopLevelCommand` → `program.parseAsync()` |
 
-commander 配置了 `allowUnknownOption(true)` + `allowExcessArguments(true)`，子命令与 flag **未**由 commander 管理。
+`cli/flagParsing.ts` 已删除（S6，`b3776c02`）。
 
 ### 1.2 混合模式的问题（长期维护）
 
@@ -51,12 +54,12 @@ commander 配置了 `allowUnknownOption(true)` + `allowExcessArguments(true)`，
 ```text
 cli/
   program.ts          # buildProgram(runtime) — 完整 commander 树 + action 注册
+  legacyArgs.ts       # handleCommandAsync compat: argv → typed opts dispatch
   validators.ts       # 复杂校验（pattern-memory 互斥 id、session-id/profile 二选一等）
-  router.ts           # handleCommandAsync 兼容包装（生产 → commander，测试 → handler 直接）
-  flagParsing.ts      # S2-S5 逐步删除（逻辑迁入 action 内简单 parser + validators.ts）
+  router.ts           # handleCommandAsync 薄包装 → legacyArgs
   commandHandlers/    # 各 handler 收 typed opts
   helpers.ts          # printEnvelope（stdout JSON 协议，保留 console.log）
-  logger.ts           # pino（诊断日志，与 envelope 分离）
+  logger.ts           # re-export runtime/logger（pino 诊断日志，与 envelope 分离）
 ```
 
 > 删除了 `argvCompat.ts`：生产路径直接用 `program.parseAsync()`，测试路径直接调用 handler typed 签名。`handleCommandAsync` 保留为程序化 API 兼容包装。
@@ -264,12 +267,13 @@ export async function handleCommandAsync(
 
 | Slice | 范围 | 风险 | 状态 | 主要改动文件 |
 |-------|------|------|------|-------------|
-| **T035-S1** | 基础设施 | 低 | ✅ Done (`6d9d28c2`) | `program.ts`（完整树骨架）；行为不变 |
-| **T035-S2** | 只读简单命令 | 低 | ⬜ | `runs`*, `decisions`, `memory`, `failure-memory`（每命令改 3 处：action + handler + router） |
-| **T035-S3** | 数据查询类 | 低 | ⬜ | `outcomes list`, `insights list`, `market-data *`, `pattern-memory list` |
-| **T035-S4** | context 子树 | 中 | ⬜ | `bootstrap`, `latest`, `snapshots list/show` |
-| **T035-S5** | 图执行类 | 中 | ⬜ | `decide`, `outcomes run`, `eval summary`, `insights explore`, `market-monitor run` |
-| **T035-S6** | 变异 + 清理 | 中 | ⬜ | `pattern-memory promote/degrade`；删 `flagParsing.ts`；更新 `ARCHITECTURE.md` |
+| **T035-S1** | 基础设施 | 低 | ✅ Done (`6d9d28c2`) | `program.ts`（完整树骨架） |
+| **T035-S1.1** | 顶层校验修复 | 低 | ✅ Done (`55f07b70`) | `validateTopLevelCommand` 仅校验顶层动词 |
+| **T035-S2** | 只读简单命令 | 低 | ✅ Done (`3879f058`) | `runs`*, `decisions`, `memory`, `failure-memory` |
+| **T035-S3** | 数据查询类 | 低 | ✅ Done (`2ba2c6a8`) | `outcomes list`, `insights list`, `market-data *`, `pattern-memory list` |
+| **T035-S4** | context 子树 | 中 | ✅ Done (`9624a152`) | `bootstrap`, `latest`, `snapshots list/show` |
+| **T035-S5** | 图执行类 | 中 | ✅ Done (`38ccd3e6`) | `decide`, `outcomes run`, `eval summary`, `insights explore`, `market-monitor run` |
+| **T035-S6** | 变异 + 清理 | 中 | ✅ Done (`b3776c02`) | `pattern-memory promote/degrade`；删 `flagParsing.ts`；`index` → `parseAsync` |
 
 > \* `runs` 含 `resume`（图执行），Q3 决定全部留在 S2。
 >
@@ -329,11 +333,11 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 | 项 | 状态 |
 |----|------|
 | `runtime/config.ts` + `LOG_LEVEL` | ✅ |
-| `cli/logger.ts`（pino） | ✅ 文件存在，**0 处 import** |
+| `runtime/logger.ts` + `cli/logger.ts` re-export | ✅ |
 | `src/` 内 `console.*` | 仅 `helpers.printEnvelope` — **故意保留**（JSON stdout 协议） |
-| graphs/runtime 诊断日志 | 未接入 logger |
+| graphs/runtime/api 诊断日志 | ✅ `stage1Runtime.runGraph` / `resumeRun`、`graphRunner`、`api/client` HTTP retry |
 
-**补全 Phase A 建议**：在 `stage1Runtime`、graph 节点、HTTP 重试等路径使用 `logger.debug/info/warn`，约定 **stdout = envelope，stderr = 日志**。
+**约定**：**stdout = envelope（`printEnvelope`）**，**stderr = pino 诊断日志**。
 
 ---
 
@@ -351,10 +355,10 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 
 ## 11. 验收标准
 
-- [ ] `cli/flagParsing.ts` 已删除（逻辑迁入 `program.ts` + `validators.ts`）— S6
-- [x] 全部子命令与 flag 在 `program.ts` 注册，`--help` 可用 — S1 done
-- [ ] 所有 12 个 handler 签名改为 `(runtime, typedOpts)`，`args[1]` switch 已移除 — S2-S5
-- [ ] 每个命令链路完整：action → zod schema → handler → printEnvelope — S2-S5
-- [ ] `handleCommandAsync(runtime, string[])` 仍 exported，测试与 trader-cli 兼容
-- [ ] `npm test` baseline 测试数无回归；`npm run check:circular` 无环
-- [ ] `ARCHITECTURE.md` CLI 节与实现一致 — S6
+- [x] `cli/flagParsing.ts` 已删除 — S6 (`b3776c02`)
+- [x] 全部子命令与 flag 在 `program.ts` 注册，`--help` 可用
+- [x] 所有 12 个命令族 handler 签名 `(runtime, typedOpts)`，`args[1]` switch 已移除
+- [x] 每个命令链路：action → zod schema → handler → `printEnvelope`
+- [x] `handleCommandAsync(runtime, string[])` 仍 exported；trader-cli spawn 兼容
+- [x] `npm test` 172/172；`npm run check:circular` 无环
+- [x] `ARCHITECTURE.md` CLI 节与实现一致

@@ -1,6 +1,6 @@
 # trader-workflows Architecture Refactoring Plan
 
-> Date: 2026-06-16 | Status: proposed
+> Date: 2026-06-16 | Status: **Phases A–G complete** (T033 + T034 + T035)
 >
 > References:
 > - `project-docs/refactor/nodejs-ecosystem-audit.md` — library migration recommendations
@@ -38,38 +38,26 @@ This section aggregates every issue found across all review sessions, organized 
 
 | # | Problem | Severity | Status |
 |---|---------|----------|--------|
-| A1 | `services/marketAgent.ts` is not domain logic — 12 HTTP proxy functions, zero business logic | 🔴 | ⬜ Pending (Phase C) |
-| A2 | `alphaResearch.ts`, `outcomes/persistence.ts`, `outcomes/scheduling.ts` bypass `api/client.ts` | 🔴 | ⬜ Pending (Phase D) |
-| A3 | Domain modules cross-call (`evaluation/` → `outcomes/` → `decisions.ts`) | 🟡 | ⬜ Pending (Phase F) |
-| A4 | `api/graphRunner.ts` depends on orchestration layer (`runtime/`, `graphs/`) — inverted dependency | 🟡 | ⬜ Pending (Phase E) |
+| A1 | `services/marketAgent.ts` is not domain logic — 12 HTTP proxy functions, zero business logic | 🔴 | ✅ Resolved (Phase C, `5369a73d`) |
+| A2 | `alphaResearch.ts`, `outcomes/persistence.ts`, `outcomes/scheduling.ts` bypass `api/client.ts` | 🔴 | ✅ Resolved (Phase D, `9bcb5de1`) |
+| A3 | Domain modules cross-call (`evaluation/` → `outcomes/` → `decisions.ts`) | 🟡 | ✅ Resolved (Phase F, `1f0bdd68`) |
+| A4 | `api/graphRunner.ts` depends on orchestration layer — inverted dependency | 🟡 | ✅ Resolved (Phase E, `5369a73d`) |
 
 ### 0.4 Ecosystem Modernization Gaps (from `nodejs-ecosystem-audit.md`)
 
 | # | Problem | Severity | Status |
 |---|---------|----------|--------|
-| E1 | Hand-rolled `fetchIntel`/`fetchStage1` (77+94 lines) — no timeout/retry/interceptors | 🔴 | 🔄 In progress — B1+B2 done, B3 (marketAgent update) pending |
-| E2 | `console.log`/`console.error` scattered — no levels, no structured output | 🟡 | ✅ Phase A complete (pino installed) |
+| E1 | Hand-rolled `fetchIntel`/`fetchStage1` (77+94 lines) — no timeout/retry/interceptors | 🔴 | ✅ Phase B complete (`26f55e5b` + marketAgent → `api/`) |
+| E2 | `console.log`/`console.error` scattered — no levels, no structured output | 🟡 | ✅ Phase A complete — `runtime/logger.ts` wired; only `printEnvelope` uses `console.log` |
 | E3 | Bare `process.env` reads without defaults/validation (10+ locations) | 🟡 | ✅ Phase A complete (dotenv+env-var installed) |
-| E4 | `cli/argParser.ts` 229 lines hand-written — commander already in trader-cli | 🟡 | ⬜ Pending (Phase G) |
+| E4 | `cli/argParser.ts` 229 lines hand-written — commander already in trader-cli | 🟡 | ✅ Phase G complete via T035 (`b3776c02` — full commander tree, `flagParsing` deleted) |
 | E5 | `bootstrap-env.js` 43 lines hand-written .env loading | 🟢 | ✅ Obsolete (replaced by dotenv) |
 
-### 0.5 Pre-existing TypeScript Errors (not introduced by refactoring)
+### 0.5 Pre-existing TypeScript Errors (resolved during T033–T035)
 
-| File | Error Count | Type |
-|------|------------|------|
-| `cli/commandHandlers/context.ts` | 2 | TS2783 duplicate `snapshot_id` |
-| `cli/commandHandlers/marketData.ts` | 2 | TS2322 index signature missing |
-| `cli/commandHandlers/marketMonitor.ts` | 1 | TS2322 index signature missing |
-| `cli/commandHandlers/memory.ts` | 1 | TS2322 index signature missing |
-| `cli/helpers.ts` | 1 | TS2345 missing `symbol` property |
-| `graphs/03-insightExploration/*.test.ts` | 18 | TS2322/TS2339 type mismatches in test mocks |
-| `graphs/04-alphaResearch/*.test.ts` | 1 | TS2552 `RequestInfo` → `RequestInit` |
-| `runtime/checkpointStore.ts` | 1 | TS2709 namespace as type |
-| `runtime/stage1Runtime.test.ts` | 2 | TS2719/TS2339 type incompatibilities |
-| `services/alphaResearch.test.ts` | 1 | TS2552 `RequestInfo` → `RequestInit` |
-| `services/contextSnapshots.test.ts` | 2 | TS2322 mock return type mismatch |
+> Former §0.5 listed 32 TS errors across 10 files. Fixed in follow-up slices: `toEnvelope(data: unknown)`, `parseOpts` → `z.infer`, `parseSymbolRequiredOpts`, resume handler symbol narrowing, context snapshot spread order.
 
-> **Total: 32 pre-existing errors across 10 files.** None caused by refactoring.
+**Current**: `npm test` 172/172; `npm run check:circular` clean.
 
 ---
 
@@ -239,10 +227,11 @@ src/
 |------|--------|----------|
 | A1 | `npm install ky dotenv env-var pino pino-pretty` | ✅ Done |
 | A2 | Create `src/runtime/config.ts` with dotenv+env-var | `api/client.ts:1` bare `process.env` reads |
-| A3 | Create `src/cli/logger.ts` with pino | Scattered `console.log`/`console.error` |
+| A3 | Create `src/runtime/logger.ts` with pino; `cli/logger.ts` re-exports | Scattered `console.log`/`console.error` |
 | A4 | Update `api/client.ts` to use `config.ts` instead of `process.env` | 1 line |
+| A5 | Wire logger into `stage1Runtime`, `graphRunner`, `api/client` retry hooks | Diagnostic stderr logging |
 
-**Commit**: `feat(trader-workflows): add ky, dotenv, env-var, pino dependencies`
+**Commit**: `feat(trader-workflows): add ky, dotenv, env-var, pino dependencies` + logger wiring commit
 
 ### Phase B: Replace HTTP Client with ky (internal change, ~1 hr)
 
@@ -297,14 +286,17 @@ src/
 
 **Commit**: `refactor(trader-workflows): decouple domain module cross-calls`
 
-### Phase G: Replace CLI argParser with commander (optional, ~2 hr)
+### Phase G: Replace CLI argParser with commander — **complete via T035**
 
-| Step | Action | Deletes |
-|------|--------|---------|
-| G1 | Define commander program with all 12 commands | ~80 lines new |
-| G2 | Migrate `cli/router.ts` to commander action dispatch | ~20 lines |
-| G3 | Delete `cli/argParser.ts` | 229 lines |
-| G4 | Verify all CLI commands produce identical output | — |
+| Step | Action | Status |
+|------|--------|--------|
+| G1 | T033 hybrid: commander top-level validation + `flagParsing` for flags | ✅ `3f0bdd68` |
+| G2 | T035-S1: full commander subcommand tree skeleton | ✅ `6d9d28c2` |
+| G3 | T035-S2–S5: migrate all handlers to zod typed opts + actions | ✅ `3879f058`–`38ccd3e6` |
+| G4 | T035-S6: delete `flagParsing.ts`; `index.ts` → `parseAsync`; `validators.ts` | ✅ `b3776c02` |
+| G5 | Verify all CLI commands produce identical envelope output | ✅ 172/172 tests |
+
+See `project-docs/refactor/T035-commander-full-tree-draft.md` for slice detail.
 
 ---
 
@@ -370,13 +362,14 @@ services/                                 data/ (new)
 
 | Phase | Status | Commits |
 |-------|--------|---------|
-| A (config + logging) | ✅ completed | — |
-| B (ky HTTP) | 🔄 in progress | B1+B2 done, B3 pending |
-| C (marketAgent move) | ⬜ pending | — |
-| D (extract HTTP from services) | ⬜ pending | — |
-| E (graphRunner move) | ⬜ pending | — |
-| F (decouple domains) | ⬜ pending | — |
-| G (commander CLI) | 🔄 in progress | T035-S1 done, S2-S6 pending |
+| A (config + logging) | ✅ completed | deps + `runtime/logger.ts` wiring |
+| B (ky HTTP) | ✅ completed | `26f55e5b`, marketAgent → `api/marketAgentClient.ts` |
+| C (marketAgent move) | ✅ completed | `5369a73d` |
+| D (extract HTTP from services) | ✅ completed | `9bcb5de1` |
+| E (graphRunner move) | ✅ completed | `5369a73d` |
+| F (decouple domains) | ✅ completed | `1f0bdd68` |
+| G (commander CLI) | ✅ completed | T033 `3f0bdd68` hybrid → T035 `6d9d28c2`–`b3776c02` full tree |
+| T034 (review fixes) | ✅ completed | `6983da16` layer violations |
 
 ### 6.2.1 Phase A Deliverables
 
@@ -388,8 +381,9 @@ services/                                 data/ (new)
 | `pino` installed (^10.3.1) | ✅ | ✅ |
 | `pino-pretty` installed (^13.1.3) | ✅ | ✅ |
 | `runtime/config.ts` (dotenv+env-var) | ✅ | ✅ `src/config.ts` |
-| `cli/logger.ts` or `src/logger.ts` (pino) | ✅ | ✅ |
+| `runtime/logger.ts` + `cli/logger.ts` re-export (pino) | ✅ wired | ✅ `src/logger.ts` scaffold |
 | `api/client.ts` uses config (not process.env) | ✅ | — |
+| Logger wired: stage1Runtime, graphRunner, HTTP retry | ✅ | — |
 
 ### 6.2.2 Phase B Progress
 
@@ -397,8 +391,8 @@ services/                                 data/ (new)
 |------|--------|--------|
 | B1 | Rewrite `api/client.ts` with ky (timeout, retry, error hooks) | ✅ Done |
 | B2 | Delete `api/queryBuilder.ts` + `api/queryBuilder.test.ts` | ✅ Done |
-| B3 | Update `services/marketAgent.ts` — replace `buildQuery`/`withQuery` with ky `searchParams` | ⬜ Pending |
-| B4 | Verify all existing tests pass | ⬜ Pending |
+| B3 | Move HTTP to `api/marketAgentClient.ts`; `data/marketAgent.ts` re-export | ✅ Done (Phase C) |
+| B4 | Verify all existing tests pass | ✅ 172/172 |
 
 ### 6.3 Library Mapping (Modernization ↔ Architecture)
 
