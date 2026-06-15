@@ -14,10 +14,6 @@ import {
   INSIGHT_CANDIDATE_OUTCOME_HORIZONS,
   type InsightCandidateOutcomeHorizon,
 } from "../../types/outcomes.js";
-import {
-  fetchMarketBars,
-  fetchModelDecisionById,
-} from "./persistence.js";
 
 const DEFAULT_BENCHMARK_BY_SYMBOL: Record<string, string> = {
   TSLA: "QQQ",
@@ -412,8 +408,15 @@ export async function buildOutcomeLabelPayload(input: {
     decision_json: Record<string, unknown>;
   }>;
 }): Promise<OutcomeLabelPayload> {
-  const fetchBars = input.fetchBars ?? fetchMarketBars;
-  const fetchDecision = input.fetchDecision ?? fetchModelDecisionById;
+  if (!input.fetchDecision) {
+    throw new Error("buildOutcomeLabelPayload requires fetchDecision");
+  }
+  const fetchBars = input.fetchBars;
+  const fetchDecision = input.fetchDecision;
+  const needsFetchedBars = !input.symbolBars || !input.benchmarkBars;
+  if (needsFetchedBars && !fetchBars) {
+    throw new Error("buildOutcomeLabelPayload requires fetchBars when bars are not provided");
+  }
 
   try {
     const decision = await fetchDecision(input.outcome.decision_id);
@@ -423,10 +426,10 @@ export async function buildOutcomeLabelPayload(input: {
 
     const symbolBars =
       input.symbolBars ??
-      (await fetchBars(input.outcome.symbol, barQuery.timeframe, barQuery.limit));
+      (await fetchBars!(input.outcome.symbol, barQuery.timeframe, barQuery.limit));
     const benchmarkBars =
       input.benchmarkBars ??
-      (await fetchBars(benchmark, barQuery.timeframe, barQuery.limit));
+      (await fetchBars!(benchmark, barQuery.timeframe, barQuery.limit));
 
     const prices = selectHorizonPrices({
       horizon: input.outcome.horizon,
@@ -530,7 +533,11 @@ export async function buildInsightCandidateOutcomeLabelPayload(input: {
   benchmarkBars?: MarketBar[];
   fetchBars?: (symbol: string, timeframe: string, limit: number) => Promise<MarketBar[]>;
 }): Promise<InsightCandidateOutcomeLabelPayload> {
-  const fetchBars = input.fetchBars ?? fetchMarketBars;
+  const fetchBars = input.fetchBars;
+  const needsFetchedBars = !input.symbolBars || !input.benchmarkBars;
+  if (needsFetchedBars && !fetchBars) {
+    throw new Error("buildInsightCandidateOutcomeLabelPayload requires fetchBars when bars are not provided");
+  }
 
   try {
     const benchmark = resolveBenchmarkSymbol(input.outcome.symbol);
@@ -538,10 +545,10 @@ export async function buildInsightCandidateOutcomeLabelPayload(input: {
 
     const symbolBars =
       input.symbolBars ??
-      (await fetchBars(input.outcome.symbol, barQuery.timeframe, barQuery.limit));
+      (await fetchBars!(input.outcome.symbol, barQuery.timeframe, barQuery.limit));
     const benchmarkBars =
       input.benchmarkBars ??
-      (await fetchBars(benchmark, barQuery.timeframe, barQuery.limit));
+      (await fetchBars!(benchmark, barQuery.timeframe, barQuery.limit));
 
     if (symbolBars.length < 2 || benchmarkBars.length < 2) {
       return {

@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
   alphaResearchClient,
-  buildRuleCandidateRequest,
   createAlphaResearchClient,
+} from "../../data/ruleCandidates.js";
+import {
+  ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
+  buildRuleCandidateRequest,
   validateAlphaResearchInput,
 } from "../../services/alphaResearch.js";
 import type { AlphaResearchClient, AlphaResearchInput } from "../../types/alpha.js";

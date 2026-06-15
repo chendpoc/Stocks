@@ -16,7 +16,7 @@ import type {
   InsightProposal,
   ParsedExplorationWindow,
 } from "../../types/insight.js";
-import { scheduleInsightCandidateOutcome } from "../../services/outcomes.js";
+import { scheduleInsightCandidateOutcome } from "../../data/outcomes.js";
 import type { InsightCandidateOutcomeRow } from "../../types/outcomes.js";
 
 export const INSIGHT_REACT_MAX_STEPS = 5;

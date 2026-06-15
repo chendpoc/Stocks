@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { captureFetchCall } from "../../test/fetchTestUtils.js";
+import { createAlphaResearchClient } from "../../data/ruleCandidates.js";
 import {
   ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
-  createAlphaResearchClient,
 } from "../../services/alphaResearch.js";
 import type {
   AlphaResearchClient,

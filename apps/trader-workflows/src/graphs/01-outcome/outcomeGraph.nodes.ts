@@ -3,6 +3,12 @@ import { randomUUID } from "node:crypto";
 import {
   fetchDueDecisionOutcomes,
   fetchDueInsightCandidateOutcomes,
+  fetchMarketBars,
+  fetchModelDecisionById,
+  labelDecisionOutcome,
+  labelInsightCandidateOutcome,
+} from "../../data/outcomes.js";
+import {
   finalizeDueOutcome,
   finalizeDueInsightCandidateOutcome,
   normalizeDecisionLabel,
@@ -27,14 +33,35 @@ export interface OutcomeGraphNodeDeps {
   finalizeInsight: typeof finalizeDueInsightCandidateOutcome;
 }
 
+function defaultFinalizeDecision(
+  input: Parameters<typeof finalizeDueOutcome>[0],
+): ReturnType<typeof finalizeDueOutcome> {
+  return finalizeDueOutcome({
+    ...input,
+    fetchBars: input.fetchBars ?? fetchMarketBars,
+    fetchDecision: input.fetchDecision ?? fetchModelDecisionById,
+    label: input.label ?? labelDecisionOutcome,
+  });
+}
+
+function defaultFinalizeInsight(
+  input: Parameters<typeof finalizeDueInsightCandidateOutcome>[0],
+): ReturnType<typeof finalizeDueInsightCandidateOutcome> {
+  return finalizeDueInsightCandidateOutcome({
+    ...input,
+    fetchBars: input.fetchBars ?? fetchMarketBars,
+    label: input.label ?? labelInsightCandidateOutcome,
+  });
+}
+
 export function resolveOutcomeGraphNodeDeps(
   overrides: Partial<OutcomeGraphNodeDeps> = {},
 ): OutcomeGraphNodeDeps {
   return {
     fetchDueDecision: overrides.fetchDueDecision ?? fetchDueDecisionOutcomes,
-    finalizeDecision: overrides.finalizeDecision ?? finalizeDueOutcome,
+    finalizeDecision: overrides.finalizeDecision ?? defaultFinalizeDecision,
     fetchDueInsight: overrides.fetchDueInsight ?? fetchDueInsightCandidateOutcomes,
-    finalizeInsight: overrides.finalizeInsight ?? finalizeDueInsightCandidateOutcome,
+    finalizeInsight: overrides.finalizeInsight ?? defaultFinalizeInsight,
   };
 }
 

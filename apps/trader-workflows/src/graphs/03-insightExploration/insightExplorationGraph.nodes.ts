@@ -16,10 +16,10 @@ import {
   parseExplorationWindow,
   runControlledInsightReAct,
 } from "../../services/insightCandidates.js";
+import { scheduleInsightCandidateOutcome } from "../../data/outcomes.js";
 import {
   DEFAULT_INSIGHT_CANDIDATE_OUTCOME_HORIZON,
   isSupportedInsightCandidateOutcomeHorizon,
-  scheduleInsightCandidateOutcome,
   type InsightCandidateOutcomeHorizon,
 } from "../../services/outcomes.js";
 import type { InsightExplorationGraphState } from "./insightExplorationGraph.state.js";

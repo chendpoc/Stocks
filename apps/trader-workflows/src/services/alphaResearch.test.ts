@@ -3,9 +3,11 @@ import test from "node:test";
 
 import { captureFetchCall } from "../test/fetchTestUtils.js";
 import {
+  createAlphaResearchClient,
+} from "../data/ruleCandidates.js";
+import {
   ALPHA_RESEARCH_INPUT_VALIDATION_FAILED,
   buildRuleCandidateRequest,
-  createAlphaResearchClient,
   validateAlphaResearchInput,
   type AlphaResearchInput,
 } from "./alphaResearch.js";

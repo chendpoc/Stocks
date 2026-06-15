@@ -1,11 +1,13 @@
-import {
+import type {
   fetchDueDecisionOutcomes,
   fetchDueInsightCandidateOutcomes,
+} from "../../data/outcomes.js";
+import type {
   finalizeDueOutcome,
   finalizeDueInsightCandidateOutcome,
-  type NormalizedOutcomeLabel,
-  type OutcomeRow,
-  type OutcomeSourceType,
+  NormalizedOutcomeLabel,
+  OutcomeRow,
+  OutcomeSourceType,
 } from "../../services/outcomes.js";
 
 export interface OutcomeGraphRunInput {

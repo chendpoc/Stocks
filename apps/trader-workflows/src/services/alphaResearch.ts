@@ -1,15 +1,12 @@
-import type { EvidenceRef } from "../types/context.js";
 import {
   ALPHA_SEED_SCHEMA_VERSION,
   isAlphaSeedV1,
-  type AlphaSeedV1,
 } from "./insightCandidates.js";
 import type {
-  AdvanceCandidateResponse,
   AlphaInputValidationReport,
   AlphaResearchClient,
-  AlphaResearchFetch,
   AlphaResearchInput,
+  AdvanceCandidateResponse,
   EvidenceValidationResponse,
   LiteBacktestReportResponse,
   LiteBacktestResponse,
@@ -31,82 +28,6 @@ export type {
 } from "../types/alpha.js";
 
 export const ALPHA_RESEARCH_INPUT_VALIDATION_FAILED = "input_validation_failed" as const;
-
-function ruleCandidatesBaseUrl(): string {
-  const explicit = process.env.TRADER_RULE_CANDIDATES_API_BASE?.replace(/\/$/, "");
-  if (explicit) {
-    return explicit;
-  }
-  const intelBase = process.env.TRADER_API_BASE?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api/intel";
-  if (intelBase.endsWith("/api/intel")) {
-    return intelBase.replace(/\/api\/intel$/, "/api/rule-candidates");
-  }
-  return "http://127.0.0.1:8000/api/rule-candidates";
-}
-
-async function fetchRuleCandidates<T>(
-  path: string,
-  options: RequestInit = {},
-  fetchImpl: AlphaResearchFetch = fetch,
-): Promise<T> {
-  const base = ruleCandidatesBaseUrl();
-  const url = path
-    ? `${base}${path.startsWith("/") ? path : `/${path}`}`
-    : base;
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> | undefined),
-  };
-  if (options.body && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-  const response = await fetchImpl(url, { ...options, headers });
-  if (!response.ok) {
-    throw new Error(`Rule Candidate API ${response.status}: ${await response.text()}`);
-  }
-  return (await response.json()) as T;
-}
-
-export function createAlphaResearchClient(
-  fetchImpl: AlphaResearchFetch = fetch,
-): AlphaResearchClient {
-  return {
-    createRuleCandidate: (payload) =>
-      fetchRuleCandidates<RuleCandidateCreateResponse>("", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }, fetchImpl),
-    validateEvidence: (candidateId) =>
-      fetchRuleCandidates<EvidenceValidationResponse>(
-        `/${candidateId}/evidence-requirements`,
-        { method: "POST" },
-        fetchImpl,
-      ),
-    runLiteBacktest: (candidateId, window) =>
-      fetchRuleCandidates<LiteBacktestResponse>(
-        `/${candidateId}/lite-backtest`,
-        {
-          method: "POST",
-          body: JSON.stringify({ start: window.start, end: window.end }),
-        },
-        fetchImpl,
-      ),
-    advanceCandidate: (candidateId, decision) =>
-      fetchRuleCandidates<AdvanceCandidateResponse>(
-        `/${candidateId}/advance`,
-        {
-          method: "POST",
-          body: JSON.stringify({ decision }),
-        },
-        fetchImpl,
-      ),
-    getLiteBacktestReport: (candidateId) =>
-      fetchRuleCandidates<LiteBacktestReportResponse>(
-        `/${candidateId}/lite-backtest-report`,
-        {},
-        fetchImpl,
-      ),
-  };
-}
 
 function requireNonEmptyString(value: unknown, field: string, errors: string[]): void {
   if (typeof value !== "string" || !value.trim()) {
@@ -168,18 +89,16 @@ export function buildRuleCandidateRequest(
   };
 }
 
-export const alphaResearchClient = createAlphaResearchClient();
-
 export async function createRuleCandidate(
   payload: RuleCandidateCreateRequest,
-  client: AlphaResearchClient = alphaResearchClient,
+  client: AlphaResearchClient,
 ): Promise<RuleCandidateCreateResponse> {
   return client.createRuleCandidate(payload);
 }
 
 export async function validateEvidence(
   candidateId: string,
-  client: AlphaResearchClient = alphaResearchClient,
+  client: AlphaResearchClient,
 ): Promise<EvidenceValidationResponse> {
   return client.validateEvidence(candidateId);
 }
@@ -187,7 +106,7 @@ export async function validateEvidence(
 export async function runLiteBacktest(
   candidateId: string,
   window: { start: string; end: string },
-  client: AlphaResearchClient = alphaResearchClient,
+  client: AlphaResearchClient,
 ): Promise<LiteBacktestResponse> {
   return client.runLiteBacktest(candidateId, window);
 }
@@ -195,14 +114,14 @@ export async function runLiteBacktest(
 export async function advanceCandidate(
   candidateId: string,
   decision: string,
-  client: AlphaResearchClient = alphaResearchClient,
+  client: AlphaResearchClient,
 ): Promise<AdvanceCandidateResponse> {
   return client.advanceCandidate(candidateId, decision);
 }
 
 export async function getLiteBacktestReport(
   candidateId: string,
-  client: AlphaResearchClient = alphaResearchClient,
+  client: AlphaResearchClient,
 ): Promise<LiteBacktestReportResponse> {
   return client.getLiteBacktestReport(candidateId);
 }
