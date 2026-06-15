@@ -4,7 +4,6 @@ import {
 } from "../constants/errorCodes.js";
 import type { Stage1Runtime } from "../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../types/cli.js";
-import { handleContextCommandAsync } from "./commandHandlers/context.js";
 import { handleDecideCommandAsync } from "./commandHandlers/decide.js";
 import { handleEvalSummaryCommandAsync } from "./commandHandlers/eval.js";
 import { handleInsightsCommandAsync } from "./commandHandlers/insights.js";
@@ -15,8 +14,10 @@ import { WorkflowCommandError } from "./helpers.js";
 import {
   dispatchS2CommandAsync,
   dispatchS3CommandAsync,
+  dispatchS4CommandAsync,
   isS2MigratedTopLevelCommand,
   isS3MigratedCommand,
+  isS4MigratedCommand,
 } from "./legacyArgs.js";
 import {
   isCommanderUnknownCommandError,
@@ -38,7 +39,6 @@ const LEGACY_COMMAND_HANDLERS: Record<string, HandlerFn> = {
   outcomes: handleOutcomesCommandAsync,
   eval: handleEvalSummaryCommandAsync,
   insights: handleInsightsCommandAsync,
-  context: handleContextCommandAsync,
   "market-monitor": handleMarketMonitorRunCommandAsync,
   "pattern-memory": handlePatternMemoryCommandAsync,
 };
@@ -75,6 +75,10 @@ export async function handleCommandAsync(
 
   if (isS3MigratedCommand(commandArgs)) {
     return dispatchS3CommandAsync(runtime, commandArgs);
+  }
+
+  if (isS4MigratedCommand(commandArgs)) {
+    return dispatchS4CommandAsync(runtime, commandArgs);
   }
 
   const handler = LEGACY_COMMAND_HANDLERS[top];

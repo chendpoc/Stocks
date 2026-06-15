@@ -3,9 +3,13 @@ import {
   CLI_FLAG_FAILURE_TYPE,
   CLI_FLAG_GRAPH_NAME,
   CLI_FLAG_LIMIT,
+  CLI_FLAG_MAX_CHARS,
   CLI_FLAG_MIN_REQUIRED,
   CLI_FLAG_MODEL_VERSION,
+  CLI_FLAG_OUTPUT,
   CLI_FLAG_PATTERN_ID,
+  CLI_FLAG_PROFILE,
+  CLI_FLAG_SESSION_ID,
   CLI_FLAG_SETUP,
   CLI_FLAG_STATUS,
   CLI_FLAG_SYMBOL,
@@ -15,7 +19,9 @@ import {
 } from "../constants/cliFlags.js";
 import {
   ERROR_CODE_RUN_ID_REQUIRED,
+  ERROR_CODE_SNAPSHOT_ID_REQUIRED,
   ERROR_CODE_SYMBOL_REQUIRED,
+  ERROR_CODE_UNKNOWN_CONTEXT_COMMAND,
   ERROR_CODE_UNKNOWN_DECISIONS_COMMAND,
   ERROR_CODE_UNKNOWN_FAILURE_MEMORY_COMMAND,
   ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,
@@ -34,6 +40,16 @@ import {
   FailureMemoryListOpts,
   handleFailureMemoryListCommandAsync,
 } from "./commandHandlers/failureMemory.js";
+import {
+  ContextBootstrapOpts,
+  ContextLatestOpts,
+  handleContextBootstrapAsync,
+  handleContextLatestAsync,
+  handleContextSnapshotsListCommandAsync,
+  handleContextSnapshotsShowCommandAsync,
+  parseContextSnapshotsListOpts,
+  parseContextSnapshotsShowOpts,
+} from "./commandHandlers/context.js";
 import {
   handleInsightsListCommandAsync,
   InsightsListOpts,
@@ -97,6 +113,96 @@ function optionalFailureType(args: string[]): string | undefined {
   return (
     flagValue(args, CLI_FLAG_TYPE, "TYPE_VALUE_REQUIRED") ??
     flagValue(args, CLI_FLAG_FAILURE_TYPE, "FAILURE_TYPE_VALUE_REQUIRED")
+  );
+}
+
+const S4_CONTEXT_SUBCOMMANDS = new Set(["bootstrap", "latest"]);
+const S4_CONTEXT_SNAPSHOTS_SUBCOMMANDS = new Set(["list", "show"]);
+
+export function isS4MigratedCommand(args: string[]): boolean {
+  const top = args[0];
+  const sub = args[1];
+  if (top !== "context") {
+    return false;
+  }
+  if (sub === "snapshots") {
+    return S4_CONTEXT_SNAPSHOTS_SUBCOMMANDS.has(args[2] ?? "");
+  }
+  return S4_CONTEXT_SUBCOMMANDS.has(sub ?? "");
+}
+
+export async function dispatchS4CommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const sub = args[1];
+
+  if (sub === "bootstrap") {
+    return handleContextBootstrapAsync(
+      runtime,
+      parseOpts(ContextBootstrapOpts, {
+        sessionId: flagValue(args, CLI_FLAG_SESSION_ID, "SESSION_ID_VALUE_REQUIRED"),
+        profile: flagValue(args, CLI_FLAG_PROFILE, "PROFILE_VALUE_REQUIRED"),
+        symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+        maxChars: flagValue(args, CLI_FLAG_MAX_CHARS, "MAX_CHARS_VALUE_REQUIRED"),
+        output: flagValue(args, CLI_FLAG_OUTPUT, "OUTPUT_VALUE_REQUIRED"),
+      }),
+    );
+  }
+
+  if (sub === "latest") {
+    return handleContextLatestAsync(
+      runtime,
+      parseOpts(ContextLatestOpts, {
+        sessionId: flagValue(args, CLI_FLAG_SESSION_ID, "SESSION_ID_VALUE_REQUIRED"),
+        profile: flagValue(args, CLI_FLAG_PROFILE, "PROFILE_VALUE_REQUIRED"),
+        symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+      }),
+    );
+  }
+
+  if (sub === "snapshots") {
+    const snapSub = args[2];
+    switch (snapSub) {
+      case "list": {
+        if (!args.includes(CLI_FLAG_SYMBOL)) {
+          throw new WorkflowCommandError(
+            ERROR_CODE_SYMBOL_REQUIRED,
+            "context snapshots list requires --symbol",
+          );
+        }
+        return handleContextSnapshotsListCommandAsync(
+          runtime,
+          parseContextSnapshotsListOpts({
+            symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+            limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+          }),
+        );
+      }
+      case "show": {
+        const snapshotId = args[3];
+        if (!snapshotId || isFlagValue(snapshotId)) {
+          throw new WorkflowCommandError(
+            ERROR_CODE_SNAPSHOT_ID_REQUIRED,
+            "context snapshots show requires a snapshot_id",
+          );
+        }
+        return handleContextSnapshotsShowCommandAsync(
+          runtime,
+          parseContextSnapshotsShowOpts({ snapshotId }),
+        );
+      }
+      default:
+        throw new WorkflowCommandError(
+          ERROR_CODE_UNKNOWN_CONTEXT_COMMAND,
+          `Unknown context snapshots command: ${snapSub ?? "(missing)"} (use list|show)`,
+        );
+    }
+  }
+
+  throw new WorkflowCommandError(
+    ERROR_CODE_UNKNOWN_CONTEXT_COMMAND,
+    `Unknown context command: ${sub ?? "(missing)"} (use snapshots|bootstrap|latest)`,
   );
 }
 

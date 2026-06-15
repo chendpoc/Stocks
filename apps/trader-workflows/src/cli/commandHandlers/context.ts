@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   bootstrapContext,
   getLatestContext,
@@ -14,7 +16,6 @@ import {
   DEFAULT_CONTEXT_PACK_PATH,
   writeContextPackFile,
 } from "../../services/contextPackFile.js";
-import { CLI_FLAG_MAX_CHARS, CLI_FLAG_OUTPUT, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_SNAPSHOT_ID_REQUIRED,
   ERROR_CODE_SYMBOL_REQUIRED,
@@ -22,28 +23,104 @@ import {
 } from "../../constants/errorCodes.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
-import {
-  parseOptionalFlagValue,
-  parseOptionalIntFlag,
-  parsePositiveLimitFlag,
-  parseSessionIdOrProfile,
-} from "../flagParsing.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
+import { parseOpts } from "../parseOpts.js";
+
+const optionalPositiveInt = z.preprocess(
+  (value) => (value === undefined || value === "" ? undefined : value),
+  z.coerce.number().int().positive().optional(),
+);
+
+function resolveSessionId(opts: { sessionId?: string; profile?: string }): string {
+  return opts.sessionId ?? opts.profile ?? "default";
+}
+
+export const ContextBootstrapOpts = z.object({
+  sessionId: z.string().optional(),
+  profile: z.string().optional(),
+  symbol: z.string().optional(),
+  maxChars: optionalPositiveInt,
+  output: z.string().optional(),
+});
+export type ContextBootstrapOpts = z.infer<typeof ContextBootstrapOpts>;
+
+export const ContextLatestOpts = z.object({
+  sessionId: z.string().optional(),
+  profile: z.string().optional(),
+  symbol: z.string().optional(),
+});
+export type ContextLatestOpts = z.infer<typeof ContextLatestOpts>;
+
+export const ContextSnapshotsListOpts = z.object({
+  symbol: z.string().min(1, ERROR_CODE_SYMBOL_REQUIRED),
+  limit: z.coerce.number().int().positive().default(20),
+});
+export type ContextSnapshotsListOpts = z.infer<typeof ContextSnapshotsListOpts>;
+
+export const ContextSnapshotsShowOpts = z.object({
+  snapshotId: z.string().min(1, ERROR_CODE_SNAPSHOT_ID_REQUIRED),
+});
+export type ContextSnapshotsShowOpts = z.infer<typeof ContextSnapshotsShowOpts>;
+
+function parseSymbolRequiredOpts<T extends { symbol: string }>(
+  schema: z.ZodType<T>,
+  raw: unknown,
+  message: string,
+): T {
+  try {
+    return parseOpts(schema, raw);
+  } catch (error) {
+    if (error instanceof WorkflowCommandError) {
+      if (
+        error.code === "SYMBOL_INVALID" ||
+        error.message.includes("symbol") ||
+        error.code === ERROR_CODE_SYMBOL_REQUIRED
+      ) {
+        throw new WorkflowCommandError(ERROR_CODE_SYMBOL_REQUIRED, message);
+      }
+    }
+    throw error;
+  }
+}
+
+export function parseContextSnapshotsListOpts(raw: unknown): ContextSnapshotsListOpts {
+  return parseSymbolRequiredOpts(
+    ContextSnapshotsListOpts,
+    raw,
+    "context snapshots list requires --symbol",
+  );
+}
+
+export function parseContextSnapshotsShowOpts(raw: unknown): ContextSnapshotsShowOpts {
+  try {
+    return parseOpts(ContextSnapshotsShowOpts, raw);
+  } catch (error) {
+    if (error instanceof WorkflowCommandError) {
+      if (
+        error.code === ERROR_CODE_SNAPSHOT_ID_REQUIRED ||
+        error.message.includes("snapshotId")
+      ) {
+        throw new WorkflowCommandError(
+          ERROR_CODE_SNAPSHOT_ID_REQUIRED,
+          "context snapshots show requires a snapshot_id",
+        );
+      }
+    }
+    throw error;
+  }
+}
 
 export async function handleContextBootstrapAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  opts: ContextBootstrapOpts,
 ): Promise<WorkflowEnvelope> {
-  const sessionId = parseSessionIdOrProfile(args);
-  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL);
-  const maxChars = parseOptionalIntFlag(args, CLI_FLAG_MAX_CHARS);
-  const outputPath =
-    parseOptionalFlagValue(args, CLI_FLAG_OUTPUT) ?? DEFAULT_CONTEXT_PACK_PATH;
+  const sessionId = resolveSessionId(opts);
+  const outputPath = opts.output ?? DEFAULT_CONTEXT_PACK_PATH;
 
   const response = await bootstrapContext({
     session_id: sessionId,
-    symbol: symbol?.toUpperCase(),
-    max_chars: maxChars,
+    symbol: opts.symbol?.toUpperCase(),
+    max_chars: opts.maxChars,
   });
   const writtenPath = await writeContextPackFile(
     outputPath,
@@ -61,13 +138,12 @@ export async function handleContextBootstrapAsync(
 
 export async function handleContextLatestAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  opts: ContextLatestOpts,
 ): Promise<WorkflowEnvelope> {
-  const sessionId = parseSessionIdOrProfile(args);
-  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL);
+  const sessionId = resolveSessionId(opts);
   const response = await getLatestContext({
     session_id: sessionId,
-    symbol: symbol?.toUpperCase(),
+    symbol: opts.symbol?.toUpperCase(),
   });
   return toEnvelope({
     ok: true,
@@ -78,75 +154,59 @@ export async function handleContextLatestAsync(
   });
 }
 
+export async function handleContextSnapshotsListCommandAsync(
+  _runtime: Stage1Runtime,
+  opts: ContextSnapshotsListOpts,
+): Promise<WorkflowEnvelope> {
+  const response = await listContextSnapshots({
+    symbol: opts.symbol,
+    limit: opts.limit,
+  });
+  const snapshots = response.items.map((snapshot) => ({
+    snapshot_id: snapshot.snapshot_id,
+    symbol: snapshot.symbol,
+    asof_ts: snapshot.asof_ts,
+    ...toContextSnapshotSummary(snapshot),
+  }));
+  return toEnvelope({
+    ok: true,
+    command: "context snapshots list",
+    data: { snapshots, count: response.count },
+  });
+}
+
+export async function handleContextSnapshotsShowCommandAsync(
+  _runtime: Stage1Runtime,
+  opts: ContextSnapshotsShowOpts,
+): Promise<WorkflowEnvelope> {
+  const snapshot = await fetchContextSnapshot(opts.snapshotId);
+  return toEnvelope({
+    ok: true,
+    command: "context snapshots show",
+    data: {
+      snapshot_id: snapshot.snapshot_id,
+      symbol: snapshot.symbol,
+      asof_ts: snapshot.asof_ts,
+      ...toContextSnapshotSummary(snapshot),
+      top_items: toTopWeightedItemSummaries(snapshot.items_json),
+    },
+  });
+}
+
 export async function handleContextCommandAsync(
   _runtime: Stage1Runtime,
   args: string[],
 ): Promise<WorkflowEnvelope> {
-  if (args[1] === "bootstrap") {
-    return handleContextBootstrapAsync(_runtime, args);
-  }
-  if (args[1] === "latest") {
-    return handleContextLatestAsync(_runtime, args);
-  }
-  if (args[1] === "snapshots") {
-    const sub = args[2];
-    switch (sub) {
-      case "list": {
-        const symbolFlagIndex = args.indexOf(CLI_FLAG_SYMBOL);
-        const symbol = symbolFlagIndex >= 0 ? args[symbolFlagIndex + 1] : undefined;
-        if (!symbol) {
-          throw new WorkflowCommandError(
-            ERROR_CODE_SYMBOL_REQUIRED,
-            "context snapshots list requires --symbol",
-          );
-        }
-        const limit = parsePositiveLimitFlag(args, 20);
-        const response = await listContextSnapshots({
-          symbol,
-          limit,
-        });
-        const snapshots = response.items.map((snapshot) => ({
-          snapshot_id: snapshot.snapshot_id,
-          symbol: snapshot.symbol,
-          asof_ts: snapshot.asof_ts,
-          ...toContextSnapshotSummary(snapshot),
-        }));
-        return toEnvelope({
-          ok: true,
-          command: "context snapshots list",
-          data: { snapshots, count: response.count },
-        });
-      }
-      case "show": {
-        const snapshotId = args[3];
-        if (!snapshotId) {
-          throw new WorkflowCommandError(
-            ERROR_CODE_SNAPSHOT_ID_REQUIRED,
-            "context snapshots show requires a snapshot_id",
-          );
-        }
-        const snapshot = await fetchContextSnapshot(snapshotId);
-        return toEnvelope({
-          ok: true,
-          command: "context snapshots show",
-          data: {
-            snapshot_id: snapshot.snapshot_id,
-            symbol: snapshot.symbol,
-            asof_ts: snapshot.asof_ts,
-            ...toContextSnapshotSummary(snapshot),
-            top_items: toTopWeightedItemSummaries(snapshot.items_json),
-          },
-        });
-      }
-      default:
-        throw new WorkflowCommandError(
-          ERROR_CODE_UNKNOWN_CONTEXT_COMMAND,
-          `Unknown context snapshots command: ${sub ?? "(missing)"} (use list|show)`,
-        );
-    }
+  const sub = args[1];
+  if (sub === "snapshots") {
+    const snapSub = args[2];
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_CONTEXT_COMMAND,
+      `Unknown context snapshots command: ${snapSub ?? "(missing)"} (use list|show)`,
+    );
   }
   throw new WorkflowCommandError(
     ERROR_CODE_UNKNOWN_CONTEXT_COMMAND,
-    "context requires snapshots|bootstrap|latest subcommand (use list|show|bootstrap|latest)",
+    `Unknown context command: ${sub ?? "(missing)"} (use snapshots|bootstrap|latest)`,
   );
 }

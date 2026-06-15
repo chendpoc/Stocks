@@ -1,5 +1,5 @@
 /**
- * S2/S3: commander 子命令树 + zod typed opts（S2/S3 命令已接入 action）
+ * S2/S3/S4: commander 子命令树 + zod typed opts（S2/S3/S4 命令已接入 action）
  *
  * 生产路径仍经 router.handleCommandAsync；S6 切换 index main → parseAsync。
  */
@@ -13,6 +13,16 @@ import {
 } from "../constants/errorCodes.js";
 import type { Stage1Runtime } from "../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../types/cli.js";
+import {
+  ContextBootstrapOpts,
+  ContextLatestOpts,
+  handleContextBootstrapAsync,
+  handleContextLatestAsync,
+  handleContextSnapshotsListCommandAsync,
+  handleContextSnapshotsShowCommandAsync,
+  parseContextSnapshotsListOpts,
+  parseContextSnapshotsShowOpts,
+} from "./commandHandlers/context.js";
 import {
   DecisionsListOpts,
   handleDecisionsListCommandAsync,
@@ -91,8 +101,8 @@ export function stripJsonFlag(args: string[]): string[] {
 
 /**
  * 构建完整的 commander 程序树。
- * S2/S3: runs / decisions / memory / failure-memory / outcomes list / insights list /
- * market-data * / pattern-memory list actions 已接入 zod + handler。
+ * S2/S3/S4: runs / decisions / memory / failure-memory / outcomes list / insights list /
+ * market-data * / pattern-memory list / context * actions 已接入 zod + handler。
  */
 export function buildProgram(runtime: Stage1Runtime): Command {
   const program = new Command()
@@ -172,21 +182,48 @@ export function buildProgram(runtime: Stage1Runtime): Command {
 
   // ── context ──
   const context = program.command("context").description("Context management");
-  context.command("bootstrap").description("Bootstrap context pack")
+  context
+    .command("bootstrap")
+    .description("Bootstrap context pack")
     .option("--session-id <id>", "Session ID")
     .option("--profile <profile>", "Profile name")
     .option("--symbol <symbol>", "Stock symbol")
     .option("--max-chars <n>", "Max characters")
-    .option("--output <path>", "Output file path");
-  context.command("latest").description("Get latest context")
+    .option("--output <path>", "Output file path")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleContextBootstrapAsync(runtime, parseOpts(ContextBootstrapOpts, rawOpts)),
+    );
+  context
+    .command("latest")
+    .description("Get latest context")
     .option("--session-id <id>", "Session ID")
     .option("--profile <profile>", "Profile name")
-    .option("--symbol <symbol>", "Stock symbol");
+    .option("--symbol <symbol>", "Stock symbol")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleContextLatestAsync(runtime, parseOpts(ContextLatestOpts, rawOpts)),
+    );
   const snapshots = context.command("snapshots").description("Context snapshots");
-  snapshots.command("list").description("List snapshots")
+  snapshots
+    .command("list")
+    .description("List snapshots")
     .requiredOption("--symbol <symbol>", "Stock symbol")
-    .option("--limit <n>", "Max results", "20");
-  snapshots.command("show").description("Show a snapshot").argument("<snapshot-id>", "Snapshot ID");
+    .option("--limit <n>", "Max results", "20")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleContextSnapshotsListCommandAsync(
+        runtime,
+        parseContextSnapshotsListOpts(rawOpts),
+      ),
+    );
+  snapshots
+    .command("show")
+    .description("Show a snapshot")
+    .argument("<snapshot-id>", "Snapshot ID")
+    .action(async (snapshotId: string) =>
+      handleContextSnapshotsShowCommandAsync(
+        runtime,
+        parseContextSnapshotsShowOpts({ snapshotId }),
+      ),
+    );
 
   // ── outcomes ──
   const outcomes = program.command("outcomes").description("Decision outcomes");
