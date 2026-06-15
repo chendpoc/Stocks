@@ -150,6 +150,18 @@ def test_market_agent_routes_are_mounted(tmp_path: Path) -> None:
     assert body["count"] == 0
     assert isinstance(body["items"], list)
 
+    regime = client.get(f"{MARKET_AGENT_PREFIX}/regime")
+    assert regime.status_code == 200
+    assert regime.json()["state"] in {"trending", "ranging", "volatile"}
+
+    mounted_paths = {
+        getattr(route, "path", "")
+        for route in client.app.routes
+        if getattr(route, "path", "")
+    }
+    assert f"{MARKET_AGENT_PREFIX}/regime" in mounted_paths
+    assert f"{MARKET_AGENT_PREFIX}/market-agent/regime" not in mounted_paths
+
 
 def test_memory_init_populates_market_agent_tables(tmp_path: Path) -> None:
     tmp_repo = tmp_path / "repo"

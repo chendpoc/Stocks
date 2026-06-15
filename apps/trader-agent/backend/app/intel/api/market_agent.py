@@ -426,7 +426,7 @@ def market_data_quality(
     }
 
 
-@router.get("/market-agent/regime")
+@router.get("/regime")
 def market_agent_regime(
     request: Request,
     benchmark: str = "SPY",
