@@ -2,6 +2,7 @@ export type ViewMode = "menu" | "content";
 
 export type MenuId =
   | "dashboard"
+  | "watchlist"
   | "chat"
   | "signals"
   | "hypotheses"
@@ -11,6 +12,7 @@ export type MenuId =
 
 export const MENU_ITEMS: { id: MenuId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "watchlist", label: "Watchlist" },
   { id: "chat", label: "Chat" },
   { id: "signals", label: "Signals" },
   { id: "hypotheses", label: "Hypotheses" },
@@ -21,17 +23,20 @@ export const MENU_ITEMS: { id: MenuId; label: string }[] = [
 
 export const MENU_KEYS: Record<string, MenuId> = {
   "1": "dashboard",
-  "2": "chat",
-  "3": "signals",
-  "4": "hypotheses",
-  "5": "lessons",
-  "6": "ops",
-  "7": "settings",
+  "2": "watchlist",
+  "3": "chat",
+  "4": "signals",
+  "5": "hypotheses",
+  "6": "lessons",
+  "7": "ops",
+  "8": "settings",
 };
 
 export const MENU_HINTS: Record<MenuId, string> = {
   dashboard:
     "[x]←→换标的 · []周期 · ↑↓滚日报 · [f]行情 · [g]日报 · [c]K线全屏 · [l]长桥TUI · [L]长桥K线",
+  watchlist:
+    "↑↓ 切换 · Enter 详情 · ←→ 切标签 · [r] 刷新 · Esc 返回",
   chat: "与 Agent 对话 · Tab 补全 · Enter 发送 · 等待时显示 loading",
   signals: "信号列表 · [s] scan · 显示 pattern/cross 摘要",
   hypotheses: "历史假设 · [↑↓] 选择 [Enter] 详情 [r] 刷新",

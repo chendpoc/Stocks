@@ -6,6 +6,7 @@ import type { MenuId } from "../menu.js";
 import type { ChatMessage } from "../types.js";
 import { PagePanel } from "./PagePanel.js";
 import { DashboardPage } from "../pages/DashboardPage.js";
+import { WatchlistPage } from "../pages/WatchlistPage.js";
 import { ChatPage } from "../pages/ChatPage.js";
 import { SignalsPage } from "../pages/SignalsPage.js";
 import { HypothesesPage } from "../pages/HypothesesPage.js";
@@ -55,6 +56,9 @@ export function ContentArea({
           chartInterval={chartInterval}
           setChartInterval={setChartInterval}
         />
+      </PagePanel>
+      <PagePanel id="watchlist" active={active}>
+        <WatchlistPage isActive={active === "watchlist"} />
       </PagePanel>
       <PagePanel id="chat" active={active}>
         <ChatPage

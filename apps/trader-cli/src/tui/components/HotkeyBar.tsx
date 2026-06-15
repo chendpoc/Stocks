@@ -16,7 +16,7 @@ export function HotkeyBar({ viewMode, onChat, activeMenu }: Props) {
       <Box borderStyle="single" borderColor="yellow" paddingX={1}>
         <KeyHint keys="Enter" label="进入内容区" />
         <Text dimColor> · </Text>
-        <KeyHint keys="1-7" label="直达" />
+        <KeyHint keys="1-8" label="直达" />
         <Text dimColor> · [q] 退出</Text>
       </Box>
     );
@@ -31,7 +31,7 @@ export function HotkeyBar({ viewMode, onChat, activeMenu }: Props) {
         <Text dimColor> · </Text>
         <KeyHint keys="m" label="菜单" dim />
         <Text dimColor> · </Text>
-        <KeyHint keys="Ctrl+1-7" label="切页" />
+        <KeyHint keys="Ctrl+1-8" label="切页" />
         <Text dimColor> · [q] 退出</Text>
       </Box>
     );
@@ -46,6 +46,18 @@ export function HotkeyBar({ viewMode, onChat, activeMenu }: Props) {
         <KeyHint keys="f" label="拉行情" />
         <KeyHint keys="g" label="日报" />
         <Text dimColor> · [q] 退出</Text>
+      </Box>
+    );
+  }
+
+  if (activeMenu === "watchlist") {
+    return (
+      <Box borderStyle="single" borderColor="yellow" paddingX={1}>
+        <KeyHint keys="↑↓" label="选择" />
+        <KeyHint keys="Enter" label="详情" />
+        <KeyHint keys="←→" label="切标签" dim />
+        <KeyHint keys="r" label="刷新" dim />
+        <KeyHint keys="Esc" label="菜单" dim />
       </Box>
     );
   }
@@ -94,7 +106,7 @@ export function HotkeyBar({ viewMode, onChat, activeMenu }: Props) {
       <Text dimColor> · </Text>
       <KeyHint keys="m" label="菜单" dim />
       <Text dimColor> · </Text>
-      <KeyHint keys="Ctrl+1-7" label="切页" />
+      <KeyHint keys="Ctrl+1-8" label="切页" />
       <Text dimColor> · [q] 退出</Text>
     </Box>
   );
