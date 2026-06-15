@@ -1,0 +1,129 @@
+{
+  "task_id": "T033-architecture-refactoring-v1",
+  "spec_id": "architecture-refactoring-v1",
+  "status": "active",
+  "title": "Architecture Refactoring v1 — Phases A through G",
+  "summary": "Continue architecture-refactoring-plan after T032; fix broken B WIP, then C–G layer migration.",
+  "slices": [
+    {
+      "id": "A",
+      "title": "Config + logging foundation",
+      "status": "active",
+      "substeps": ["A1 deps", "A2 runtime/config.ts", "A3 cli/logger.ts", "A4 client uses config"],
+      "may_edit": [
+        "apps/trader-workflows/package.json",
+        "apps/trader-workflows/package-lock.json",
+        "apps/trader-workflows/src/runtime/config.ts",
+        "apps/trader-workflows/src/cli/logger.ts",
+        "apps/trader-workflows/src/api/client.ts"
+      ],
+      "exit_criteria": [
+        "ky dotenv env-var pino installed",
+        "config.ts centralizes env reads",
+        "client.ts uses config.traderApiBase",
+        "npm test passes"
+      ]
+    },
+    {
+      "id": "B",
+      "title": "ky HTTP — finish marketAgent migration",
+      "status": "pending",
+      "substeps": ["B3 marketAgent searchParams+json", "B4 tests"],
+      "may_edit": [
+        "apps/trader-workflows/src/services/marketAgent.ts",
+        "apps/trader-workflows/src/services/marketAgent.test.ts",
+        "apps/trader-workflows/src/api/client.ts"
+      ],
+      "exit_criteria": [
+        "no queryBuilder import",
+        "POST calls use fetchIntel json option",
+        "GET calls use searchParams",
+        "marketAgent.test.ts passes"
+      ]
+    },
+    {
+      "id": "C",
+      "title": "Move marketAgent HTTP proxy to api/ + data/",
+      "status": "pending",
+      "may_edit": [
+        "apps/trader-workflows/src/api/marketAgentClient.ts",
+        "apps/trader-workflows/src/data/**",
+        "apps/trader-workflows/src/services/marketAgent.ts",
+        "apps/trader-workflows/src/cli/commandHandlers/**"
+      ],
+      "exit_criteria": [
+        "api/marketAgentClient.ts holds 12 HTTP functions",
+        "data/marketAgent.ts re-exports for CLI/graphs",
+        "services/marketAgent.ts deleted or thin shim",
+        "all importers updated"
+      ]
+    },
+    {
+      "id": "D",
+      "title": "Extract HTTP from domain services",
+      "status": "pending",
+      "may_edit": [
+        "apps/trader-workflows/src/data/ruleCandidates.ts",
+        "apps/trader-workflows/src/services/alphaResearch.ts",
+        "apps/trader-workflows/src/services/outcomes/persistence.ts",
+        "apps/trader-workflows/src/services/outcomes/scheduling.ts",
+        "apps/trader-workflows/src/services/evaluation/report.ts",
+        "apps/trader-workflows/src/graphs/**"
+      ],
+      "exit_criteria": [
+        "outcomes persistence/scheduling no direct fetch",
+        "alphaResearch delegates to data/ruleCandidates",
+        "graph nodes pass data to domain functions"
+      ]
+    },
+    {
+      "id": "E",
+      "title": "Move graphRunner to orchestration/",
+      "status": "pending",
+      "may_edit": [
+        "apps/trader-workflows/src/orchestration/**",
+        "apps/trader-workflows/src/api/graphRunner.ts",
+        "apps/trader-workflows/src/cli/**",
+        "apps/trader-workflows/src/cli/helpers.ts"
+      ],
+      "exit_criteria": [
+        "orchestration/graphRunner.ts",
+        "api/ has no graphRunner",
+        "tests pass"
+      ]
+    },
+    {
+      "id": "F",
+      "title": "Decouple evaluation/outcomes/decisions cross-calls",
+      "status": "pending",
+      "may_edit": [
+        "apps/trader-workflows/src/services/evaluation/report.ts",
+        "apps/trader-workflows/src/graphs/02-evaluation/**"
+      ],
+      "exit_criteria": [
+        "evaluation/report.ts no imports from outcomes/ or decisions",
+        "evaluationGraph.nodes orchestrates side effects",
+        "evaluation graph tests pass"
+      ]
+    },
+    {
+      "id": "G",
+      "title": "Optional — commander replaces argParser",
+      "status": "pending",
+      "optional": true,
+      "may_edit": [
+        "apps/trader-workflows/package.json",
+        "apps/trader-workflows/src/cli/**"
+      ],
+      "exit_criteria": [
+        "commander program with 12 commands",
+        "argParser.ts deleted",
+        "index.test.ts CLI behavior unchanged"
+      ]
+    }
+  ],
+  "verification": [
+    "cd apps/trader-workflows && npm test",
+    "cd apps/trader-workflows && npm run check:circular"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "spec_id": "architecture-refactoring-v1",
+  "status": "active",
+  "title": "trader-workflows Architecture Refactoring — clean layers + ky + data proxy",
+  "summary": "Execute architecture-refactoring-plan.md Phases A–G: config/logging, ky HTTP, move marketAgent to api/, data/ layer, orchestration/, domain decoupling, optional commander CLI.",
+  "sources": [
+    "project-docs/refactor/architecture-refactoring-plan.md",
+    "project-docs/refactor/nodejs-ecosystem-audit.md",
+    "project-docs/refactor/refactor-plan-review.md"
+  ],
+  "critical_files": [
+    "apps/trader-workflows/src/api/client.ts",
+    "apps/trader-workflows/src/services/marketAgent.ts",
+    "apps/trader-workflows/src/api/graphRunner.ts",
+    "apps/trader-workflows/src/services/outcomes/persistence.ts",
+    "apps/trader-workflows/src/services/outcomes/scheduling.ts",
+    "apps/trader-workflows/src/services/evaluation/report.ts"
+  ],
+  "forbidden": [
+    "apps/trader-agent/**",
+    "apps/trader-cli/**",
+    "docs/**"
+  ],
+  "decisions": [
+    "api/commands/ stays removed (Fix 3 from refactor-plan-review)",
+    "CLI imports data/ for HTTP-backed endpoints, services/ for pure domain",
+    "graphRunner moves to orchestration/ not runtime/",
+    "Phase G commander is optional — execute only if A–F stable",
+    "check:circular excludes graphs/ (pre-existing type cycles)"
+  ],
+  "verification": [
+    "cd apps/trader-workflows && npm test",
+    "cd apps/trader-workflows && npm run check:circular"
+  ]
+}
