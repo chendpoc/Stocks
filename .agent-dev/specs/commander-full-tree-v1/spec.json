@@ -1,8 +1,8 @@
 {
   "spec_id": "commander-full-tree-v1",
-  "status": "active",
+  "status": "done",
   "title": "T035 Commander full subcommand tree with zod opts",
-  "summary": "Complete T033 Phase G: migrate all CLI handlers to (runtime, typedOpts) with zod schemas, wire commander actions in program.ts, delete flagParsing.ts. S1 skeleton done at 6d9d28c2.",
+  "summary": "Complete T033 Phase G: all CLI handlers migrated to (runtime, typedOpts) with zod schemas; commander actions wired in program.ts; flagParsing.ts deleted; index.ts uses parseAsync.",
   "sources": [
     "project-docs/refactor/T035-commander-full-tree-draft.md"
   ],
@@ -26,17 +26,17 @@
     "Q3: runs resume stays in S2 with other runs subcommands",
     "Q4: zod schema co-located with handler or program action registration",
     "Q5: printEnvelope stays console.log; pino logger out of scope",
-    "No argvCompat.ts: production uses program.parseAsync when fully wired",
-    "S1 validateTopLevelCommand: top-level verb only until actions wired (preserve legacy handler validation)"
+    "No argvCompat.ts: production uses program.parseAsync",
+    "S1 validateTopLevelCommand: top-level verb only until actions wired"
   ],
   "slices": [
     { "id": "T035-S1", "status": "done", "commit": "6d9d28c2" },
-    { "id": "T035-S1.1", "status": "pending", "title": "Relax top-level validation; restore test baseline" },
-    { "id": "T035-S2", "status": "pending", "title": "runs, decisions, memory, failure-memory" },
-    { "id": "T035-S3", "status": "pending", "title": "outcomes list, insights list, market-data, pattern-memory list" },
-    { "id": "T035-S4", "status": "pending", "title": "context subtree" },
-    { "id": "T035-S5", "status": "pending", "title": "graph-exec commands" },
-    { "id": "T035-S6", "status": "pending", "title": "pattern-memory mutate, delete flagParsing, ARCHITECTURE.md, index main→parseAsync" }
+    { "id": "T035-S1.1", "status": "done", "commit": "55f07b70", "title": "Relax top-level validation; restore test baseline" },
+    { "id": "T035-S2", "status": "done", "commit": "3879f058", "title": "runs, decisions, memory, failure-memory" },
+    { "id": "T035-S3", "status": "done", "commit": "2ba2c6a8", "title": "outcomes list, insights list, market-data, pattern-memory list" },
+    { "id": "T035-S4", "status": "done", "commit": "9624a152", "title": "context subtree" },
+    { "id": "T035-S5", "status": "done", "commit": "38ccd3e6", "title": "graph-exec commands" },
+    { "id": "T035-S6", "status": "done", "commit": "b3776c02", "title": "pattern-memory mutate, delete flagParsing, ARCHITECTURE.md, index main→parseAsync" }
   ],
   "verification": [
     "cd apps/trader-workflows && npm test",

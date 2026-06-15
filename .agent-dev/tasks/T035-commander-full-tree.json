@@ -1,7 +1,7 @@
 {
   "id": "T035",
   "title": "Commander full subcommand tree migration (zod + actions)",
-  "status": "in_progress",
+  "status": "done",
   "draft_doc": "project-docs/refactor/T035-commander-full-tree-draft.md",
   "spec": ".agent-dev/specs/commander-full-tree-v1/spec.json",
   "parent": "T033",
@@ -16,14 +16,16 @@
     {
       "id": "T035-S1.1",
       "title": "Top-level-only validateTopLevelCommand (fix S1 test regression)",
-      "status": "pending",
+      "status": "done",
+      "commit": "55f07b70",
       "risk": "low",
       "files": ["cli/program.ts"]
     },
     {
       "id": "T035-S2",
       "title": "runs, decisions, memory, failure-memory → zod opts + actions",
-      "status": "pending",
+      "status": "done",
+      "commit": "3879f058",
       "risk": "low",
       "handlers": ["runs", "decisions", "memory", "failureMemory"],
       "per_command": ["program.ts action+zod", "handler typed opts", "router commander dispatch for migrated cmds"]
@@ -31,25 +33,29 @@
     {
       "id": "T035-S3",
       "title": "Data-query: outcomes list, insights list, market-data *, pattern-memory list",
-      "status": "pending",
+      "status": "done",
+      "commit": "2ba2c6a8",
       "risk": "low"
     },
     {
       "id": "T035-S4",
       "title": "context bootstrap/latest/snapshots",
-      "status": "pending",
+      "status": "done",
+      "commit": "9624a152",
       "risk": "medium"
     },
     {
       "id": "T035-S5",
       "title": "Graph-exec: decide, outcomes run, eval summary, insights explore, market-monitor run",
-      "status": "pending",
+      "status": "done",
+      "commit": "38ccd3e6",
       "risk": "medium"
     },
     {
       "id": "T035-S6",
       "title": "pattern-memory promote/degrade, validators.ts, delete flagParsing, index→parseAsync, ARCHITECTURE.md",
-      "status": "pending",
+      "status": "done",
+      "commit": "b3776c02",
       "risk": "medium"
     }
   ],
