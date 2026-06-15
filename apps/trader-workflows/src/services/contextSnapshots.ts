@@ -31,9 +31,4 @@ export {
   toContextSnapshotSummary,
   computeContextHash,
   buildContextSnapshotPayload,
-  fetchIntelContextBuild,
-  persistContextSnapshot,
-  fetchContextSnapshot,
-  listContextSnapshots,
-  buildAndPersistContextSnapshot,
 } from "./context/snapshots.js";

@@ -3,11 +3,13 @@ import {
   type WorkflowLlmProvider,
 } from "../../llm/provider.js";
 import {
-  buildHeuristicInsightProposal,
   createInsightCandidate,
   fetchContextSnapshotsForSymbol,
   fetchLatestEvaluationReportForInsight,
   fetchOutcomesForInsight,
+} from "../../data/insightCandidates.js";
+import {
+  buildHeuristicInsightProposal,
   runControlledInsightReAct,
 } from "../../services/insightCandidates.js";
 import type {

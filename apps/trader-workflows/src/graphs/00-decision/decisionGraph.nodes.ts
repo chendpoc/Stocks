@@ -9,12 +9,14 @@ import {
   createWorkflowLlmProvider,
   type WorkflowLlmProvider,
 } from "../../llm/provider.js";
-import { buildAndPersistContextSnapshot } from "../../services/contextSnapshots.js";
+import { buildAndPersistContextSnapshot } from "../../data/contextSnapshots.js";
+import {
+  persistModelDecision,
+  scheduleModelPathOutcomes,
+} from "../../data/decisions.js";
 import type { ContextSnapshotRecord } from "../../types/context.js";
 import {
   OUTCOME_HORIZONS,
-  persistModelDecision,
-  scheduleModelPathOutcomes,
 } from "../../services/decisions.js";
 import type { PersistedModelDecision, ScheduledDecisionOutcome } from "../../types/decisions.js";
 import type { DecisionGraphState } from "./decisionGraph.state.js";

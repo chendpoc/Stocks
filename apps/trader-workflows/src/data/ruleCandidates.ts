@@ -1,4 +1,4 @@
-import { config } from "../runtime/config.js";
+import { fetchRuleCandidates } from "../api/ruleCandidatesClient.js";
 import type {
   AdvanceCandidateResponse,
   AlphaResearchClient,
@@ -10,48 +10,14 @@ import type {
   RuleCandidateCreateResponse,
 } from "../types/alpha.js";
 
-export function ruleCandidatesBaseUrl(): string {
-  const explicit = config.traderRuleCandidatesApiBase.replace(/\/$/, "");
-  if (explicit) {
-    return explicit;
-  }
-  const intelBase = config.traderApiBase.replace(/\/$/, "");
-  if (intelBase.endsWith("/api/intel")) {
-    return intelBase.replace(/\/api\/intel$/, "/api/rule-candidates");
-  }
-  return "http://127.0.0.1:8000/api/rule-candidates";
-}
-
-export async function fetchRuleCandidates<T>(
-  path: string,
-  options: RequestInit = {},
-  fetchImpl: AlphaResearchFetch = fetch,
-): Promise<T> {
-  const base = ruleCandidatesBaseUrl();
-  const url = path
-    ? `${base}${path.startsWith("/") ? path : `/${path}`}`
-    : base;
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> | undefined),
-  };
-  if (options.body && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-  const response = await fetchImpl(url, { ...options, headers });
-  if (!response.ok) {
-    throw new Error(`Rule Candidate API ${response.status}: ${await response.text()}`);
-  }
-  return (await response.json()) as T;
-}
-
 export function createAlphaResearchClient(
-  fetchImpl: AlphaResearchFetch = fetch,
+  fetchImpl?: AlphaResearchFetch,
 ): AlphaResearchClient {
   return {
-    createRuleCandidate: (payload) =>
+    createRuleCandidate: (payload: RuleCandidateCreateRequest) =>
       fetchRuleCandidates<RuleCandidateCreateResponse>("", {
         method: "POST",
-        body: JSON.stringify(payload),
+        json: payload,
       }, fetchImpl),
     validateEvidence: (candidateId) =>
       fetchRuleCandidates<EvidenceValidationResponse>(
@@ -64,7 +30,7 @@ export function createAlphaResearchClient(
         `/${candidateId}/lite-backtest`,
         {
           method: "POST",
-          body: JSON.stringify({ start: window.start, end: window.end }),
+          json: { start: window.start, end: window.end },
         },
         fetchImpl,
       ),
@@ -73,7 +39,7 @@ export function createAlphaResearchClient(
         `/${candidateId}/advance`,
         {
           method: "POST",
-          body: JSON.stringify({ decision }),
+          json: { decision },
         },
         fetchImpl,
       ),

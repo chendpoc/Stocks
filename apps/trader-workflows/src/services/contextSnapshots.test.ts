@@ -4,18 +4,20 @@ import test from "node:test";
 import { captureFetchCall } from "../test/fetchTestUtils.js";
 import { Stage1ApiError } from "../api/client.js";
 import {
-  applyRerankAdjustments,
   buildAndPersistContextSnapshot,
+  fetchContextSnapshot,
+  listContextSnapshots,
+  persistContextSnapshot,
+} from "../data/contextSnapshots.js";
+import {
+  applyRerankAdjustments,
   buildContextSnapshotPayload,
   collectEvidenceRefs,
   computeContextHash,
   ContextSnapshotConflictError,
-  fetchContextSnapshot,
   finalizeWeightedItems,
-  listContextSnapshots,
   MAX_COMPOSITE_WEIGHT,
   MAX_RERANK_DELTA,
-  persistContextSnapshot,
   type ContextWeightReranker,
   type IntelContextBuildResponse,
   weightedItemsFromIntelBuild,

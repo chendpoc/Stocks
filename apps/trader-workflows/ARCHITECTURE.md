@@ -1,6 +1,6 @@
 # Trader Workflows Current Architecture
 
-Last reviewed: 2026-06-04
+Last reviewed: 2026-06-16
 
 This document describes the current implementation in `apps/trader-workflows`.
 It is not a roadmap and does not describe planned workflows unless they already
@@ -8,43 +8,63 @@ affect an implemented boundary.
 
 ## Package Layout
 
-After the T032 module refactor, `src/` is organized in layers:
+After T032–T034, `src/` is organized in layers:
 
 ```text
 src/
-  constants/          # cliFlags, graphNames, errorCodes, apiPaths (no logic)
-  types/              # Pure TypeScript contracts (context, outcomes, evaluation, …)
-  api/
-    client.ts         # fetchIntel, fetchStage1, ApiResponse<T>
-    queryBuilder.ts   # URL query construction
+  constants/          # cliFlags, graphNames, errorCodes (no logic)
+  types/              # Pure TypeScript contracts
+  api/                # Pure HTTP (ky-based)
+    client.ts         # fetchIntel, fetchStage1
+    marketAgentClient.ts
+    ruleCandidatesClient.ts
+  data/               # Data proxy — HTTP + response mapping (no domain logic)
+    marketAgent.ts    # re-export marketAgentClient
+    decisions.ts
+    contextSnapshots.ts
+    outcomes.ts
+    evaluation.ts
+    insightCandidates.ts
+    ruleCandidates.ts
+    outcomeMappers.ts
+  orchestration/
     graphRunner.ts    # Stage1Runtime graph dispatch helpers
-    commands/         # Thin re-exports over services (decisions, marketAgent)
   cli/
     program.ts        # Commander top-level command registry
     flagParsing.ts    # Handler-level flag validation helpers
     router.ts         # Command dispatch to handlers
     helpers.ts        # WorkflowEnvelope helpers and resume map
+    logger.ts         # pino logger (scaffold)
     commandHandlers/  # One handler module per CLI command family
-  services/
-    marketAgent.ts    # Market-agent Intel API orchestration
-    decisions.ts      # Model decision persistence and outcome scheduling
-    alphaResearch.ts  # Alpha research input validation and client
+  services/           # Pure domain logic (no HTTP)
+    alphaResearch.ts
     contextSnapshots.ts   # barrel → context/
-    outcomes.ts             # barrel → outcomes/
+    outcomes.ts           # barrel → outcomes/
     evaluation.ts           # barrel → evaluation/
-    insightCandidates.ts    # barrel → insight/
-    context/          # snapshots, weighting, types
-    outcomes/         # persistence, scheduling, labeling, types
-    evaluation/       # metrics, report, types
-    insight/          # candidates, seeds, types
-  graphs/             # LangGraph workflow definitions (unchanged boundary)
+    insightCandidates.ts  # barrel → insight/
+    decisions.ts          # computeOutcomeDueAt, types
+    context/          # snapshots (pure), weighting, types
+    outcomes/         # scheduling, labeling, types
+    evaluation/       # metrics, report (compose), types
+    insight/          # candidates (pure), seeds, types
+  graphs/             # LangGraph workflow definitions
   llm/                # Workflow LLM provider and decision envelope
-  runtime/            # Stage1Runtime, checkpoint store, LangGraph checkpointer
+  runtime/            # Stage1Runtime, checkpoint store, config.ts
 ```
 
-Import convention: CLI and `api/` modules import **types** from `types/` and
-**runtime behavior** from `services/`. Service subdirectories retain barrel
-re-exports at the original `services/*.ts` paths for backward compatibility.
+### Dependency rules
+
+| Layer | May import | Must not import |
+|-------|------------|-----------------|
+| `api/` | `constants/`, `types/`, `runtime/config.ts` | `services/`, `data/`, `graphs/`, `cli/` |
+| `data/` | `api/`, `types/` | `services/`, `orchestration/` |
+| `services/` | `types/`, `constants/`, other pure `services/` helpers | `api/`, `data/` |
+| `orchestration/` | `runtime/`, `graphs/`, `constants/` | `cli/`, `api/` |
+| `cli/` | `orchestration/`, `data/`, `runtime/`, `services/` | `api/` (use `data/`) |
+| `graphs/` | `data/`, `services/`, `orchestration/`, `runtime/`, `types/` | `api/` directly |
+
+Barrel re-exports at `services/*.ts` remain for backward compatibility; new
+code should import HTTP from `data/` and domain logic from `services/`.
 
 ## Package Role
 

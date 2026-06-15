@@ -1,0 +1,18 @@
+{
+  "id": "T034",
+  "title": "Fix T033 review layer violations",
+  "spec": ".agent-dev/specs/architecture-refactoring-v1/spec.json",
+  "slices": [
+    "T034-S1: Move mapToInsightCandidateOutcomeRow to data/; remove services/evaluation data re-exports",
+    "T034-S2: ruleCandidates via api/client; fix data→services imports",
+    "T034-S3: Extract HTTP from decisions.ts, context/snapshots.ts to data/",
+    "T034-S4: Extract insight/candidates HTTP to data/; update graph deps",
+    "T034-S5: Sync ARCHITECTURE.md with post-T033 layout"
+  ],
+  "acceptance": [
+    "npm test 172 pass",
+    "npm run check:circular no cycles",
+    "data/ does not import services/",
+    "services/ does not import api/ or data/"
+  ]
+}

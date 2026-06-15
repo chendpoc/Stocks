@@ -1,6 +1,4 @@
-import type {
-  InsightCandidateOutcomeRow,
-} from "../../types/outcomes.js";
+import type { InsightCandidateOutcomeRow } from "../types/outcomes.js";
 
 export function mapToInsightCandidateOutcomeRow(
   raw: Record<string, unknown>,

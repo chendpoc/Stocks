@@ -1,5 +1,5 @@
 import { fetchStage1 } from "../api/client.js";
-import { mapToInsightCandidateOutcomeRow } from "../services/outcomes/persistence.js";
+import { mapToInsightCandidateOutcomeRow } from "./outcomeMappers.js";
 import type {
   EvaluationOutcomeRow,
   EvaluationReportPayload,

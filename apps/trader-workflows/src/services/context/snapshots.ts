@@ -1,21 +1,14 @@
 import { createHash } from "node:crypto";
 
-import { fetchIntel, fetchStage1, Stage1ApiError } from "../../api/client.js";
 import type {
   ContextSnapshotPayload,
-  ContextSnapshotRecord,
   ContextSnapshotSummary,
-  ContextWeightReranker,
-  IntelContextBuildResponse,
   WeightedContextItem,
 } from "./types.js";
 import {
   collectEvidenceRefs,
-  finalizeWeightedItems,
-  noopContextWeightReranker,
   sourceTypeCounts,
   WEIGHTING_POLICY_VERSION,
-  weightedItemsFromIntelBuild,
 } from "./weighting.js";
 
 export const CONTEXT_VERSION = "stage1-context-v0";
@@ -113,86 +106,4 @@ export function buildContextSnapshotPayload(input: {
     weighting_policy_version,
     context_hash,
   };
-}
-
-export async function fetchIntelContextBuild(
-  symbol: string,
-  taskType = "decision",
-): Promise<IntelContextBuildResponse> {
-  return fetchIntel<IntelContextBuildResponse>("/context/build", {
-    method: "POST",
-    json: {
-      symbols: [symbol.toUpperCase()],
-      taskType,
-    },
-  });
-}
-
-export async function persistContextSnapshot(
-  payload: ContextSnapshotPayload,
-): Promise<ContextSnapshotRecord> {
-  try {
-    return await fetchStage1<ContextSnapshotRecord>("/context-snapshots", {
-      method: "POST",
-      json: payload,
-    });
-  } catch (error) {
-    if (error instanceof Stage1ApiError && error.status === 409) {
-      throw new ContextSnapshotConflictError(error.message);
-    }
-    throw error;
-  }
-}
-
-export async function fetchContextSnapshot(
-  snapshotId: string,
-): Promise<ContextSnapshotRecord> {
-  return fetchStage1<ContextSnapshotRecord>(
-    `/context-snapshots/${encodeURIComponent(snapshotId)}`,
-  );
-}
-
-export async function listContextSnapshots(input: {
-  symbol?: string;
-  limit?: number;
-} = {}): Promise<{ items: ContextSnapshotRecord[]; count: number }> {
-  const params = new URLSearchParams();
-  if (input.symbol) {
-    params.set("symbol", input.symbol.toUpperCase());
-  }
-  if (input.limit !== undefined) {
-    params.set("limit", String(input.limit));
-  }
-  const query = params.toString();
-  const path = query ? `/context-snapshots?${query}` : "/context-snapshots";
-  return fetchStage1<{ items: ContextSnapshotRecord[]; count: number }>(path);
-}
-
-export async function buildAndPersistContextSnapshot(input: {
-  symbol: string;
-  taskType?: string;
-  asof_ts?: string;
-  snapshot_id?: string;
-  reranker?: ContextWeightReranker;
-  fetchBuild?: (symbol: string, taskType: string) => Promise<IntelContextBuildResponse>;
-  persist?: (payload: ContextSnapshotPayload) => Promise<ContextSnapshotRecord>;
-}): Promise<ContextSnapshotRecord> {
-  const symbol = input.symbol.toUpperCase();
-  const taskType = input.taskType ?? "decision";
-  const asof_ts = input.asof_ts ?? new Date().toISOString();
-  const fetchBuild = input.fetchBuild ?? fetchIntelContextBuild;
-  const persist = input.persist ?? persistContextSnapshot;
-  const reranker = input.reranker ?? noopContextWeightReranker;
-
-  const build = await fetchBuild(symbol, taskType);
-  const rawItems = weightedItemsFromIntelBuild(build, symbol, asof_ts);
-  const adjustments = await reranker.suggestAdjustments(rawItems);
-  const items = finalizeWeightedItems(rawItems, adjustments);
-  const payload = buildContextSnapshotPayload({
-    symbol,
-    items,
-    asof_ts,
-    snapshot_id: input.snapshot_id,
-  });
-  return persist(payload);
 }

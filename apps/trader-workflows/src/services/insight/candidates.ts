@@ -1,24 +1,20 @@
 import { randomUUID } from "node:crypto";
 
-import { fetchStage1 } from "../../api/client.js";
-import { listContextSnapshots } from "../context/snapshots.js";
 import { MAX_COMPOSITE_WEIGHT } from "../context/weighting.js";
-import { fetchDecisionOutcomesForEvaluation } from "../evaluation.js";
-import type {
-  ContextSnapshotRecord,
-  EvidenceRef,
-  WeightedContextItem,
-} from "../context/types.js";
 import type {
   EvaluationOutcomeRow,
   EvaluationReportPayload,
   EvaluationReportSections,
 } from "./types.js";
 import type {
+  ContextSnapshotRecord,
+  EvidenceRef,
+  WeightedContextItem,
+} from "../context/types.js";
+import type {
   InsightCandidateHorizon,
   InsightCandidateOriginCategory,
   InsightCandidatePayload,
-  InsightCandidateRecord,
   InsightProposal,
   InsightReActDecider,
   InsightReActDeciderInput,
@@ -198,59 +194,6 @@ export function buildInsightCandidatePayload(input: {
       alpha_seed,
     },
   };
-}
-
-export async function fetchContextSnapshotsForSymbol(input: {
-  symbol: string;
-  limit?: number;
-}): Promise<ContextSnapshotRecord[]> {
-  const response = await listContextSnapshots({
-    symbol: input.symbol,
-    limit: input.limit,
-  });
-  return response.items;
-}
-
-export async function fetchOutcomesForInsight(input: {
-  symbol: string;
-  limit?: number;
-}): Promise<EvaluationOutcomeRow[]> {
-  return fetchDecisionOutcomesForEvaluation({
-    symbol: input.symbol,
-    limit: input.limit ?? 200,
-  });
-}
-
-export async function fetchLatestEvaluationReportForInsight(input: {
-  evaluation_report_id?: string;
-  symbol?: string;
-  limit?: number;
-}): Promise<EvaluationReportPayload | null> {
-  if (input.evaluation_report_id) {
-    return fetchStage1<EvaluationReportPayload>(
-      `/evaluation-reports/${input.evaluation_report_id}`,
-    );
-  }
-  const params = new URLSearchParams();
-  if (input.symbol) {
-    params.set("symbol", input.symbol.toUpperCase());
-  }
-  params.set("limit", String(input.limit ?? 1));
-  const query = params.toString();
-  const response = await fetchStage1<{
-    items: EvaluationReportPayload[];
-    count: number;
-  }>(`/evaluation-reports${query ? `?${query}` : ""}`);
-  return response.items[0] ?? null;
-}
-
-export async function createInsightCandidate(
-  payload: InsightCandidatePayload,
-): Promise<InsightCandidateRecord> {
-  return fetchStage1<InsightCandidateRecord>("/insight-candidates", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
 }
 
 export function executeInsightReActTool(input: {

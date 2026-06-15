@@ -5,13 +5,15 @@ import {
   type WorkflowLlmProvider,
 } from "../../llm/provider.js";
 import {
-  buildHeuristicInsightProposal,
-  buildInsightCandidatePayload,
   createInsightCandidate,
-  extractWeightedItemsFromSnapshots,
   fetchContextSnapshotsForSymbol,
   fetchLatestEvaluationReportForInsight,
   fetchOutcomesForInsight,
+} from "../../data/insightCandidates.js";
+import {
+  buildHeuristicInsightProposal,
+  buildInsightCandidatePayload,
+  extractWeightedItemsFromSnapshots,
   filterOutcomesInWindow,
   parseExplorationWindow,
   runControlledInsightReAct,
