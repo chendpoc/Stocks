@@ -1,0 +1,53 @@
+{
+  "id": "T035",
+  "title": "Commander full subcommand tree migration",
+  "status": "proposed",
+  "draft_doc": "project-docs/refactor/T035-commander-full-tree-draft.md",
+  "parent": "T033",
+  "scope": "apps/trader-workflows/src/cli/",
+  "slices": [
+    {
+      "id": "T035-S1",
+      "title": "argvCompat + program skeleton + router wiring",
+      "risk": "low"
+    },
+    {
+      "id": "T035-S2",
+      "title": "runs, decisions, memory, failure-memory → opts handlers",
+      "risk": "low"
+    },
+    {
+      "id": "T035-S3",
+      "title": "outcomes list, insights list, market-data, pattern-memory list",
+      "risk": "low"
+    },
+    {
+      "id": "T035-S4",
+      "title": "context bootstrap/latest/snapshots tree",
+      "risk": "medium"
+    },
+    {
+      "id": "T035-S5",
+      "title": "decide, outcomes run, eval summary, insights explore, market-monitor run",
+      "risk": "medium"
+    },
+    {
+      "id": "T035-S6",
+      "title": "pattern-memory promote/degrade, delete flagParsing, ARCHITECTURE.md",
+      "risk": "medium"
+    }
+  ],
+  "acceptance": [
+    "flagParsing.ts deleted",
+    "handleCommandAsync(runtime, string[]) preserved for tests and trader-cli",
+    "npm test 172 pass",
+    "npm run check:circular no cycles",
+    "ARCHITECTURE.md CLI section updated"
+  ],
+  "out_of_scope": [
+    "WorkflowEnvelope shape change",
+    "printEnvelope → pino",
+    "trader-cli commander merge",
+    "api/data/services layer changes"
+  ]
+}
