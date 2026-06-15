@@ -376,7 +376,7 @@ services/                                 data/ (new)
 | D (extract HTTP from services) | ⬜ pending | — |
 | E (graphRunner move) | ⬜ pending | — |
 | F (decouple domains) | ⬜ pending | — |
-| G (commander CLI) | ⬜ pending | — |
+| G (commander CLI) | 🔄 in progress | T035-S1 done, S2-S6 pending |
 
 ### 6.2.1 Phase A Deliverables
 

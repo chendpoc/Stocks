@@ -228,14 +228,14 @@ export async function handleCommandAsync(
 
 每 slice：**subagent 实现 → 父 agent 验收（172 tests + circular）→ 单 commit**
 
-| Slice | 范围 | 风险 | 主要改动文件 |
-|-------|------|------|-------------|
-| **T035-S1** | 基础设施 | 低 | `program.ts`（完整树骨架）、`argvCompat.ts`、`router.ts` 接入；行为不变 |
-| **T035-S2** | 只读简单命令 | 低 | `runs`, `decisions`, `memory`, `failure-memory` handlers |
-| **T035-S3** | 数据查询类 | 低 | `outcomes list`, `insights list`, `market-data *`, `pattern-memory list` |
-| **T035-S4** | context 子树 | 中 | `bootstrap`, `latest`, `snapshots list/show` |
-| **T035-S5** | 图执行类 | 中 | `decide`, `outcomes run`, `eval summary`, `insights explore`, `market-monitor run` |
-| **T035-S6** | 变异 + 清理 | 中 | `pattern-memory promote/degrade`；删 `flagParsing.ts`；更新 `ARCHITECTURE.md` |
+| Slice | 范围 | 风险 | 状态 | 主要改动文件 |
+|-------|------|------|------|-------------|
+| **T035-S1** | 基础设施 | 低 | ✅ Done (`6d9d28c2`) | `program.ts`（完整树骨架）；行为不变 |
+| **T035-S2** | 只读简单命令 | 低 | ⬜ | `runs`, `decisions`, `memory`, `failure-memory` handlers |
+| **T035-S3** | 数据查询类 | 低 | ⬜ | `outcomes list`, `insights list`, `market-data *`, `pattern-memory list` |
+| **T035-S4** | context 子树 | 中 | ⬜ | `bootstrap`, `latest`, `snapshots list/show` |
+| **T035-S5** | 图执行类 | 中 | ⬜ | `decide`, `outcomes run`, `eval summary`, `insights explore`, `market-monitor run` |
+| **T035-S6** | 变异 + 清理 | 中 | ⬜ | `pattern-memory promote/degrade`；删 `flagParsing.ts`；更新 `ARCHITECTURE.md` |
 
 ### 5.1 建议 commit 信息
 
@@ -307,8 +307,8 @@ refactor(trader-workflows): remove flagParsing after full commander tree (T035 S
 
 ## 11. 验收标准
 
-- [ ] `cli/flagParsing.ts` 已删除（逻辑迁入 `program.ts` + `validators.ts`）
-- [ ] 全部子命令与 flag 在 `program.ts` 注册，`--help` 可用
-- [ ] `handleCommandAsync(runtime, string[])` 仍 exported，测试与 trader-cli 兼容
+- [ ] `cli/flagParsing.ts` 已删除（逻辑迁入 `program.ts` + `validators.ts`）— S6
+- [x] 全部子命令与 flag 在 `program.ts` 注册，`--help` 可用 — S1 done
+- [ ] `handleCommandAsync(runtime, string[])` 仍 exported，测试与 trader-cli 兼容 — 验证中
 - [ ] `npm test` 172/172；`npm run check:circular` 无环
-- [ ] `ARCHITECTURE.md` CLI 节与实现一致
+- [ ] `ARCHITECTURE.md` CLI 节与实现一致 — S6
