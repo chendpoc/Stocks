@@ -1,18 +1,14 @@
 import { randomUUID } from "node:crypto";
 
-import { fetchStage1 } from "../../api/client.js";
 import type {
-  BuildEvaluationReportInput,
   DecisionOutcomeSummary,
   EvaluationOutcomeRow,
   EvaluationReportPayload,
-  EvaluationReportRecord,
   EvaluationReportSections,
   InsightCandidateOutcomeSummary,
   ModelDecisionSummary,
 } from "../../types/evaluation.js";
 import type { InsightCandidateOutcomeRow, NormalizedOutcomeLabel } from "../../types/outcomes.js";
-import { mapToInsightCandidateOutcomeRow } from "../outcomes/persistence.js";
 import {
   aggregateEvaluationMetrics,
   deriveRecommendation,
@@ -267,114 +263,25 @@ export function buildEvaluationReportPayload(input: {
   };
 }
 
-export async function fetchDecisionOutcomesForEvaluation(input: {
-  decision_id?: string;
-  symbol?: string;
-  status?: string;
-  limit?: number;
-}): Promise<EvaluationOutcomeRow[]> {
-  const params = new URLSearchParams();
-  if (input.decision_id) {
-    params.set("decision_id", input.decision_id);
-  }
-  if (input.symbol) {
-    params.set("symbol", input.symbol.toUpperCase());
-  }
-  if (input.status) {
-    params.set("status", input.status);
-  }
-  if (input.limit !== undefined) {
-    params.set("limit", String(input.limit));
-  }
-  const query = params.toString();
-  const response = await fetchStage1<{ items: EvaluationOutcomeRow[]; count: number }>(
-    `/decision-outcomes${query ? `?${query}` : ""}`,
-  );
-  return response.items;
-}
-
-export async function fetchInsightCandidateOutcomesForEvaluation(input: {
-  symbol?: string;
-  limit?: number;
-}): Promise<InsightCandidateOutcomeRow[]> {
-  const params = new URLSearchParams();
-  if (input.symbol) {
-    params.set("symbol", input.symbol.toUpperCase());
-  }
-  if (input.limit !== undefined) {
-    params.set("limit", String(input.limit));
-  }
-  params.set("status", "labeled");
-  const query = params.toString();
-  const response = await fetchStage1<{ items: Record<string, unknown>[]; count: number }>(
-    `/insight-candidate-outcomes${query ? `?${query}` : ""}`,
-  );
-  return response.items.map(mapToInsightCandidateOutcomeRow);
-}
-
-export async function fetchModelDecisionsForEvaluation(input: {
-  symbol?: string;
-  model_version?: string;
-  limit?: number;
-}): Promise<ModelDecisionSummary[]> {
-  const params = new URLSearchParams();
-  if (input.symbol) {
-    params.set("symbol", input.symbol.toUpperCase());
-  }
-  if (input.model_version) {
-    params.set("model_version", input.model_version);
-  }
-  if (input.limit !== undefined) {
-    params.set("limit", String(input.limit));
-  }
-  const query = params.toString();
-  const response = await fetchStage1<{ items: ModelDecisionSummary[]; count: number }>(
-    `/model-decisions${query ? `?${query}` : ""}`,
-  );
-  return response.items;
-}
-
-export async function createEvaluationReport(
-  payload: EvaluationReportPayload,
-): Promise<EvaluationReportRecord> {
-  return fetchStage1<EvaluationReportRecord>("/evaluation-reports", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function buildEvaluationReport(
-  input: BuildEvaluationReportInput = {},
-): Promise<EvaluationReportPayload> {
-  const model_version = input.model_version ?? "stage1-v0";
-  const limit = input.limit ?? 500;
-
-  const [outcomes, decisions, insightCandidateOutcomes] = await Promise.all([
-    fetchDecisionOutcomesForEvaluation({
-      symbol: input.symbol,
-      limit,
-    }),
-    fetchModelDecisionsForEvaluation({
-      symbol: input.symbol,
-      model_version,
-      limit,
-    }),
-    fetchInsightCandidateOutcomesForEvaluation({
-      symbol: input.symbol,
-      limit,
-    }),
-  ]);
-
+export function composeEvaluationReport(input: {
+  outcomes: EvaluationOutcomeRow[];
+  decisions: ModelDecisionSummary[];
+  insightCandidateOutcomes: InsightCandidateOutcomeRow[];
+  model_version: string;
+  report_id?: string;
+  window_start?: string | null;
+  window_end?: string | null;
+}): EvaluationReportPayload {
   const scopedOutcomes = filterOutcomesForModelVersion({
-    outcomes: outcomes.filter((row) => row.status !== "pending"),
-    decisions,
-    model_version,
+    outcomes: input.outcomes.filter((row) => row.status !== "pending"),
+    decisions: input.decisions,
+    model_version: input.model_version,
   });
 
   return buildEvaluationReportPayload({
     outcomes: scopedOutcomes,
-    insightCandidateOutcomes,
-    model_version,
+    insightCandidateOutcomes: input.insightCandidateOutcomes,
+    model_version: input.model_version,
     report_id: input.report_id,
     window_start: input.window_start,
     window_end: input.window_end,

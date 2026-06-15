@@ -1,10 +1,9 @@
-import {
-  buildEvaluationReport,
-  createEvaluationReport,
-  type BuildEvaluationReportInput,
-  type EvaluationReportPayload,
-  type EvaluationReportRecord,
+import type {
+  BuildEvaluationReportInput,
+  EvaluationReportPayload,
+  EvaluationReportRecord,
 } from "../../services/evaluation.js";
+import type { BuildEvaluationReport } from "./evaluationGraph.nodes.js";
 
 export interface EvaluationGraphRunInput extends BuildEvaluationReportInput {
   run_id?: string;
@@ -18,8 +17,8 @@ export interface EvaluationGraphRunResult {
 }
 
 export interface EvaluationGraphDeps {
-  build?: typeof buildEvaluationReport;
-  persist?: typeof createEvaluationReport;
+  build?: BuildEvaluationReport;
+  persist?: (payload: EvaluationReportPayload) => Promise<EvaluationReportRecord>;
 }
 
 /** @deprecated Use runEvaluationSummaryGraph or the compiled evaluationGraph export. */

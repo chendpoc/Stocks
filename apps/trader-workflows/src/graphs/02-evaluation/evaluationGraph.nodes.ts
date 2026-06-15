@@ -1,22 +1,95 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  buildEvaluationReport,
   createEvaluationReport,
+  fetchDecisionOutcomesForEvaluation,
+  fetchInsightCandidateOutcomesForEvaluation,
+  fetchModelDecisionsForEvaluation,
+} from "../../data/evaluation.js";
+import {
+  composeEvaluationReport,
+  type BuildEvaluationReportInput,
+  type EvaluationReportPayload,
+  type EvaluationReportRecord,
 } from "../../services/evaluation.js";
 import type { EvaluationGraphState } from "./evaluationGraph.state.js";
 import type { EvaluationGraphRunResult } from "./evaluationGraph.types.js";
 
+export type BuildEvaluationReport = (
+  input: BuildEvaluationReportInput,
+) => Promise<EvaluationReportPayload>;
+
 export interface EvaluationGraphNodeDeps {
-  build: typeof buildEvaluationReport;
+  fetchDecisionOutcomes: typeof fetchDecisionOutcomesForEvaluation;
+  fetchModelDecisions: typeof fetchModelDecisionsForEvaluation;
+  fetchInsightCandidateOutcomes: typeof fetchInsightCandidateOutcomesForEvaluation;
+  composeReport: typeof composeEvaluationReport;
+  build: BuildEvaluationReport;
   persist: typeof createEvaluationReport;
+}
+
+export async function orchestrateBuildEvaluationReport(
+  input: BuildEvaluationReportInput,
+  deps: Pick<
+    EvaluationGraphNodeDeps,
+    | "fetchDecisionOutcomes"
+    | "fetchModelDecisions"
+    | "fetchInsightCandidateOutcomes"
+    | "composeReport"
+  >,
+): Promise<EvaluationReportPayload> {
+  const model_version = input.model_version ?? "stage1-v0";
+  const limit = input.limit ?? 500;
+
+  const [outcomes, decisions, insightCandidateOutcomes] = await Promise.all([
+    deps.fetchDecisionOutcomes({
+      symbol: input.symbol,
+      limit,
+    }),
+    deps.fetchModelDecisions({
+      symbol: input.symbol,
+      model_version,
+      limit,
+    }),
+    deps.fetchInsightCandidateOutcomes({
+      symbol: input.symbol,
+      limit,
+    }),
+  ]);
+
+  return deps.composeReport({
+    outcomes,
+    decisions,
+    insightCandidateOutcomes,
+    model_version,
+    report_id: input.report_id,
+    window_start: input.window_start,
+    window_end: input.window_end,
+  });
 }
 
 export function resolveEvaluationGraphNodeDeps(
   overrides: Partial<EvaluationGraphNodeDeps> = {},
 ): EvaluationGraphNodeDeps {
+  const fetchDecisionOutcomes =
+    overrides.fetchDecisionOutcomes ?? fetchDecisionOutcomesForEvaluation;
+  const fetchModelDecisions =
+    overrides.fetchModelDecisions ?? fetchModelDecisionsForEvaluation;
+  const fetchInsightCandidateOutcomes =
+    overrides.fetchInsightCandidateOutcomes ?? fetchInsightCandidateOutcomesForEvaluation;
+  const composeReport = overrides.composeReport ?? composeEvaluationReport;
+  const orchestrationDeps = {
+    fetchDecisionOutcomes,
+    fetchModelDecisions,
+    fetchInsightCandidateOutcomes,
+    composeReport,
+  };
+
   return {
-    build: overrides.build ?? buildEvaluationReport,
+    ...orchestrationDeps,
+    build:
+      overrides.build ??
+      ((input) => orchestrateBuildEvaluationReport(input, orchestrationDeps)),
     persist: overrides.persist ?? createEvaluationReport,
   };
 }
