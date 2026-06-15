@@ -25,8 +25,7 @@ export {
 
 export { handleCommandAsync } from "./cli/router.js";
 
-import { handleCommandAsync } from "./cli/router.js";
-import { stripJsonFlag } from "./cli/program.js";
+import { buildProgram, stripJsonFlag, validateTopLevelCommand } from "./cli/program.js";
 import { printEnvelope, toErrorEnvelope } from "./cli/helpers.js";
 import { Stage1Runtime } from "./runtime/stage1Runtime.js";
 
@@ -36,8 +35,9 @@ async function main(): Promise<void> {
   const commandLabel = commandArgs.length > 0 ? commandArgs.join(" ") : "(none)";
   const runtime = new Stage1Runtime();
   try {
-    const envelope = await handleCommandAsync(runtime, rawArgs);
-    printEnvelope(envelope);
+    await validateTopLevelCommand(rawArgs);
+    const program = buildProgram(runtime);
+    await program.parseAsync(rawArgs, { from: "user" });
   } catch (error) {
     printEnvelope(toErrorEnvelope(commandLabel, error));
     process.exitCode = 1;

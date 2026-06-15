@@ -30,12 +30,14 @@ src/
   orchestration/
     graphRunner.ts    # Stage1Runtime graph dispatch helpers
   cli/
-    program.ts        # Commander top-level command registry
-    flagParsing.ts    # Handler-level flag validation helpers
-    router.ts         # Command dispatch to handlers
-    helpers.ts        # WorkflowEnvelope helpers and resume map
-    logger.ts         # pino logger (scaffold)
-    commandHandlers/  # One handler module per CLI command family
+    program.ts        # Full commander subcommand tree + zod actions → printEnvelope
+    validators.ts       # Cross-field CLI validation (pattern-memory promote/degrade ids)
+    legacyArgs.ts       # argv → typed opts dispatch for handleCommandAsync compat
+    router.ts           # handleCommandAsync → legacyArgs dispatch
+    parseOpts.ts        # zod safeParse → WorkflowCommandError
+    helpers.ts          # WorkflowEnvelope helpers and resume map
+    logger.ts           # pino logger (scaffold)
+    commandHandlers/    # One handler module per CLI command family
   services/           # Pure domain logic (no HTTP)
     alphaResearch.ts
     contextSnapshots.ts   # barrel → context/
@@ -88,12 +90,8 @@ Operator command
   v
 src/index.ts
   |
-  |-- runs list/show/resume
-  |-- decide SYMBOL
-  |-- context snapshots list/show
-  |-- outcomes run --due
-  |-- eval summary
-  |-- insights explore
+  |-- program.parseAsync() → action → handler(runtime, typedOpts) → printEnvelope
+  |-- handleCommandAsync(runtime, argv[]) for trader-cli spawn (legacyArgs dispatch)
   |
   v
 Stage1Runtime
@@ -128,8 +126,9 @@ runtime run. `decide`, `outcomes run --due`, `eval summary`, and
 
 | Entrypoint | Current responsibility |
 |---|---|
-| `src/index.ts` | Public exports, CLI entrypoint (`handleCommandAsync`), runtime lifecycle |
-| `src/cli/router.ts` | Command routing to `commandHandlers/*` |
+| `src/index.ts` | Public exports, CLI entrypoint (`program.parseAsync` + `handleCommandAsync`), runtime lifecycle |
+| `src/cli/program.ts` | Full commander tree; actions validate with zod and print JSON envelopes |
+| `src/cli/router.ts` | Programmatic API: `handleCommandAsync` via `legacyArgs` dispatch |
 | `src/cli/helpers.ts` | Workflow envelope formatting and resume handler map |
 | `src/runtime/stage1Runtime.ts` | Run lifecycle, checkpoint writes, native graph invocation, service-wrapper invocation, resume |
 | `src/runtime/checkpointStore.ts` | SQLite run registry and wrapper checkpoint storage |

@@ -4,17 +4,18 @@ import {
 } from "../constants/errorCodes.js";
 import type { Stage1Runtime } from "../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../types/cli.js";
-import { handlePatternMemoryCommandAsync } from "./commandHandlers/patternMemory.js";
 import { WorkflowCommandError } from "./helpers.js";
 import {
   dispatchS2CommandAsync,
   dispatchS3CommandAsync,
   dispatchS4CommandAsync,
   dispatchS5CommandAsync,
+  dispatchS6CommandAsync,
   isS2MigratedTopLevelCommand,
   isS3MigratedCommand,
   isS4MigratedCommand,
   isS5MigratedCommand,
+  isS6MigratedCommand,
 } from "./legacyArgs.js";
 import {
   isCommanderUnknownCommandError,
@@ -22,18 +23,8 @@ import {
   validateTopLevelCommand,
 } from "./program.js";
 
-export type HandlerFn = (
-  runtime: Stage1Runtime,
-  args: string[],
-) => Promise<WorkflowEnvelope>;
-
 const SUPPORTED_COMMANDS =
   "memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data";
-
-/** S6 commands still on legacy string[] handlers. */
-const LEGACY_COMMAND_HANDLERS: Record<string, HandlerFn> = {
-  "pattern-memory": handlePatternMemoryCommandAsync,
-};
 
 export async function handleCommandAsync(
   runtime: Stage1Runtime,
@@ -77,13 +68,12 @@ export async function handleCommandAsync(
     return dispatchS5CommandAsync(runtime, commandArgs);
   }
 
-  const handler = LEGACY_COMMAND_HANDLERS[top];
-  if (!handler) {
-    throw new WorkflowCommandError(
-      ERROR_CODE_UNKNOWN_COMMAND,
-      `Unknown command: ${top} (currently supported: ${SUPPORTED_COMMANDS})`,
-    );
+  if (isS6MigratedCommand(commandArgs)) {
+    return dispatchS6CommandAsync(runtime, commandArgs);
   }
 
-  return handler(runtime, commandArgs);
+  throw new WorkflowCommandError(
+    ERROR_CODE_UNKNOWN_COMMAND,
+    `Unknown command: ${top} (currently supported: ${SUPPORTED_COMMANDS})`,
+  );
 }

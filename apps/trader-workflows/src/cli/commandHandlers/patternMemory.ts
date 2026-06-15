@@ -5,14 +5,16 @@ import {
   listPatternMemories,
   promotePatternMemory,
 } from "../../data/marketAgent.js";
-import { ERROR_CODE_UNKNOWN_PATTERN_MEMORY_COMMAND } from "../../constants/errorCodes.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
+import { toEnvelope } from "../helpers.js";
+import { parseOpts } from "../parseOpts.js";
 import {
-  parsePatternMemoryDegradeInput,
-  parsePatternMemoryPromoteInput,
-} from "../flagParsing.js";
-import { toEnvelope, WorkflowCommandError } from "../helpers.js";
+  type PatternMemoryDegradeInput,
+  type PatternMemoryPromoteInput,
+  validatePatternMemoryDegradeInput,
+  validatePatternMemoryPromoteInput,
+} from "../validators.js";
 
 export const PatternMemoryListOpts = z.object({
   symbol: z.string().optional(),
@@ -21,6 +23,28 @@ export const PatternMemoryListOpts = z.object({
   limit: z.coerce.number().int().positive().default(100),
 });
 export type PatternMemoryListOpts = z.infer<typeof PatternMemoryListOpts>;
+
+export const PatternMemoryPromoteOpts = z.object({
+  confirm: z.boolean().optional(),
+  patternMemoryId: z.string().optional(),
+  candidateId: z.string().optional(),
+});
+export type PatternMemoryPromoteOpts = z.infer<typeof PatternMemoryPromoteOpts>;
+
+export const PatternMemoryDegradeOpts = z.object({
+  patternMemoryId: z.string().optional(),
+  patternId: z.string().optional(),
+  reason: z.string().optional(),
+});
+export type PatternMemoryDegradeOpts = z.infer<typeof PatternMemoryDegradeOpts>;
+
+export function parsePatternMemoryPromoteOpts(raw: unknown): PatternMemoryPromoteInput {
+  return validatePatternMemoryPromoteInput(parseOpts(PatternMemoryPromoteOpts, raw));
+}
+
+export function parsePatternMemoryDegradeOpts(raw: unknown): PatternMemoryDegradeInput {
+  return validatePatternMemoryDegradeInput(parseOpts(PatternMemoryDegradeOpts, raw));
+}
 
 export async function handlePatternMemoryListCommandAsync(
   _runtime: Stage1Runtime,
@@ -44,9 +68,8 @@ export async function handlePatternMemoryListCommandAsync(
 
 export async function handlePatternMemoryPromoteCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  input: PatternMemoryPromoteInput,
 ): Promise<WorkflowEnvelope> {
-  const input = parsePatternMemoryPromoteInput(args);
   const response = await promotePatternMemory({
     pattern_memory_id: input.pattern_memory_id,
     candidate_id: input.candidate_id,
@@ -63,9 +86,8 @@ export async function handlePatternMemoryPromoteCommandAsync(
 
 export async function handlePatternMemoryDegradeCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  input: PatternMemoryDegradeInput,
 ): Promise<WorkflowEnvelope> {
-  const input = parsePatternMemoryDegradeInput(args);
   const response = await degradePatternMemory(input);
   return toEnvelope({
     ok: true,
@@ -74,21 +96,4 @@ export async function handlePatternMemoryDegradeCommandAsync(
       pattern_memory: response.item,
     },
   });
-}
-
-export async function handlePatternMemoryCommandAsync(
-  runtime: Stage1Runtime,
-  args: string[],
-): Promise<WorkflowEnvelope> {
-  const sub = args[1];
-  if (sub === "promote") {
-    return handlePatternMemoryPromoteCommandAsync(runtime, args);
-  }
-  if (sub === "degrade") {
-    return handlePatternMemoryDegradeCommandAsync(runtime, args);
-  }
-  throw new WorkflowCommandError(
-    ERROR_CODE_UNKNOWN_PATTERN_MEMORY_COMMAND,
-    `Unknown pattern-memory command: ${sub ?? "(missing)"} (use list|promote|degrade)`,
-  );
 }

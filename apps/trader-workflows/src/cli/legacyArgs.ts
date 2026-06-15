@@ -1,5 +1,7 @@
 import {
   CLI_FLAG_ALLOW_LIVE_FALLBACK,
+  CLI_FLAG_CANDIDATE_ID,
+  CLI_FLAG_CONFIRM,
   CLI_FLAG_DUE,
   CLI_FLAG_FAILURE_TYPE,
   CLI_FLAG_GATE_JSON,
@@ -10,7 +12,9 @@ import {
   CLI_FLAG_MODEL_VERSION,
   CLI_FLAG_OUTPUT,
   CLI_FLAG_PATTERN_ID,
+  CLI_FLAG_PATTERN_MEMORY_ID,
   CLI_FLAG_PROFILE,
+  CLI_FLAG_REASON,
   CLI_FLAG_SESSION_ID,
   CLI_FLAG_SETUP,
   CLI_FLAG_STATUS,
@@ -94,7 +98,11 @@ import {
   parseOutcomesRunOpts,
 } from "./commandHandlers/outcomes.js";
 import {
+  handlePatternMemoryDegradeCommandAsync,
   handlePatternMemoryListCommandAsync,
+  handlePatternMemoryPromoteCommandAsync,
+  parsePatternMemoryDegradeOpts,
+  parsePatternMemoryPromoteOpts,
   PatternMemoryListOpts,
 } from "./commandHandlers/patternMemory.js";
 import {
@@ -610,5 +618,64 @@ export async function dispatchS5CommandAsync(
   throw new WorkflowCommandError(
     "INTERNAL_ERROR",
     `dispatchS5CommandAsync called for non-S5 command: ${top} ${sub ?? ""}`,
+  );
+}
+
+const S6_PARTIAL_COMMANDS: Record<string, Set<string>> = {
+  "pattern-memory": new Set(["promote", "degrade"]),
+};
+
+export function isS6MigratedCommand(args: string[]): boolean {
+  const top = args[0];
+  const sub = args[1];
+  const subs = S6_PARTIAL_COMMANDS[top];
+  return subs?.has(sub ?? "") ?? false;
+}
+
+export async function dispatchS6CommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const top = args[0];
+  const sub = args[1];
+
+  if (top === "pattern-memory") {
+    if (sub === "promote") {
+      return handlePatternMemoryPromoteCommandAsync(
+        runtime,
+        parsePatternMemoryPromoteOpts({
+          confirm: args.includes(CLI_FLAG_CONFIRM) ? true : undefined,
+          patternMemoryId: flagValue(
+            args,
+            CLI_FLAG_PATTERN_MEMORY_ID,
+            "PATTERN_MEMORY_ID_VALUE_REQUIRED",
+          ),
+          candidateId: flagValue(args, CLI_FLAG_CANDIDATE_ID, "CANDIDATE_ID_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    if (sub === "degrade") {
+      return handlePatternMemoryDegradeCommandAsync(
+        runtime,
+        parsePatternMemoryDegradeOpts({
+          patternMemoryId: flagValue(
+            args,
+            CLI_FLAG_PATTERN_MEMORY_ID,
+            "PATTERN_MEMORY_ID_VALUE_REQUIRED",
+          ),
+          patternId: flagValue(args, CLI_FLAG_PATTERN_ID, "PATTERN_ID_VALUE_REQUIRED"),
+          reason: flagValue(args, CLI_FLAG_REASON, "REASON_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_PATTERN_MEMORY_COMMAND,
+      `Unknown pattern-memory command: ${sub ?? "(missing)"} (use list|promote|degrade)`,
+    );
+  }
+
+  throw new WorkflowCommandError(
+    "INTERNAL_ERROR",
+    `dispatchS6CommandAsync called for non-S6 command: ${top} ${sub ?? ""}`,
   );
 }

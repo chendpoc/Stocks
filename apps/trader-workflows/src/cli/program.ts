@@ -1,7 +1,5 @@
 /**
- * S2/S3/S4/S5: commander 子命令树 + zod typed opts（S2–S5 命令已接入 action）
- *
- * 生产路径仍经 router.handleCommandAsync；S6 切换 index main → parseAsync。
+ * T035-S6: commander 完整子命令树 + zod typed opts；生产路径 index main → parseAsync。
  */
 
 import { Command, CommanderError } from "commander";
@@ -68,7 +66,11 @@ import {
   parseOutcomesRunOpts,
 } from "./commandHandlers/outcomes.js";
 import {
+  handlePatternMemoryDegradeCommandAsync,
   handlePatternMemoryListCommandAsync,
+  handlePatternMemoryPromoteCommandAsync,
+  parsePatternMemoryDegradeOpts,
+  parsePatternMemoryPromoteOpts,
   PatternMemoryListOpts,
 } from "./commandHandlers/patternMemory.js";
 import {
@@ -83,8 +85,12 @@ import {
   RunsShowOpts,
   RunsTraceOpts,
 } from "./commandHandlers/runs.js";
-import { WorkflowCommandError } from "./helpers.js";
+import { printEnvelope, WorkflowCommandError } from "./helpers.js";
 import { parseOpts } from "./parseOpts.js";
+
+async function runEnvelopeAction(action: () => Promise<WorkflowEnvelope>): Promise<void> {
+  printEnvelope(await action());
+}
 
 /* ───────── 常量 ───────── */
 
@@ -116,10 +122,7 @@ export function stripJsonFlag(args: string[]): string[] {
 /* ───────── 构建完整程序树 ───────── */
 
 /**
- * 构建完整的 commander 程序树。
- * S2–S5: runs / decisions / memory / failure-memory / outcomes / insights explore /
- * decide / eval summary / market-monitor run / market-data * / pattern-memory list /
- * context * actions 已接入 zod + handler。
+ * 构建完整的 commander 程序树。全部子命令 action 经 runEnvelopeAction 输出 JSON envelope。
  */
 export function buildProgram(runtime: Stage1Runtime): Command {
   const program = new Command()
@@ -136,7 +139,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .command("init")
     .description("Initialize market agent memory")
     .action(async () =>
-      handleMemoryInitCommandAsync(runtime, parseOpts(MemoryInitOpts, {})),
+      runEnvelopeAction(() =>
+        handleMemoryInitCommandAsync(runtime, parseOpts(MemoryInitOpts, {})),
+      ),
     );
 
   // ── runs ──
@@ -146,21 +151,27 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .description("List recent runs")
     .option("--limit <n>", "Max results", "50")
     .action(async (rawOpts: { limit?: string }) =>
-      handleRunsListCommandAsync(runtime, parseOpts(RunsListOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handleRunsListCommandAsync(runtime, parseOpts(RunsListOpts, rawOpts)),
+      ),
     );
   runs
     .command("show")
     .description("Show a run")
     .argument("<run-id>", "Run ID")
     .action(async (runId: string) =>
-      handleRunsShowCommandAsync(runtime, parseOpts(RunsShowOpts, { runId })),
+      runEnvelopeAction(() =>
+        handleRunsShowCommandAsync(runtime, parseOpts(RunsShowOpts, { runId })),
+      ),
     );
   runs
     .command("resume")
     .description("Resume a run")
     .argument("<run-id>", "Run ID")
     .action(async (runId: string) =>
-      handleRunsResumeCommandAsync(runtime, parseOpts(RunsResumeOpts, { runId })),
+      runEnvelopeAction(() =>
+        handleRunsResumeCommandAsync(runtime, parseOpts(RunsResumeOpts, { runId })),
+      ),
     );
   runs
     .command("monitor")
@@ -169,14 +180,18 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--status <status>", "Filter by status")
     .option("--graph-name <name>", "Filter by graph")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleRunsMonitorCommandAsync(runtime, parseRunsMonitorOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleRunsMonitorCommandAsync(runtime, parseRunsMonitorOpts(rawOpts)),
+      ),
     );
   runs
     .command("trace")
     .description("Trace run events")
     .argument("<run-id>", "Run ID")
     .action(async (runId: string) =>
-      handleRunsTraceCommandAsync(runtime, parseOpts(RunsTraceOpts, { runId })),
+      runEnvelopeAction(() =>
+        handleRunsTraceCommandAsync(runtime, parseOpts(RunsTraceOpts, { runId })),
+      ),
     );
 
   // ── decide ──
@@ -187,9 +202,8 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--setup <name>", "Setup name", "default")
     .option("--gate-json <json>", "Gate decision JSON")
     .action(async (symbol: string, rawOpts: { setup?: string; gateJson?: string }) =>
-      handleDecideCommandAsync(
-        runtime,
-        parseDecideOpts({ symbol, ...rawOpts }),
+      runEnvelopeAction(() =>
+        handleDecideCommandAsync(runtime, parseDecideOpts({ symbol, ...rawOpts })),
       ),
     );
 
@@ -202,7 +216,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--model-version <version>", "Model version")
     .option("--limit <n>", "Max results", "500")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleDecisionsListCommandAsync(runtime, parseOpts(DecisionsListOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handleDecisionsListCommandAsync(runtime, parseOpts(DecisionsListOpts, rawOpts)),
+      ),
     );
 
   // ── context ──
@@ -216,7 +232,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--max-chars <n>", "Max characters")
     .option("--output <path>", "Output file path")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleContextBootstrapAsync(runtime, parseOpts(ContextBootstrapOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handleContextBootstrapAsync(runtime, parseOpts(ContextBootstrapOpts, rawOpts)),
+      ),
     );
   context
     .command("latest")
@@ -225,7 +243,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--profile <profile>", "Profile name")
     .option("--symbol <symbol>", "Stock symbol")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleContextLatestAsync(runtime, parseOpts(ContextLatestOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handleContextLatestAsync(runtime, parseOpts(ContextLatestOpts, rawOpts)),
+      ),
     );
   const snapshots = context.command("snapshots").description("Context snapshots");
   snapshots
@@ -234,9 +254,11 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .requiredOption("--symbol <symbol>", "Stock symbol")
     .option("--limit <n>", "Max results", "20")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleContextSnapshotsListCommandAsync(
-        runtime,
-        parseContextSnapshotsListOpts(rawOpts),
+      runEnvelopeAction(() =>
+        handleContextSnapshotsListCommandAsync(
+          runtime,
+          parseContextSnapshotsListOpts(rawOpts),
+        ),
       ),
     );
   snapshots
@@ -244,9 +266,11 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .description("Show a snapshot")
     .argument("<snapshot-id>", "Snapshot ID")
     .action(async (snapshotId: string) =>
-      handleContextSnapshotsShowCommandAsync(
-        runtime,
-        parseContextSnapshotsShowOpts({ snapshotId }),
+      runEnvelopeAction(() =>
+        handleContextSnapshotsShowCommandAsync(
+          runtime,
+          parseContextSnapshotsShowOpts({ snapshotId }),
+        ),
       ),
     );
 
@@ -259,7 +283,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--status <status>", "Status filter")
     .option("--limit <n>", "Max results", "100")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleOutcomesListCommandAsync(runtime, parseOutcomesListOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleOutcomesListCommandAsync(runtime, parseOutcomesListOpts(rawOpts)),
+      ),
     );
   outcomes
     .command("run")
@@ -268,9 +294,11 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--symbol <symbol>", "Filter by symbol")
     .option("--limit <n>", "Max results")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleOutcomesRunCommandAsync(
-        runtime,
-        parseOutcomesRunOpts({ ...rawOpts, due: true }),
+      runEnvelopeAction(() =>
+        handleOutcomesRunCommandAsync(
+          runtime,
+          parseOutcomesRunOpts({ ...rawOpts, due: true }),
+        ),
       ),
     );
 
@@ -283,7 +311,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--model-version <version>", "Model version", "stage1-v0")
     .option("--limit <n>", "Max results", "500")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleEvalSummaryCommandAsync(runtime, parseEvalSummaryOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleEvalSummaryCommandAsync(runtime, parseEvalSummaryOpts(rawOpts)),
+      ),
     );
 
   // ── insights ──
@@ -294,7 +324,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .requiredOption("--symbol <symbol>", "Stock symbol")
     .requiredOption("--window <window>", "Exploration window")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleInsightsExploreCommandAsync(runtime, parseInsightsExploreOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleInsightsExploreCommandAsync(runtime, parseInsightsExploreOpts(rawOpts)),
+      ),
     );
   insights
     .command("list")
@@ -303,7 +335,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--verification-status <status>", "Verification status")
     .option("--limit <n>", "Max results", "50")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleInsightsListCommandAsync(runtime, parseOpts(InsightsListOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handleInsightsListCommandAsync(runtime, parseOpts(InsightsListOpts, rawOpts)),
+      ),
     );
 
   // ── pattern-memory ──
@@ -316,16 +350,38 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--status <status>", "Filter by status")
     .option("--limit <n>", "Max results")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handlePatternMemoryListCommandAsync(runtime, parseOpts(PatternMemoryListOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handlePatternMemoryListCommandAsync(runtime, parseOpts(PatternMemoryListOpts, rawOpts)),
+      ),
     );
-  pm.command("promote").description("Promote pattern to candidate")
+  pm
+    .command("promote")
+    .description("Promote pattern to candidate")
     .requiredOption("--confirm", "Confirmation flag")
     .option("--pattern-memory-id <id>", "Pattern memory ID")
-    .option("--candidate-id <id>", "Candidate ID");
-  pm.command("degrade").description("Degrade a pattern")
+    .option("--candidate-id <id>", "Candidate ID")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      runEnvelopeAction(() =>
+        handlePatternMemoryPromoteCommandAsync(
+          runtime,
+          parsePatternMemoryPromoteOpts({ ...rawOpts, confirm: true }),
+        ),
+      ),
+    );
+  pm
+    .command("degrade")
+    .description("Degrade a pattern")
     .option("--pattern-memory-id <id>", "Pattern memory ID")
     .option("--pattern-id <id>", "Pattern ID")
-    .option("--reason <reason>", "Reason");
+    .option("--reason <reason>", "Reason")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      runEnvelopeAction(() =>
+        handlePatternMemoryDegradeCommandAsync(
+          runtime,
+          parsePatternMemoryDegradeOpts(rawOpts),
+        ),
+      ),
+    );
 
   // ── failure-memory ──
   const failureMemory = program.command("failure-memory").description("Failure memory");
@@ -340,12 +396,14 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--limit <n>", "Max results")
     .action(
       async (rawOpts: Record<string, unknown> & { type?: string; failureType?: string }) =>
-        handleFailureMemoryListCommandAsync(
-          runtime,
-          parseOpts(FailureMemoryListOpts, {
-            ...rawOpts,
-            failureType: rawOpts.failureType ?? rawOpts.type,
-          }),
+        runEnvelopeAction(() =>
+          handleFailureMemoryListCommandAsync(
+            runtime,
+            parseOpts(FailureMemoryListOpts, {
+              ...rawOpts,
+              failureType: rawOpts.failureType ?? rawOpts.type,
+            }),
+          ),
         ),
     );
 
@@ -360,7 +418,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--min-required <n>", "Minimum required")
     .option("--allow-live-fallback", "Allow live fallback")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleMarketMonitorRunCommandAsync(runtime, parseMarketMonitorRunOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleMarketMonitorRunCommandAsync(runtime, parseMarketMonitorRunOpts(rawOpts)),
+      ),
     );
 
   // ── market-data ──
@@ -374,14 +434,18 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--min-required <n>", "Minimum required")
     .option("--allow-live-fallback", "Allow live fallback")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleMarketDataFetchCommandAsync(runtime, parseMarketDataFetchOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleMarketDataFetchCommandAsync(runtime, parseMarketDataFetchOpts(rawOpts)),
+      ),
     );
   md
     .command("health")
     .description("Check data health")
     .option("--symbol <symbol>", "Stock symbol")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleMarketDataHealthCommandAsync(runtime, parseOpts(MarketDataHealthOpts, rawOpts)),
+      runEnvelopeAction(() =>
+        handleMarketDataHealthCommandAsync(runtime, parseOpts(MarketDataHealthOpts, rawOpts)),
+      ),
     );
   md
     .command("quality")
@@ -391,7 +455,9 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .option("--limit <n>", "Max results")
     .option("--min-required <n>", "Minimum required")
     .action(async (rawOpts: Record<string, unknown>) =>
-      handleMarketDataQualityCommandAsync(runtime, parseMarketDataQualityOpts(rawOpts)),
+      runEnvelopeAction(() =>
+        handleMarketDataQualityCommandAsync(runtime, parseMarketDataQualityOpts(rawOpts)),
+      ),
     );
 
   program.exitOverride((err) => {
@@ -416,8 +482,7 @@ export function buildProgram(runtime: Stage1Runtime): Command {
 /* ───────── 公共 API ───────── */
 
 /**
- * S1 hybrid: validate only the top-level verb so legacy handlers still own
- * subcommand/flag validation (required --confirm, --due, etc.).
+ * Validate top-level verb before commander parse (empty argv / unknown top-level).
  */
 export async function validateTopLevelCommand(args: string[]): Promise<void> {
   const commandArgs = stripJsonFlag(args);
