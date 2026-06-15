@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import {
   fetchDueDecisionOutcomes,
@@ -71,7 +71,7 @@ export function createOutcomeGraphNodes(overrides: Partial<OutcomeGraphNodeDeps>
   async function normalize_input(
     state: OutcomeGraphState,
   ): Promise<Partial<OutcomeGraphState>> {
-    const run_id = state.run_id || `run_${randomUUID().replace(/-/g, "")}`;
+    const run_id = state.run_id || prefixedId("run_");
     return {
       run_id,
       thread_id: state.thread_id || run_id,

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import {
   createEvaluationReport,
@@ -100,7 +100,7 @@ export function createEvaluationGraphNodes(overrides: Partial<EvaluationGraphNod
   async function normalize_input(
     state: EvaluationGraphState,
   ): Promise<Partial<EvaluationGraphState>> {
-    const run_id = state.run_id || `run_${randomUUID().replace(/-/g, "")}`;
+    const run_id = state.run_id || prefixedId("run_");
     return {
       run_id,
       thread_id: state.thread_id || run_id,

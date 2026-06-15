@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import {
   createWorkflowLlmProvider,
@@ -91,7 +91,7 @@ export function createInsightExplorationGraphNodes(
   async function normalize_input(
     state: InsightExplorationGraphState,
   ): Promise<Partial<InsightExplorationGraphState>> {
-    const run_id = state.run_id || `run_${randomUUID().replace(/-/g, "")}`;
+    const run_id = state.run_id || prefixedId("run_");
     const symbol = (state.symbol || "").toUpperCase();
     if (!symbol) {
       throw new Error("InsightExplorationGraph requires symbol");

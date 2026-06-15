@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../utils/id.js";
 
 import { fetchStage1, Stage1ApiError } from "../api/client.js";
 import {
@@ -34,7 +34,7 @@ export async function persistModelDecision(input: {
   model_name?: string;
   model_version?: string;
 }): Promise<PersistedModelDecision> {
-  const decision_id = input.decision_id ?? `dec_${randomUUID().replace(/-/g, "")}`;
+  const decision_id = input.decision_id ?? prefixedId("dec_");
   const body = {
     decision_id,
     run_id: input.run_id,

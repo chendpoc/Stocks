@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
@@ -67,7 +67,7 @@ export async function runEvaluationSummaryGraph(
   input: EvaluationGraphRunInput = {},
   deps?: EvaluationGraphDeps,
 ): Promise<EvaluationGraphRunResult> {
-  const run_id = input.run_id ?? `run_${randomUUID().replace(/-/g, "")}`;
+  const run_id = input.run_id ?? prefixedId("run_");
   const graph = deps ? buildEvaluationGraph({ deps }) : evaluationGraph;
   const finalState = await graph.invoke(
     {

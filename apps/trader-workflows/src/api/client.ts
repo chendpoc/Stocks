@@ -7,6 +7,8 @@
 import ky, { HTTPError } from "ky";
 import { config } from "../runtime/config.js";
 import { logger } from "../runtime/logger.js";
+import { filterUndefined } from "../utils/object.js";
+import { normalizePath } from "../utils/path.js";
 
 /* ───────── Intel API ───────── */
 
@@ -71,10 +73,6 @@ export class Stage1ApiError extends Error {
   }
 }
 
-function normalizePath(path: string): string {
-  return path.startsWith("/") ? path.slice(1) : path;
-}
-
 export async function fetchIntel<T = unknown>(
   path: string,
   options?: {
@@ -124,18 +122,4 @@ export async function fetchStage1<T = unknown>(
     }
     throw error;
   }
-}
-
-function filterUndefined(
-  params?: Record<string, string | number | boolean | undefined | null>,
-): Record<string, string | number | boolean> | undefined {
-  if (!params) return undefined;
-  const result: Record<string, string | number | boolean> = {};
-  let hasEntries = false;
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null) continue;
-    result[key] = value;
-    hasEntries = true;
-  }
-  return hasEntries ? result : undefined;
 }

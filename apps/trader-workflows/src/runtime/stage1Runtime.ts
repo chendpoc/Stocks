@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../utils/id.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 
@@ -581,7 +581,7 @@ export class Stage1Runtime {
   }
 
   startRun(options?: Stage1RuntimeStartOptions): Stage1RuntimeRunView {
-    const runId = `run_${randomUUID().replace(/-/g, "")}`;
+    const runId = prefixedId("run_");
     const graphName = options?.graph_name ?? "stage1-foundation";
     const created = this.store.createRun({
       run_id: runId,
@@ -664,7 +664,7 @@ export class Stage1Runtime {
 
     const input = options.input ?? ({} as TInput);
     const nodeName = options.node_name ?? "execute";
-    const runId = `run_${randomUUID().replace(/-/g, "")}`;
+    const runId = prefixedId("run_");
     const created = this.store.createRun({
       run_id: runId,
       graph_name: options.graph_name,
@@ -734,7 +734,7 @@ export class Stage1Runtime {
     input: Record<string, unknown>,
     options?: { interrupt_before_execute?: boolean },
   ): Promise<Stage1RuntimeGraphResult<DecisionGraphResult>> {
-    const runId = `run_${randomUUID().replace(/-/g, "")}`;
+    const runId = prefixedId("run_");
     const boundedInput = toBoundedDecisionInput(input);
     const created = this.store.createRun({
       run_id: runId,
@@ -801,7 +801,7 @@ export class Stage1Runtime {
     input: Record<string, unknown>,
     options?: { interrupt_before_execute?: boolean },
   ): Promise<Stage1RuntimeGraphResult<OutcomeGraphRunResult>> {
-    const runId = `run_${randomUUID().replace(/-/g, "")}`;
+    const runId = prefixedId("run_");
     const boundedInput = toBoundedOutcomeInput(input);
     const created = this.store.createRun({
       run_id: runId,
@@ -878,7 +878,7 @@ export class Stage1Runtime {
     input: Record<string, unknown>,
     options?: { interrupt_before_execute?: boolean },
   ): Promise<Stage1RuntimeGraphResult<EvaluationGraphRunResult>> {
-    const runId = `run_${randomUUID().replace(/-/g, "")}`;
+    const runId = prefixedId("run_");
     const boundedInput = toBoundedEvaluationInput(input);
     const created = this.store.createRun({
       run_id: runId,
@@ -957,7 +957,7 @@ export class Stage1Runtime {
     input: Record<string, unknown>,
     options?: { interrupt_before_execute?: boolean },
   ): Promise<Stage1RuntimeGraphResult<InsightExplorationGraphResult>> {
-    const runId = `run_${randomUUID().replace(/-/g, "")}`;
+    const runId = prefixedId("run_");
     const boundedInput = toBoundedInsightExplorationInput(input);
     const created = this.store.createRun({
       run_id: runId,

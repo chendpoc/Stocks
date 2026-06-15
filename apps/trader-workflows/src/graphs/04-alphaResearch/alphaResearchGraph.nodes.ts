@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import {
   alphaResearchClient,
@@ -64,7 +64,7 @@ export function createAlphaResearchGraphNodes(
   async function validate_input(
     state: AlphaResearchGraphState,
   ): Promise<Partial<AlphaResearchGraphState>> {
-    const run_id = state.run_id || `run_${randomUUID().replace(/-/g, "")}`;
+    const run_id = state.run_id || prefixedId("run_");
     const report = validateAlphaResearchInput(asAlphaResearchInput(state));
     if (!report.valid) {
       return {

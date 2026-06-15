@@ -1,6 +1,7 @@
 import ky, { HTTPError } from "ky";
 import { config } from "../runtime/config.js";
 import type { AlphaResearchFetch } from "../types/alpha.js";
+import { normalizePath } from "../utils/path.js";
 
 export function ruleCandidatesBaseUrl(): string {
   const explicit = config.traderRuleCandidatesApiBase.replace(/\/$/, "");
@@ -30,10 +31,6 @@ const ruleCandidatesApi = ky.create({
     ],
   },
 });
-
-function normalizePath(path: string): string {
-  return path.startsWith("/") ? path.slice(1) : path;
-}
 
 async function fetchRuleCandidatesLegacy<T>(
   fetchImpl: AlphaResearchFetch,

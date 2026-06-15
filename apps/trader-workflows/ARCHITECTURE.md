@@ -14,6 +14,7 @@ After T032–T034, `src/` is organized in layers:
 src/
   constants/          # cliFlags, graphNames, errorCodes (no logic)
   types/              # Pure TypeScript contracts
+  utils/              # Pure helpers (object, path, symbol, string, id)
   api/                # Pure HTTP (ky-based)
     client.ts         # fetchIntel, fetchStage1
     marketAgentClient.ts

@@ -9,18 +9,12 @@ import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
 import { toEnvelope, WorkflowCommandError } from "../helpers.js";
 import { parseOpts } from "../parseOpts.js";
+import { parseCsv } from "../../utils/string.js";
 
 const optionalPositiveInt = z.preprocess(
   (value) => (value === undefined || value === "" ? undefined : value),
   z.coerce.number().int().positive().optional(),
 );
-
-function parseCsv(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 export const MarketMonitorRunOpts = z.object({
   symbols: z

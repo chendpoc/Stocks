@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import {
   type DecisionEnvelope,
@@ -85,7 +85,7 @@ export function createDecisionGraphNodes(
   async function normalize_input(
     state: DecisionGraphState,
   ): Promise<Partial<DecisionGraphState>> {
-    const run_id = state.run_id || `run_${randomUUID().replace(/-/g, "")}`;
+    const run_id = state.run_id || prefixedId("run_");
     const asof_ts = state.asof_ts || new Date().toISOString();
     return {
       run_id,

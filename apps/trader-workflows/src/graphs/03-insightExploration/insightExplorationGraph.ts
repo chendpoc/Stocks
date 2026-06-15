@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
@@ -81,7 +81,7 @@ export async function runInsightExplorationGraph(
   input: InsightExplorationGraphInput,
   deps?: InsightExplorationGraphDeps,
 ): Promise<InsightExplorationGraphResult> {
-  const run_id = input.run_id ?? `run_${randomUUID().replace(/-/g, "")}`;
+  const run_id = input.run_id ?? prefixedId("run_");
   const graph = deps ? buildInsightExplorationGraph({ deps }) : insightExplorationGraph;
   const finalState = await graph.invoke(
     {

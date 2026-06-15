@@ -14,6 +14,7 @@ import {
   INSIGHT_CANDIDATE_OUTCOME_HORIZONS,
   type InsightCandidateOutcomeHorizon,
 } from "../../types/outcomes.js";
+import { normalizeSymbol } from "../../utils/symbol.js";
 
 const DEFAULT_BENCHMARK_BY_SYMBOL: Record<string, string> = {
   TSLA: "QQQ",
@@ -63,10 +64,6 @@ export function normalizeDecisionLabel(source_label: string): NormalizedOutcomeL
 
 export function normalizeInsightLabel(source_label: string): NormalizedOutcomeLabel {
   return normalizeOutcomeLabel({ source_label, source_type: "insight_candidate" });
-}
-
-function normalizeSymbol(symbol: string): string {
-  return symbol.toUpperCase().replace(/\.(US|HK|SH|SZ|SG)$/i, "");
 }
 
 export function resolveBenchmarkSymbol(symbol: string): string {
@@ -474,8 +471,8 @@ export async function buildOutcomeLabelPayload(input: {
             prices.reference_price,
             typeof decisionJson.target_plan === "string"
               ? parseThreshold(decisionJson.target_plan, "near") ??
-                parseThreshold(decisionJson.target_plan, "above") ??
-                parseThreshold(decisionJson.target_plan, "target")
+              parseThreshold(decisionJson.target_plan, "above") ??
+              parseThreshold(decisionJson.target_plan, "target")
               : null,
           ),
         stop_barrier_pct:

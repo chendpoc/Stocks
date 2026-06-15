@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import { MAX_COMPOSITE_WEIGHT } from "../context/weighting.js";
 import type {
@@ -177,7 +177,7 @@ export function buildInsightCandidatePayload(input: {
     symbol: input.symbol,
   });
   return {
-    insight_id: input.insight_id ?? `ins_${randomUUID().replace(/-/g, "")}`,
+    insight_id: input.insight_id ?? prefixedId("ins_"),
     run_id: input.run_id,
     symbols_json: [input.symbol.toUpperCase()],
     window_start: input.window.window_start,

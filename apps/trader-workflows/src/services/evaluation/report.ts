@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { prefixedId } from "../../utils/id.js";
 
 import type {
   DecisionOutcomeSummary,
@@ -236,7 +236,7 @@ export function buildEvaluationReportPayload(input: {
   });
 
   return {
-    report_id: input.report_id ?? `eval_${randomUUID().replace(/-/g, "")}`,
+    report_id: input.report_id ?? prefixedId("eval_"),
     model_version: input.model_version,
     window_start: input.window_start ?? inferredWindow.window_start,
     window_end: input.window_end ?? inferredWindow.window_end,
