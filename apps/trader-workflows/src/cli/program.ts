@@ -1,5 +1,5 @@
 /**
- * S2/S3/S4: commander 子命令树 + zod typed opts（S2/S3/S4 命令已接入 action）
+ * S2/S3/S4/S5: commander 子命令树 + zod typed opts（S2–S5 命令已接入 action）
  *
  * 生产路径仍经 router.handleCommandAsync；S6 切换 index main → parseAsync。
  */
@@ -24,16 +24,26 @@ import {
   parseContextSnapshotsShowOpts,
 } from "./commandHandlers/context.js";
 import {
+  handleDecideCommandAsync,
+  parseDecideOpts,
+} from "./commandHandlers/decide.js";
+import {
   DecisionsListOpts,
   handleDecisionsListCommandAsync,
 } from "./commandHandlers/decisions.js";
+import {
+  handleEvalSummaryCommandAsync,
+  parseEvalSummaryOpts,
+} from "./commandHandlers/eval.js";
 import {
   FailureMemoryListOpts,
   handleFailureMemoryListCommandAsync,
 } from "./commandHandlers/failureMemory.js";
 import {
+  handleInsightsExploreCommandAsync,
   handleInsightsListCommandAsync,
   InsightsListOpts,
+  parseInsightsExploreOpts,
 } from "./commandHandlers/insights.js";
 import {
   handleMarketDataFetchCommandAsync,
@@ -44,12 +54,18 @@ import {
   parseMarketDataQualityOpts,
 } from "./commandHandlers/marketData.js";
 import {
+  handleMarketMonitorRunCommandAsync,
+  parseMarketMonitorRunOpts,
+} from "./commandHandlers/marketMonitor.js";
+import {
   handleMemoryInitCommandAsync,
   MemoryInitOpts,
 } from "./commandHandlers/memory.js";
 import {
   handleOutcomesListCommandAsync,
+  handleOutcomesRunCommandAsync,
   parseOutcomesListOpts,
+  parseOutcomesRunOpts,
 } from "./commandHandlers/outcomes.js";
 import {
   handlePatternMemoryListCommandAsync,
@@ -101,8 +117,9 @@ export function stripJsonFlag(args: string[]): string[] {
 
 /**
  * 构建完整的 commander 程序树。
- * S2/S3/S4: runs / decisions / memory / failure-memory / outcomes list / insights list /
- * market-data * / pattern-memory list / context * actions 已接入 zod + handler。
+ * S2–S5: runs / decisions / memory / failure-memory / outcomes / insights explore /
+ * decide / eval summary / market-monitor run / market-data * / pattern-memory list /
+ * context * actions 已接入 zod + handler。
  */
 export function buildProgram(runtime: Stage1Runtime): Command {
   const program = new Command()
@@ -163,10 +180,18 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     );
 
   // ── decide ──
-  program.command("decide").description("Run Decision graph")
+  program
+    .command("decide")
+    .description("Run Decision graph")
     .argument("<symbol>", "Stock symbol (e.g. TSLA)")
     .option("--setup <name>", "Setup name", "default")
-    .option("--gate-json <json>", "Gate decision JSON");
+    .option("--gate-json <json>", "Gate decision JSON")
+    .action(async (symbol: string, rawOpts: { setup?: string; gateJson?: string }) =>
+      handleDecideCommandAsync(
+        runtime,
+        parseDecideOpts({ symbol, ...rawOpts }),
+      ),
+    );
 
   // ── decisions ──
   const decisions = program.command("decisions").description("Model decisions");
@@ -236,22 +261,41 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     .action(async (rawOpts: Record<string, unknown>) =>
       handleOutcomesListCommandAsync(runtime, parseOutcomesListOpts(rawOpts)),
     );
-  outcomes.command("run").description("Run due outcomes")
+  outcomes
+    .command("run")
+    .description("Run due outcomes")
     .requiredOption("--due", "Process due outcomes")
-    .option("--symbol <symbol>", "Filter by symbol");
+    .option("--symbol <symbol>", "Filter by symbol")
+    .option("--limit <n>", "Max results")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleOutcomesRunCommandAsync(
+        runtime,
+        parseOutcomesRunOpts({ ...rawOpts, due: true }),
+      ),
+    );
 
   // ── eval ──
-  program.command("eval").description("Evaluation")
-    .command("summary").description("Run evaluation summary")
+  const evalCmd = program.command("eval").description("Evaluation");
+  evalCmd
+    .command("summary")
+    .description("Run evaluation summary")
     .option("--symbol <symbol>", "Stock symbol")
     .option("--model-version <version>", "Model version", "stage1-v0")
-    .option("--limit <n>", "Max results", "500");
+    .option("--limit <n>", "Max results", "500")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleEvalSummaryCommandAsync(runtime, parseEvalSummaryOpts(rawOpts)),
+    );
 
   // ── insights ──
   const insights = program.command("insights").description("Insight candidates");
-  insights.command("explore").description("Run insight exploration")
+  insights
+    .command("explore")
+    .description("Run insight exploration")
     .requiredOption("--symbol <symbol>", "Stock symbol")
-    .requiredOption("--window <window>", "Exploration window");
+    .requiredOption("--window <window>", "Exploration window")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleInsightsExploreCommandAsync(runtime, parseInsightsExploreOpts(rawOpts)),
+    );
   insights
     .command("list")
     .description("List insight candidates")
@@ -306,13 +350,18 @@ export function buildProgram(runtime: Stage1Runtime): Command {
     );
 
   // ── market-monitor ──
-  program.command("market-monitor").description("Market monitor")
-    .command("run").description("Run market monitor")
+  const marketMonitor = program.command("market-monitor").description("Market monitor");
+  marketMonitor
+    .command("run")
+    .description("Run market monitor")
     .requiredOption("--symbols <csv>", "Comma-separated symbols")
     .requiredOption("--timeframes <csv>", "Comma-separated timeframes")
     .option("--limit <n>", "Max results")
     .option("--min-required <n>", "Minimum required")
-    .option("--allow-live-fallback", "Allow live fallback");
+    .option("--allow-live-fallback", "Allow live fallback")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleMarketMonitorRunCommandAsync(runtime, parseMarketMonitorRunOpts(rawOpts)),
+    );
 
   // ── market-data ──
   const md = program.command("market-data").description("Market data");

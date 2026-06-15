@@ -1,8 +1,8 @@
+import { z } from "zod";
+
 import { runDecisionGraphViaRuntime } from "../../orchestration/graphRunner.js";
-import { CLI_FLAG_GATE_JSON, CLI_FLAG_SETUP } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_GATE_JSON_INVALID,
-  ERROR_CODE_GATE_JSON_REQUIRED,
   ERROR_CODE_RUN_INTERRUPTED,
   ERROR_CODE_SYMBOL_REQUIRED,
 } from "../../constants/errorCodes.js";
@@ -12,52 +12,54 @@ import type { DecisionGraphInput } from "../../graphs/00-decision/decisionGraph.
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
+import { parseOpts } from "../parseOpts.js";
+
+export const DecideOpts = z.object({
+  symbol: z.string().min(1, ERROR_CODE_SYMBOL_REQUIRED),
+  setup: z.string().default("default"),
+  gateJson: z.string().optional(),
+});
+export type DecideOpts = z.infer<typeof DecideOpts>;
+
+function parseGateDecision(gateJson: string | undefined): GateDecision | undefined {
+  if (!gateJson) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(gateJson) as GateDecision;
+  } catch {
+    throw new WorkflowCommandError(
+      ERROR_CODE_GATE_JSON_INVALID,
+      "decide --gate-json must be valid JSON",
+    );
+  }
+}
+
+export function parseDecideOpts(raw: unknown): DecideOpts {
+  return parseOpts(DecideOpts, raw);
+}
 
 export async function handleDecideCommandAsync(
   runtime: Stage1Runtime,
-  args: string[],
+  opts: DecideOpts,
 ): Promise<WorkflowEnvelope> {
-  const symbol = args[1];
-  if (!symbol) {
-    throw new WorkflowCommandError(
-      ERROR_CODE_SYMBOL_REQUIRED,
-      "decide requires a symbol argument",
-    );
-  }
+  const input: DecisionGraphInput = {
+    symbol: opts.symbol.toUpperCase(),
+    setup_name: opts.setup,
+  };
 
-  const input: DecisionGraphInput = { symbol: symbol.toUpperCase() };
-
-  const setupFlagIndex = args.indexOf(CLI_FLAG_SETUP);
-  if (setupFlagIndex >= 0) {
-    const setupName = args[setupFlagIndex + 1];
-    if (setupName) {
-      input.setup_name = setupName;
-    }
-  }
-
-  const gateFlagIndex = args.indexOf(CLI_FLAG_GATE_JSON);
-  if (gateFlagIndex >= 0) {
-    const gateRaw = args[gateFlagIndex + 1];
-    if (!gateRaw) {
-      throw new WorkflowCommandError(
-        ERROR_CODE_GATE_JSON_REQUIRED,
-        "decide --gate-json requires a JSON payload",
-      );
-    }
-    try {
-      input.gate_decision = JSON.parse(gateRaw) as GateDecision;
-    } catch {
-      throw new WorkflowCommandError(
-        ERROR_CODE_GATE_JSON_INVALID,
-        "decide --gate-json must be valid JSON",
-      );
-    }
+  const gateDecision = parseGateDecision(opts.gateJson);
+  if (gateDecision) {
+    input.gate_decision = gateDecision;
   }
 
   const executed = await runDecisionGraphViaRuntime(runtime, input);
   const result = executed.output;
   if (!result) {
-    throw new WorkflowCommandError(ERROR_CODE_RUN_INTERRUPTED, `${GRAPH_NAME_DECISION} interrupted before completion`);
+    throw new WorkflowCommandError(
+      ERROR_CODE_RUN_INTERRUPTED,
+      `${GRAPH_NAME_DECISION} interrupted before completion`,
+    );
   }
   return toEnvelope({
     ok: true,

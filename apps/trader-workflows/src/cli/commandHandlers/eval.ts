@@ -1,38 +1,39 @@
+import { z } from "zod";
+
 import { runEvaluationGraphViaRuntime } from "../../orchestration/graphRunner.js";
-import { parseOptionalFlagValue, parsePositiveIntegerFlag } from "../flagParsing.js";
-import { CLI_FLAG_LIMIT, CLI_FLAG_MODEL_VERSION, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
-import {
-  ERROR_CODE_RUN_INTERRUPTED,
-  ERROR_CODE_SUMMARY_SUBCOMMAND_REQUIRED,
-} from "../../constants/errorCodes.js";
+import { ERROR_CODE_RUN_INTERRUPTED } from "../../constants/errorCodes.js";
 import { GRAPH_NAME_EVALUATION } from "../../constants/graphNames.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
+import { parseOpts } from "../parseOpts.js";
+
+export const EvalSummaryOpts = z.object({
+  symbol: z.string().optional(),
+  modelVersion: z.string().default("stage1-v0"),
+  limit: z.coerce.number().int().positive().default(500),
+});
+export type EvalSummaryOpts = z.infer<typeof EvalSummaryOpts>;
+
+export function parseEvalSummaryOpts(raw: unknown): EvalSummaryOpts {
+  return parseOpts(EvalSummaryOpts, raw);
+}
 
 export async function handleEvalSummaryCommandAsync(
   runtime: Stage1Runtime,
-  args: string[],
+  opts: EvalSummaryOpts,
 ): Promise<WorkflowEnvelope> {
-  if (args[1] !== "summary") {
-    throw new WorkflowCommandError(
-      ERROR_CODE_SUMMARY_SUBCOMMAND_REQUIRED,
-      "eval requires summary subcommand",
-    );
-  }
-
-  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL)?.toUpperCase() ?? undefined;
-  const model_version = parseOptionalFlagValue(args, CLI_FLAG_MODEL_VERSION) ?? "stage1-v0";
-  const limit = parsePositiveIntegerFlag(args, CLI_FLAG_LIMIT, 500);
-
   const executed = await runEvaluationGraphViaRuntime(runtime, {
-    symbol,
-    model_version,
-    limit,
+    symbol: opts.symbol?.toUpperCase(),
+    model_version: opts.modelVersion,
+    limit: opts.limit,
   });
   const result = executed.output;
   if (!result) {
-    throw new WorkflowCommandError(ERROR_CODE_RUN_INTERRUPTED, `${GRAPH_NAME_EVALUATION} interrupted before completion`);
+    throw new WorkflowCommandError(
+      ERROR_CODE_RUN_INTERRUPTED,
+      `${GRAPH_NAME_EVALUATION} interrupted before completion`,
+    );
   }
 
   return toEnvelope({

@@ -1,6 +1,8 @@
 import {
   CLI_FLAG_ALLOW_LIVE_FALLBACK,
+  CLI_FLAG_DUE,
   CLI_FLAG_FAILURE_TYPE,
+  CLI_FLAG_GATE_JSON,
   CLI_FLAG_GRAPH_NAME,
   CLI_FLAG_LIMIT,
   CLI_FLAG_MAX_CHARS,
@@ -13,9 +15,12 @@ import {
   CLI_FLAG_SETUP,
   CLI_FLAG_STATUS,
   CLI_FLAG_SYMBOL,
+  CLI_FLAG_SYMBOLS,
   CLI_FLAG_TIMEFRAME,
+  CLI_FLAG_TIMEFRAMES,
   CLI_FLAG_TYPE,
   CLI_FLAG_VERIFICATION_STATUS,
+  CLI_FLAG_WINDOW,
 } from "../constants/cliFlags.js";
 import {
   ERROR_CODE_RUN_ID_REQUIRED,
@@ -30,8 +35,14 @@ import {
   ERROR_CODE_UNKNOWN_OUTCOMES_COMMAND,
   ERROR_CODE_UNKNOWN_PATTERN_MEMORY_COMMAND,
   ERROR_CODE_UNKNOWN_RUNS_COMMAND,
+  ERROR_CODE_SUMMARY_SUBCOMMAND_REQUIRED,
+  ERROR_CODE_UNKNOWN_MARKET_MONITOR_COMMAND,
 } from "../constants/errorCodes.js";
 import type { WorkflowEnvelope } from "../types/cli.js";
+import {
+  handleDecideCommandAsync,
+  parseDecideOpts,
+} from "./commandHandlers/decide.js";
 import {
   DecisionsListOpts,
   handleDecisionsListCommandAsync,
@@ -51,8 +62,14 @@ import {
   parseContextSnapshotsShowOpts,
 } from "./commandHandlers/context.js";
 import {
+  handleEvalSummaryCommandAsync,
+  parseEvalSummaryOpts,
+} from "./commandHandlers/eval.js";
+import {
+  handleInsightsExploreCommandAsync,
   handleInsightsListCommandAsync,
   InsightsListOpts,
+  parseInsightsExploreOpts,
 } from "./commandHandlers/insights.js";
 import {
   handleMarketDataFetchCommandAsync,
@@ -63,12 +80,18 @@ import {
   parseMarketDataQualityOpts,
 } from "./commandHandlers/marketData.js";
 import {
+  handleMarketMonitorRunCommandAsync,
+  parseMarketMonitorRunOpts,
+} from "./commandHandlers/marketMonitor.js";
+import {
   handleMemoryInitCommandAsync,
   MemoryInitOpts,
 } from "./commandHandlers/memory.js";
 import {
   handleOutcomesListCommandAsync,
+  handleOutcomesRunCommandAsync,
   parseOutcomesListOpts,
+  parseOutcomesRunOpts,
 } from "./commandHandlers/outcomes.js";
 import {
   handlePatternMemoryListCommandAsync,
@@ -470,5 +493,122 @@ export async function dispatchS2CommandAsync(
   throw new WorkflowCommandError(
     "INTERNAL_ERROR",
     `dispatchS2CommandAsync called for non-S2 command: ${top}`,
+  );
+}
+
+const S5_TOP_LEVEL_COMMANDS = new Set(["decide"]);
+const S5_PARTIAL_COMMANDS: Record<string, Set<string>> = {
+  outcomes: new Set(["run"]),
+  eval: new Set(["summary"]),
+  insights: new Set(["explore"]),
+  "market-monitor": new Set(["run"]),
+};
+
+export function isS5MigratedCommand(args: string[]): boolean {
+  const top = args[0];
+  if (S5_TOP_LEVEL_COMMANDS.has(top)) {
+    return true;
+  }
+  const subs = S5_PARTIAL_COMMANDS[top];
+  return subs?.has(args[1] ?? "") ?? false;
+}
+
+export async function dispatchS5CommandAsync(
+  runtime: Stage1Runtime,
+  args: string[],
+): Promise<WorkflowEnvelope> {
+  const top = args[0];
+  const sub = args[1];
+
+  if (top === "decide") {
+    const symbol = args[1];
+    if (!symbol || isFlagValue(symbol)) {
+      throw new WorkflowCommandError(
+        ERROR_CODE_SYMBOL_REQUIRED,
+        "decide requires a symbol argument",
+      );
+    }
+    return handleDecideCommandAsync(
+      runtime,
+      parseDecideOpts({
+        symbol,
+        setup: flagValue(args, CLI_FLAG_SETUP, "SETUP_VALUE_REQUIRED"),
+        gateJson: flagValue(args, CLI_FLAG_GATE_JSON, "GATE_JSON_VALUE_REQUIRED"),
+      }),
+    );
+  }
+
+  if (top === "outcomes") {
+    if (sub === "run") {
+      return handleOutcomesRunCommandAsync(
+        runtime,
+        parseOutcomesRunOpts({
+          due: args.includes(CLI_FLAG_DUE) ? true : undefined,
+          symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_OUTCOMES_COMMAND,
+      `Unknown outcomes command: ${sub ?? "(missing)"} (use list|run)`,
+    );
+  }
+
+  if (top === "eval") {
+    if (sub === "summary") {
+      return handleEvalSummaryCommandAsync(
+        runtime,
+        parseEvalSummaryOpts({
+          symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          modelVersion: flagValue(args, CLI_FLAG_MODEL_VERSION, "MODEL_VERSION_VALUE_REQUIRED"),
+          limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_SUMMARY_SUBCOMMAND_REQUIRED,
+      "eval requires summary subcommand",
+    );
+  }
+
+  if (top === "insights") {
+    if (sub === "explore") {
+      return handleInsightsExploreCommandAsync(
+        runtime,
+        parseInsightsExploreOpts({
+          symbol: flagValue(args, CLI_FLAG_SYMBOL, "SYMBOL_VALUE_REQUIRED"),
+          window: flagValue(args, CLI_FLAG_WINDOW, "WINDOW_VALUE_REQUIRED"),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,
+      `Unknown insights command: ${sub ?? "(missing)"} (use explore|list)`,
+    );
+  }
+
+  if (top === "market-monitor") {
+    if (sub === "run") {
+      return handleMarketMonitorRunCommandAsync(
+        runtime,
+        parseMarketMonitorRunOpts({
+          symbols: flagValue(args, CLI_FLAG_SYMBOLS, "SYMBOLS_VALUE_REQUIRED"),
+          timeframes: flagValue(args, CLI_FLAG_TIMEFRAMES, "TIMEFRAMES_VALUE_REQUIRED"),
+          limit: flagValue(args, CLI_FLAG_LIMIT, "LIMIT_VALUE_REQUIRED"),
+          minRequired: flagValue(args, CLI_FLAG_MIN_REQUIRED, "MIN_REQUIRED_VALUE_REQUIRED"),
+          allowLiveFallback: args.includes(CLI_FLAG_ALLOW_LIVE_FALLBACK),
+        }),
+      );
+    }
+    throw new WorkflowCommandError(
+      ERROR_CODE_UNKNOWN_MARKET_MONITOR_COMMAND,
+      `Unknown market-monitor command: ${sub ?? "(missing)"} (use run)`,
+    );
+  }
+
+  throw new WorkflowCommandError(
+    "INTERNAL_ERROR",
+    `dispatchS5CommandAsync called for non-S5 command: ${top} ${sub ?? ""}`,
   );
 }

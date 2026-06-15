@@ -2,21 +2,15 @@ import { z } from "zod";
 
 import { listDecisionOutcomes } from "../../data/marketAgent.js";
 import { runOutcomeGraphViaRuntime } from "../../orchestration/graphRunner.js";
-import { CLI_FLAG_DUE, CLI_FLAG_LIMIT, CLI_FLAG_SYMBOL } from "../../constants/cliFlags.js";
 import {
   ERROR_CODE_DUE_FLAG_REQUIRED,
   ERROR_CODE_INVALID_OUTCOME_STATUS,
   ERROR_CODE_RUN_INTERRUPTED,
-  ERROR_CODE_UNKNOWN_OUTCOMES_COMMAND,
 } from "../../constants/errorCodes.js";
 import { GRAPH_NAME_OUTCOME } from "../../constants/graphNames.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
 import { OUTCOME_LIST_STATUSES } from "../../types/cli.js";
-import {
-  parseOptionalFlagValue,
-  parsePositiveLimitFlag,
-} from "../flagParsing.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
 import { parseOpts } from "../parseOpts.js";
 
@@ -71,24 +65,47 @@ export function parseOutcomesListOpts(raw: unknown): OutcomesListOpts {
   return parseOutcomesListOptsInternal(raw);
 }
 
+export const OutcomesRunOpts = z.object({
+  due: z.literal(true, {
+    errorMap: () => ({ message: "outcomes run requires --due" }),
+  }),
+  symbol: z.string().optional(),
+  limit: z.coerce.number().int().positive().default(100),
+});
+export type OutcomesRunOpts = z.infer<typeof OutcomesRunOpts>;
+
+function parseOutcomesRunOptsInternal(raw: unknown): OutcomesRunOpts {
+  try {
+    return parseOpts(OutcomesRunOpts, raw);
+  } catch (error) {
+    if (
+      error instanceof WorkflowCommandError &&
+      error.message.includes("outcomes run requires --due")
+    ) {
+      throw new WorkflowCommandError(ERROR_CODE_DUE_FLAG_REQUIRED, error.message);
+    }
+    throw error;
+  }
+}
+
+export function parseOutcomesRunOpts(raw: unknown): OutcomesRunOpts {
+  return parseOutcomesRunOptsInternal(raw);
+}
+
 export async function handleOutcomesRunCommandAsync(
   runtime: Stage1Runtime,
-  args: string[],
+  opts: OutcomesRunOpts,
 ): Promise<WorkflowEnvelope> {
-  if (args[1] !== "run" || !args.includes(CLI_FLAG_DUE)) {
-    throw new WorkflowCommandError(
-      ERROR_CODE_DUE_FLAG_REQUIRED,
-      "outcomes run requires --due",
-    );
-  }
-
-  const symbol = parseOptionalFlagValue(args, CLI_FLAG_SYMBOL)?.toUpperCase() ?? undefined;
-  const limit = parsePositiveLimitFlag(args, 100);
-
-  const executed = await runOutcomeGraphViaRuntime(runtime, { symbol, limit });
+  const executed = await runOutcomeGraphViaRuntime(runtime, {
+    symbol: opts.symbol?.toUpperCase(),
+    limit: opts.limit,
+  });
   const result = executed.output;
   if (!result) {
-    throw new WorkflowCommandError(ERROR_CODE_RUN_INTERRUPTED, `${GRAPH_NAME_OUTCOME} interrupted before completion`);
+    throw new WorkflowCommandError(
+      ERROR_CODE_RUN_INTERRUPTED,
+      `${GRAPH_NAME_OUTCOME} interrupted before completion`,
+    );
   }
   return toEnvelope({
     ok: true,
@@ -105,18 +122,4 @@ export async function handleOutcomesRunCommandAsync(
       outcomes: result.outcomes,
     },
   });
-}
-
-export async function handleOutcomesCommandAsync(
-  runtime: Stage1Runtime,
-  args: string[],
-): Promise<WorkflowEnvelope> {
-  const sub = args[1];
-  if (sub === "run") {
-    return handleOutcomesRunCommandAsync(runtime, args);
-  }
-  throw new WorkflowCommandError(
-    ERROR_CODE_UNKNOWN_OUTCOMES_COMMAND,
-    `Unknown outcomes command: ${sub ?? "(missing)"} (use list|run)`,
-  );
 }

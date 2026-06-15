@@ -2,18 +2,16 @@ import { z } from "zod";
 
 import { listInsightCandidates } from "../../data/marketAgent.js";
 import { runInsightExplorationGraphViaRuntime } from "../../orchestration/graphRunner.js";
-import { CLI_FLAG_SYMBOL, CLI_FLAG_VERIFICATION_STATUS, CLI_FLAG_WINDOW } from "../../constants/cliFlags.js";
 import {
-  ERROR_CODE_EXPLORE_SUBCOMMAND_REQUIRED,
   ERROR_CODE_RUN_INTERRUPTED,
   ERROR_CODE_SYMBOL_REQUIRED,
-  ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,
   ERROR_CODE_WINDOW_REQUIRED,
 } from "../../constants/errorCodes.js";
 import { GRAPH_NAME_INSIGHT_EXPLORATION } from "../../constants/graphNames.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
 import { normalizeStatus, toEnvelope, WorkflowCommandError } from "../helpers.js";
+import { parseOpts } from "../parseOpts.js";
 
 export const InsightsListOpts = z.object({
   symbol: z.string().optional(),
@@ -22,31 +20,53 @@ export const InsightsListOpts = z.object({
 });
 export type InsightsListOpts = z.infer<typeof InsightsListOpts>;
 
+export const InsightsExploreOpts = z.object({
+  symbol: z.string().min(1, ERROR_CODE_SYMBOL_REQUIRED),
+  window: z.string().min(1, ERROR_CODE_WINDOW_REQUIRED),
+});
+export type InsightsExploreOpts = z.infer<typeof InsightsExploreOpts>;
+
+function parseInsightsExploreOptsInternal(raw: unknown): InsightsExploreOpts {
+  try {
+    return parseOpts(InsightsExploreOpts, raw);
+  } catch (error) {
+    if (error instanceof WorkflowCommandError) {
+      if (
+        error.code === "SYMBOL_INVALID" ||
+        error.code === ERROR_CODE_SYMBOL_REQUIRED ||
+        error.message.includes("symbol")
+      ) {
+        throw new WorkflowCommandError(
+          ERROR_CODE_SYMBOL_REQUIRED,
+          "insights explore requires --symbol",
+        );
+      }
+      if (
+        error.code === "WINDOW_INVALID" ||
+        error.code === ERROR_CODE_WINDOW_REQUIRED ||
+        error.message.includes("window")
+      ) {
+        throw new WorkflowCommandError(
+          ERROR_CODE_WINDOW_REQUIRED,
+          "insights explore requires --window",
+        );
+      }
+    }
+    throw error;
+  }
+}
+
+export function parseInsightsExploreOpts(raw: unknown): InsightsExploreOpts {
+  return parseInsightsExploreOptsInternal(raw);
+}
+
 export async function handleInsightsExploreCommandAsync(
   runtime: Stage1Runtime,
-  args: string[],
+  opts: InsightsExploreOpts,
 ): Promise<WorkflowEnvelope> {
-  if (args[1] !== "explore") {
-    throw new WorkflowCommandError(
-      ERROR_CODE_EXPLORE_SUBCOMMAND_REQUIRED,
-      "insights requires explore subcommand",
-    );
-  }
-
-  const symbolFlagIndex = args.indexOf(CLI_FLAG_SYMBOL);
-  const windowFlagIndex = args.indexOf(CLI_FLAG_WINDOW);
-  const symbol = args[symbolFlagIndex + 1]?.toUpperCase();
-  const window = args[windowFlagIndex + 1];
-  if (!symbol) {
-    throw new WorkflowCommandError(ERROR_CODE_SYMBOL_REQUIRED, `insights explore requires ${CLI_FLAG_SYMBOL}`);
-  }
-  if (!window) {
-    throw new WorkflowCommandError(ERROR_CODE_WINDOW_REQUIRED, `insights explore requires ${CLI_FLAG_WINDOW}`);
-  }
-
   const executed = await runInsightExplorationGraphViaRuntime(runtime, {
-    symbol,
-    window,
+    symbol: opts.symbol.toUpperCase(),
+    window: opts.window,
   });
   const result = executed.output;
   if (!result) {
@@ -93,16 +113,3 @@ export async function handleInsightsListCommandAsync(
   });
 }
 
-export async function handleInsightsCommandAsync(
-  runtime: Stage1Runtime,
-  args: string[],
-): Promise<WorkflowEnvelope> {
-  const sub = args[1];
-  if (sub === "explore") {
-    return handleInsightsExploreCommandAsync(runtime, args);
-  }
-  throw new WorkflowCommandError(
-    ERROR_CODE_UNKNOWN_INSIGHTS_COMMAND,
-    `Unknown insights command: ${sub ?? "(missing)"} (use explore|list)`,
-  );
-}

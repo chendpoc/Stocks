@@ -4,20 +4,17 @@ import {
 } from "../constants/errorCodes.js";
 import type { Stage1Runtime } from "../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../types/cli.js";
-import { handleDecideCommandAsync } from "./commandHandlers/decide.js";
-import { handleEvalSummaryCommandAsync } from "./commandHandlers/eval.js";
-import { handleInsightsCommandAsync } from "./commandHandlers/insights.js";
-import { handleMarketMonitorRunCommandAsync } from "./commandHandlers/marketMonitor.js";
-import { handleOutcomesCommandAsync } from "./commandHandlers/outcomes.js";
 import { handlePatternMemoryCommandAsync } from "./commandHandlers/patternMemory.js";
 import { WorkflowCommandError } from "./helpers.js";
 import {
   dispatchS2CommandAsync,
   dispatchS3CommandAsync,
   dispatchS4CommandAsync,
+  dispatchS5CommandAsync,
   isS2MigratedTopLevelCommand,
   isS3MigratedCommand,
   isS4MigratedCommand,
+  isS5MigratedCommand,
 } from "./legacyArgs.js";
 import {
   isCommanderUnknownCommandError,
@@ -33,13 +30,8 @@ export type HandlerFn = (
 const SUPPORTED_COMMANDS =
   "memory, runs, decide, decisions, context, outcomes, eval, insights, pattern-memory, failure-memory, market-monitor, market-data";
 
-/** S4+ commands still on legacy string[] handlers. */
+/** S6 commands still on legacy string[] handlers. */
 const LEGACY_COMMAND_HANDLERS: Record<string, HandlerFn> = {
-  decide: handleDecideCommandAsync,
-  outcomes: handleOutcomesCommandAsync,
-  eval: handleEvalSummaryCommandAsync,
-  insights: handleInsightsCommandAsync,
-  "market-monitor": handleMarketMonitorRunCommandAsync,
   "pattern-memory": handlePatternMemoryCommandAsync,
 };
 
@@ -79,6 +71,10 @@ export async function handleCommandAsync(
 
   if (isS4MigratedCommand(commandArgs)) {
     return dispatchS4CommandAsync(runtime, commandArgs);
+  }
+
+  if (isS5MigratedCommand(commandArgs)) {
+    return dispatchS5CommandAsync(runtime, commandArgs);
   }
 
   const handler = LEGACY_COMMAND_HANDLERS[top];
