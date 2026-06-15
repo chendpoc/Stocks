@@ -1,9 +1,7 @@
 /**
- * S1: 完整 commander 子命令树骨架
+ * S2: commander 子命令树 + zod typed opts（S2 命令已接入 action）
  *
- * 状态: 混合模式 — commander 负责命令校验 + --help 文档，
- * handler dispatch 仍由 router.ts 手动执行（保持 string[] args 兼容）。
- * S2-S5 逐步迁移 handler 签名为 (runtime, opts)，S6 统一接入 commander action。
+ * 生产路径仍经 router.handleCommandAsync；S6 切换 index main → parseAsync。
  */
 
 import { Command, CommanderError } from "commander";
@@ -13,7 +11,34 @@ import {
   ERROR_CODE_COMMAND_REQUIRED,
   ERROR_CODE_UNKNOWN_COMMAND,
 } from "../constants/errorCodes.js";
+import type { Stage1Runtime } from "../runtime/stage1Runtime.js";
+import type { WorkflowEnvelope } from "../types/cli.js";
+import {
+  DecisionsListOpts,
+  handleDecisionsListCommandAsync,
+} from "./commandHandlers/decisions.js";
+import {
+  FailureMemoryListOpts,
+  handleFailureMemoryListCommandAsync,
+} from "./commandHandlers/failureMemory.js";
+import {
+  handleMemoryInitCommandAsync,
+  MemoryInitOpts,
+} from "./commandHandlers/memory.js";
+import {
+  handleRunsListCommandAsync,
+  handleRunsMonitorCommandAsync,
+  handleRunsResumeCommandAsync,
+  handleRunsShowCommandAsync,
+  handleRunsTraceCommandAsync,
+  parseRunsMonitorOpts,
+  RunsListOpts,
+  RunsResumeOpts,
+  RunsShowOpts,
+  RunsTraceOpts,
+} from "./commandHandlers/runs.js";
 import { WorkflowCommandError } from "./helpers.js";
+import { parseOpts } from "./parseOpts.js";
 
 /* ───────── 常量 ───────── */
 
@@ -42,20 +67,13 @@ export function stripJsonFlag(args: string[]): string[] {
   return args.filter((item) => item !== CLI_FLAG_JSON);
 }
 
-/* ───────── 命令注册辅助 ───────── */
-
-function opt(name: string, desc: string, defaultValue?: string) {
-  return defaultValue ? `${name} <value>` : name;
-}
-
 /* ───────── 构建完整程序树 ───────── */
 
 /**
  * 构建完整的 commander 程序树。
- * 注册所有 12 个顶层命令和 30+ 个子命令，生成 `--help` 文档。
- * S1 混合模式: action 为空（S2+ 逐步填入 handler 调用）。
+ * S2: runs / decisions / memory / failure-memory actions 已接入 zod + handler。
  */
-export function buildProgram(): Command {
+export function buildProgram(runtime: Stage1Runtime): Command {
   const program = new Command()
     .name("trader-workflows")
     .description("Trader workflow runtime CLI")
@@ -65,22 +83,53 @@ export function buildProgram(): Command {
   program.option(CLI_FLAG_JSON, "Output JSON envelope");
 
   // ── memory ──
-  program
-    .command("memory")
-    .description("Memory management")
+  const memory = program.command("memory").description("Memory management");
+  memory
     .command("init")
-    .description("Initialize market agent memory");
+    .description("Initialize market agent memory")
+    .action(async () =>
+      handleMemoryInitCommandAsync(runtime, parseOpts(MemoryInitOpts, {})),
+    );
 
   // ── runs ──
   const runs = program.command("runs").description("Workflow run management");
-  runs.command("list").description("List recent runs").option("--limit <n>", "Max results", "50");
-  runs.command("show").description("Show a run").argument("<run-id>", "Run ID");
-  runs.command("resume").description("Resume a run").argument("<run-id>", "Run ID");
-  runs.command("monitor").description("Monitor active runs")
+  runs
+    .command("list")
+    .description("List recent runs")
+    .option("--limit <n>", "Max results", "50")
+    .action(async (rawOpts: { limit?: string }) =>
+      handleRunsListCommandAsync(runtime, parseOpts(RunsListOpts, rawOpts)),
+    );
+  runs
+    .command("show")
+    .description("Show a run")
+    .argument("<run-id>", "Run ID")
+    .action(async (runId: string) =>
+      handleRunsShowCommandAsync(runtime, parseOpts(RunsShowOpts, { runId })),
+    );
+  runs
+    .command("resume")
+    .description("Resume a run")
+    .argument("<run-id>", "Run ID")
+    .action(async (runId: string) =>
+      handleRunsResumeCommandAsync(runtime, parseOpts(RunsResumeOpts, { runId })),
+    );
+  runs
+    .command("monitor")
+    .description("Monitor active runs")
     .option("--limit <n>", "Max results")
     .option("--status <status>", "Filter by status")
-    .option("--graph-name <name>", "Filter by graph");
-  runs.command("trace").description("Trace run events").argument("<run-id>", "Run ID");
+    .option("--graph-name <name>", "Filter by graph")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleRunsMonitorCommandAsync(runtime, parseRunsMonitorOpts(rawOpts)),
+    );
+  runs
+    .command("trace")
+    .description("Trace run events")
+    .argument("<run-id>", "Run ID")
+    .action(async (runId: string) =>
+      handleRunsTraceCommandAsync(runtime, parseOpts(RunsTraceOpts, { runId })),
+    );
 
   // ── decide ──
   program.command("decide").description("Run Decision graph")
@@ -89,11 +138,16 @@ export function buildProgram(): Command {
     .option("--gate-json <json>", "Gate decision JSON");
 
   // ── decisions ──
-  program.command("decisions").description("Model decisions")
-    .command("list").description("List model decisions")
+  const decisions = program.command("decisions").description("Model decisions");
+  decisions
+    .command("list")
+    .description("List model decisions")
     .option("--symbol <symbol>", "Filter by symbol")
     .option("--model-version <version>", "Model version")
-    .option("--limit <n>", "Max results", "500");
+    .option("--limit <n>", "Max results", "500")
+    .action(async (rawOpts: Record<string, unknown>) =>
+      handleDecisionsListCommandAsync(runtime, parseOpts(DecisionsListOpts, rawOpts)),
+    );
 
   // ── context ──
   const context = program.command("context").description("Context management");
@@ -157,14 +211,26 @@ export function buildProgram(): Command {
     .option("--reason <reason>", "Reason");
 
   // ── failure-memory ──
-  program.command("failure-memory").description("Failure memory")
-    .command("list").description("List failure memories")
+  const failureMemory = program.command("failure-memory").description("Failure memory");
+  failureMemory
+    .command("list")
+    .description("List failure memories")
     .option("--symbol <symbol>", "Filter by symbol")
     .option("--type <type>", "Failure type")
     .option("--failure-type <type>", "Alias for --type")
     .option("--setup <setup>", "Filter by setup")
     .option("--status <status>", "Filter by status")
-    .option("--limit <n>", "Max results");
+    .option("--limit <n>", "Max results")
+    .action(
+      async (rawOpts: Record<string, unknown> & { type?: string; failureType?: string }) =>
+        handleFailureMemoryListCommandAsync(
+          runtime,
+          parseOpts(FailureMemoryListOpts, {
+            ...rawOpts,
+            failureType: rawOpts.failureType ?? rawOpts.type,
+          }),
+        ),
+    );
 
   // ── market-monitor ──
   program.command("market-monitor").description("Market monitor")
@@ -191,7 +257,6 @@ export function buildProgram(): Command {
     .option("--limit <n>", "Max results")
     .option("--min-required <n>", "Minimum required");
 
-  // 错误映射
   program.exitOverride((err) => {
     if (err instanceof CommanderError) {
       if (err.code === "commander.unknownCommand") {
@@ -201,7 +266,7 @@ export function buildProgram(): Command {
         );
       }
       if (err.code === "commander.helpDisplayed" || err.code === "commander.help") {
-        return; // --help: 让 commander 自己输出后静默退出
+        return;
       }
       throw new WorkflowCommandError(err.code, err.message);
     }
@@ -216,7 +281,6 @@ export function buildProgram(): Command {
 /**
  * S1 hybrid: validate only the top-level verb so legacy handlers still own
  * subcommand/flag validation (required --confirm, --due, etc.).
- * Full commander parse happens in S6 when actions wire handlers.
  */
 export async function validateTopLevelCommand(args: string[]): Promise<void> {
   const commandArgs = stripJsonFlag(args);

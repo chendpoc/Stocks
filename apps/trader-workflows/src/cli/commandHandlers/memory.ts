@@ -1,26 +1,21 @@
+import { z } from "zod";
+
 import { initMarketAgentMemory } from "../../data/marketAgent.js";
-import {
-  ERROR_CODE_UNKNOWN_MEMORY_COMMAND,
-} from "../../constants/errorCodes.js";
 import type { Stage1Runtime } from "../../runtime/stage1Runtime.js";
 import type { WorkflowEnvelope } from "../../types/cli.js";
-import { toEnvelope, WorkflowCommandError } from "../helpers.js";
+import { toEnvelope } from "../helpers.js";
 
-export async function handleMemoryCommandAsync(
+export const MemoryInitOpts = z.object({});
+export type MemoryInitOpts = z.infer<typeof MemoryInitOpts>;
+
+export async function handleMemoryInitCommandAsync(
   _runtime: Stage1Runtime,
-  args: string[],
+  _opts: MemoryInitOpts,
 ): Promise<WorkflowEnvelope> {
-  const sub = args[1];
-  if (sub === "init") {
-    const response = await initMarketAgentMemory();
-    return toEnvelope({
-      ok: true,
-      command: "memory init",
-      data: response,
-    });
-  }
-  throw new WorkflowCommandError(
-    ERROR_CODE_UNKNOWN_MEMORY_COMMAND,
-    `Unknown memory command: ${sub ?? "(missing)"} (use init)`,
-  );
+  const response = await initMarketAgentMemory();
+  return toEnvelope({
+    ok: true,
+    command: "memory init",
+    data: response,
+  });
 }

@@ -6,6 +6,10 @@ import test from "node:test";
 
 import { captureFetchCall, resolveFetchUrl } from "./test/fetchTestUtils.js";
 import { handleCommandAsync } from "./index.js";
+import {
+  handleRunsMonitorCommandAsync,
+  handleRunsTraceCommandAsync,
+} from "./cli/commandHandlers/runs.js";
 import { Stage1CheckpointStore } from "./runtime/checkpointStore.js";
 import { Stage1Runtime } from "./runtime/stage1Runtime.js";
 import {
@@ -129,21 +133,14 @@ test("runs monitor/trace commands return bounded observability envelopes", async
       }),
     });
 
-    const monitor = await handleCommandAsync(runtime, [
-      "runs",
-      "monitor",
-      "--status",
-      "interrupted",
-      "--graph-name",
-      "OutcomeGraph",
-      "--limit",
-      "999",
-    ]);
-    const trace = await handleCommandAsync(runtime, [
-      "runs",
-      "trace",
-      executed.run.run_id,
-    ]);
+    const monitor = await handleRunsMonitorCommandAsync(runtime, {
+      status: "interrupted",
+      graphName: "OutcomeGraph",
+      limit: 999,
+    });
+    const trace = await handleRunsTraceCommandAsync(runtime, {
+      runId: executed.run.run_id,
+    });
 
     assert.equal(monitor.ok, true);
     assert.equal(monitor.command, "runs monitor");
