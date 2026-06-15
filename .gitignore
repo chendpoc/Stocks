@@ -26,6 +26,7 @@ utils/.local_secrets.py
 /target/
 .venv/
 data/
+!apps/trader-workflows/src/data/
 logs/
 crypto_monitor.db
 /outputs/manual-*/

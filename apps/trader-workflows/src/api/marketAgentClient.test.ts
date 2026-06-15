@@ -17,7 +17,7 @@ import {
   fetchMarketData,
   getMarketDataHealth,
   getMarketDataQuality,
-} from "./marketAgent.js";
+} from "./marketAgentClient.js";
 
 interface FetchCall {
   url: string;

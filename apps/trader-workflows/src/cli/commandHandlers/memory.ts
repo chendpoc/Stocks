@@ -1,4 +1,4 @@
-import { initMarketAgentMemory } from "../../services/marketAgent.js";
+import { initMarketAgentMemory } from "../../data/marketAgent.js";
 import {
   ERROR_CODE_UNKNOWN_MEMORY_COMMAND,
 } from "../../constants/errorCodes.js";

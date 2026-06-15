@@ -1,4 +1,4 @@
-import { fetchIntel, fetchStage1 } from "../api/client.js";
+import { fetchIntel, fetchStage1 } from "./client.js";
 import { MARKET_AGENT_PREFIX } from "../constants/apiPaths.js";
 import type {
   ContextBootstrapInput,

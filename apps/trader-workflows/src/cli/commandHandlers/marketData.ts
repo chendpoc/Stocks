@@ -2,7 +2,7 @@ import {
   fetchMarketData,
   getMarketDataHealth,
   getMarketDataQuality,
-} from "../../services/marketAgent.js";
+} from "../../data/marketAgent.js";
 import {
   CLI_FLAG_ALLOW_LIVE_FALLBACK,
   CLI_FLAG_LIMIT,
