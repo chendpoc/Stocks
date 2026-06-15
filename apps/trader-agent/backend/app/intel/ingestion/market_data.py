@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import time
 from datetime import UTC, datetime, timedelta
@@ -53,7 +54,14 @@ def _estimate_vwap(row) -> float:
     return round((row.get("High", 0) + row.get("Low", 0) + row.get("Close", 0)) / 3, 2)
 
 
-def _row_to_bar(symbol: str, timeframe: str, ts, row, df: pd.DataFrame) -> Bar:
+def _is_valid_price(value: float | None) -> bool:
+    return value is not None and not (isinstance(value, float) and math.isnan(value))
+
+
+def _row_to_bar(symbol: str, timeframe: str, ts, row, df: pd.DataFrame) -> Bar | None:
+    ohlc = (row.get("Open"), row.get("High"), row.get("Low"), row.get("Close"))
+    if not all(pd.notna(value) for value in ohlc):
+        return None
     vwap = row.get("VWAP") if "VWAP" in df.columns and pd.notna(row.get("VWAP")) else None
     if vwap is None:
         vwap = _estimate_vwap(row)
@@ -79,7 +87,11 @@ def _fetch_daily_yfinance(symbol: str, lookback_days: int) -> list[Bar]:
         if df.empty:
             logger.warning("No daily data for %s (yfinance)", symbol)
             return []
-        return [_row_to_bar(symbol, "1d", ts, row, df) for ts, row in df.iterrows()]
+        return [
+            bar
+            for ts, row in df.iterrows()
+            if (bar := _row_to_bar(symbol, "1d", ts, row, df)) is not None
+        ]
     except Exception as exc:
         logger.warning("Failed daily bars for %s (yfinance): %s", symbol, exc)
         return []
@@ -92,7 +104,11 @@ def _fetch_minute_yfinance(symbol: str, interval: str, lookback_days: int) -> li
         if df.empty:
             logger.warning("No minute data for %s (yfinance)", symbol)
             return []
-        return [_row_to_bar(symbol, interval, ts, row, df) for ts, row in df.iterrows()]
+        return [
+            bar
+            for ts, row in df.iterrows()
+            if (bar := _row_to_bar(symbol, interval, ts, row, df)) is not None
+        ]
     except Exception as exc:
         logger.warning("Failed minute bars for %s (yfinance): %s", symbol, exc)
         return []
@@ -204,6 +220,8 @@ def _insert_bars(engine, bars: list[Bar], *, ingested_at: str | None = None) -> 
     inserted = 0
     with engine.begin() as conn:
         for bar in bars:
+            if not all(_is_valid_price(value) for value in (bar.open, bar.high, bar.low, bar.close)):
+                continue
             result = conn.execute(
                 text(
                     """
@@ -397,7 +415,9 @@ def get_bars_from_db(
 
 
 def get_latest_close(engine, symbol: str) -> float | None:
-    bars = get_bars_from_db(engine, symbol, timeframe="1d", limit=1)
-    if not bars:
-        return None
-    return float(bars[-1]["close"])
+    bars = get_bars_from_db(engine, symbol, timeframe="1d", limit=20)
+    for bar in reversed(bars):
+        close = bar.get("close")
+        if close is not None:
+            return float(close)
+    return None

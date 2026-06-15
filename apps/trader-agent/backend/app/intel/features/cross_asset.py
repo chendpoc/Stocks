@@ -7,9 +7,9 @@ def calc_cross_asset_correlation(engine, symbols: list[str], days: int = 5) -> d
     returns_by_symbol: dict[str, list[float]] = {}
     for sym in symbols:
         bars = get_bars_from_db(engine, sym, "1d", limit=days + 1)
-        if len(bars) < 2:
+        closes = [float(b["close"]) for b in bars if b.get("close") is not None]
+        if len(closes) < 2:
             continue
-        closes = [float(b["close"]) for b in bars]
         returns = [
             (closes[i] - closes[i - 1]) / closes[i - 1] if closes[i - 1] else 0.0
             for i in range(1, len(closes))
