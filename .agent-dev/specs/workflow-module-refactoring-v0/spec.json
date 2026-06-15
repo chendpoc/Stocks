@@ -1,0 +1,35 @@
+{
+  "spec_id": "workflow-module-refactoring-v0",
+  "status": "active",
+  "title": "Workflow Module Refactoring — layered constants/types/api/cli/services",
+  "summary": "Reorganize apps/trader-workflows into constants, types, api, cli, and split services per workflow-module-refactoring-plan.md. Zero external behavior change.",
+  "sources": [
+    "project-docs/refactor/workflow-module-refactoring-plan.md",
+    "apps/trader-workflows/ARCHITECTURE.md"
+  ],
+  "critical_files": [
+    "apps/trader-workflows/src/index.ts",
+    "apps/trader-workflows/src/services/marketAgent.ts",
+    "apps/trader-workflows/src/services/outcomes.ts",
+    "apps/trader-workflows/src/services/evaluation.ts",
+    "apps/trader-workflows/src/services/contextSnapshots.ts",
+    "apps/trader-workflows/src/services/insightCandidates.ts"
+  ],
+  "forbidden": [
+    "apps/trader-workflows/src/graphs/**",
+    "apps/trader-workflows/src/llm/**",
+    "apps/trader-workflows/src/runtime/**",
+    "apps/trader-cli/**",
+    "apps/trader-agent/**"
+  ],
+  "decisions": [
+    "Pure extraction in P0; no logic changes in graphs/llm/runtime",
+    "Service splits retain barrel re-exports at original paths",
+    "CLI command interface unchanged",
+    "Phase commits: P0-P4 (5 commits total)"
+  ],
+  "verification": [
+    "cd apps/trader-workflows && npm test",
+    "cd apps/trader-workflows && npx tsc --noEmit"
+  ]
+}

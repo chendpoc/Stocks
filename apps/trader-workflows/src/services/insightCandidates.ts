@@ -2,46 +2,67 @@ import { randomUUID } from "node:crypto";
 
 import { fetchStage1 } from "../api/client.js";
 import {
-  CANDIDATE_FAMILIES,
   isCandidateFamily,
   type CandidateFamily,
 } from "./candidateFamilies.js";
 import {
   listContextSnapshots,
   MAX_COMPOSITE_WEIGHT,
-  type ContextSnapshotRecord,
-  type EvidenceRef,
-  type WeightedContextItem,
 } from "./contextSnapshots.js";
+import type { ContextSnapshotRecord, EvidenceRef, WeightedContextItem } from "../types/context.js";
 import {
   fetchDecisionOutcomesForEvaluation,
-  type EvaluationOutcomeRow,
-  type EvaluationReportPayload,
-  type EvaluationReportSections,
 } from "./evaluation.js";
+import type {
+  EvaluationOutcomeRow,
+  EvaluationReportPayload,
+  EvaluationReportSections,
+} from "../types/evaluation.js";
+import type {
+  AlphaSeedV1,
+  InsightCandidateHorizon,
+  InsightCandidateOriginCategory,
+  InsightCandidatePayload,
+  InsightCandidateRecord,
+  InsightProposal,
+  InsightReActDecider,
+  InsightReActDeciderInput,
+  InsightReActStepRecord,
+  InsightReActToolName,
+  ParsedExplorationWindow,
+} from "../types/insight.js";
+import {
+  ALPHA_SEED_SCHEMA_VERSION,
+  DEFAULT_INSIGHT_HORIZON,
+  INSIGHT_CANDIDATE_HORIZONS,
+} from "../types/insight.js";
+
+export type {
+  EvaluationOutcomeRow,
+  EvaluationReportPayload,
+  EvaluationReportSections,
+} from "../types/evaluation.js";
+export type {
+  InsightCandidateHorizon,
+  InsightCandidateOriginCategory,
+  AlphaSeedV1,
+  InsightReActToolName,
+  ParsedExplorationWindow,
+  InsightCandidatePayload,
+  InsightCandidateRecord,
+  InsightProposal,
+  InsightReActStepRecord,
+  InsightReActDeciderInput,
+  InsightReActDecider,
+} from "../types/insight.js";
+export {
+  ALPHA_SEED_SCHEMA_VERSION,
+  DEFAULT_INSIGHT_HORIZON,
+  INSIGHT_CANDIDATE_HORIZONS,
+} from "../types/insight.js";
 
 export const DEFAULT_INSIGHT_WEIGHT_CAP = 0.5;
 export const INSIGHT_VERIFICATION_STATUS = "pending" as const;
-
-export const INSIGHT_CANDIDATE_HORIZONS = ["1m", "2m", "5m", "30m", "1h", "2h", "4h"] as const;
-export type InsightCandidateHorizon = (typeof INSIGHT_CANDIDATE_HORIZONS)[number];
-export const DEFAULT_INSIGHT_HORIZON: InsightCandidateHorizon = "2m";
-
-export type InsightCandidateOriginCategory = "failure_mode" | "positive_pattern" | "data_gap" | "mixed";
-
-export const ALPHA_SEED_SCHEMA_VERSION = "alpha_seed.v1" as const;
-
-export interface AlphaSeedV1 {
-  schema_version: typeof ALPHA_SEED_SCHEMA_VERSION;
-  candidate_family: CandidateFamily;
-  mechanism: string;
-  trigger_hint: string;
-  entry_condition_hint: string;
-  invalidation_hint: string;
-  required_evidence_hint: string[];
-  risk_notes?: string[];
-  exit_condition_hint?: string;
-}
 
 export function mapOriginCategoryToCandidateFamily(
   origin_category: InsightCandidateOriginCategory,
@@ -111,50 +132,6 @@ export function isAlphaSeedV1(value: unknown): value is AlphaSeedV1 {
     typeof seed.invalidation_hint === "string" &&
     Array.isArray(seed.required_evidence_hint)
   );
-}
-
-export type InsightReActToolName =
-  | "query_context_items"
-  | "query_outcomes"
-  | "propose_insight";
-
-export interface ParsedExplorationWindow {
-  window: string;
-  window_start: string;
-  window_end: string;
-}
-
-export interface InsightCandidatePayload {
-  insight_id: string;
-  run_id: string | null;
-  symbols_json: string[];
-  window_start: string;
-  window_end: string;
-  thesis: string;
-  evidence_refs_json: EvidenceRef[];
-  verification_status: typeof INSIGHT_VERIFICATION_STATUS;
-  weight_cap: number;
-  candidate_json: Record<string, unknown>;
-}
-
-export interface InsightCandidateRecord extends InsightCandidatePayload {
-  created_at?: string;
-}
-
-export interface InsightProposal {
-  thesis: string;
-  evidence_refs: EvidenceRef[];
-  weight_cap: number;
-  origin_category?: InsightCandidateOriginCategory;
-  horizon?: string;
-  candidate_json: Record<string, unknown>;
-}
-
-export interface InsightReActStepRecord {
-  step: number;
-  tool: InsightReActToolName;
-  input: Record<string, unknown>;
-  observation: unknown;
 }
 
 export function parseExplorationWindow(
@@ -412,19 +389,6 @@ export function executeInsightReActTool(input: {
       throw new Error(`Tool ${input.tool} is handled by the exploration agent, not executeInsightReActTool`);
   }
 }
-
-export interface InsightReActDeciderInput {
-  symbol: string;
-  steps: InsightReActStepRecord[];
-  contextItems: WeightedContextItem[];
-  outcomes: EvaluationOutcomeRow[];
-  exploration_prompt?: string;
-  evaluation_report?: EvaluationReportPayload | null;
-}
-
-export type InsightReActDecider = (
-  input: InsightReActDeciderInput,
-) => Promise<InsightReActToolName | "complete">;
 
 export const defaultInsightReActDecider: InsightReActDecider = async ({ steps }) => {
   const toolsUsed = steps.map((step) => step.tool);
