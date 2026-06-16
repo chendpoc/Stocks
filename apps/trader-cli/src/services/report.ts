@@ -3,13 +3,15 @@ import { fetchIntel } from "../api/client.js";
 import { getModel } from "../llm/provider.js";
 import { resolveAgentTools } from "../llm/buildAgentTools.js";
 import type { ReportResult } from "./types.js";
+import { todayDateString } from "../utils/date.js";
+import { normalizeSymbol } from "../utils/symbol.js";
 
 const REPORT_SYSTEM =
   "你是市场情报分析师。根据 context JSON 生成简洁的中文日报：核心观点、风险、可验证预测。避免绝对化用语。";
 
 export async function runReport(symbol: string): Promise<ReportResult> {
-  const sym = symbol.toUpperCase();
-  const today = new Date().toISOString().slice(0, 10);
+  const sym = normalizeSymbol(symbol);
+  const today = todayDateString();
 
   const check = await fetchIntel("/report/check", {
     method: "POST",

@@ -39,7 +39,7 @@ test("mergeWakeConfigPatch updates an existing session override", () => {
 });
 
 test("dynamic wake tasks can be added and removed in memory", () => {
-  const now = new Date(Date.UTC(2026, 5, 10, 10, 0, 0));
+  const now = new Date();
   const activeTask = addDynamicTask({
     at: new Date(now.getTime() + 60 * 60 * 1000),
     reason: "review macro release",
@@ -59,7 +59,7 @@ test("dynamic wake tasks can be added and removed in memory", () => {
 });
 
 test("getActiveDynamicTasks filters expired tasks", () => {
-  const now = new Date(Date.UTC(2026, 5, 10, 10, 0, 0));
+  const now = new Date();
   const expired = addDynamicTask({
     at: new Date(now.getTime() - 90 * 60 * 1000),
     reason: "expired",

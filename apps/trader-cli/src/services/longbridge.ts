@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { getEnvValue } from "./envFile.js";
+import { config } from "../config.js";
+import { normalizeSymbol } from "../utils/symbol.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -17,7 +19,7 @@ export type LongbridgeProbe = {
 
 /** TSLA → TSLA.US；已含市场后缀则原样返回 */
 export function toLongbridgeSymbol(ticker: string): string {
-  const t = ticker.trim().toUpperCase();
+  const t = normalizeSymbol(ticker);
   if (!t) return t;
   if (t.includes(".")) return t;
   return `${t}.US`;
@@ -65,7 +67,11 @@ export function resolveLongbridgeCliPaths(pathHits: string[] = []): string[] {
     out.push(p);
   };
 
-  const override = getEnvValue("TRADER_LONGBRIDGE_CLI") ?? process.env.LONGBRIDGE_CLI;
+  const override =
+    (getEnvValue("TRADER_LONGBRIDGE_CLI") ??
+      process.env.LONGBRIDGE_CLI ??
+      config.traderLongbridgeCli) ||
+    config.longbridgeCliPath;
   add(override);
 
   if (process.platform === "win32") {
