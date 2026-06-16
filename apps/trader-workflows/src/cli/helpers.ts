@@ -18,6 +18,7 @@ import {
   ERROR_CODE_UNKNOWN_ERROR,
 } from "../constants/errorCodes.js";
 import type { WorkflowEnvelope, WorkflowError } from "../types/cli.js";
+import { machine } from "../log/machine.js";
 
 export class WorkflowCommandError extends Error {
   readonly code: string;
@@ -79,7 +80,7 @@ export const WORKFLOW_RESUME_HANDLERS: Stage1RuntimeResumeHandlers = {
 };
 
 export function printEnvelope(envelope: WorkflowEnvelope): void {
-  console.log(JSON.stringify(envelope));
+  machine.envelope(envelope);
 }
 
 export function toErrorEnvelope(command: string, error: unknown): WorkflowEnvelope {
