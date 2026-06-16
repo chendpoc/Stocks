@@ -2,9 +2,38 @@ import * as readline from "node:readline";
 import { fetchIntel } from "../api/client";
 import { getModel } from "../llm/provider";
 import { getAgentSystemPrompt, resolveAgentTools } from "../llm/buildAgentTools.js";
-import { chatReAct } from "../llm/chatReAct.js";
+import { runChatTurn } from "../chat/runChatTurn.js";
+import type { StepTrace } from "../llm/chatReAct.js";
 import { logger, user } from "../log/index.js";
 import { lessons } from "./lessons";
+
+function formatThinkingLine(trace: StepTrace): string {
+  const thought = trace.thought.slice(0, 80);
+  const suffix = trace.thought.length > 80 ? "…" : "";
+  const actions = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
+  const stats = ` · ${trace.elapsedMs}ms · ${trace.tokensUsed} tok`;
+  return `💭 [${trace.step}] ${thought}${suffix}${actions}${stats}`;
+}
+
+function createThinkingCallbacks() {
+  return {
+    onStep: (trace: StepTrace) => {
+      user.thinkingLine(formatThinkingLine(trace));
+      logger.debug(
+        {
+          step: trace.step,
+          tokensUsed: trace.tokensUsed,
+          elapsedMs: trace.elapsedMs,
+          actions: trace.actions,
+        },
+        trace.thought.slice(0, 100),
+      );
+    },
+    onTurnComplete: () => {
+      user.clearThinkingLine();
+    },
+  };
+}
 
 function printWorkflowRuns(runs: { runId: string; workflowId: string; label: string }[]) {
   if (runs.length === 0) return;
@@ -16,10 +45,11 @@ function printWorkflowRuns(runs: { runId: string; workflowId: string; label: str
 export async function chatEval(prompt: string) {
   const tools = await resolveAgentTools();
   const system = await getAgentSystemPrompt();
-  const result = await chatReAct({
+  const result = await runChatTurn({
     model: getModel(),
-    system,
-    tools,
+    baseSystem: system,
+    allTools: tools,
+    userMessage: prompt,
     messages: [{ role: "user", content: prompt }],
     onStep: (trace) => {
       const act = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
@@ -65,31 +95,16 @@ export async function chatReadline() {
 
     const tools = await resolveAgentTools();
     const system = await getAgentSystemPrompt();
-    const result = await chatReAct({
+    const result = await runChatTurn({
       model: getModel(),
-      system,
-      tools,
+      baseSystem: system,
+      allTools: tools,
+      userMessage: input,
       messages: history.slice(-20),
-      onStep: (trace) => {
-        const act = trace.actions.length > 0
-          ? `\n  Action → ${trace.actions.join(", ")}`
-          : "";
-        const obs = trace.observations
-          ? `\n  Obs ← ${trace.observations.slice(0, 100)}`
-          : "";
-        logger.debug(
-          {
-            step: trace.step,
-            tokensUsed: trace.tokensUsed,
-            elapsedMs: trace.elapsedMs,
-            actions: trace.actions,
-          },
-          `Thought: ${trace.thought.slice(0, 100)}…${act}${obs}`,
-        );
-      },
+      ...createThinkingCallbacks(),
     });
 
-    user.say(`\n${result.text}`);
+    user.say(`\n✓ ${result.text}`);
     printWorkflowRuns(result.workflowRuns);
     if (result.terminatedBy !== "natural") {
       user.say(`[终止: ${result.terminatedBy} · ${result.totalTokens} tok · ${result.wallClockMs}ms]`);
@@ -119,28 +134,23 @@ async function handleSlashCommand(input: string) {
     return;
   }
   if (input === "/scan") {
-    const result = await fetchIntel("/signals/scan", { method: "POST" });
-    user.say(`扫描完成: ${result.signal_count} 条新信号`);
+    const result = await fetchIntel("/signals/scan", { method: "POST" }) as { signal_count?: number };
+    user.say(`扫描完成: ${result.signal_count ?? 0} 条新信号`);
     return;
   }
   if (input.startsWith("/analyze ")) {
     const symbol = input.split(" ")[1];
     const tools = await resolveAgentTools();
     const system = await getAgentSystemPrompt();
-    const result = await chatReAct({
+    const result = await runChatTurn({
       model: getModel(),
-      system,
-      tools,
+      baseSystem: system,
+      allTools: tools,
+      userMessage: `分析 ${symbol}，先调 buildContext 再给出结论。`,
       messages: [{ role: "user", content: `分析 ${symbol}，先调 buildContext 再给出结论。` }],
-      onStep: (trace) => {
-        const act = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
-        logger.debug(
-          { step: trace.step, actions: trace.actions },
-          `${trace.thought.slice(0, 100)}${act}`,
-        );
-      },
+      ...createThinkingCallbacks(),
     });
-    user.say(`\n${result.text}`);
+    user.say(`\n✓ ${result.text}`);
     printWorkflowRuns(result.workflowRuns);
     return;
   }

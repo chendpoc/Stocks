@@ -48,10 +48,10 @@ describe("safeFetchIntel", () => {
     ) as typeof fetch;
 
     const { fetchIntel } = await import(`./client.js?post=${Date.now()}`);
-    const result = await fetchIntel<{ ok: boolean }>("/context/build", {
+    const result = await fetchIntel("/context/build", {
       method: "POST",
       json: { symbols: ["TSLA"], taskType: "signal_explanation" },
-    });
+    }) as { ok: boolean };
 
     assert.equal(result.ok, true);
   });

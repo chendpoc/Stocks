@@ -3,16 +3,23 @@ import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { getModel } from "../../llm/provider.js";
 import { getAgentSystemPrompt, resolveAgentTools } from "../../llm/buildAgentTools.js";
-import { chatReAct } from "../../llm/chatReAct.js";
+import { runChatTurn } from "../../chat/runChatTurn.js";
+import type { StepTrace } from "../../llm/chatReAct.js";
 import { MENU_KEYS, type MenuId } from "../menu.js";
 import { getChatSuggestions } from "../chatSuggestions.js";
 import { ActionBar, KeyHint, PickerRow } from "../components/focus.js";
 import { AsyncLoading } from "../components/AsyncLoading.js";
+import { ThinkingPanel } from "../components/ThinkingPanel.js";
 import { WorkflowStatusPanel } from "../components/WorkflowStatusPanel.js";
 import type { ChatMessage } from "../types.js";
 import type { WorkflowRun } from "../../llm/chatWorkflowRuns.js";
 
 const MAX_HISTORY = 20;
+
+type ThinkingState = {
+  active: boolean;
+  steps: StepTrace[];
+};
 
 type Props = {
   isActive: boolean;
@@ -26,6 +33,7 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [activeRuns, setActiveRuns] = useState<WorkflowRun[]>([]);
+  const [thinking, setThinking] = useState<ThinkingState>({ active: false, steps: [] });
   const [pickIndex, setPickIndex] = useState(0);
   const [prevPickIndex, setPrevPickIndex] = useState<number | null>(null);
 
@@ -80,6 +88,7 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
   const handleSubmit = async (value: string) => {
     if (!value.trim() || busy) return;
     setBusy(true);
+    setThinking({ active: true, steps: [] });
     const userMsg: ChatMessage = { role: "user", content: value };
     const next: ChatMessage[] = [...messages, userMsg].slice(-MAX_HISTORY);
     setMessages(next);
@@ -89,11 +98,21 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
     try {
       const tools = await resolveAgentTools();
       const system = await getAgentSystemPrompt();
-      const result = await chatReAct({
+      const result = await runChatTurn({
         model: getModel(),
-        system,
+        baseSystem: system,
+        allTools: tools,
+        userMessage: value,
         messages: next,
-        tools,
+        onStep: (trace) => {
+          setThinking((prev) => ({
+            active: true,
+            steps: [...prev.steps, trace],
+          }));
+        },
+        onTurnComplete: () => {
+          setThinking((prev) => ({ ...prev, active: false }));
+        },
       });
       const assistantMsg: ChatMessage = {
         role: "assistant",
@@ -137,10 +156,11 @@ export function ChatPage({ isActive, onNavigate, onOpenMenu, messages, setMessag
         ))
       )}
       <AsyncLoading
-        active={busy}
+        active={busy && thinking.steps.length === 0}
         label="Agent 思考中"
         hint="正在调用 LLM / tools，请稍候"
       />
+      <ThinkingPanel steps={thinking.steps} active={thinking.active} />
       <WorkflowStatusPanel runs={activeRuns} />
       {visibleSuggestions.length > 0 && !busy ? (
         <Box
