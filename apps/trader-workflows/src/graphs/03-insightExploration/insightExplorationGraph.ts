@@ -1,7 +1,10 @@
 import { prefixedId } from "../../utils/id.js";
 
-import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import {
+  runPipelineDefinition,
+  type PipelineDefinition,
+  type PipelineStep,
+} from "../../runtime/pipeline.js";
 
 import {
   createInsightExplorationGraphNodes,
@@ -10,7 +13,10 @@ import {
   stateToInsightExplorationGraphResult,
   type InsightExplorationGraphNodeDeps,
 } from "./insightExplorationGraph.nodes.js";
-import { InsightExplorationGraphStateAnnotation } from "./insightExplorationGraph.state.js";
+import {
+  createInitialInsightExplorationGraphState,
+  type InsightExplorationGraphState,
+} from "./insightExplorationGraph.state.js";
 import type {
   InsightExplorationGraphDeps,
   InsightExplorationGraphInput,
@@ -32,6 +38,14 @@ export {
   stateToInsightExplorationGraphResult,
 } from "./insightExplorationGraph.nodes.js";
 
+export type CompiledInsightExplorationGraph = {
+  invoke: (
+    initial: Partial<InsightExplorationGraphState> | null,
+    config?: { configurable?: { thread_id?: string } },
+  ) => Promise<InsightExplorationGraphState>;
+  getGraph: () => { nodes: Record<string, unknown> };
+};
+
 function depsToNodeDeps(
   deps?: InsightExplorationGraphDeps,
 ): Partial<InsightExplorationGraphNodeDeps> {
@@ -49,42 +63,83 @@ function depsToNodeDeps(
   };
 }
 
-export function buildInsightExplorationGraph(options?: {
+export function buildInsightExplorationGraphSteps(
+  deps?: InsightExplorationGraphDeps,
+): PipelineStep<InsightExplorationGraphState>[] {
+  const nodes = createInsightExplorationGraphNodes(depsToNodeDeps(deps));
+  return [
+    nodes.normalize_input,
+    nodes.fetch_exploration_inputs,
+    nodes.run_insight_react,
+    nodes.build_insight_payload,
+    nodes.persist_insight_candidate,
+    nodes.final_output,
+  ];
+}
+
+export function buildInsightExplorationGraphPipeline(options?: {
   deps?: InsightExplorationGraphDeps;
-  checkpointer?: BaseCheckpointSaver;
-}) {
-  const nodes = createInsightExplorationGraphNodes(depsToNodeDeps(options?.deps));
+}): PipelineDefinition<InsightExplorationGraphState> {
+  return {
+    name: "InsightExplorationGraph",
+    steps: buildInsightExplorationGraphSteps(options?.deps),
+  };
+}
 
-  const graph = new StateGraph(InsightExplorationGraphStateAnnotation)
-    .addNode("normalize_input", nodes.normalize_input)
-    .addNode("fetch_exploration_inputs", nodes.fetch_exploration_inputs)
-    .addNode("run_insight_react", nodes.run_insight_react)
-    .addNode("build_insight_payload", nodes.build_insight_payload)
-    .addNode("persist_insight_candidate", nodes.persist_insight_candidate)
-    .addNode("final_output", nodes.final_output)
-    .addEdge(START, "normalize_input")
-    .addEdge("normalize_input", "fetch_exploration_inputs")
-    .addEdge("fetch_exploration_inputs", "run_insight_react")
-    .addEdge("run_insight_react", "build_insight_payload")
-    .addEdge("build_insight_payload", "persist_insight_candidate")
-    .addEdge("persist_insight_candidate", "final_output")
-    .addEdge("final_output", END);
+function insightExplorationGraphNodeMap(): Record<string, unknown> {
+  return Object.fromEntries(
+    INSIGHT_EXPLORATION_GRAPH_NODE_NAMES.map((name) => [name, {}]),
+  );
+}
 
-  return graph.compile({
-    checkpointer: options?.checkpointer ?? new MemorySaver(),
+function toInitialInsightExplorationGraphState(
+  initial: Partial<InsightExplorationGraphState>,
+): InsightExplorationGraphState {
+  const run_id = initial.run_id ?? prefixedId("run_");
+  return createInitialInsightExplorationGraphState({
+    run_id,
+    thread_id: initial.thread_id ?? run_id,
+    symbol: initial.symbol ?? "",
+    window: initial.window ?? "",
+    ...initial,
   });
 }
 
+export function buildInsightExplorationGraph(options?: {
+  deps?: InsightExplorationGraphDeps;
+  checkpointer?: unknown;
+}): CompiledInsightExplorationGraph {
+  const pipeline = buildInsightExplorationGraphPipeline({ deps: options?.deps });
+
+  return {
+    async invoke(initial, _config) {
+      if (initial === null) {
+        throw new Error(
+          "InsightExplorationGraph pipeline resume requires Stage1CheckpointStore; invoke with initial state",
+        );
+      }
+      return runPipelineDefinition(toInitialInsightExplorationGraphState(initial), pipeline);
+    },
+    getGraph() {
+      return { nodes: insightExplorationGraphNodeMap() };
+    },
+  };
+}
+
 export const insightExplorationGraph = buildInsightExplorationGraph();
+
+const defaultInsightExplorationGraphPipeline = buildInsightExplorationGraphPipeline();
 
 export async function runInsightExplorationGraph(
   input: InsightExplorationGraphInput,
   deps?: InsightExplorationGraphDeps,
 ): Promise<InsightExplorationGraphResult> {
   const run_id = input.run_id ?? prefixedId("run_");
-  const graph = deps ? buildInsightExplorationGraph({ deps }) : insightExplorationGraph;
-  const finalState = await graph.invoke(
-    {
+  const pipeline = deps
+    ? buildInsightExplorationGraphPipeline({ deps })
+    : defaultInsightExplorationGraphPipeline;
+  const finalState = await runPipelineDefinition(
+    toInitialInsightExplorationGraphState({
       run_id,
       thread_id: run_id,
       symbol: input.symbol.toUpperCase(),
@@ -94,10 +149,8 @@ export async function runInsightExplorationGraph(
       snapshot_limit: input.snapshot_limit ?? 20,
       outcome_limit: input.outcome_limit ?? 200,
       persist: input.persist ?? true,
-    },
-    {
-      configurable: { thread_id: run_id },
-    },
+    }),
+    pipeline,
   );
   return stateToInsightExplorationGraphResult(finalState);
 }

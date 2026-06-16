@@ -1,7 +1,10 @@
 import { prefixedId } from "../../utils/id.js";
 
-import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import {
+  runPipelineDefinition,
+  type PipelineDefinition,
+  type PipelineStep,
+} from "../../runtime/pipeline.js";
 
 import {
   createOutcomeGraphNodes,
@@ -10,7 +13,10 @@ import {
   stateToOutcomeGraphResult,
   type OutcomeGraphNodeDeps,
 } from "./outcomeGraph.nodes.js";
-import { OutcomeGraphStateAnnotation } from "./outcomeGraph.state.js";
+import {
+  createInitialOutcomeGraphState,
+  type OutcomeGraphState,
+} from "./outcomeGraph.state.js";
 import type {
   OutcomeGraphDeps,
   OutcomeGraphRunInput,
@@ -30,6 +36,18 @@ export {
   stateToOutcomeGraphResult,
 } from "./outcomeGraph.nodes.js";
 
+const OUTCOME_GRAPH_MERGE_OPTIONS = {
+  accumulatorFields: ["outcomes"] as const,
+};
+
+export type CompiledOutcomeGraph = {
+  invoke: (
+    initial: Partial<OutcomeGraphState> | null,
+    config?: { configurable?: { thread_id?: string } },
+  ) => Promise<OutcomeGraphState>;
+  getGraph: () => { nodes: Record<string, unknown> };
+};
+
 function depsToNodeDeps(deps?: OutcomeGraphDeps): Partial<OutcomeGraphNodeDeps> {
   if (!deps) {
     return {};
@@ -42,49 +60,89 @@ function depsToNodeDeps(deps?: OutcomeGraphDeps): Partial<OutcomeGraphNodeDeps> 
   };
 }
 
-export function buildOutcomeGraph(options?: {
+export function buildOutcomeGraphSteps(
+  deps?: OutcomeGraphDeps,
+): PipelineStep<OutcomeGraphState>[] {
+  const nodes = createOutcomeGraphNodes(depsToNodeDeps(deps));
+  return [
+    nodes.normalize_input,
+    nodes.fetch_due_outcomes,
+    nodes.label_decision_outcomes,
+    nodes.label_insight_outcomes,
+    nodes.final_output,
+  ];
+}
+
+export function buildOutcomeGraphPipeline(options?: {
   deps?: OutcomeGraphDeps;
-  checkpointer?: BaseCheckpointSaver;
-}) {
-  const nodes = createOutcomeGraphNodes(depsToNodeDeps(options?.deps));
+}): PipelineDefinition<OutcomeGraphState> {
+  return {
+    name: "OutcomeGraph",
+    steps: buildOutcomeGraphSteps(options?.deps),
+  };
+}
 
-  const graph = new StateGraph(OutcomeGraphStateAnnotation)
-    .addNode("normalize_input", nodes.normalize_input)
-    .addNode("fetch_due_outcomes", nodes.fetch_due_outcomes)
-    .addNode("label_decision_outcomes", nodes.label_decision_outcomes)
-    .addNode("label_insight_outcomes", nodes.label_insight_outcomes)
-    .addNode("final_output", nodes.final_output)
-    .addEdge(START, "normalize_input")
-    .addEdge("normalize_input", "fetch_due_outcomes")
-    .addEdge("fetch_due_outcomes", "label_decision_outcomes")
-    .addEdge("label_decision_outcomes", "label_insight_outcomes")
-    .addEdge("label_insight_outcomes", "final_output")
-    .addEdge("final_output", END);
+function outcomeGraphNodeMap(): Record<string, unknown> {
+  return Object.fromEntries(
+    OUTCOME_GRAPH_NODE_NAMES.map((name) => [name, {}]),
+  );
+}
 
-  return graph.compile({
-    checkpointer: options?.checkpointer ?? new MemorySaver(),
+function toInitialOutcomeGraphState(
+  initial: Partial<OutcomeGraphState>,
+): OutcomeGraphState {
+  const run_id = initial.run_id ?? prefixedId("run_");
+  return createInitialOutcomeGraphState({
+    run_id,
+    thread_id: initial.thread_id ?? run_id,
+    ...initial,
   });
 }
 
+export function buildOutcomeGraph(options?: {
+  deps?: OutcomeGraphDeps;
+  checkpointer?: unknown;
+}): CompiledOutcomeGraph {
+  const pipeline = buildOutcomeGraphPipeline({ deps: options?.deps });
+
+  return {
+    async invoke(initial, _config) {
+      if (initial === null) {
+        throw new Error(
+          "OutcomeGraph pipeline resume requires Stage1CheckpointStore (S4); invoke with initial state",
+        );
+      }
+      const state = toInitialOutcomeGraphState(initial);
+      return runPipelineDefinition(state, pipeline, OUTCOME_GRAPH_MERGE_OPTIONS);
+    },
+    getGraph() {
+      return { nodes: outcomeGraphNodeMap() };
+    },
+  };
+}
+
 export const outcomeGraph = buildOutcomeGraph();
+
+const defaultOutcomeGraphPipeline = buildOutcomeGraphPipeline();
 
 export async function runDueOutcomeGraph(
   input: OutcomeGraphRunInput = {},
   deps?: OutcomeGraphDeps,
 ): Promise<OutcomeGraphRunResult> {
   const run_id = input.run_id ?? prefixedId("run_");
-  const graph = deps ? buildOutcomeGraph({ deps }) : outcomeGraph;
-  const finalState = await graph.invoke(
-    {
+  const pipeline = deps
+    ? buildOutcomeGraphPipeline({ deps })
+    : defaultOutcomeGraphPipeline;
+  const finalState = await runPipelineDefinition(
+    toInitialOutcomeGraphState({
       run_id,
       thread_id: run_id,
       now: input.now,
       limit: input.limit ?? 100,
       symbol: input.symbol?.toUpperCase(),
-    },
-    {
-      configurable: { thread_id: run_id },
-    },
+    }),
+    pipeline,
+    OUTCOME_GRAPH_MERGE_OPTIONS,
   );
   return stateToOutcomeGraphResult(finalState);
 }

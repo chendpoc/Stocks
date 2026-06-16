@@ -1,7 +1,10 @@
 import { prefixedId } from "../../utils/id.js";
 
-import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import {
+  runPipelineDefinition,
+  type PipelineDefinition,
+  type PipelineStep,
+} from "../../runtime/pipeline.js";
 
 import {
   createEvaluationGraphNodes,
@@ -10,7 +13,10 @@ import {
   stateToEvaluationGraphResult,
   type EvaluationGraphNodeDeps,
 } from "./evaluationGraph.nodes.js";
-import { EvaluationGraphStateAnnotation } from "./evaluationGraph.state.js";
+import {
+  createInitialEvaluationGraphState,
+  type EvaluationGraphState,
+} from "./evaluationGraph.state.js";
 import type {
   EvaluationGraphDeps,
   EvaluationGraphRunInput,
@@ -29,6 +35,14 @@ export {
   stateToEvaluationGraphResult,
 } from "./evaluationGraph.nodes.js";
 
+export type CompiledEvaluationGraph = {
+  invoke: (
+    initial: Partial<EvaluationGraphState> | null,
+    config?: { configurable?: { thread_id?: string } },
+  ) => Promise<EvaluationGraphState>;
+  getGraph: () => { nodes: Record<string, unknown> };
+};
+
 function depsToNodeDeps(deps?: EvaluationGraphDeps): Partial<EvaluationGraphNodeDeps> {
   if (!deps) {
     return {};
@@ -39,38 +53,80 @@ function depsToNodeDeps(deps?: EvaluationGraphDeps): Partial<EvaluationGraphNode
   };
 }
 
-export function buildEvaluationGraph(options?: {
+export function buildEvaluationGraphSteps(
+  deps?: EvaluationGraphDeps,
+): PipelineStep<EvaluationGraphState>[] {
+  const nodes = createEvaluationGraphNodes(depsToNodeDeps(deps));
+  return [
+    nodes.normalize_input,
+    nodes.build_evaluation_report,
+    nodes.persist_evaluation_report,
+    nodes.final_output,
+  ];
+}
+
+export function buildEvaluationGraphPipeline(options?: {
   deps?: EvaluationGraphDeps;
-  checkpointer?: BaseCheckpointSaver;
-}) {
-  const nodes = createEvaluationGraphNodes(depsToNodeDeps(options?.deps));
+}): PipelineDefinition<EvaluationGraphState> {
+  return {
+    name: "EvaluationGraph",
+    steps: buildEvaluationGraphSteps(options?.deps),
+  };
+}
 
-  const graph = new StateGraph(EvaluationGraphStateAnnotation)
-    .addNode("normalize_input", nodes.normalize_input)
-    .addNode("build_evaluation_report", nodes.build_evaluation_report)
-    .addNode("persist_evaluation_report", nodes.persist_evaluation_report)
-    .addNode("final_output", nodes.final_output)
-    .addEdge(START, "normalize_input")
-    .addEdge("normalize_input", "build_evaluation_report")
-    .addEdge("build_evaluation_report", "persist_evaluation_report")
-    .addEdge("persist_evaluation_report", "final_output")
-    .addEdge("final_output", END);
+function evaluationGraphNodeMap(): Record<string, unknown> {
+  return Object.fromEntries(
+    EVALUATION_GRAPH_NODE_NAMES.map((name) => [name, {}]),
+  );
+}
 
-  return graph.compile({
-    checkpointer: options?.checkpointer ?? new MemorySaver(),
+function toInitialEvaluationGraphState(
+  initial: Partial<EvaluationGraphState>,
+): EvaluationGraphState {
+  const run_id = initial.run_id ?? prefixedId("run_");
+  return createInitialEvaluationGraphState({
+    run_id,
+    thread_id: initial.thread_id ?? run_id,
+    model_version: initial.model_version ?? "stage1-v0",
+    ...initial,
   });
 }
 
+export function buildEvaluationGraph(options?: {
+  deps?: EvaluationGraphDeps;
+  checkpointer?: unknown;
+}): CompiledEvaluationGraph {
+  const pipeline = buildEvaluationGraphPipeline({ deps: options?.deps });
+
+  return {
+    async invoke(initial, _config) {
+      if (initial === null) {
+        throw new Error(
+          "EvaluationGraph pipeline resume requires Stage1CheckpointStore; invoke with initial state",
+        );
+      }
+      return runPipelineDefinition(toInitialEvaluationGraphState(initial), pipeline);
+    },
+    getGraph() {
+      return { nodes: evaluationGraphNodeMap() };
+    },
+  };
+}
+
 export const evaluationGraph = buildEvaluationGraph();
+
+const defaultEvaluationGraphPipeline = buildEvaluationGraphPipeline();
 
 export async function runEvaluationSummaryGraph(
   input: EvaluationGraphRunInput = {},
   deps?: EvaluationGraphDeps,
 ): Promise<EvaluationGraphRunResult> {
   const run_id = input.run_id ?? prefixedId("run_");
-  const graph = deps ? buildEvaluationGraph({ deps }) : evaluationGraph;
-  const finalState = await graph.invoke(
-    {
+  const pipeline = deps
+    ? buildEvaluationGraphPipeline({ deps })
+    : defaultEvaluationGraphPipeline;
+  const finalState = await runPipelineDefinition(
+    toInitialEvaluationGraphState({
       run_id,
       thread_id: run_id,
       model_version: input.model_version ?? "stage1-v0",
@@ -80,10 +136,8 @@ export async function runEvaluationSummaryGraph(
       report_id: input.report_id,
       window_start: input.window_start,
       window_end: input.window_end,
-    },
-    {
-      configurable: { thread_id: run_id },
-    },
+    }),
+    pipeline,
   );
   return stateToEvaluationGraphResult(finalState);
 }

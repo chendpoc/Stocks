@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildEvaluationGraph,
+  buildEvaluationGraphPipeline,
   EVALUATION_GRAPH_NODE_NAMES,
   evaluationGraph,
   runEvaluationSummaryGraph,
@@ -154,13 +155,19 @@ test("evaluationGraph export exposes native business node names", () => {
   }
 });
 
-test("buildEvaluationGraph compiles without hand-written class flow", () => {
+test("buildEvaluationGraph exposes pipeline invoke entry", () => {
   const compiled = buildEvaluationGraph();
   assert.equal(typeof compiled.invoke, "function");
   assert.ok(compiled.getGraph().nodes.normalize_input);
 });
 
-test("runEvaluationSummaryGraph invokes the compiled StateGraph path", async () => {
+test("buildEvaluationGraphPipeline orders steps to match node names", () => {
+  const pipeline = buildEvaluationGraphPipeline();
+  assert.equal(pipeline.steps.length, EVALUATION_GRAPH_NODE_NAMES.length);
+  assert.equal(pipeline.name, "EvaluationGraph");
+});
+
+test("runEvaluationSummaryGraph invokes the pipeline path", async () => {
   const report = sampleReport("hold");
   const result = await runEvaluationSummaryGraph(
     { model_version: "stage1-v0", run_id: "run-eval-compiled" },

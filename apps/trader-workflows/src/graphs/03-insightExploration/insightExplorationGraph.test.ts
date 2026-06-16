@@ -4,6 +4,7 @@ import test from "node:test";
 import { captureFetchCall } from "../../test/fetchTestUtils.js";
 import {
   buildInsightExplorationGraph,
+  buildInsightExplorationGraphPipeline,
   INSIGHT_EXPLORATION_GRAPH_NODE_NAMES,
   insightExplorationGraph,
   runInsightExplorationGraph,
@@ -317,13 +318,19 @@ test("insightExplorationGraph export exposes native business node names", () => 
   }
 });
 
-test("buildInsightExplorationGraph compiles without hand-written class flow", () => {
+test("buildInsightExplorationGraph exposes pipeline invoke entry", () => {
   const compiled = buildInsightExplorationGraph();
   assert.equal(typeof compiled.invoke, "function");
   assert.ok(compiled.getGraph().nodes.normalize_input);
 });
 
-test("runInsightExplorationGraph invokes the compiled StateGraph path", async () => {
+test("buildInsightExplorationGraphPipeline orders steps to match node names", () => {
+  const pipeline = buildInsightExplorationGraphPipeline();
+  assert.equal(pipeline.steps.length, INSIGHT_EXPLORATION_GRAPH_NODE_NAMES.length);
+  assert.equal(pipeline.name, "InsightExplorationGraph");
+});
+
+test("runInsightExplorationGraph invokes the pipeline path", async () => {
   const scheduledPayloads: ScheduleInsightCandidateOutcomePayload[] = [];
   const result = await runInsightExplorationGraph(
     { symbol: "TSLA", window: "30d", run_id: "run-insight-compiled", persist: false },

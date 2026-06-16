@@ -73,15 +73,18 @@ function validGraphInput() {
   };
 }
 
-test("alphaResearchGraph export exposes three business nodes plus final_output", () => {
+test("alphaResearchGraph export exposes pipeline with validation branch steps", () => {
   assert.deepEqual(ALPHA_RESEARCH_GRAPH_NODE_NAMES, [
     "validate_input",
     "create_rule_candidate",
     "run_lite_backtest",
     "final_output",
   ]);
-  assert.ok(alphaResearchGraph);
-  assert.ok(buildAlphaResearchGraph());
+  const pipeline = buildAlphaResearchGraph();
+  assert.equal(pipeline.name, "alpha_research_graph");
+  assert.equal(pipeline.steps.length, 4);
+  assert.equal(alphaResearchGraph.name, "alpha_research_graph");
+  assert.equal(alphaResearchGraph.steps.length, 4);
 });
 
 test("runAlphaResearchGraph stops on input_validation_failed without creating candidate", async () => {

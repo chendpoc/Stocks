@@ -4,6 +4,7 @@ import test from "node:test";
 import { resolveFetchUrl } from "../../test/fetchTestUtils.js";
 import {
   buildOutcomeGraph,
+  buildOutcomeGraphPipeline,
   OUTCOME_GRAPH_NODE_NAMES,
   outcomeGraph,
   runDueOutcomeGraph,
@@ -217,13 +218,19 @@ test("outcomeGraph export exposes native business node names", () => {
   }
 });
 
-test("buildOutcomeGraph compiles without hand-written class flow", () => {
+test("buildOutcomeGraph exposes pipeline invoke entry", () => {
   const compiled = buildOutcomeGraph();
   assert.equal(typeof compiled.invoke, "function");
   assert.ok(compiled.getGraph().nodes.normalize_input);
 });
 
-test("runDueOutcomeGraph invokes the compiled StateGraph path", async () => {
+test("buildOutcomeGraphPipeline orders steps to match node names", () => {
+  const pipeline = buildOutcomeGraphPipeline();
+  assert.equal(pipeline.steps.length, OUTCOME_GRAPH_NODE_NAMES.length);
+  assert.equal(pipeline.name, "OutcomeGraph");
+});
+
+test("runDueOutcomeGraph invokes the pipeline path", async () => {
   const dueRows = OUTCOME_HORIZONS.slice(0, 2).map((horizon, index) =>
     pendingDecisionOutcome(horizon, `compiled-${index}`),
   );

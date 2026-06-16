@@ -1,17 +1,21 @@
 import { prefixedId } from "../../utils/id.js";
 
-import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
-
 import { ALPHA_RESEARCH_INPUT_VALIDATION_FAILED } from "../../services/alphaResearch.js";
+import {
+  runPipeline,
+  runPipelineFromStep,
+  type PipelineDefinition,
+} from "../../runtime/pipeline.js";
 import {
   ALPHA_RESEARCH_GRAPH_NODE_NAMES,
   createAlphaResearchGraphNodes,
-  resolveAlphaResearchGraphNodeDeps,
   stateToAlphaResearchGraphResult,
   type AlphaResearchGraphNodeDeps,
 } from "./alphaResearchGraph.nodes.js";
-import { AlphaResearchGraphStateAnnotation } from "./alphaResearchGraph.state.js";
+import {
+  createInitialAlphaResearchGraphState,
+  type AlphaResearchGraphState,
+} from "./alphaResearchGraph.state.js";
 import type {
   AlphaResearchGraphDeps,
   AlphaResearchGraphInput,
@@ -30,6 +34,8 @@ export {
   stateToAlphaResearchGraphResult,
 } from "./alphaResearchGraph.nodes.js";
 
+export type AlphaResearchPipeline = PipelineDefinition<AlphaResearchGraphState>;
+
 function depsToNodeDeps(deps?: AlphaResearchGraphDeps): Partial<AlphaResearchGraphNodeDeps> {
   if (!deps?.client) {
     return {};
@@ -37,47 +43,45 @@ function depsToNodeDeps(deps?: AlphaResearchGraphDeps): Partial<AlphaResearchGra
   return { client: deps.client };
 }
 
-function routeAfterValidation(state: typeof AlphaResearchGraphStateAnnotation.State): string {
-  return state.status === ALPHA_RESEARCH_INPUT_VALIDATION_FAILED
-    ? "final_output"
-    : "create_rule_candidate";
-}
-
 export function buildAlphaResearchGraph(options?: {
   deps?: AlphaResearchGraphDeps;
-  checkpointer?: BaseCheckpointSaver;
-}) {
+}): AlphaResearchPipeline {
   const nodes = createAlphaResearchGraphNodes(depsToNodeDeps(options?.deps));
 
-  const graph = new StateGraph(AlphaResearchGraphStateAnnotation)
-    .addNode("validate_input", nodes.validate_input)
-    .addNode("create_rule_candidate", nodes.create_rule_candidate)
-    .addNode("run_lite_backtest", nodes.run_lite_backtest)
-    .addNode("final_output", nodes.final_output)
-    .addEdge(START, "validate_input")
-    .addConditionalEdges("validate_input", routeAfterValidation, [
-      "create_rule_candidate",
-      "final_output",
-    ])
-    .addEdge("create_rule_candidate", "run_lite_backtest")
-    .addEdge("run_lite_backtest", "final_output")
-    .addEdge("final_output", END);
-
-  return graph.compile({
-    checkpointer: options?.checkpointer ?? new MemorySaver(),
-  });
+  return {
+    name: "alpha_research_graph",
+    steps: [
+      nodes.validate_input,
+      nodes.create_rule_candidate,
+      nodes.run_lite_backtest,
+      nodes.final_output,
+    ],
+  };
 }
 
 export const alphaResearchGraph = buildAlphaResearchGraph();
+
+async function runAlphaResearchPipeline(
+  initial: AlphaResearchGraphState,
+  pipeline: AlphaResearchPipeline,
+): Promise<AlphaResearchGraphState> {
+  const stateAfterValidate = await runPipeline(initial, pipeline.steps.slice(0, 1));
+
+  if (stateAfterValidate.status === ALPHA_RESEARCH_INPUT_VALIDATION_FAILED) {
+    return runPipelineFromStep(stateAfterValidate, pipeline.steps, 3);
+  }
+
+  return runPipelineFromStep(stateAfterValidate, pipeline.steps, 1);
+}
 
 export async function runAlphaResearchGraph(
   input: AlphaResearchGraphInput = {},
   deps?: AlphaResearchGraphDeps,
 ): Promise<AlphaResearchGraphResult> {
   const run_id = input.run_id ?? prefixedId("run_");
-  const graph = deps ? buildAlphaResearchGraph({ deps }) : alphaResearchGraph;
-  const finalState = await graph.invoke(
-    {
+  const pipeline = deps ? buildAlphaResearchGraph({ deps }) : alphaResearchGraph;
+  const finalState = await runAlphaResearchPipeline(
+    createInitialAlphaResearchGraphState({
       run_id,
       thread_id: run_id,
       input: {
@@ -90,10 +94,8 @@ export async function runAlphaResearchGraph(
         backtest_window_start: input.backtest_window_start,
         backtest_window_end: input.backtest_window_end,
       },
-    },
-    {
-      configurable: { thread_id: run_id },
-    },
+    }),
+    pipeline,
   );
   return stateToAlphaResearchGraphResult(finalState);
 }

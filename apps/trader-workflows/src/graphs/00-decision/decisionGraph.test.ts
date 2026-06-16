@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildDecisionGraph,
+  buildDecisionGraphPipeline,
   DECISION_GRAPH_NODE_NAMES,
   decisionGraph,
   deterministicDecisionId,
@@ -176,7 +177,7 @@ test("DecisionGraph persists snapshot, decision, and pending model_path outcomes
   assert.notEqual(scheduled[0].due_at, scheduled[4].due_at);
 });
 
-test("runDecisionGraph invokes the compiled StateGraph path", async () => {
+test("runDecisionGraph invokes the pipeline path", async () => {
   const envelope = parseDecisionEnvelope({
     symbol: "TSLA",
     action: "NO_TRADE",
@@ -225,10 +226,16 @@ test("decisionGraph export exposes native business node names", () => {
   }
 });
 
-test("buildDecisionGraph compiles without hand-written class flow", () => {
+test("buildDecisionGraph exposes pipeline invoke entry", () => {
   const compiled = buildDecisionGraph();
   assert.equal(typeof compiled.invoke, "function");
   assert.ok(compiled.getGraph().nodes.normalize_input);
+});
+
+test("buildDecisionGraphPipeline orders steps to match node names", () => {
+  const pipeline = buildDecisionGraphPipeline();
+  assert.equal(pipeline.steps.length, DECISION_GRAPH_NODE_NAMES.length);
+  assert.equal(pipeline.name, "DecisionGraph");
 });
 
 test("DecisionGraph rejects invalid envelopes before persistence", async () => {
