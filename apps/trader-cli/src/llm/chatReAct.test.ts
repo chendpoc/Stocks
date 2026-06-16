@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toTurnCompleteInfo, type ReActResult } from "./chatReAct.js";
+import { resolveExperimentalActiveTools, toTurnCompleteInfo, type ReActResult } from "./chatReAct.js";
 
 test("toTurnCompleteInfo carries finalText, termination, and totals", () => {
   const result: ReActResult = {
@@ -26,4 +26,12 @@ test("toTurnCompleteInfo carries finalText, termination, and totals", () => {
   assert.equal(info.totalTokens, 120);
   assert.equal(info.steps.length, 1);
   assert.equal(info.workflowRuns.length, 0);
+});
+
+test("resolveExperimentalActiveTools treats empty array as explicit no-tool restriction", () => {
+  assert.deepEqual(resolveExperimentalActiveTools([]), { experimental_activeTools: [] });
+  assert.deepEqual(resolveExperimentalActiveTools(["getMarketBars"]), {
+    experimental_activeTools: ["getMarketBars"],
+  });
+  assert.deepEqual(resolveExperimentalActiveTools(undefined), {});
 });

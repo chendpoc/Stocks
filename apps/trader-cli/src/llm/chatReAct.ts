@@ -109,6 +109,12 @@ function summarizeObservations(toolResults: ToolResult<string, unknown, unknown>
     .join(" | ");
 }
 
+export function resolveExperimentalActiveTools(
+  activeTools?: string[],
+): { experimental_activeTools: string[] } | Record<string, never> {
+  return activeTools !== undefined ? { experimental_activeTools: activeTools } : {};
+}
+
 export function toTurnCompleteInfo(result: ReActResult): TurnCompleteInfo {
   return {
     finalText: result.text,
@@ -179,10 +185,8 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
         return null; // 返回 null 表示不修复，让其失败（后续可用 LLM 辅助修复）
       },
 
-      // 每步动态选择工具
-      ...(activeTools && activeTools.length > 0 ? {
-        experimental_activeTools: activeTools,
-      } : {}),
+      // 每步动态选择工具（含空数组：显式禁止全部工具，避免回退到完整 tools）
+      ...resolveExperimentalActiveTools(activeTools),
 
       // 核心回调: Thought / Action / Observation 可见性 + 护栏
       onStepFinish: async ({ text, toolCalls, toolResults, usage }) => {

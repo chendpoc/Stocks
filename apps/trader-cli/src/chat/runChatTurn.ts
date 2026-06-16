@@ -27,6 +27,20 @@ function workspaceForSession(sessionKey: string) {
   return ws;
 }
 
+export function filterActiveToolsByPermission(activeTools: string[]): {
+  filteredActiveTools: string[];
+  permissionDecisions: PermissionDecision[];
+} {
+  const permissionDecisions = activeTools.map(evaluateToolPermission);
+  const blockedTools = new Set(
+    permissionDecisions.filter((d) => !d.allowed).map((d) => d.toolName),
+  );
+  return {
+    filteredActiveTools: activeTools.filter((t) => !blockedTools.has(t)),
+    permissionDecisions,
+  };
+}
+
 export function prepareChatTurn(input: {
   userMessage: string;
   messages: ChatMessage[];
@@ -35,7 +49,11 @@ export function prepareChatTurn(input: {
   sessionKey?: string;
 }): PreparedChatTurn & { frame: ReturnType<typeof buildPromptFrame> } {
   const sessionKey = input.sessionKey ?? "default";
-  const workspace = workspaceForSession(sessionKey);
+  const workspace = updateWorkspaceFromTurn(
+    workspaceForSession(sessionKey),
+    { userMessage: input.userMessage },
+  );
+  sessionWorkspaces.set(sessionKey, workspace);
   const classification = classifyTask(input.userMessage, workspace);
   const selection = selectTools(classification, input.allTools);
   const ctx = buildProcessedContext({
@@ -78,20 +96,10 @@ export async function runChatTurn(
   } & Pick<ReActOptions, "onStep" | "onTurnComplete" | "abortSignal">,
 ): Promise<ReActResult & { debugTraceJson?: string; prepared: PreparedChatTurn }> {
   const prepared = prepareChatTurn(input);
-  const lastUser = input.userMessage;
-  const ws = workspaceForSession(input.sessionKey ?? "default");
-  sessionWorkspaces.set(
-    input.sessionKey ?? "default",
-    updateWorkspaceFromTurn(ws, { userMessage: lastUser }),
-  );
 
-  const permissionDecisions: PermissionDecision[] = prepared.frame.activeTools.map(
-    evaluateToolPermission,
+  const { filteredActiveTools, permissionDecisions } = filterActiveToolsByPermission(
+    prepared.frame.activeTools,
   );
-  const blockedTools = new Set(
-    permissionDecisions.filter((d) => !d.allowed).map((d) => d.toolName),
-  );
-  const filteredActiveTools = prepared.frame.activeTools.filter((t) => !blockedTools.has(t));
 
   const result = await chatReAct({
     model: input.model,
