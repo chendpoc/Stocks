@@ -68,9 +68,10 @@ export function resolveLongbridgeCliPaths(pathHits: string[] = []): string[] {
   };
 
   const override =
-    (getEnvValue("TRADER_LONGBRIDGE_CLI") ??
-      process.env.LONGBRIDGE_CLI ??
-      config.traderLongbridgeCli) ||
+    getEnvValue("TRADER_LONGBRIDGE_CLI") ||
+    config.traderLongbridgeCli ||
+    getEnvValue("LONGBRIDGE_CLI") ||
+    config.longbridgeCli ||
     config.longbridgeCliPath;
   add(override);
 

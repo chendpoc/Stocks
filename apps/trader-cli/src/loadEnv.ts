@@ -23,7 +23,8 @@ function envSearchRoots(): string[] {
   return roots;
 }
 
-export function loadEnvFile() {
+/** Load `.env` from cwd and parent directories into `process.env`. */
+export function loadEnvFile(): void {
   for (const root of envSearchRoots()) {
     const path = resolve(root, ".env");
     if (!existsSync(path)) continue;

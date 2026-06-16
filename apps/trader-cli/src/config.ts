@@ -1,9 +1,8 @@
 /**
- * Centralized configuration via dotenv + env-var.
- * Replaces bare process.env reads in trader-cli.
+ * Centralized configuration via env-var.
+ * `.env` loading is handled by bootstrap-env → loadEnv (entry side-effect).
  */
 
-import "dotenv/config";
 import envVar from "env-var";
 import path from "node:path";
 
@@ -56,6 +55,12 @@ export const config = {
     .default("longbridge")
     .asString(),
 
+  /** LONGBRIDGE_CLI binary override */
+  longbridgeCli: envVar
+    .get("LONGBRIDGE_CLI")
+    .default("")
+    .asString(),
+
   /** Explicit Longbridge CLI binary (TRADER_LONGBRIDGE_CLI) */
   traderLongbridgeCli: envVar
     .get("TRADER_LONGBRIDGE_CLI")
@@ -101,4 +106,17 @@ export function traderBackendRoot(): string {
 export function resolveMarketAgentDataDir(): string {
   const configured = config.marketAgentDataDir.trim();
   return configured || path.join(process.cwd(), "data");
+}
+
+/** Runtime env read for chart handoff path (supports test/shell overrides after boot). */
+export function resolveTraderChartHandoffPath(): string {
+  return (
+    envVar.get("TRADER_CHART_HANDOFF").asString()?.trim() ||
+    config.traderChartHandoff.trim()
+  );
+}
+
+/** Runtime env read for trader-chart binary (supports test/shell overrides after boot). */
+export function resolveTraderChartBinPath(): string {
+  return envVar.get("TRADER_CHART_BIN").asString()?.trim() || config.traderChartBin.trim();
 }

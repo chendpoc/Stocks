@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import "./bootstrap-env";
+import "./bootstrap-env.js";
 import { Command } from "commander";
 
 import { analyze } from "./commands/analyze";

@@ -3,7 +3,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ChartIntervalId } from "./chartIntervals.js";
 import { normalizeChartInterval } from "./chartIntervals.js";
-import { config } from "../config.js";
+import {
+  config,
+  resolveTraderChartBinPath,
+  resolveTraderChartHandoffPath,
+} from "../config.js";
 import { findRepoRoot } from "./repoRoot.js";
 import { normalizeSymbol } from "../utils/symbol.js";
 
@@ -23,9 +27,8 @@ export type TraderChartRunResult =
   | { ok: false; message: string };
 
 export function chartHandoffPath(): string {
-  const env =
-    process.env.TRADER_CHART_HANDOFF?.trim() || config.traderChartHandoff.trim();
-  if (env) return env;
+  const configured = resolveTraderChartHandoffPath();
+  if (configured) return configured;
   return join(findRepoRoot(), ".cache", "trader-cli", "chart-handoff.json");
 }
 
@@ -57,8 +60,7 @@ export function writeChartHandoff(state: ChartHandoff): void {
 }
 
 export function resolveTraderChartBinary(): { path: string } | { error: string } {
-  const envBin =
-    process.env.TRADER_CHART_BIN?.trim() || config.traderChartBin.trim();
+  const envBin = resolveTraderChartBinPath();
   if (envBin && existsSync(envBin)) {
     return { path: envBin };
   }

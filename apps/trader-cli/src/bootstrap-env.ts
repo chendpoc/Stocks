@@ -1,3 +1,3 @@
-import { loadEnvFile } from "./loadEnv";
+import { loadEnvFile } from "./loadEnv.js";
 
 loadEnvFile();
