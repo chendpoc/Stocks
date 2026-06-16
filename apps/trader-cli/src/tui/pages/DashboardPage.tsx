@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput, useWindowSize } from "ink";
 import { fetchHealth } from "../../api/client.js";
+import { logger } from "../../logger.js";
 import { hasLocalBars, ingestSymbol } from "../../services/market.js";
 import { buildChartLines } from "../../services/chart.js";
 import { CHART_INTERVALS, type ChartIntervalId } from "../../services/chartIntervals.js";
@@ -257,7 +258,7 @@ export function DashboardPage({
     getInkInstance()?.unmount();
     const res = runTraderChartProcess({ symbol: focusedSymbol, chartInterval });
     if (!res.ok) {
-      console.error(res.message);
+      logger.error({ message: res.message }, "trader chart launch failed");
       void relaunchTuiAfterChart({ focusedSymbol, chartInterval });
       return;
     }

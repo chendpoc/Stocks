@@ -21,6 +21,7 @@
 import { generateText, type CoreTool, type LanguageModel, type ToolCall, type ToolResult } from "ai";
 import { extractWorkflowRunsFromGenerateText, type WorkflowRun } from "./chatWorkflowRuns.js";
 import type { ChatMessage } from "../tui/types.js";
+import { logger } from "../logger.js";
 
 // ─── 类型 ─────────────────────────────────────────────────
 
@@ -146,7 +147,10 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
       // SDK 自动修复工具调用（拼写错误、缺参数等）
       experimental_repairToolCall: async ({ toolCall, error }) => {
         // 简单修复: 如果是拼写错误，尝试匹配最近似的工具名
-        console.log(`[repair] 工具调用修复: ${toolCall.toolName} — ${error.message}`);
+        logger.info(
+          { toolName: toolCall.toolName, err: error.message },
+          "tool call repair",
+        );
         return null; // 返回 null 表示不修复，让其失败（后续可用 LLM 辅助修复）
       },
 
@@ -170,7 +174,10 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
         const cacheHit = usageExt?.promptCacheHitTokens ?? 0;
         const cacheMiss = usageExt?.promptCacheMissTokens ?? 0;
         if (cacheHit + cacheMiss > 0) {
-          console.log(`[cache] hit:${cacheHit}/${cacheHit + cacheMiss} (${(cacheHit / (cacheHit + cacheMiss) * 100).toFixed(1)}%)`);
+          logger.info(
+            { cacheHit, cacheMiss, hitRate: cacheHit / (cacheHit + cacheMiss) },
+            "prompt cache stats",
+          );
         }
 
         const actions = summarizeActions(toolCalls ?? []);

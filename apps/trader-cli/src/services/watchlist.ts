@@ -6,6 +6,8 @@
  */
 import { runLongbridgeJson, type LongbridgeCliResult } from "./longbridgeCli.js";
 import { toLongbridgeSymbol } from "./longbridge.js";
+import { logger } from "../logger.js";
+import { normalizeSymbol } from "../utils/symbol.js";
 
 /* ───────── 类型定义 ───────── */
 
@@ -68,7 +70,7 @@ function parseQuoteResult(raw: unknown): WatchlistQuote | null {
 }
 
 function normalizeSymbolKey(symbol: string): string {
-  return symbol.trim().toUpperCase();
+  return normalizeSymbol(symbol);
 }
 
 /** Match API symbol (e.g. AAPL) to requested Longbridge symbol (e.g. AAPL.US). */
@@ -129,7 +131,7 @@ function parseWatchlistResult(raw: unknown): WatchlistGroup[] {
 export async function loadWatchlist(): Promise<WatchlistGroup[]> {
   const result = await runLongbridgeJson("watchlist", [], { timeoutMs: 20_000 });
   if (!result.ok) {
-    console.error("loadWatchlist failed:", result.message);
+    logger.error({ err: result.message }, "loadWatchlist failed");
     return [];
   }
   return parseWatchlistResult(result.data);
@@ -148,7 +150,7 @@ export async function loadQuotes(
     const batch = symbols.slice(i, i + batchSize);
     const result = await runLongbridgeJson("quote", batch, { timeoutMs: 15_000 });
     if (!result.ok) {
-      console.error(`loadQuotes batch ${i} failed:`, result.message);
+      logger.error({ batch: i, err: result.message }, "loadQuotes batch failed");
       continue;
     }
     // quote 可能返回单对象或数组；Map key 统一用请求的 lbSymbol，避免 API 省略后缀导致查不到
