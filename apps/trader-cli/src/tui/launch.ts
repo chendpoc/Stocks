@@ -1,5 +1,6 @@
 import React from "react";
 import { render, type Instance } from "ink";
+import { user } from "../log/index.js";
 import type { ChartIntervalId } from "../services/chartIntervals.js";
 import { normalizeChartInterval } from "../services/chartIntervals.js";
 import { PREFERRED_SYMBOLS } from "../symbols.js";
@@ -27,8 +28,7 @@ export async function launchTui(options: LaunchTuiOptions = {}): Promise<Instanc
     chartInterval = "30d",
   } = options;
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.error("TUI 需要交互式终端（请使用 Windows Terminal / PowerShell，而非管道模式）。");
-    process.exit(1);
+    user.die("TUI 需要交互式终端（请使用 Windows Terminal / PowerShell，而非管道模式）。");
   }
 
   const { getLongbridgeStartupHint } = await import("../services/longbridgeAgent.js");

@@ -6,7 +6,7 @@
  */
 import { runLongbridgeJson, type LongbridgeCliResult } from "./longbridgeCli.js";
 import { toLongbridgeSymbol } from "./longbridge.js";
-import { logger } from "../logger.js";
+import { logger } from "../log/logger.js";
 import { normalizeSymbol } from "../utils/symbol.js";
 
 /* ───────── 类型定义 ───────── */

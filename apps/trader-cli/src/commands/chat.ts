@@ -3,12 +3,13 @@ import { fetchIntel } from "../api/client";
 import { getModel } from "../llm/provider";
 import { getAgentSystemPrompt, resolveAgentTools } from "../llm/buildAgentTools.js";
 import { chatReAct } from "../llm/chatReAct.js";
+import { logger, user } from "../log/index.js";
 import { lessons } from "./lessons";
 
 function printWorkflowRuns(runs: { runId: string; workflowId: string; label: string }[]) {
   if (runs.length === 0) return;
   for (const run of runs) {
-    console.log(`[Workflow] ${run.workflowId} 已触发 — runId: ${run.runId}${run.label ? ` (${run.label})` : ""}`);
+    user.say(`[Workflow] ${run.workflowId} 已触发 — runId: ${run.runId}${run.label ? ` (${run.label})` : ""}`);
   }
 }
 
@@ -22,13 +23,16 @@ export async function chatEval(prompt: string) {
     messages: [{ role: "user", content: prompt }],
     onStep: (trace) => {
       const act = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
-      console.log(`[Step ${trace.step}] ${trace.thought.slice(0, 100)}${act}`);
+      logger.debug(
+        { step: trace.step, actions: trace.actions },
+        `${trace.thought.slice(0, 100)}${act}`,
+      );
     },
   });
-  console.log(`\n${result.text}`);
+  user.say(`\n${result.text}`);
   printWorkflowRuns(result.workflowRuns);
   if (result.terminatedBy !== "natural") {
-    console.log(`[终止: ${result.terminatedBy}]`);
+    user.say(`[终止: ${result.terminatedBy}]`);
   }
 }
 
@@ -38,8 +42,8 @@ export async function chatTui() {
 }
 
 export async function chatReadline() {
-  console.log("Forward Market Intelligence — Agent Chat");
-  console.log("命令 /help、/scan、/analyze SYMBOL、/lessons、/quit\n");
+  user.say("Forward Market Intelligence — Agent Chat");
+  user.say("命令 /help、/scan、/analyze SYMBOL、/lessons、/quit\n");
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const history: { role: "user" | "assistant"; content: string }[] = [];
@@ -73,17 +77,22 @@ export async function chatReadline() {
         const obs = trace.observations
           ? `\n  Obs ← ${trace.observations.slice(0, 100)}`
           : "";
-        console.log(
-          `[Step ${trace.step}] Thought: ${trace.thought.slice(0, 100)}…${act}${obs}` +
-          ` (${trace.tokensUsed} tok, ${trace.elapsedMs}ms)`,
+        logger.debug(
+          {
+            step: trace.step,
+            tokensUsed: trace.tokensUsed,
+            elapsedMs: trace.elapsedMs,
+            actions: trace.actions,
+          },
+          `Thought: ${trace.thought.slice(0, 100)}…${act}${obs}`,
         );
       },
     });
 
-    console.log(`\n${result.text}`);
+    user.say(`\n${result.text}`);
     printWorkflowRuns(result.workflowRuns);
     if (result.terminatedBy !== "natural") {
-      console.log(`[终止: ${result.terminatedBy} · ${result.totalTokens} tok · ${result.wallClockMs}ms]`);
+      user.say(`[终止: ${result.terminatedBy} · ${result.totalTokens} tok · ${result.wallClockMs}ms]`);
     }
 
     history.push({ role: "assistant", content: result.text });
@@ -106,12 +115,12 @@ export async function chat(options?: { eval?: string }) {
 
 async function handleSlashCommand(input: string) {
   if (input === "/help") {
-    console.log("/scan /analyze SYMBOL /lessons /quit");
+    user.say("/scan /analyze SYMBOL /lessons /quit");
     return;
   }
   if (input === "/scan") {
     const result = await fetchIntel("/signals/scan", { method: "POST" });
-    console.log(`扫描完成: ${result.signal_count} 条新信号`);
+    user.say(`扫描完成: ${result.signal_count} 条新信号`);
     return;
   }
   if (input.startsWith("/analyze ")) {
@@ -125,10 +134,13 @@ async function handleSlashCommand(input: string) {
       messages: [{ role: "user", content: `分析 ${symbol}，先调 buildContext 再给出结论。` }],
       onStep: (trace) => {
         const act = trace.actions.length > 0 ? ` → ${trace.actions.join(", ")}` : "";
-        console.log(`[Step ${trace.step}] ${trace.thought.slice(0, 100)}${act}`);
+        logger.debug(
+          { step: trace.step, actions: trace.actions },
+          `${trace.thought.slice(0, 100)}${act}`,
+        );
       },
     });
-    console.log(`\n${result.text}`);
+    user.say(`\n${result.text}`);
     printWorkflowRuns(result.workflowRuns);
     return;
   }

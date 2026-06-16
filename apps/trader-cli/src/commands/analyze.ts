@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { getModel } from "../llm/provider";
 import { getAgentSystemPrompt, resolveAgentTools } from "../llm/buildAgentTools.js";
+import { user } from "../log/index.js";
 
 export async function analyze(symbol: string) {
   const tools = await resolveAgentTools();
@@ -13,5 +14,5 @@ export async function analyze(symbol: string) {
     maxSteps: 10,
   });
 
-  console.log(`\n${result.text}`);
+  user.say(`\n${result.text}`);
 }

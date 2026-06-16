@@ -1,10 +1,9 @@
 import { execFile, spawn } from "node:child_process";
 import { join } from "node:path";
 import { fetchHealth } from "../api/client.js";
+import { logger, machine, user } from "../log/index.js";
 import { findRepoRoot } from "./repoRoot.js";
 import type { ServerStatusResult } from "./types.js";
-
-const PORT = 8000;
 
 export async function getServerStatus(): Promise<ServerStatusResult> {
   try {
@@ -48,9 +47,11 @@ export function stopServer(): Promise<void> {
 export async function serverStatusForCli(): Promise<void> {
   const res = await getServerStatus();
   if (res.ok) {
-    console.log(JSON.stringify({ status: res.status, intel_route_count: res.intel_route_count }));
-    console.log("status:ok");
+    machine.line({ status: res.status, intel_route_count: res.intel_route_count });
+    logger.info({ status: res.status, intel_route_count: res.intel_route_count }, "backend health ok");
+    user.say("status:ok");
   } else {
-    console.log(`后端未运行或无响应：${res.error ?? res.status ?? "unknown"}`);
+    user.say(`后端未运行或无响应：${res.error ?? res.status ?? "unknown"}`);
+    logger.warn({ error: res.error, status: res.status }, "backend health check failed");
   }
 }

@@ -1,7 +1,7 @@
 import { fetchIntel } from "../api/client";
-import { printJson } from "../ui/display";
+import { user } from "../log/index.js";
 
 export async function brief() {
   const result = await fetchIntel("/jobs/premarket", { method: "POST" });
-  printJson("Premarket brief data", result);
+  user.json("Premarket brief data", result);
 }

@@ -2,13 +2,13 @@ import { buildChartLines } from "../services/chart.js";
 import { normalizeChartInterval } from "../services/chartIntervals.js";
 import { runTraderChartProcess } from "../services/traderChart.js";
 import { config } from "../config.js";
+import { user } from "../log/index.js";
 import { normalizeSymbol } from "../utils/symbol.js";
 
 export async function chart(symbol: string) {
   const sym = normalizeSymbol(symbol);
   if (!sym) {
-    console.error("请提供标的，例如: trader chart TSLA");
-    process.exit(1);
+    user.die("请提供标的，例如: trader chart TSLA");
   }
 
   if (process.stdin.isTTY && process.stdout.isTTY) {
@@ -17,8 +17,7 @@ export async function chart(symbol: string) {
       chartInterval: normalizeChartInterval(config.traderChartInterval),
     });
     if (!res.ok) {
-      console.error(res.message);
-      process.exit(1);
+      user.die(res.message);
     }
     return;
   }
@@ -29,6 +28,6 @@ export async function chart(symbol: string) {
     height: 14,
   });
   for (const line of lines) {
-    console.log(line);
+    user.say(line);
   }
 }

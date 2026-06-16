@@ -21,7 +21,7 @@
 import { generateText, type CoreTool, type LanguageModel, type ToolCall, type ToolResult } from "ai";
 import { extractWorkflowRunsFromGenerateText, type WorkflowRun } from "./chatWorkflowRuns.js";
 import type { ChatMessage } from "../tui/types.js";
-import { logger } from "../logger.js";
+import { logger } from "../log/logger.js";
 
 // ─── 类型 ─────────────────────────────────────────────────
 

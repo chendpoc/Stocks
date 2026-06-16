@@ -1,7 +1,7 @@
 import { runScan } from "../services/scan.js";
-import { printJson } from "../ui/display.js";
+import { user } from "../log/index.js";
 
 export async function scan() {
   const result = await runScan();
-  printJson("Scan complete", result);
+  user.json("Scan complete", result);
 }

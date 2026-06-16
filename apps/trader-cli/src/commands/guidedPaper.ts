@@ -5,7 +5,7 @@ import {
   registerExecutionPolicy,
   runGuidedPaperExploration,
 } from "../services/guidedPaper.js";
-import { printJson } from "../ui/display.js";
+import { user } from "../log/index.js";
 
 function readPolicyFile(filePath: string): Record<string, unknown> {
   const raw = readFileSync(filePath, "utf8");
@@ -18,11 +18,11 @@ function readPolicyFile(filePath: string): Record<string, unknown> {
 
 export async function guidedPaperPolicyRegister(filePath: string): Promise<void> {
   const policy = readPolicyFile(filePath);
-  printJson("ExecutionPolicy registered", await registerExecutionPolicy(policy));
+  user.json("ExecutionPolicy registered", await registerExecutionPolicy(policy));
 }
 
 export async function guidedPaperPolicyGet(executionPolicyId: string): Promise<void> {
-  printJson(`ExecutionPolicy ${executionPolicyId}`, await getExecutionPolicy(executionPolicyId));
+  user.json(`ExecutionPolicy ${executionPolicyId}`, await getExecutionPolicy(executionPolicyId));
 }
 
 export async function guidedPaperRun(options: {
@@ -36,7 +36,7 @@ export async function guidedPaperRun(options: {
   if (!Number.isFinite(quantity) || quantity <= 0) {
     throw new Error("--quantity must be a positive number");
   }
-  printJson(
+  user.json(
     `Guided paper run ${options.symbol}`,
     await runGuidedPaperExploration({
       execution_policy_id: options.policy,
