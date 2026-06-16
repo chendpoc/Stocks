@@ -9,7 +9,7 @@ const DEFAULT_ACCUMULATOR_FIELDS = ["errors"] as const;
  * Merge a node partial into graph state.
  * Replace-by-default; accumulator fields (e.g. `errors`) append like LangGraph reducers.
  */
-export function mergeGraphState<S extends Record<string, unknown>>(
+export function mergeGraphState<S>(
   state: S,
   partial: Partial<S>,
   options?: MergeGraphStateOptions<S>,
@@ -17,7 +17,7 @@ export function mergeGraphState<S extends Record<string, unknown>>(
   const accumulators = new Set<keyof S>(
     (options?.accumulatorFields ?? DEFAULT_ACCUMULATOR_FIELDS) as (keyof S)[],
   );
-  const result = { ...state };
+  const result = { ...state } as S;
 
   for (const key of Object.keys(partial) as (keyof S)[]) {
     const value = partial[key];

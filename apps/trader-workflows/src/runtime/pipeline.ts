@@ -9,7 +9,7 @@ export type PipelineDefinition<S> = {
   steps: PipelineStep<S>[];
 };
 
-export async function runPipeline<S extends Record<string, unknown>>(
+export async function runPipeline<S>(
   initial: S,
   steps: PipelineStep<S>[],
   options?: PipelineRunOptions<S>,
@@ -17,7 +17,7 @@ export async function runPipeline<S extends Record<string, unknown>>(
   return runPipelineFromStep(initial, steps, 0, options);
 }
 
-export async function runPipelineFromStep<S extends Record<string, unknown>>(
+export async function runPipelineFromStep<S>(
   state: S,
   steps: PipelineStep<S>[],
   startIndex: number,
@@ -31,7 +31,7 @@ export async function runPipelineFromStep<S extends Record<string, unknown>>(
   return current;
 }
 
-export async function runPipelineDefinition<S extends Record<string, unknown>>(
+export async function runPipelineDefinition<S>(
   initial: S,
   definition: PipelineDefinition<S>,
   options?: PipelineRunOptions<S>,
