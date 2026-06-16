@@ -63,6 +63,13 @@ function parseSymbolRequiredOpts<Schema extends ZodTypeAny>(
 }
 
 export function parseMarketDataFetchOpts(raw: unknown): MarketDataFetchOpts {
+  const record = (raw ?? {}) as Record<string, unknown>;
+  if (typeof record.symbol === "string" && record.symbol.startsWith("--")) {
+    throw new WorkflowCommandError(
+      "SYMBOL_VALUE_REQUIRED",
+      "--symbol requires a value",
+    );
+  }
   return parseSymbolRequiredOpts(
     MarketDataFetchOpts,
     raw,

@@ -33,6 +33,18 @@ export type MarketMonitorRunOpts = z.infer<typeof MarketMonitorRunOpts>;
 
 export function parseMarketMonitorRunOpts(raw: unknown): MarketMonitorRunOpts {
   const record = (raw ?? {}) as Record<string, unknown>;
+  if (typeof record.symbols === "string" && record.symbols.startsWith("--")) {
+    throw new WorkflowCommandError(
+      "SYMBOLS_VALUE_REQUIRED",
+      "--symbols requires a value",
+    );
+  }
+  if (typeof record.timeframes === "string" && record.timeframes.startsWith("--")) {
+    throw new WorkflowCommandError(
+      "TIMEFRAMES_VALUE_REQUIRED",
+      "--timeframes requires a value",
+    );
+  }
   if (record.symbols === undefined || record.symbols === "") {
     throw new WorkflowCommandError(
       ERROR_CODE_SYMBOLS_REQUIRED,
