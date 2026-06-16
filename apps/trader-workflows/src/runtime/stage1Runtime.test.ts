@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { MemorySaver } from "@langchain/langgraph";
 
 import { parseDecisionEnvelope } from "../llm/decisionEnvelope.js";
 import { computeOutcomeDueAt } from "../services/decisions.js";
@@ -59,7 +58,6 @@ function createStubDecisionGraphRuntime(dbPath: string): Stage1Runtime {
   const asof = "2026-06-01T12:00:00.000Z";
 
   return new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
-    langgraphCheckpointer: new MemorySaver(),
     decisionGraphDeps: {
       buildContext: async () => SAMPLE_SNAPSHOT,
       llm: {
@@ -104,9 +102,7 @@ test("Stage1 runtime uses temporary checkpoint DB and keeps market_intel untouch
 
   const { tempDir, dbPath } = createTempCheckpointDbPath();
   const store = new Stage1CheckpointStore({ dbPath });
-  const runtime = new Stage1Runtime(store, {
-    langgraphCheckpointer: new MemorySaver(),
-  });
+  const runtime = new Stage1Runtime(store);
 
   try {
     const interrupted = runtime.startRun({
@@ -136,9 +132,7 @@ test("Stage1 runtime uses temporary checkpoint DB and keeps market_intel untouch
 
 test("Stage1 runtime supports runs list/show/resume primitives", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
-  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
-    langgraphCheckpointer: new MemorySaver(),
-  });
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
 
   try {
     const interrupted = runtime.startRun({
@@ -174,9 +168,7 @@ test("Stage1 runtime supports runs list/show/resume primitives", async () => {
 
 test("Stage1 runtime exposes bounded run monitor summaries with filters", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
-  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
-    langgraphCheckpointer: new MemorySaver(),
-  });
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
 
   try {
     const interrupted = runtime.startRun({
@@ -222,9 +214,7 @@ test("Stage1 runtime exposes bounded run monitor summaries with filters", async 
 
 test("Stage1 runtime exposes bounded run trace details without raw state", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
-  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
-    langgraphCheckpointer: new MemorySaver(),
-  });
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
 
   try {
     const executed = await runtime.runGraph({
@@ -349,7 +339,7 @@ test("native DecisionGraph persists gate_decision in bounded run input", async (
   }
 });
 
-test("native DecisionGraph interruption can resume through LangGraph checkpoint path", async () => {
+test("native DecisionGraph interruption can resume through pipeline rerun", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
   const runtime = createStubDecisionGraphRuntime(dbPath);
 
@@ -395,9 +385,7 @@ test("native DecisionGraph interruption can resume through LangGraph checkpoint 
 
 test("Stage1 runtime wraps non-native graph execution in run metadata and checkpoints", async () => {
   const { tempDir, dbPath } = createTempCheckpointDbPath();
-  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }), {
-    langgraphCheckpointer: new MemorySaver(),
-  });
+  const runtime = new Stage1Runtime(new Stage1CheckpointStore({ dbPath }));
 
   try {
     const executed = await runtime.runGraph({

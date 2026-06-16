@@ -1,29 +1,27 @@
 import { prefixedId } from "../utils/id.js";
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 
 import {
-  buildDecisionGraph,
-  stateToDecisionGraphResult,
+  runDecisionGraph,
   type DecisionGraphDeps,
+  type DecisionGraphInput,
   type DecisionGraphResult,
 } from "../graphs/00-decision/decisionGraph.js";
 import {
-  buildOutcomeGraph,
-  stateToOutcomeGraphResult,
+  runDueOutcomeGraph,
   type OutcomeGraphDeps,
+  type OutcomeGraphRunInput,
   type OutcomeGraphRunResult,
 } from "../graphs/01-outcome/outcomeGraph.js";
 import {
-  buildEvaluationGraph,
-  stateToEvaluationGraphResult,
+  runEvaluationSummaryGraph,
   type EvaluationGraphDeps,
+  type EvaluationGraphRunInput,
   type EvaluationGraphRunResult,
 } from "../graphs/02-evaluation/evaluationGraph.js";
 import {
-  buildInsightExplorationGraph,
-  stateToInsightExplorationGraphResult,
+  runInsightExplorationGraph,
   type InsightExplorationGraphDeps,
+  type InsightExplorationGraphInput,
   type InsightExplorationGraphResult,
 } from "../graphs/03-insightExploration/insightExplorationGraph.js";
 import { toContextSnapshotSummary } from "../services/contextSnapshots.js";
@@ -35,11 +33,6 @@ import {
   type Stage1RunSummary,
 } from "./checkpointStore.js";
 import { logger } from "./logger.js";
-import {
-  createLanggraphCheckpointer,
-  readLatestLanggraphCheckpointRef,
-  resolveLanggraphCheckpointDbPath,
-} from "./langgraphCheckpointer.js";
 
 export interface Stage1RuntimeRunView extends Stage1RunDetail {
   checkpoints: Stage1CheckpointRecord[];
@@ -128,23 +121,17 @@ const NATIVE_OUTCOME_GRAPH = "OutcomeGraph";
 const NATIVE_EVALUATION_GRAPH = "EvaluationGraph";
 const NATIVE_INSIGHT_EXPLORATION_GRAPH = "InsightExplorationGraph";
 
-const NATIVE_LANGGRAPH_GRAPHS = new Set([
+const NATIVE_PIPELINE_GRAPHS = new Set([
   NATIVE_DECISION_GRAPH,
   NATIVE_OUTCOME_GRAPH,
   NATIVE_EVALUATION_GRAPH,
   NATIVE_INSIGHT_EXPLORATION_GRAPH,
 ]);
 
-const RuntimeGraphState = Annotation.Root({
-  run_id: Annotation<string>(),
-  input: Annotation<Record<string, unknown>>(),
-  output: Annotation<unknown | null>(),
-});
-
 export const STAGE1_OBSERVABILITY_LIMIT_MAX = 200;
 
-function isNativeLangGraphRun(graphName: string): boolean {
-  return NATIVE_LANGGRAPH_GRAPHS.has(graphName);
+function isNativePipelineGraphRun(graphName: string): boolean {
+  return NATIVE_PIPELINE_GRAPHS.has(graphName);
 }
 
 function isNativeDecisionGraphRun(graphName: string): boolean {
@@ -163,11 +150,11 @@ function isNativeInsightExplorationGraphRun(graphName: string): boolean {
   return graphName === NATIVE_INSIGHT_EXPLORATION_GRAPH;
 }
 
-function isNativeLangGraphRegistryRun(run: {
+function isNativePipelineRegistryRun(run: {
   graph_name: string;
   thread_id?: string | null;
 }): boolean {
-  return isNativeLangGraphRun(run.graph_name) && Boolean(run.thread_id);
+  return isNativePipelineGraphRun(run.graph_name) && Boolean(run.thread_id);
 }
 
 function parseGateDecisionInput(
@@ -200,10 +187,10 @@ function parseGateDecisionInput(
   };
 }
 
-function buildDecisionGraphInvokeState(
+function buildDecisionGraphInput(
   runId: string,
   input: Record<string, unknown>,
-): Record<string, unknown> {
+): DecisionGraphInput {
   const symbol = typeof input.symbol === "string" ? input.symbol.toUpperCase() : "";
   const gate_decision =
     parseGateDecisionInput(input.gate_decision) ??
@@ -216,7 +203,6 @@ function buildDecisionGraphInvokeState(
 
   return {
     run_id: runId,
-    thread_id: runId,
     symbol,
     setup_name: typeof input.setup_name === "string" ? input.setup_name : "",
     gate_decision,
@@ -224,6 +210,71 @@ function buildDecisionGraphInvokeState(
     asof_ts: typeof input.asof_ts === "string" ? input.asof_ts : undefined,
     model_version:
       typeof input.model_version === "string" ? input.model_version : undefined,
+  };
+}
+
+function buildOutcomeGraphInput(
+  runId: string,
+  input: Record<string, unknown>,
+): OutcomeGraphRunInput {
+  const limit =
+    typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+      ? input.limit
+      : 100;
+  return {
+    run_id: runId,
+    now: typeof input.now === "string" ? input.now : undefined,
+    limit,
+    symbol: typeof input.symbol === "string" ? input.symbol.toUpperCase() : undefined,
+  };
+}
+
+function buildEvaluationGraphInput(
+  runId: string,
+  input: Record<string, unknown>,
+): EvaluationGraphRunInput {
+  const limit =
+    typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+      ? input.limit
+      : 500;
+  return {
+    run_id: runId,
+    model_version:
+      typeof input.model_version === "string" ? input.model_version : "stage1-v0",
+    symbol: typeof input.symbol === "string" ? input.symbol.toUpperCase() : undefined,
+    limit,
+    persist: typeof input.persist === "boolean" ? input.persist : true,
+    report_id: typeof input.report_id === "string" ? input.report_id : undefined,
+    window_start:
+      typeof input.window_start === "string" || input.window_start === null
+        ? input.window_start
+        : undefined,
+    window_end:
+      typeof input.window_end === "string" || input.window_end === null
+        ? input.window_end
+        : undefined,
+  };
+}
+
+function buildInsightExplorationGraphInput(
+  runId: string,
+  input: Record<string, unknown>,
+): InsightExplorationGraphInput {
+  const symbol = typeof input.symbol === "string" ? input.symbol.toUpperCase() : "";
+  const window = typeof input.window === "string" ? input.window : "";
+  return {
+    run_id: runId,
+    symbol,
+    window,
+    exploration_prompt:
+      typeof input.exploration_prompt === "string" ? input.exploration_prompt : undefined,
+    evaluation_report_id:
+      typeof input.evaluation_report_id === "string"
+        ? input.evaluation_report_id
+        : undefined,
+    snapshot_limit: typeof input.snapshot_limit === "number" ? input.snapshot_limit : 20,
+    outcome_limit: typeof input.outcome_limit === "number" ? input.outcome_limit : 200,
+    persist: typeof input.persist === "boolean" ? input.persist : true,
   };
 }
 
@@ -548,8 +599,6 @@ function toResumeHint(run: Stage1RunSummary): Stage1RunResumeHint {
 export class Stage1Runtime {
   private readonly store: Stage1CheckpointStore;
 
-  private readonly langgraphCheckpointer: BaseCheckpointSaver;
-
   private readonly decisionGraphDeps?: DecisionGraphDeps;
 
   private readonly outcomeGraphDeps?: OutcomeGraphDeps;
@@ -561,7 +610,6 @@ export class Stage1Runtime {
   constructor(
     store?: Stage1CheckpointStore,
     options?: {
-      langgraphCheckpointer?: BaseCheckpointSaver;
       decisionGraphDeps?: DecisionGraphDeps;
       outcomeGraphDeps?: OutcomeGraphDeps;
       evaluationGraphDeps?: EvaluationGraphDeps;
@@ -573,11 +621,6 @@ export class Stage1Runtime {
     this.outcomeGraphDeps = options?.outcomeGraphDeps;
     this.evaluationGraphDeps = options?.evaluationGraphDeps;
     this.insightExplorationGraphDeps = options?.insightExplorationGraphDeps;
-    this.langgraphCheckpointer =
-      options?.langgraphCheckpointer ??
-      createLanggraphCheckpointer({
-        dbPath: resolveLanggraphCheckpointDbPath(this.store.dbPath),
-      });
   }
 
   startRun(options?: Stage1RuntimeStartOptions): Stage1RuntimeRunView {
@@ -603,7 +646,7 @@ export class Stage1Runtime {
       state: {
         stage: "bootstrap",
         graph_name: graphName,
-        runtime: "@langchain/langgraph",
+        runtime: "pipeline",
       },
     });
 
@@ -684,7 +727,7 @@ export class Stage1Runtime {
       state: {
         stage: "bootstrap",
         graph_name: options.graph_name,
-        runtime: "@langchain/langgraph",
+        runtime: "pipeline",
         input,
       },
     });
@@ -764,29 +807,11 @@ export class Stage1Runtime {
     }
 
     try {
-      const graph = buildDecisionGraph({
-        deps: this.decisionGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const finalState = await graph.invoke(
-        buildDecisionGraphInvokeState(runId, input),
-        {
-          configurable: { thread_id: runId },
-        },
+      const output = await runDecisionGraph(
+        buildDecisionGraphInput(runId, input),
+        this.decisionGraphDeps,
       );
-      const output = stateToDecisionGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        runId,
-      );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedDecisionOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedDecisionOutput(output));
       return {
         run: this.showRun(runId),
         output,
@@ -831,39 +856,11 @@ export class Stage1Runtime {
     }
 
     try {
-      const graph = buildOutcomeGraph({
-        deps: this.outcomeGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const limit =
-        typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-          ? input.limit
-          : 100;
-      const finalState = await graph.invoke(
-        {
-          run_id: runId,
-          thread_id: runId,
-          now: typeof input.now === "string" ? input.now : undefined,
-          limit,
-          symbol: typeof input.symbol === "string" ? input.symbol.toUpperCase() : undefined,
-        },
-        {
-          configurable: { thread_id: runId },
-        },
+      const output = await runDueOutcomeGraph(
+        buildOutcomeGraphInput(runId, input),
+        this.outcomeGraphDeps,
       );
-      const output = stateToOutcomeGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        runId,
-      );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedOutcomeOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedOutcomeOutput(output));
       return {
         run: this.showRun(runId),
         output,
@@ -908,41 +905,11 @@ export class Stage1Runtime {
     }
 
     try {
-      const graph = buildEvaluationGraph({
-        deps: this.evaluationGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const limit =
-        typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-          ? input.limit
-          : 500;
-      const finalState = await graph.invoke(
-        {
-          run_id: runId,
-          thread_id: runId,
-          model_version:
-            typeof input.model_version === "string" ? input.model_version : "stage1-v0",
-          symbol: typeof input.symbol === "string" ? input.symbol.toUpperCase() : undefined,
-          limit,
-          persist: typeof input.persist === "boolean" ? input.persist : true,
-        },
-        {
-          configurable: { thread_id: runId },
-        },
+      const output = await runEvaluationSummaryGraph(
+        buildEvaluationGraphInput(runId, input),
+        this.evaluationGraphDeps,
       );
-      const output = stateToEvaluationGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        runId,
-      );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedEvaluationOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedEvaluationOutput(output));
       return {
         run: this.showRun(runId),
         output,
@@ -994,40 +961,11 @@ export class Stage1Runtime {
     }
 
     try {
-      const graph = buildInsightExplorationGraph({
-        deps: this.insightExplorationGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const finalState = await graph.invoke(
-        {
-          run_id: runId,
-          thread_id: runId,
-          symbol,
-          window,
-          exploration_prompt:
-            typeof input.exploration_prompt === "string" ? input.exploration_prompt : undefined,
-          snapshot_limit:
-            typeof input.snapshot_limit === "number" ? input.snapshot_limit : 20,
-          outcome_limit: typeof input.outcome_limit === "number" ? input.outcome_limit : 200,
-          persist: typeof input.persist === "boolean" ? input.persist : true,
-        },
-        {
-          configurable: { thread_id: runId },
-        },
+      const output = await runInsightExplorationGraph(
+        buildInsightExplorationGraphInput(runId, input),
+        this.insightExplorationGraphDeps,
       );
-      const output = stateToInsightExplorationGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        runId,
-      );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedInsightExplorationOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedInsightExplorationOutput(output));
       return {
         run: this.showRun(runId),
         output,
@@ -1052,7 +990,7 @@ export class Stage1Runtime {
         graph_name: options.graph_name,
       })
       .map((run) => {
-        const checkpoints = isNativeLangGraphRegistryRun(run)
+        const checkpoints = isNativePipelineRegistryRun(run)
           ? []
           : this.store.listCheckpoints(run.run_id);
         return toRunMonitorSummary(run, checkpoints);
@@ -1064,7 +1002,7 @@ export class Stage1Runtime {
     if (!run) {
       throw new Error(`Run not found: ${runId}`);
     }
-    const checkpoints = isNativeLangGraphRegistryRun(run)
+    const checkpoints = isNativePipelineRegistryRun(run)
       ? []
       : this.store.listCheckpoints(runId);
     return {
@@ -1089,7 +1027,7 @@ export class Stage1Runtime {
     }
     return {
       ...run,
-      checkpoints: isNativeLangGraphRegistryRun(run)
+      checkpoints: isNativePipelineRegistryRun(run)
         ? []
         : this.store.listCheckpoints(runId),
     };
@@ -1110,7 +1048,7 @@ export class Stage1Runtime {
     }
 
     logger.info({ run_id: runId, graph_name: run.graph_name }, "stage1Runtime.resumeRun");
-    if (isNativeLangGraphRegistryRun(run)) {
+    if (isNativePipelineRegistryRun(run)) {
       if (isNativeDecisionGraphRun(run.graph_name)) {
         return this.resumeNativeDecisionGraph(runId, run);
       }
@@ -1181,7 +1119,6 @@ export class Stage1Runtime {
     runId: string,
     run: Stage1RunDetail,
   ): Promise<Stage1RuntimeRunView> {
-    const threadId = run.thread_id ?? runId;
     const input = normalizeRunInput(run.input);
     this.store.updateRun(runId, {
       status: "running",
@@ -1190,33 +1127,11 @@ export class Stage1Runtime {
     });
 
     try {
-      const graph = buildDecisionGraph({
-        deps: this.decisionGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const checkpoint = await this.langgraphCheckpointer.getTuple({
-        configurable: { thread_id: threadId },
-      });
-      const finalState = checkpoint
-        ? await graph.invoke(null, {
-          configurable: { thread_id: threadId },
-        })
-        : await graph.invoke(buildDecisionGraphInvokeState(runId, input), {
-          configurable: { thread_id: threadId },
-        });
-      const output = stateToDecisionGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        threadId,
+      const output = await runDecisionGraph(
+        buildDecisionGraphInput(runId, input),
+        this.decisionGraphDeps,
       );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedDecisionOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedDecisionOutput(output));
       return this.showRun(runId);
     } catch (error) {
       this.markRunFailed(runId, errorToMessage(error));
@@ -1228,7 +1143,6 @@ export class Stage1Runtime {
     runId: string,
     run: Stage1RunDetail,
   ): Promise<Stage1RuntimeRunView> {
-    const threadId = run.thread_id ?? runId;
     const input = normalizeRunInput(run.input);
     this.store.updateRun(runId, {
       status: "running",
@@ -1237,46 +1151,11 @@ export class Stage1Runtime {
     });
 
     try {
-      const graph = buildOutcomeGraph({
-        deps: this.outcomeGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const checkpoint = await this.langgraphCheckpointer.getTuple({
-        configurable: { thread_id: threadId },
-      });
-      const limit =
-        typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-          ? input.limit
-          : 100;
-      const finalState = checkpoint
-        ? await graph.invoke(null, {
-          configurable: { thread_id: threadId },
-        })
-        : await graph.invoke(
-          {
-            run_id: runId,
-            thread_id: threadId,
-            now: typeof input.now === "string" ? input.now : undefined,
-            limit,
-            symbol: typeof input.symbol === "string" ? input.symbol.toUpperCase() : undefined,
-          },
-          {
-            configurable: { thread_id: threadId },
-          },
-        );
-      const output = stateToOutcomeGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        threadId,
+      const output = await runDueOutcomeGraph(
+        buildOutcomeGraphInput(runId, input),
+        this.outcomeGraphDeps,
       );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedOutcomeOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedOutcomeOutput(output));
       return this.showRun(runId);
     } catch (error) {
       this.markRunFailed(runId, errorToMessage(error));
@@ -1288,7 +1167,6 @@ export class Stage1Runtime {
     runId: string,
     run: Stage1RunDetail,
   ): Promise<Stage1RuntimeRunView> {
-    const threadId = run.thread_id ?? runId;
     const input = normalizeRunInput(run.input);
     this.store.updateRun(runId, {
       status: "running",
@@ -1297,41 +1175,11 @@ export class Stage1Runtime {
     });
 
     try {
-      const graph = buildEvaluationGraph({
-        deps: this.evaluationGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const checkpoint = await this.langgraphCheckpointer.getTuple({
-        configurable: { thread_id: threadId },
-      });
-      const limit =
-        typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-          ? input.limit
-          : 500;
-      const invokeInput = {
-        run_id: runId,
-        thread_id: threadId,
-        model_version: typeof input.model_version === "string" ? input.model_version : "stage1-v0",
-        symbol: typeof input.symbol === "string" ? input.symbol.toUpperCase() : undefined,
-        limit,
-        persist: typeof input.persist === "boolean" ? input.persist : true,
-      };
-      const finalState = checkpoint
-        ? await graph.invoke(null, { configurable: { thread_id: threadId } })
-        : await graph.invoke(invokeInput, { configurable: { thread_id: threadId } });
-      const output = stateToEvaluationGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        threadId,
+      const output = await runEvaluationSummaryGraph(
+        buildEvaluationGraphInput(runId, input),
+        this.evaluationGraphDeps,
       );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedEvaluationOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedEvaluationOutput(output));
       return this.showRun(runId);
     } catch (error) {
       this.markRunFailed(runId, errorToMessage(error));
@@ -1343,7 +1191,6 @@ export class Stage1Runtime {
     runId: string,
     run: Stage1RunDetail,
   ): Promise<Stage1RuntimeRunView> {
-    const threadId = run.thread_id ?? runId;
     const input = normalizeRunInput(run.input);
     this.store.updateRun(runId, {
       status: "running",
@@ -1352,42 +1199,11 @@ export class Stage1Runtime {
     });
 
     try {
-      const graph = buildInsightExplorationGraph({
-        deps: this.insightExplorationGraphDeps,
-        checkpointer: this.langgraphCheckpointer,
-      });
-      const checkpoint = await this.langgraphCheckpointer.getTuple({
-        configurable: { thread_id: threadId },
-      });
-      const symbol = typeof input.symbol === "string" ? input.symbol.toUpperCase() : "";
-      const window = typeof input.window === "string" ? input.window : "";
-      const invokeInput = {
-        run_id: runId,
-        thread_id: threadId,
-        symbol,
-        window,
-        exploration_prompt:
-          typeof input.exploration_prompt === "string" ? input.exploration_prompt : undefined,
-        snapshot_limit: typeof input.snapshot_limit === "number" ? input.snapshot_limit : 20,
-        outcome_limit: typeof input.outcome_limit === "number" ? input.outcome_limit : 200,
-        persist: typeof input.persist === "boolean" ? input.persist : true,
-      };
-      const finalState = checkpoint
-        ? await graph.invoke(null, { configurable: { thread_id: threadId } })
-        : await graph.invoke(invokeInput, { configurable: { thread_id: threadId } });
-      const output = stateToInsightExplorationGraphResult(finalState);
-      const checkpointRef = await readLatestLanggraphCheckpointRef(
-        this.langgraphCheckpointer,
-        threadId,
+      const output = await runInsightExplorationGraph(
+        buildInsightExplorationGraphInput(runId, input),
+        this.insightExplorationGraphDeps,
       );
-      this.store.updateRun(runId, {
-        status: "succeeded",
-        current_node: null,
-        finished_at: new Date().toISOString(),
-        checkpoint_ref: checkpointRef,
-        output: toBoundedInsightExplorationOutput(output),
-        latest_error: null,
-      });
+      this.finalizeNativePipelineRun(runId, toBoundedInsightExplorationOutput(output));
       return this.showRun(runId);
     } catch (error) {
       this.markRunFailed(runId, errorToMessage(error));
@@ -1406,7 +1222,7 @@ export class Stage1Runtime {
       current_node: run.current_node,
       finished_at: new Date().toISOString(),
     });
-    if (!isNativeLangGraphRegistryRun(run)) {
+    if (!isNativePipelineRegistryRun(run)) {
       this.store.appendCheckpoint({
         run_id: runId,
         node_name: "failed",
@@ -1418,12 +1234,24 @@ export class Stage1Runtime {
 
   close(): void {
     this.store.close();
-    if ("db" in this.langgraphCheckpointer) {
-      const sqliteSaver = this.langgraphCheckpointer as {
-        db?: { close?: () => void };
-      };
-      sqliteSaver.db?.close?.();
-    }
+  }
+
+  private finalizeNativePipelineRun(
+    runId: string,
+    boundedOutput: Record<string, unknown>,
+  ): void {
+    this.store.appendCheckpoint({
+      run_id: runId,
+      node_name: "pipeline_complete",
+      state: { stage: "complete", output: boundedOutput },
+    });
+    this.store.updateRun(runId, {
+      status: "succeeded",
+      current_node: null,
+      finished_at: new Date().toISOString(),
+      output: boundedOutput,
+      latest_error: null,
+    });
   }
 
   private finalizeRunSucceeded(
@@ -1431,7 +1259,7 @@ export class Stage1Runtime {
     payload: { resumed: boolean; from_node: string | null; output?: unknown },
   ): void {
     const run = this.store.getRun(runId);
-    if (run && isNativeLangGraphRegistryRun(run)) {
+    if (run && isNativePipelineRegistryRun(run)) {
       return;
     }
 
@@ -1482,23 +1310,10 @@ export class Stage1Runtime {
       },
     });
 
-    const graph = new StateGraph(RuntimeGraphState)
-      .addNode(params.node_name, async (state) => {
-        const output = await params.execute({
-          ...(state.input as TInput),
-          run_id: state.run_id,
-        });
-        return { output };
-      })
-      .addEdge(START, params.node_name)
-      .addEdge(params.node_name, END)
-      .compile();
-    const result = await graph.invoke({
+    const output = await params.execute({
+      ...params.input,
       run_id: params.run_id,
-      input: params.input,
-      output: null,
     });
-    const output = result.output as TOutput;
 
     this.store.appendCheckpoint({
       run_id: params.run_id,
