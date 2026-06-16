@@ -1,0 +1,90 @@
+{
+  "id": "T037",
+  "slug": "trader-cli-refactor-v0",
+  "spec_id": "trader-cli-refactor-v0",
+  "title": "trader-cli refactor waves (A → Thinking → B)",
+  "status": "active",
+  "slices": [
+    {
+      "id": "A2",
+      "title": "Longbridge tool registry split",
+      "depends_on": [],
+      "may_edit": [
+        "apps/trader-cli/src/llm/toolRegistry.longbridge.ts",
+        "apps/trader-cli/src/llm/longbridge/**",
+        "apps/trader-cli/src/llm/longbridgeTools.test.ts"
+      ],
+      "exit_criteria": [
+        "LONGBRIDGE_TOOLS order and names unchanged",
+        "tsc and npm test pass"
+      ]
+    },
+    {
+      "id": "A3",
+      "title": "marketAgentDaemon split",
+      "depends_on": ["A2"],
+      "may_edit": [
+        "apps/trader-cli/src/daemon/marketAgentDaemon.ts",
+        "apps/trader-cli/src/daemon/types.ts",
+        "apps/trader-cli/src/daemon/marketSummary.ts",
+        "apps/trader-cli/src/daemon/gate.ts",
+        "apps/trader-cli/src/daemon/gateHandler.ts",
+        "apps/trader-cli/src/daemon/scheduler.ts",
+        "apps/trader-cli/src/daemon/marketAgentDaemon.test.ts"
+      ],
+      "exit_criteria": [
+        "daemon singleton import path unchanged",
+        "daemon status test passes"
+      ]
+    },
+    {
+      "id": "T3a",
+      "title": "chatReAct onTurnComplete API",
+      "depends_on": ["A3"],
+      "may_edit": [
+        "apps/trader-cli/src/llm/chatReAct.ts",
+        "apps/trader-cli/src/llm/chatWorkflowRuns.test.ts"
+      ],
+      "exit_criteria": ["onTurnComplete callback; ReActResult backward compatible"]
+    },
+    {
+      "id": "T3b",
+      "title": "readline thinking display",
+      "depends_on": ["T3a"],
+      "may_edit": ["apps/trader-cli/src/commands/chat.ts", "apps/trader-cli/src/log/user.ts"]
+    },
+    {
+      "id": "T3c",
+      "title": "TUI ThinkingPanel",
+      "depends_on": ["T3a"],
+      "may_edit": [
+        "apps/trader-cli/src/tui/pages/ChatPage.tsx",
+        "apps/trader-cli/src/tui/components/ThinkingPanel.tsx"
+      ]
+    },
+    {
+      "id": "C1",
+      "title": "ProcessedContext + PromptFrame",
+      "depends_on": ["T3c"],
+      "may_edit": ["apps/trader-cli/src/chat/processedContext.ts", "apps/trader-cli/src/chat/promptFrame.ts", "apps/trader-cli/src/chat/tokenBudget.ts", "apps/trader-cli/src/chat/processedContext.test.ts"]
+    },
+    {
+      "id": "C2",
+      "title": "Task router + tool selector",
+      "depends_on": ["C1"],
+      "may_edit": ["apps/trader-cli/src/chat/taskRouter.ts", "apps/trader-cli/src/chat/toolSelector.ts", "apps/trader-cli/src/chat/taskRouter.test.ts", "apps/trader-cli/src/chat/toolSelector.test.ts"]
+    },
+    {
+      "id": "C4",
+      "title": "Permission gate + debug trace",
+      "depends_on": ["C2"],
+      "may_edit": ["apps/trader-cli/src/chat/permissionGate.ts", "apps/trader-cli/src/chat/debugTrace.ts", "apps/trader-cli/src/chat/permissionGate.test.ts", "apps/trader-cli/src/chat/debugTrace.test.ts"]
+    },
+    {
+      "id": "C3",
+      "title": "Workspace memory + consolidator stub",
+      "depends_on": ["C4"],
+      "may_edit": ["apps/trader-cli/src/chat/memory/**"]
+    }
+  ]
+}

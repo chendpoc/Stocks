@@ -1,0 +1,45 @@
+{
+  "id": "trader-cli-refactor-v0",
+  "title": "trader-cli: Track A split + Thinking UX + Track B reasoning",
+  "status": "active",
+  "authority": "project-docs/refactor/trader-cli-reasoning-and-split-plan.md",
+  "scope": {
+    "create": [
+      "apps/trader-cli/src/llm/longbridge/**",
+      "apps/trader-cli/src/daemon/types.ts",
+      "apps/trader-cli/src/daemon/marketSummary.ts",
+      "apps/trader-cli/src/daemon/gate.ts",
+      "apps/trader-cli/src/daemon/gateHandler.ts",
+      "apps/trader-cli/src/daemon/scheduler.ts",
+      "apps/trader-cli/src/tui/components/ThinkingPanel.tsx",
+      "apps/trader-cli/src/chat/**"
+    ],
+    "modify": [
+      "apps/trader-cli/src/llm/toolRegistry.longbridge.ts",
+      "apps/trader-cli/src/daemon/marketAgentDaemon.ts",
+      "apps/trader-cli/src/llm/chatReAct.ts",
+      "apps/trader-cli/src/commands/chat.ts",
+      "apps/trader-cli/src/tui/pages/ChatPage.tsx"
+    ],
+    "forbidden": [
+      "apps/trader-agent/**",
+      "apps/trader-workflows/**",
+      "docs/**"
+    ]
+  },
+  "non_goals": [
+    "Broker mirror or real trading",
+    "streamText migration",
+    "ContextPack as TypeScript type name"
+  ],
+  "decisions": [
+    "Track A is mechanical split only; preserve tool names, order, daemon import path",
+    "ProcessedContext + PromptFrame naming for Track B",
+    "Thinking UX after Track A completes",
+    "src/chat/ owns orchestration; src/llm/ stays adapter"
+  ],
+  "verification": [
+    "npm --prefix apps/trader-cli exec tsc -- --noEmit",
+    "npm --prefix apps/trader-cli test"
+  ]
+}
