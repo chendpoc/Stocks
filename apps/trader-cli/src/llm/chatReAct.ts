@@ -44,6 +44,16 @@ export type ReActResult = {
   terminatedBy: "natural" | "max_steps" | "empty_loop" | "aborted" | "error";
 };
 
+export type TurnCompleteInfo = {
+  finalText: string;
+  terminatedBy: ReActResult["terminatedBy"];
+  totalTokens: number;
+  totalMs: number;
+  wallClockMs: number;
+  steps: StepTrace[];
+  workflowRuns: WorkflowRun[];
+};
+
 export type ReActOptions = {
   model: LanguageModel;
   system: string;
@@ -61,6 +71,8 @@ export type ReActOptions = {
   maxRetries?: number;
   /** 每步回调，用于 UI 更新 */
   onStep?: (trace: StepTrace) => void;
+  /** 循环结束回调，携带最终结果与统计 */
+  onTurnComplete?: (info: TurnCompleteInfo) => void;
   /** 限定本次可用的工具子集。 */
   activeTools?: string[];
 };
@@ -97,6 +109,18 @@ function summarizeObservations(toolResults: ToolResult<string, unknown, unknown>
     .join(" | ");
 }
 
+export function toTurnCompleteInfo(result: ReActResult): TurnCompleteInfo {
+  return {
+    finalText: result.text,
+    terminatedBy: result.terminatedBy,
+    totalTokens: result.totalTokens,
+    totalMs: result.totalMs,
+    wallClockMs: result.wallClockMs,
+    steps: result.steps,
+    workflowRuns: result.workflowRuns,
+  };
+}
+
 // ─── 主函数 ───────────────────────────────────────────────
 
 export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
@@ -111,6 +135,7 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
     abortSignal,
     maxRetries = DEFAULT_MAX_RETRIES,
     onStep,
+    onTurnComplete,
     activeTools,
   } = opts;
 
@@ -246,7 +271,7 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
 
   const wallMs = Date.now() - wallStart;
 
-  return {
+  const reactResult: ReActResult = {
     text: finalText,
     steps: stepTraces,
     workflowRuns,
@@ -255,4 +280,8 @@ export async function chatReAct(opts: ReActOptions): Promise<ReActResult> {
     wallClockMs: wallMs,
     terminatedBy,
   };
+
+  onTurnComplete?.(toTurnCompleteInfo(reactResult));
+
+  return reactResult;
 }
