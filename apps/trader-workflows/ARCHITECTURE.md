@@ -137,11 +137,10 @@ runtime run. `decide`, `outcomes run --due`, `eval summary`, and
 | `src/cli/program.ts` | Full commander tree, `executeCommand`, injectable envelope sink |
 | `src/cli/router.ts` | Programmatic API: `handleCommandAsync` delegates to `executeCommand` |
 | `src/cli/helpers.ts` | Workflow envelope formatting and resume handler map |
-| `src/runtime/stage1Runtime.ts` | Run lifecycle, checkpoint writes, native graph invocation, service-wrapper invocation, resume |
+| `src/runtime/stage1Runtime.ts` | Run lifecycle, checkpoint writes, native pipeline graph invocation, service-wrapper invocation, resume |
 | `src/runtime/checkpointStore.ts` | SQLite run registry and wrapper checkpoint storage |
-| `src/runtime/langgraphCheckpointer.ts` | LangGraph SQLite checkpoint saver for native graph checkpoints |
+| `src/runtime/pipeline.ts` | Pure-function graph runner (`runPipeline`, `runPipelineFromStep`) |
 | `src/api/client.ts` | Backend HTTP client (`fetchIntel`, `fetchStage1`, `ApiResponse<T>`) |
-| `langgraph.json` | LangGraph Studio registration for all four native graphs |
 
 ## Runtime Persistence
 
