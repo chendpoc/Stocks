@@ -1,6 +1,6 @@
 # T035: Commander 完整子命令树迁移草案
 
-> Date: 2026-06-16 | Status: **done** (T035-S1–S6, `d694fedc`)  
+> Date: 2026-06-16 | Status: **done** (T035-S1–S7)  
 > Parent: T033 Phase G — 已由本任务完整替代混合模式  
 > Scope: `apps/trader-workflows/src/cli/`
 
@@ -12,15 +12,14 @@
 
 | 组件 | 职责 |
 |------|------|
-| `cli/program.ts` | 完整 commander 子命令树；全部 action → `runEnvelopeAction` → `printEnvelope` |
-| `cli/router.ts` | `handleCommandAsync` → `legacyArgs` S2–S6 dispatch（trader-cli spawn 兼容） |
-| `cli/legacyArgs.ts` | `string[]` argv → zod typed opts → handler |
+| `cli/program.ts` | 完整 commander 子命令树；`buildProgram(runtime, sink)` + `executeCommand` |
+| `cli/router.ts` | `handleCommandAsync` → `executeCommand`（程序化 API / 测试） |
 | `cli/validators.ts` | pattern-memory promote/degrade 互斥 id、`--confirm` 等跨字段规则 |
 | `cli/parseOpts.ts` | zod safeParse → `WorkflowCommandError`（返回 `z.infer` output 类型） |
 | `commandHandlers/*` | `(runtime, typedOpts)` — 无 `args[]` 解析 |
-| `index.ts` main | `validateTopLevelCommand` → `program.parseAsync()` |
+| `index.ts` main | `executeCommand` → `printEnvelope` |
 
-`cli/flagParsing.ts` 已删除（S6，`b3776c02`）。
+`cli/flagParsing.ts` 与 `cli/legacyArgs.ts` 已删除（S6 / S7）。
 
 ### 1.2 混合模式的问题（长期维护）
 
@@ -53,10 +52,9 @@
 
 ```text
 cli/
-  program.ts          # buildProgram(runtime) — 完整 commander 树 + action 注册
-  legacyArgs.ts       # handleCommandAsync compat: argv → typed opts dispatch
+  program.ts          # buildProgram(runtime, sink) + executeCommand
   validators.ts       # 复杂校验（pattern-memory 互斥 id、session-id/profile 二选一等）
-  router.ts           # handleCommandAsync 薄包装 → legacyArgs
+  router.ts           # handleCommandAsync → executeCommand
   commandHandlers/    # 各 handler 收 typed opts
   helpers.ts          # printEnvelope（stdout JSON 协议，保留 console.log）
   logger.ts           # re-export runtime/logger（pino 诊断日志，与 envelope 分离）

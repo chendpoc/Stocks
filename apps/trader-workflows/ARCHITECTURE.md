@@ -36,10 +36,9 @@ src/
     stage1Runtime.ts  # Run registry, native LangGraph dispatch, resume
     checkpointStore.ts
   cli/
-    program.ts        # Full commander subcommand tree + zod actions → printEnvelope
+    program.ts        # Full commander tree + executeCommand (injectable envelope sink)
     validators.ts     # Cross-field CLI validation (pattern-memory promote/degrade ids)
-    legacyArgs.ts     # argv → typed opts dispatch for handleCommandAsync compat
-    router.ts         # handleCommandAsync → legacyArgs dispatch
+    router.ts         # handleCommandAsync → executeCommand
     parseOpts.ts      # zod safeParse → WorkflowCommandError
     helpers.ts        # printEnvelope (stdout JSON) + resume handler map
     logger.ts         # re-export runtime/logger
@@ -97,8 +96,9 @@ Operator command
   v
 src/index.ts
   |
-  |-- program.parseAsync() → action → handler(runtime, typedOpts) → printEnvelope
-  |-- handleCommandAsync(runtime, argv[]) for trader-cli spawn (legacyArgs dispatch)
+  |-- executeCommand → buildProgram(sink) → handler(runtime, typedOpts)
+  |     |-- main: sink = printEnvelope (stdout JSON)
+  |     `-- handleCommandAsync: sink = capture envelope (programmatic API + tests)
   |
   v
 Stage1Runtime
@@ -133,9 +133,9 @@ runtime run. `decide`, `outcomes run --due`, `eval summary`, and
 
 | Entrypoint | Current responsibility |
 |---|---|
-| `src/index.ts` | Public exports, CLI entrypoint (`program.parseAsync` + `handleCommandAsync`), runtime lifecycle |
-| `src/cli/program.ts` | Full commander tree; actions validate with zod and print JSON envelopes |
-| `src/cli/router.ts` | Programmatic API: `handleCommandAsync` via `legacyArgs` dispatch |
+| `src/index.ts` | Public exports, CLI entrypoint (`executeCommand` / `handleCommandAsync`), runtime lifecycle |
+| `src/cli/program.ts` | Full commander tree, `executeCommand`, injectable envelope sink |
+| `src/cli/router.ts` | Programmatic API: `handleCommandAsync` delegates to `executeCommand` |
 | `src/cli/helpers.ts` | Workflow envelope formatting and resume handler map |
 | `src/runtime/stage1Runtime.ts` | Run lifecycle, checkpoint writes, native graph invocation, service-wrapper invocation, resume |
 | `src/runtime/checkpointStore.ts` | SQLite run registry and wrapper checkpoint storage |

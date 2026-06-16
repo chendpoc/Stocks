@@ -57,12 +57,21 @@
       "status": "done",
       "commit": "b3776c02",
       "risk": "medium"
+    },
+    {
+      "id": "T035-S7",
+      "title": "Delete legacyArgs; executeCommand single parse path",
+      "status": "done",
+      "risk": "medium",
+      "files": ["cli/program.ts", "cli/router.ts", "index.ts", "commandHandlers/marketMonitor.ts", "commandHandlers/marketData.ts"],
+      "notes": "EnvelopeSink + executeCommand; handleCommandAsync → executeCommand; delete legacyArgs.ts"
     }
   ],
   "acceptance": [
     "All handlers (runtime, typedOpts) — no args string[] in handler bodies",
     "flagParsing.ts deleted; validators.ts for complex rules only",
-    "handleCommandAsync(runtime, string[]) exported for trader-cli spawn",
+    "legacyArgs.ts deleted; single commander parse via executeCommand",
+    "handleCommandAsync(runtime, string[]) exported for programmatic API",
     "npm test baseline: no regression vs post-S1.1",
     "npm run check:circular no cycles",
     "ARCHITECTURE.md CLI section updated"
