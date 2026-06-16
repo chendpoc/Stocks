@@ -43,7 +43,7 @@ async function runWorkflow(workflowId: string, args: string[]) {
   try {
     const result = await fetchIntel(`/workflows/${workflowId}`, {
       method: "POST",
-      body: JSON.stringify(inputs),
+      json: inputs,
     });
     const r = result as { runId?: string; status?: string };
     console.log(`${workflowId} 已触发 — runId: ${r.runId ?? "?"} status: ${r.status ?? "unknown"}`);

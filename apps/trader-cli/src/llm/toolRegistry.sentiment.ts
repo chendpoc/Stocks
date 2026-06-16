@@ -29,7 +29,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
       execute: async ({ query, maxResults }) =>
         safeFetchIntel("/tools/web-search", {
           method: "POST",
-          body: JSON.stringify({ query, maxResults }),
+          json: { query, maxResults },
         }),
     }),
   },
@@ -51,7 +51,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
       execute: async ({ symbol, source }) =>
         safeFetchIntel("/tools/search-cn-finance", {
           method: "POST",
-          body: JSON.stringify({ symbol, source }),
+          json: { symbol, source },
         }),
     }),
   },
@@ -69,7 +69,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
       execute: async ({ url }) =>
         safeFetchIntel("/tools/fetch-url", {
           method: "POST",
-          body: JSON.stringify({ url }),
+          json: { url },
         }),
     }),
   },
@@ -87,7 +87,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
       execute: async ({ symbol, windowMinutes }) =>
         safeFetchIntel("/tools/recent-events", {
           method: "POST",
-          body: JSON.stringify({ symbol, windowMinutes }),
+          json: { symbol, windowMinutes },
         }),
     }),
   },
@@ -109,7 +109,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
       execute: async ({ text, symbol }) =>
         safeFetchIntel("/tools/extract-news-signal", {
           method: "POST",
-          body: JSON.stringify({ text, symbol }),
+          json: { text, symbol },
         }),
     }),
   },
@@ -134,7 +134,7 @@ export const SENTIMENT_TOOLS: ToolDef[] = [
       execute: async ({ symbol, platforms }) =>
         safeFetchIntel("/tools/analyze-sentiment", {
           method: "POST",
-          body: JSON.stringify({ symbol, platforms }),
+          json: { symbol, platforms },
         }),
     }),
   },

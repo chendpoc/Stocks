@@ -134,11 +134,11 @@ export const MEMORY_TOOLS: ToolDef[] = [
         }
         return safeFetchIntel("/hypotheses", {
           method: "POST",
-          body: JSON.stringify({
+          json: {
             signal_id: signalId,
             ...hypothesis,
             audit_warnings: issues.warnings,
-          }),
+          },
         });
       },
     }),

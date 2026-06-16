@@ -13,10 +13,15 @@ export async function runReport(symbol: string): Promise<ReportResult> {
   const sym = normalizeSymbol(symbol);
   const today = todayDateString();
 
-  const check = await fetchIntel("/report/check", {
+  const check = (await fetchIntel("/report/check", {
     method: "POST",
-    body: JSON.stringify({ symbol: sym, date: today }),
-  });
+    json: { symbol: sym, date: today },
+  })) as {
+    hit?: boolean;
+    report?: unknown;
+    cached_at?: unknown;
+    latest_signal_ts?: unknown;
+  };
 
   if (check.hit) {
     return {
@@ -28,10 +33,10 @@ export async function runReport(symbol: string): Promise<ReportResult> {
 
   const context = await fetchIntel("/context/build", {
     method: "POST",
-    body: JSON.stringify({
+    json: {
       symbols: [sym],
       taskType: "signal_explanation",
-    }),
+    },
   });
 
   const tools = await resolveAgentTools();
@@ -45,12 +50,12 @@ export async function runReport(symbol: string): Promise<ReportResult> {
 
   await fetchIntel("/report/save", {
     method: "POST",
-    body: JSON.stringify({
+    json: {
       symbol: sym,
       date: today,
       latest_signal_ts: check.latest_signal_ts ?? null,
       report_json: result.text,
-    }),
+    },
   });
 
   return { hit: false, text: result.text };

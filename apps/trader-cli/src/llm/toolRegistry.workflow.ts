@@ -56,7 +56,7 @@ export const WORKFLOW_TOOLS: ToolDef[] = [
       execute: async ({ workflowId, inputs }) =>
         safeFetchIntel(`/workflows/${workflowId}`, {
           method: "POST",
-          body: JSON.stringify(inputs),
+          json: inputs,
         }),
     }),
   },

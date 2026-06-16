@@ -17,14 +17,14 @@ describe("safeFetchIntel", () => {
       new Response("unavailable", { status: 503, statusText: "Service Unavailable" }),
     ) as typeof fetch;
 
-    const { safeFetchIntel } = await import("./client.js");
-    const result = await safeFetchIntel("/market/bars?symbol=AAPL");
-
-    assert.deepEqual(result, {
-      ok: false,
-      code: "INTEL_ERROR",
-      message: "Intel API 503: Service Unavailable",
+    const { safeFetchIntel } = await import(`./client.js?test=${Date.now()}`);
+    const result = await safeFetchIntel("/market/bars", {
+      searchParams: { symbol: "AAPL" },
     });
+
+    assert.equal((result as { ok: boolean }).ok, false);
+    assert.equal((result as { code: string }).code, "INTEL_ERROR");
+    assert.match((result as { message: string }).message, /503/);
   });
 
   test("returns structured error when fetch throws", async () => {
@@ -32,7 +32,7 @@ describe("safeFetchIntel", () => {
       throw new Error("network down");
     }) as typeof fetch;
 
-    const { safeFetchIntel } = await import("./client.js");
+    const { safeFetchIntel } = await import(`./client.js?test=${Date.now()}`);
     const result = await safeFetchIntel("/signals");
 
     assert.deepEqual(result, {
@@ -40,5 +40,19 @@ describe("safeFetchIntel", () => {
       code: "INTEL_ERROR",
       message: "network down",
     });
+  });
+
+  test("fetchIntel POST completes via ky", async () => {
+    globalThis.fetch = mock.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ) as typeof fetch;
+
+    const { fetchIntel } = await import(`./client.js?post=${Date.now()}`);
+    const result = await fetchIntel<{ ok: boolean }>("/context/build", {
+      method: "POST",
+      json: { symbols: ["TSLA"], taskType: "signal_explanation" },
+    });
+
+    assert.equal(result.ok, true);
   });
 });

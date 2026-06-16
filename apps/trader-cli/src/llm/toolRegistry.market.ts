@@ -117,7 +117,7 @@ export const MARKET_TOOLS: ToolDef[] = [
       execute: async (params) =>
         safeFetchIntel("/context/build", {
           method: "POST",
-          body: JSON.stringify(params),
+          json: params,
         }),
     }),
   },

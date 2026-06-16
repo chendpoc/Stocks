@@ -1,6 +1,7 @@
 import ky, { HTTPError } from "ky";
 
 import { config, traderBackendRoot } from "../config.js";
+import { filterUndefined } from "../utils/object.js";
 import { normalizePath } from "../utils/path.js";
 
 const intelBase = config.traderApiBase.replace(/\/$/, "");
@@ -37,6 +38,12 @@ const intelApi = ky.create({
   },
 });
 
+export type FetchIntelOptions = {
+  json?: unknown;
+  method?: "GET" | "POST";
+  searchParams?: Record<string, string | number | boolean | undefined | null>;
+};
+
 export async function fetchHealth(): Promise<{
   status: string;
   intel_route_count: number;
@@ -49,32 +56,18 @@ export async function fetchHealth(): Promise<{
 }
 
 /** 包装 fetchIntel 调用，统一捕获异常为 { ok:false, code, message } 格式 */
-export async function safeFetchIntel(
+export async function safeFetchIntel<T = unknown>(
   path: string,
-  options: RequestInit = {},
-): Promise<{ ok: false; code: string; message: string } | unknown> {
+  options?: FetchIntelOptions,
+): Promise<{ ok: false; code: string; message: string } | T> {
   try {
-    return await fetchIntel(path, options);
+    return await fetchIntel<T>(path, options);
   } catch (e: unknown) {
     if (e instanceof HTTPError) {
-      let detail = e.response.statusText;
-      try {
-        detail = await e.response.text();
-      } catch {
-        /* body may already be consumed */
-      }
-      const url = e.request.url;
-      if (e.response.status === 404 && intelBase.includes("/api/intel")) {
-        return {
-          ok: false,
-          code: "INTEL_ERROR",
-          message: intel404Message(detail, url),
-        };
-      }
       return {
         ok: false,
         code: "INTEL_ERROR",
-        message: `Intel API ${e.response.status}: ${detail}`,
+        message: e.message,
       };
     }
     return {
@@ -85,20 +78,20 @@ export async function safeFetchIntel(
   }
 }
 
-export async function fetchIntel(
+export async function fetchIntel<T = unknown>(
   path: string,
-  options: RequestInit = {},
-): Promise<unknown> {
+  options?: FetchIntelOptions,
+): Promise<T> {
+  const cleanParams = filterUndefined(options?.searchParams);
+  const usePost = options?.method === "POST" || options?.json !== undefined;
   const requestPath = normalizePath(path);
-  const method = options.method?.toUpperCase() ?? "GET";
-
-  if (method === "POST") {
-    const init: { json?: unknown } = {};
-    if (options.body) {
-      init.json = JSON.parse(String(options.body));
-    }
-    return intelApi.post(requestPath, init).json();
+  if (usePost) {
+    const res = await intelApi.post(requestPath, {
+      ...(options?.json !== undefined ? { json: options.json } : {}),
+      searchParams: cleanParams,
+    });
+    return res.json<T>();
   }
-
-  return intelApi.get(requestPath).json();
+  const res = await intelApi.get(requestPath, { searchParams: cleanParams });
+  return res.json<T>();
 }

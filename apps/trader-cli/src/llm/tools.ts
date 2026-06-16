@@ -129,7 +129,7 @@ export const INTEL_TOOLS = {
     execute: async (params) =>
       safeFetchIntel("/context/build", {
         method: "POST",
-        body: JSON.stringify(params),
+        json: params,
       }),
   }),
 
@@ -243,11 +243,11 @@ export const INTEL_TOOLS = {
       }
       return safeFetchIntel("/hypotheses", {
         method: "POST",
-        body: JSON.stringify({
+        json: {
           signal_id: signalId,
           ...hypothesis,
           audit_warnings: issues.warnings,
-        }),
+        },
       });
     },
   }),
