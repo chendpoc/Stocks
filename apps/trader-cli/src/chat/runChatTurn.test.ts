@@ -34,3 +34,16 @@ test("prepareChatTurn limits active tools for quick quote query", () => {
   assert.ok(prepared.activeTools.length < Object.keys(ALL_TOOLS).length);
   assert.ok(prepared.frame.system.includes("ProcessedContext"));
 });
+
+test("prepareChatTurn exposes ProcessedContext for debug trace", () => {
+  const prepared = prepareChatTurn({
+    userMessage: "TSLA 现在多少？",
+    messages: [{ role: "user", content: "TSLA 现在多少？" }],
+    allTools: ALL_TOOLS,
+    baseSystem: "base",
+    sessionKey: "test-ctx",
+  });
+
+  assert.equal(prepared.ctx.id, prepared.processedContextId);
+  assert.ok(Object.keys(prepared.ctx.tokenBudget.byLayer).length > 0);
+});

@@ -1,18 +1,19 @@
 import type { CoreTool } from "ai";
 import type { ChatMessage } from "../tui/types.js";
 import { chatReAct, type ReActOptions, type ReActResult } from "../llm/chatReAct.js";
-import { buildProcessedContext, hashProcessedContext } from "./processedContext.js";
+import { buildProcessedContext, hashProcessedContext, type ProcessedContext } from "./processedContext.js";
 import { buildPromptFrame } from "./promptFrame.js";
 import { classifyTask, type TaskClassification } from "./taskRouter.js";
 import { selectTools } from "./toolSelector.js";
 import { createWorkspaceState, updateWorkspaceFromTurn } from "./memory/workspace.js";
 import { buildDebugTrace } from "./debugTrace.js";
-import { assertToolPermitted, evaluateToolPermission, type PermissionDecision } from "./permissionGate.js";
+import { evaluateToolPermission, type PermissionDecision } from "./permissionGate.js";
 
 export type PreparedChatTurn = {
   classification: TaskClassification;
   processedContextId: string;
   activeTools: string[];
+  ctx: ProcessedContext;
 };
 
 const sessionWorkspaces = new Map<string, ReturnType<typeof createWorkspaceState>>();
@@ -46,8 +47,9 @@ export function prepareChatTurn(input: {
     budgetLimit: classification.contextBudget,
   });
   const processedContextId = hashProcessedContext(ctx);
+  const ctxWithId: ProcessedContext = { ...ctx, id: processedContextId };
   const frame = buildPromptFrame({
-    ctx: { ...ctx, id: processedContextId },
+    ctx: ctxWithId,
     baseSystem: input.baseSystem,
     messages: input.messages,
     tools: selection.tools,
@@ -59,6 +61,7 @@ export function prepareChatTurn(input: {
     classification,
     processedContextId,
     activeTools: selection.activeTools,
+    ctx: ctxWithId,
     frame,
   };
 }
@@ -82,12 +85,20 @@ export async function runChatTurn(
     updateWorkspaceFromTurn(ws, { userMessage: lastUser }),
   );
 
+  const permissionDecisions: PermissionDecision[] = prepared.frame.activeTools.map(
+    evaluateToolPermission,
+  );
+  const blockedTools = new Set(
+    permissionDecisions.filter((d) => !d.allowed).map((d) => d.toolName),
+  );
+  const filteredActiveTools = prepared.frame.activeTools.filter((t) => !blockedTools.has(t));
+
   const result = await chatReAct({
     model: input.model,
     system: prepared.frame.system,
     messages: prepared.frame.messages,
     tools: prepared.frame.tools,
-    activeTools: prepared.frame.activeTools,
+    activeTools: filteredActiveTools,
     onStep: input.onStep,
     onTurnComplete: input.onTurnComplete,
     abortSignal: input.abortSignal,
@@ -95,8 +106,10 @@ export async function runChatTurn(
 
   const debugTraceJson = input.debug
     ? buildDebugTrace({
+      processedContext: prepared.ctx,
       classification: prepared.classification,
-      activeTools: prepared.activeTools,
+      activeTools: filteredActiveTools,
+      permissionDecisions,
       reactResult: result,
     })
     : undefined;
@@ -106,7 +119,8 @@ export async function runChatTurn(
     prepared: {
       classification: prepared.classification,
       processedContextId: prepared.processedContextId,
-      activeTools: prepared.activeTools,
+      activeTools: filteredActiveTools,
+      ctx: prepared.ctx,
     },
     debugTraceJson: debugTraceJson ? JSON.stringify(debugTraceJson, null, 2) : undefined,
   };

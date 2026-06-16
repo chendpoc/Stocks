@@ -32,3 +32,16 @@ test("classifyTask: ambiguous fallback to analysis", () => {
   assert.equal(result.mode, "analysis");
   assert.ok(result.reason.includes("fallback"));
 });
+
+test("classifyTask: ticker plus analysis keyword routes to analysis", () => {
+  const result = classifyTask("TSLA 走势分析", workspace);
+  assert.equal(result.mode, "analysis", "ticker + analysis keyword → analysis, not quick");
+});
+
+test("classifyTask: pure ticker routes to quick", () => {
+  assert.equal(classifyTask("TSLA", workspace).mode, "quick", "pure ticker → quick");
+});
+
+test("classifyTask: short quote query routes to quick", () => {
+  assert.equal(classifyTask("TSLA 现在多少", workspace).mode, "quick", "short quote query → quick");
+});
