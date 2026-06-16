@@ -1,33 +1,30 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 
-const provider = process.env.LLM_PROVIDER ?? "deepseek";
+import { config } from "../config.js";
 
 export function getModel() {
-  const apiKey = process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY;
+  const apiKey = config.llmApiKey || config.openaiApiKey;
   if (!apiKey) {
     throw new Error(
       "LLM_API_KEY is required. Copy apps/trader-cli/.env.example to .env and set your key.",
     );
   }
-  const model = process.env.LLM_MODEL ?? "deepseek-chat";
-  switch (provider) {
+  switch (config.llmProvider) {
     case "deepseek":
       return createOpenAI({
-        baseURL: normalizeBaseUrl(
-          process.env.LLM_BASE_URL ?? "https://api.deepseek.com/v1",
-        ),
+        baseURL: normalizeBaseUrl(config.llmBaseUrl),
         apiKey,
-      })(model);
+      })(config.llmModel);
     case "openrouter":
       return createOpenAI({
         baseURL: "https://openrouter.ai/api/v1",
         apiKey,
-      })(model);
+      })(config.llmModel);
     case "anthropic":
-      return createAnthropic({ apiKey })(model);
+      return createAnthropic({ apiKey })(config.llmModel);
     default:
-      throw new Error(`Unknown LLM provider: ${provider}`);
+      throw new Error(`Unknown LLM provider: ${config.llmProvider}`);
   }
 }
 

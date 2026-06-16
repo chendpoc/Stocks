@@ -3,7 +3,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ChartIntervalId } from "./chartIntervals.js";
 import { normalizeChartInterval } from "./chartIntervals.js";
+import { config } from "../config.js";
 import { findRepoRoot } from "./repoRoot.js";
+import { normalizeSymbol } from "../utils/symbol.js";
 
 export type ChartHandoff = {
   symbol: string;
@@ -21,7 +23,8 @@ export type TraderChartRunResult =
   | { ok: false; message: string };
 
 export function chartHandoffPath(): string {
-  const env = process.env.TRADER_CHART_HANDOFF?.trim();
+  const env =
+    process.env.TRADER_CHART_HANDOFF?.trim() || config.traderChartHandoff.trim();
   if (env) return env;
   return join(findRepoRoot(), ".cache", "trader-cli", "chart-handoff.json");
 }
@@ -45,7 +48,7 @@ export function writeChartHandoff(state: ChartHandoff): void {
   writeFileSync(
     path,
     JSON.stringify(
-      { symbol: state.symbol.toUpperCase(), chart: state.chart, menu: state.menu ?? "dashboard" },
+      { symbol: normalizeSymbol(state.symbol), chart: state.chart, menu: state.menu ?? "dashboard" },
       null,
       2,
     ),
@@ -54,7 +57,8 @@ export function writeChartHandoff(state: ChartHandoff): void {
 }
 
 export function resolveTraderChartBinary(): { path: string } | { error: string } {
-  const envBin = process.env.TRADER_CHART_BIN?.trim();
+  const envBin =
+    process.env.TRADER_CHART_BIN?.trim() || config.traderChartBin.trim();
   if (envBin && existsSync(envBin)) {
     return { path: envBin };
   }
@@ -122,7 +126,7 @@ export function runTraderChartProcess(
   return {
     ok: true,
     restored: {
-      symbol: restored.symbol.toUpperCase(),
+      symbol: normalizeSymbol(restored.symbol),
       chartInterval: normalizeChartInterval(restored.chart),
     },
   };

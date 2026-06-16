@@ -5,6 +5,7 @@
 
 import "dotenv/config";
 import envVar from "env-var";
+import path from "node:path";
 
 export const config = {
   /** Intel API base URL (for fetchIntel calls) */
@@ -37,9 +38,67 @@ export const config = {
     .default("")
     .asString(),
 
-  /** Longbridge CLI path */
+  /** OpenAI-compatible fallback key */
+  openaiApiKey: envVar
+    .get("OPENAI_API_KEY")
+    .default("")
+    .asString(),
+
+  /** LLM API base URL (OpenAI-compatible) */
+  llmBaseUrl: envVar
+    .get("LLM_BASE_URL")
+    .default("https://api.deepseek.com/v1")
+    .asUrlString(),
+
+  /** Longbridge CLI on PATH or explicit path */
   longbridgeCliPath: envVar
     .get("LONGBRIDGE_CLI_PATH")
     .default("longbridge")
     .asString(),
+
+  /** Explicit Longbridge CLI binary (TRADER_LONGBRIDGE_CLI) */
+  traderLongbridgeCli: envVar
+    .get("TRADER_LONGBRIDGE_CLI")
+    .default("")
+    .asString(),
+
+  /** Longbridge agent tools toggle (on|off) */
+  longbridgeAgentEnabled: envVar
+    .get("TRADER_LONGBRIDGE_AGENT")
+    .default("off")
+    .asString(),
+
+  /** Chart handoff JSON path override */
+  traderChartHandoff: envVar
+    .get("TRADER_CHART_HANDOFF")
+    .default("")
+    .asString(),
+
+  /** trader-chart binary path override */
+  traderChartBin: envVar
+    .get("TRADER_CHART_BIN")
+    .default("")
+    .asString(),
+
+  /** Default chart interval for CLI chart command */
+  traderChartInterval: envVar
+    .get("TRADER_CHART_INTERVAL")
+    .default("30d")
+    .asString(),
+
+  /** Market agent / daemon data directory */
+  marketAgentDataDir: envVar
+    .get("MARKET_AGENT_DATA_DIR")
+    .default("")
+    .asString(),
 } as const;
+
+/** Backend root (health, guided-paper, market-plane) derived from intel base URL. */
+export function traderBackendRoot(): string {
+  return config.traderApiBase.replace(/\/api\/intel\/?$/, "");
+}
+
+export function resolveMarketAgentDataDir(): string {
+  const configured = config.marketAgentDataDir.trim();
+  return configured || path.join(process.cwd(), "data");
+}

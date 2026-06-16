@@ -17,6 +17,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { resolveMarketAgentDataDir } from "../config.js";
+
 // ─── 类型 ─────────────────────────────────────────────────
 
 export interface SessionWakeConfig {
@@ -68,7 +70,7 @@ interface HolidayCache {
 }
 
 const HOLIDAY_CACHE_FILE = path.resolve(
-  process.env.MARKET_AGENT_DATA_DIR ?? path.join(process.cwd(), "data"),
+  resolveMarketAgentDataDir(),
   "holiday-cache.json",
 );
 
@@ -159,7 +161,7 @@ export const DEFAULT_WAKE_INTERVALS: FixedWakeConfig = {
 // ─── override 文件路径 ────────────────────────────────────
 
 const OVERRIDE_FILE = path.resolve(
-  process.env.MARKET_AGENT_DATA_DIR ?? path.join(process.cwd(), "data"),
+  resolveMarketAgentDataDir(),
   "daemon-wake-config.json",
 );
 

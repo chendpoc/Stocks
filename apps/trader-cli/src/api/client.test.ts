@@ -13,11 +13,9 @@ describe("safeFetchIntel", () => {
   });
 
   test("returns structured error when intel API responds with failure", async () => {
-    globalThis.fetch = mock.fn(async () => ({
-      ok: false,
-      status: 503,
-      text: async () => "unavailable",
-    })) as typeof fetch;
+    globalThis.fetch = mock.fn(async () =>
+      new Response("unavailable", { status: 503, statusText: "Service Unavailable" }),
+    ) as typeof fetch;
 
     const { safeFetchIntel } = await import("./client.js");
     const result = await safeFetchIntel("/market/bars?symbol=AAPL");
@@ -25,7 +23,7 @@ describe("safeFetchIntel", () => {
     assert.deepEqual(result, {
       ok: false,
       code: "INTEL_ERROR",
-      message: "Intel API 503: unavailable",
+      message: "Intel API 503: Service Unavailable",
     });
   });
 
