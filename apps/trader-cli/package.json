@@ -8,7 +8,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "start:tsla": "npx tsx src/index.ts analyze TSLA",
-    "test": "tsx --test src/api/client.test.ts src/llm/auditor.test.ts src/llm/chatWorkflowRuns.test.ts src/llm/longbridgeTools.test.ts src/daemon/agentFactory.test.ts src/daemon/wakeSchedule.test.ts src/daemon/marketAgentDaemon.test.ts src/services/decisionWorkflow.test.ts src/services/marketDataProvider.test.ts src/services/longbridge.test.ts src/services/longbridgeAgent.test.ts src/services/longbridgeCli.test.ts src/services/traderChart.test.ts src/services/watchlist.test.ts",
+    "test": "tsx --test src/api/client.test.ts src/llm/auditor.test.ts src/llm/chatReAct.test.ts src/llm/chatWorkflowRuns.test.ts src/llm/longbridgeTools.test.ts src/chat/processedContext.test.ts src/chat/taskRouter.test.ts src/chat/toolSelector.test.ts src/chat/permissionGate.test.ts src/chat/debugTrace.test.ts src/chat/runChatTurn.test.ts src/chat/memory/memory.test.ts src/daemon/agentFactory.test.ts src/daemon/wakeSchedule.test.ts src/daemon/marketAgentDaemon.test.ts src/services/decisionWorkflow.test.ts src/services/marketDataProvider.test.ts src/services/longbridge.test.ts src/services/longbridgeAgent.test.ts src/services/longbridgeCli.test.ts src/services/traderChart.test.ts src/services/watchlist.test.ts",
     "trader": "tsx src/index.ts"
   },
   "dependencies": {
