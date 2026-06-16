@@ -1,34 +1,39 @@
-import { Annotation } from "@langchain/langgraph";
-
 import type {
   EvaluationReportPayload,
   EvaluationReportRecord,
 } from "../../services/evaluation.js";
 
-export const EvaluationGraphStateAnnotation = Annotation.Root({
-  run_id: Annotation<string>(),
-  thread_id: Annotation<string>(),
-  model_version: Annotation<string>(),
-  symbol: Annotation<string | undefined>(),
-  limit: Annotation<number>({
-    reducer: (_left, right) => right ?? 500,
-    default: () => 500,
-  }),
-  persist: Annotation<boolean>({
-    reducer: (_left, right) => right ?? true,
-    default: () => true,
-  }),
-  report_id: Annotation<string | undefined>(),
-  window_start: Annotation<string | null | undefined>(),
-  window_end: Annotation<string | null | undefined>(),
-  report: Annotation<EvaluationReportPayload | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  persisted_report: Annotation<EvaluationReportRecord | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-});
+/** Pure pipeline state for EvaluationGraph. */
+export interface EvaluationGraphState {
+  run_id: string;
+  thread_id: string;
+  model_version: string;
+  symbol?: string;
+  /** Default: `500` */
+  limit: number;
+  /** Default: `true` */
+  persist: boolean;
+  report_id?: string;
+  window_start?: string | null;
+  window_end?: string | null;
+  /** Default: `null` */
+  report: EvaluationReportPayload | null;
+  /** Default: `null` */
+  persisted_report: EvaluationReportRecord | null;
+}
 
-export type EvaluationGraphState = typeof EvaluationGraphStateAnnotation.State;
+export function createInitialEvaluationGraphState(
+  input: Pick<
+    EvaluationGraphState,
+    "run_id" | "thread_id" | "model_version"
+  > &
+    Partial<EvaluationGraphState>,
+): EvaluationGraphState {
+  return {
+    limit: 500,
+    persist: true,
+    report: null,
+    persisted_report: null,
+    ...input,
+  };
+}

@@ -1,5 +1,3 @@
-import { Annotation } from "@langchain/langgraph";
-
 import type {
   DecisionOutcomeRow,
   InsightCandidateOutcomeRow,
@@ -21,51 +19,48 @@ export const ZERO_COUNTS_BY_LABEL: Record<NormalizedOutcomeLabel, number> = {
   insufficient_data: 0,
 };
 
-export const OutcomeGraphStateAnnotation = Annotation.Root({
-  run_id: Annotation<string>(),
-  thread_id: Annotation<string>(),
-  now: Annotation<string | undefined>(),
-  limit: Annotation<number>({
-    reducer: (_left, right) => right ?? 100,
-    default: () => 100,
-  }),
-  symbol: Annotation<string | undefined>(),
-  decision_due_rows: Annotation<DecisionOutcomeRow[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  insight_due_rows: Annotation<InsightCandidateOutcomeRow[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  outcomes: Annotation<OutcomeRow[]>({
-    reducer: (left, right) => [...(left ?? []), ...(right ?? [])],
-    default: () => [],
-  }),
-  processed_count: Annotation<number>({
-    reducer: (_left, right) => right ?? 0,
-    default: () => 0,
-  }),
-  labeled_count: Annotation<number>({
-    reducer: (_left, right) => right ?? 0,
-    default: () => 0,
-  }),
-  skipped_count: Annotation<number>({
-    reducer: (_left, right) => right ?? 0,
-    default: () => 0,
-  }),
-  failed_count: Annotation<number>({
-    reducer: (_left, right) => right ?? 0,
-    default: () => 0,
-  }),
-  counts_by_source_type: Annotation<Record<OutcomeSourceType, number>>({
-    reducer: (_left, right) => right ?? { ...ZERO_COUNTS_BY_SOURCE },
-    default: () => ({ ...ZERO_COUNTS_BY_SOURCE }),
-  }),
-  counts_by_normalized_label: Annotation<Record<NormalizedOutcomeLabel, number>>({
-    reducer: (_left, right) => right ?? { ...ZERO_COUNTS_BY_LABEL },
-    default: () => ({ ...ZERO_COUNTS_BY_LABEL }),
-  }),
-});
+/** Pure pipeline state for OutcomeGraph. */
+export interface OutcomeGraphState {
+  run_id: string;
+  thread_id: string;
+  now?: string;
+  /** Default: `100` */
+  limit: number;
+  symbol?: string;
+  /** Default: `[]` */
+  decision_due_rows: DecisionOutcomeRow[];
+  /** Default: `[]` */
+  insight_due_rows: InsightCandidateOutcomeRow[];
+  /** Append-only in pipeline merge (`outcomes` accumulator). Default: `[]` */
+  outcomes: OutcomeRow[];
+  /** Default: `0` */
+  processed_count: number;
+  /** Default: `0` */
+  labeled_count: number;
+  /** Default: `0` */
+  skipped_count: number;
+  /** Default: `0` */
+  failed_count: number;
+  /** Default: zero counts by source */
+  counts_by_source_type: Record<OutcomeSourceType, number>;
+  /** Default: zero counts by label */
+  counts_by_normalized_label: Record<NormalizedOutcomeLabel, number>;
+}
 
-export type OutcomeGraphState = typeof OutcomeGraphStateAnnotation.State;
+export function createInitialOutcomeGraphState(
+  input: Pick<OutcomeGraphState, "run_id" | "thread_id"> & Partial<OutcomeGraphState>,
+): OutcomeGraphState {
+  return {
+    limit: 100,
+    decision_due_rows: [],
+    insight_due_rows: [],
+    outcomes: [],
+    processed_count: 0,
+    labeled_count: 0,
+    skipped_count: 0,
+    failed_count: 0,
+    counts_by_source_type: { ...ZERO_COUNTS_BY_SOURCE },
+    counts_by_normalized_label: { ...ZERO_COUNTS_BY_LABEL },
+    ...input,
+  };
+}

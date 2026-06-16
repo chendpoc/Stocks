@@ -1,43 +1,42 @@
-import { Annotation } from "@langchain/langgraph";
-
 import type {
   AlphaInputValidationReport,
   AlphaResearchInput,
   LiteBacktestReportResponse,
 } from "../../types/alpha.js";
 
-export const AlphaResearchGraphStateAnnotation = Annotation.Root({
-  run_id: Annotation<string>(),
-  thread_id: Annotation<string>(),
-  input: Annotation<Partial<AlphaResearchInput>>(),
-  validation_report: Annotation<AlphaInputValidationReport | null>({
-    reducer: (_left, right) => right,
-    default: () => null,
-  }),
-  status: Annotation<string>({
-    reducer: (_left, right) => right,
-    default: () => "pending",
-  }),
-  rule_candidate_id: Annotation<string | null>({
-    reducer: (_left, right) => right,
-    default: () => null,
-  }),
-  lite_backtest_report_id: Annotation<string | null>({
-    reducer: (_left, right) => right,
-    default: () => null,
-  }),
-  candidate_status: Annotation<string | null>({
-    reducer: (_left, right) => right,
-    default: () => null,
-  }),
-  lite_backtest_report: Annotation<LiteBacktestReportResponse | null>({
-    reducer: (_left, right) => right,
-    default: () => null,
-  }),
-  safety_flags: Annotation<string[]>({
-    reducer: (_left, right) => right,
-    default: () => [],
-  }),
-});
+/** Pure pipeline state for AlphaResearchGraph. */
+export interface AlphaResearchGraphState {
+  run_id: string;
+  thread_id: string;
+  input: Partial<AlphaResearchInput>;
+  /** Default: `null` */
+  validation_report: AlphaInputValidationReport | null;
+  /** Default: `"pending"` */
+  status: string;
+  /** Default: `null` */
+  rule_candidate_id: string | null;
+  /** Default: `null` */
+  lite_backtest_report_id: string | null;
+  /** Default: `null` */
+  candidate_status: string | null;
+  /** Default: `null` */
+  lite_backtest_report: LiteBacktestReportResponse | null;
+  /** Default: `[]` */
+  safety_flags: string[];
+}
 
-export type AlphaResearchGraphState = typeof AlphaResearchGraphStateAnnotation.State;
+export function createInitialAlphaResearchGraphState(
+  input: Pick<AlphaResearchGraphState, "run_id" | "thread_id" | "input"> &
+    Partial<AlphaResearchGraphState>,
+): AlphaResearchGraphState {
+  return {
+    validation_report: null,
+    status: "pending",
+    rule_candidate_id: null,
+    lite_backtest_report_id: null,
+    candidate_status: null,
+    lite_backtest_report: null,
+    safety_flags: [],
+    ...input,
+  };
+}

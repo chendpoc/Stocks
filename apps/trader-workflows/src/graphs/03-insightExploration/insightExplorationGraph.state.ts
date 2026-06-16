@@ -1,5 +1,3 @@
-import { Annotation } from "@langchain/langgraph";
-
 import type { ContextSnapshotRecord, WeightedContextItem } from "../../types/context.js";
 import type { EvaluationOutcomeRow, EvaluationReportPayload } from "../../types/evaluation.js";
 import type {
@@ -11,70 +9,67 @@ import type {
 } from "../../types/insight.js";
 import type { InsightCandidateOutcomeRow } from "../../types/outcomes.js";
 
-export const InsightExplorationGraphStateAnnotation = Annotation.Root({
-  run_id: Annotation<string>(),
-  thread_id: Annotation<string>(),
-  symbol: Annotation<string>(),
-  window: Annotation<string>(),
-  parsed_window: Annotation<ParsedExplorationWindow | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  exploration_prompt: Annotation<string | undefined>(),
-  snapshot_limit: Annotation<number>({
-    reducer: (_left, right) => right ?? 20,
-    default: () => 20,
-  }),
-  outcome_limit: Annotation<number>({
-    reducer: (_left, right) => right ?? 200,
-    default: () => 200,
-  }),
-  evaluation_report_id: Annotation<string | undefined>(),
-  evaluation_report: Annotation<EvaluationReportPayload | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  persist: Annotation<boolean>({
-    reducer: (_left, right) => right ?? true,
-    default: () => true,
-  }),
-  snapshots: Annotation<ContextSnapshotRecord[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  outcomes: Annotation<EvaluationOutcomeRow[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  context_items: Annotation<WeightedContextItem[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  scoped_outcomes: Annotation<EvaluationOutcomeRow[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  react_steps: Annotation<InsightReActStepRecord[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  proposal: Annotation<InsightProposal | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  insight_id: Annotation<string | undefined>(),
-  candidate_payload: Annotation<InsightCandidatePayload | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  persisted_candidate: Annotation<InsightCandidateRecord | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  scheduled_outcome: Annotation<InsightCandidateOutcomeRow | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-});
+/** Pure pipeline state for InsightExplorationGraph. */
+export interface InsightExplorationGraphState {
+  run_id: string;
+  thread_id: string;
+  symbol: string;
+  window: string;
+  /** Default: `null` */
+  parsed_window: ParsedExplorationWindow | null;
+  exploration_prompt?: string;
+  /** Default: `20` */
+  snapshot_limit: number;
+  /** Default: `200` */
+  outcome_limit: number;
+  evaluation_report_id?: string;
+  /** Default: `null` */
+  evaluation_report: EvaluationReportPayload | null;
+  /** Default: `true` */
+  persist: boolean;
+  /** Default: `[]` */
+  snapshots: ContextSnapshotRecord[];
+  /** Default: `[]` */
+  outcomes: EvaluationOutcomeRow[];
+  /** Default: `[]` */
+  context_items: WeightedContextItem[];
+  /** Default: `[]` */
+  scoped_outcomes: EvaluationOutcomeRow[];
+  /** Default: `[]` */
+  react_steps: InsightReActStepRecord[];
+  /** Default: `null` */
+  proposal: InsightProposal | null;
+  insight_id?: string;
+  /** Default: `null` */
+  candidate_payload: InsightCandidatePayload | null;
+  /** Default: `null` */
+  persisted_candidate: InsightCandidateRecord | null;
+  /** Default: `null` */
+  scheduled_outcome: InsightCandidateOutcomeRow | null;
+}
 
-export type InsightExplorationGraphState = typeof InsightExplorationGraphStateAnnotation.State;
+export function createInitialInsightExplorationGraphState(
+  input: Pick<
+    InsightExplorationGraphState,
+    "run_id" | "thread_id" | "symbol" | "window"
+  > &
+    Partial<InsightExplorationGraphState>,
+): InsightExplorationGraphState {
+  return {
+    parsed_window: null,
+    snapshot_limit: 20,
+    outcome_limit: 200,
+    evaluation_report: null,
+    persist: true,
+    snapshots: [],
+    outcomes: [],
+    context_items: [],
+    scoped_outcomes: [],
+    react_steps: [],
+    proposal: null,
+    candidate_payload: null,
+    persisted_candidate: null,
+    scheduled_outcome: null,
+    ...input,
+  };
+}

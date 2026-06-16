@@ -1,5 +1,3 @@
-import { Annotation } from "@langchain/langgraph";
-
 import type { DecisionEnvelope } from "../../llm/decisionEnvelope.js";
 import type { ContextSnapshotRecord } from "../../types/context.js";
 import type {
@@ -14,69 +12,66 @@ import type {
   SwarmWorkerResult,
 } from "./decisionGraph.llmNodes.js";
 
-export const DecisionGraphStateAnnotation = Annotation.Root({
-  run_id: Annotation<string>(),
-  thread_id: Annotation<string>(),
-  symbol: Annotation<string>(),
-  setup_name: Annotation<string>({
-    reducer: (_left, right) => right ?? "",
-    default: () => "",
-  }),
-  taskType: Annotation<string>(),
-  asof_ts: Annotation<string>(),
-  model_version: Annotation<string>(),
-  snapshot: Annotation<ContextSnapshotRecord | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  weighted_context_items: Annotation<ContextSnapshotRecord["items_json"]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  evidence_refs: Annotation<EvidenceRef[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  gate_decision: Annotation<GateDecision | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  evidence_result: Annotation<EvidenceGuardrailOutput | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  contra_result: Annotation<ContraGuardrailOutput | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  swarm_worker_results: Annotation<SwarmWorkerResult[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  confidence_contribution: Annotation<number | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  envelope: Annotation<DecisionEnvelope | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  decision: Annotation<PersistedModelDecision | null>({
-    reducer: (_left, right) => right ?? null,
-    default: () => null,
-  }),
-  scheduled_outcomes: Annotation<ScheduledDecisionOutcome[]>({
-    reducer: (_left, right) => right ?? [],
-    default: () => [],
-  }),
-  paper_execution_submitted: Annotation<boolean>({
-    reducer: (_left, right) => right ?? false,
-    default: () => false,
-  }),
-  errors: Annotation<string[]>({
-    reducer: (left, right) => [...(left ?? []), ...(right ?? [])],
-    default: () => [],
-  }),
-});
+/** Pure pipeline state for DecisionGraph. */
+export interface DecisionGraphState {
+  run_id: string;
+  thread_id: string;
+  symbol: string;
+  /** Default: `""` */
+  setup_name: string;
+  taskType: string;
+  asof_ts: string;
+  model_version: string;
+  /** Default: `null` */
+  snapshot: ContextSnapshotRecord | null;
+  /** Default: `[]` */
+  weighted_context_items: ContextSnapshotRecord["items_json"];
+  /** Default: `[]` */
+  evidence_refs: EvidenceRef[];
+  /** Default: `null` */
+  gate_decision: GateDecision | null;
+  /** Default: `null` */
+  evidence_result: EvidenceGuardrailOutput | null;
+  /** Default: `null` */
+  contra_result: ContraGuardrailOutput | null;
+  /** Default: `[]` */
+  swarm_worker_results: SwarmWorkerResult[];
+  /** Default: `null` */
+  confidence_contribution: number | null;
+  /** Default: `null` */
+  envelope: DecisionEnvelope | null;
+  /** Default: `null` */
+  decision: PersistedModelDecision | null;
+  /** Default: `[]` */
+  scheduled_outcomes: ScheduledDecisionOutcome[];
+  /** Default: `false` */
+  paper_execution_submitted: boolean;
+  /** Append-only in pipeline merge (`errors` accumulator). Default: `[]` */
+  errors: string[];
+}
 
-export type DecisionGraphState = typeof DecisionGraphStateAnnotation.State;
+export function createInitialDecisionGraphState(
+  input: Pick<
+    DecisionGraphState,
+    "run_id" | "thread_id" | "symbol" | "taskType" | "asof_ts" | "model_version"
+  > &
+    Partial<DecisionGraphState>,
+): DecisionGraphState {
+  return {
+    setup_name: "",
+    snapshot: null,
+    weighted_context_items: [],
+    evidence_refs: [],
+    gate_decision: null,
+    evidence_result: null,
+    contra_result: null,
+    swarm_worker_results: [],
+    confidence_contribution: null,
+    envelope: null,
+    decision: null,
+    scheduled_outcomes: [],
+    paper_execution_submitted: false,
+    errors: [],
+    ...input,
+  };
+}
